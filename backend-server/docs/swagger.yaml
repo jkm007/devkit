@@ -1,0 +1,2794 @@
+definitions:
+  model.LoginDevice:
+    properties:
+      browser:
+        type: string
+      createdAt:
+        type: string
+      deviceId:
+        type: string
+      deviceName:
+        type: string
+      deviceType:
+        type: string
+      id:
+        type: integer
+      ip:
+        type: string
+      isCurrent:
+        type: integer
+      lastActiveAt:
+        type: string
+      location:
+        type: string
+      os:
+        type: string
+      userId:
+        type: integer
+    type: object
+  model.RoleApplication:
+    properties:
+      createdAt:
+        type: string
+      id:
+        type: integer
+      reason:
+        type: string
+      reviewNote:
+        type: string
+      reviewedAt:
+        type: string
+      reviewedBy:
+        type: integer
+      roleId:
+        type: integer
+      status:
+        type: integer
+      userId:
+        type: integer
+    type: object
+  model.SecurityLog:
+    properties:
+      createdAt:
+        type: string
+      eventDetail:
+        type: string
+      eventType:
+        type: string
+      id:
+        type: integer
+      ip:
+        type: string
+      status:
+        type: integer
+      userAgent:
+        type: string
+      userId:
+        type: integer
+      username:
+        type: string
+    type: object
+  model.UserPrivacy:
+    properties:
+      classVisible:
+        type: integer
+      createdAt:
+        type: string
+      emailVisible:
+        type: integer
+      id:
+        type: integer
+      profileVisible:
+        type: integer
+      realnameVisible:
+        type: integer
+      statsVisible:
+        type: integer
+      userId:
+        type: integer
+    type: object
+  model.UserRealName:
+    properties:
+      createdAt:
+        type: string
+      id:
+        type: integer
+      realName:
+        type: string
+      rejectReason:
+        type: string
+      reviewedAt:
+        type: string
+      reviewedBy:
+        type: integer
+      status:
+        type: integer
+      submittedAt:
+        type: string
+      userId:
+        type: integer
+    type: object
+  response.PageData:
+    properties:
+      items: {}
+      total:
+        type: integer
+    type: object
+  response.Response:
+    properties:
+      code:
+        type: integer
+      data: {}
+      error: {}
+      message:
+        type: string
+    type: object
+  service.ChangePasswordRequest:
+    properties:
+      confirmPassword:
+        type: string
+      newPassword:
+        type: string
+      oldPassword:
+        type: string
+    required:
+    - confirmPassword
+    - newPassword
+    - oldPassword
+    type: object
+  service.CheckPasswordRequest:
+    properties:
+      newPassword:
+        type: string
+    required:
+    - newPassword
+    type: object
+  service.CreateGroupRequest:
+    properties:
+      name:
+        type: string
+      pid:
+        type: integer
+      remark:
+        type: string
+      roleIds:
+        description: 角色ID列表
+        items:
+          type: integer
+        type: array
+      status:
+        type: integer
+    required:
+    - name
+    - status
+    type: object
+  service.CreateMenuRequest:
+    properties:
+      authCode:
+        type: string
+      component:
+        type: string
+      meta: {}
+      name:
+        type: string
+      path:
+        type: string
+      pid:
+        type: integer
+      status:
+        type: integer
+      type:
+        type: string
+    required:
+    - name
+    - status
+    - type
+    type: object
+  service.CreateRoleRequest:
+    properties:
+      name:
+        type: string
+      permissions:
+        items:
+          type: string
+        type: array
+      remark:
+        type: string
+      status:
+        type: integer
+    required:
+    - name
+    - status
+    type: object
+  service.CreateUserRequest:
+    properties:
+      bio:
+        type: string
+      birthday:
+        type: string
+      email:
+        type: string
+      gender:
+        type: integer
+      groupId:
+        type: integer
+      name:
+        type: string
+      nickname:
+        type: string
+      password:
+        type: string
+      phone:
+        type: string
+      remark:
+        type: string
+      roleIds:
+        description: 角色ID列表
+        items:
+          type: integer
+        type: array
+      status:
+        type: integer
+    required:
+    - name
+    - status
+    type: object
+  service.GroupTreeNode:
+    properties:
+      children:
+        items:
+          $ref: '#/definitions/service.GroupTreeNode'
+        type: array
+      createTime:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      pid:
+        type: integer
+      remark:
+        type: string
+      roleIds:
+        items:
+          type: integer
+        type: array
+      status:
+        type: integer
+    type: object
+  service.LoginRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  service.LoginResponse:
+    properties:
+      accessToken:
+        type: string
+      avatar:
+        type: string
+      bio:
+        type: string
+      birthday:
+        type: string
+      email:
+        type: string
+      gender:
+        type: integer
+      homePath:
+        type: string
+      id:
+        type: integer
+      nickname:
+        type: string
+      phone:
+        type: string
+      realName:
+        type: string
+      roles:
+        items:
+          type: string
+        type: array
+      username:
+        type: string
+    type: object
+  service.MenuItem:
+    properties:
+      authCode:
+        type: string
+      children:
+        items:
+          $ref: '#/definitions/service.MenuItem'
+        type: array
+      component: {}
+      createTime:
+        type: string
+      icon:
+        type: string
+      id:
+        type: integer
+      meta: {}
+      name:
+        type: string
+      path:
+        type: string
+      pid:
+        type: integer
+      redirect:
+        type: string
+      status:
+        type: integer
+      type:
+        type: string
+    type: object
+  service.OAuthBindingItem:
+    properties:
+      createdAt:
+        type: string
+      id:
+        type: integer
+      provider:
+        type: string
+      providerAvatar:
+        type: string
+      providerUsername:
+        type: string
+    type: object
+  service.OAuthUnbindRequest:
+    properties:
+      provider:
+        type: string
+    required:
+    - provider
+    type: object
+  service.PrivacyRequest:
+    properties:
+      classVisible:
+        type: integer
+      emailVisible:
+        type: integer
+      profileVisible:
+        type: integer
+      realnameVisible:
+        type: integer
+      statsVisible:
+        type: integer
+    type: object
+  service.RealNameRejectRequest:
+    properties:
+      reason:
+        type: string
+    required:
+    - reason
+    type: object
+  service.RealNameStatusResponse:
+    properties:
+      idCard:
+        type: string
+      realName:
+        type: string
+      rejectReason:
+        type: string
+      reviewedAt:
+        type: string
+      status:
+        type: integer
+      submittedAt:
+        type: string
+    type: object
+  service.RealNameSubmitRequest:
+    properties:
+      idCard:
+        type: string
+      realName:
+        type: string
+    required:
+    - idCard
+    - realName
+    type: object
+  service.RoleApplicationRequest:
+    properties:
+      reason:
+        type: string
+      roleId:
+        type: integer
+    required:
+    - roleId
+    type: object
+  service.RoleApplicationReviewRequest:
+    properties:
+      note:
+        type: string
+    type: object
+  service.RoleResponse:
+    properties:
+      createTime:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      permissions:
+        items:
+          type: string
+        type: array
+      remark:
+        type: string
+      status:
+        type: integer
+    type: object
+  service.SettingGroupUpdateRequest:
+    properties:
+      settings:
+        additionalProperties: true
+        type: object
+    required:
+    - settings
+    type: object
+  service.SettingItem:
+    properties:
+      isPublic:
+        type: boolean
+      isSensitive:
+        type: boolean
+      key:
+        type: string
+      label:
+        type: string
+      options: {}
+      sort:
+        type: integer
+      tip:
+        type: string
+      type:
+        type: string
+      value: {}
+    type: object
+  service.TestEmailRequest:
+    properties:
+      to:
+        type: string
+    required:
+    - to
+    type: object
+  service.TestSMSRequest:
+    properties:
+      phone:
+        type: string
+    required:
+    - phone
+    type: object
+  service.TokenRefreshResponse:
+    properties:
+      accessToken:
+        type: string
+      refreshToken:
+        type: string
+    type: object
+  service.UpdateGroupRequest:
+    properties:
+      name:
+        type: string
+      remark:
+        type: string
+      roleIds:
+        description: 角色ID列表
+        items:
+          type: integer
+        type: array
+      status:
+        type: integer
+    type: object
+  service.UpdateMenuRequest:
+    properties:
+      authCode:
+        type: string
+      component:
+        type: string
+      meta: {}
+      name:
+        type: string
+      path:
+        type: string
+      pid:
+        type: integer
+      status:
+        type: integer
+      type:
+        type: string
+    type: object
+  service.UpdateProfileRequest:
+    properties:
+      bio:
+        type: string
+      birthday:
+        type: string
+      email:
+        type: string
+      gender:
+        type: integer
+      nickname:
+        type: string
+      phone:
+        type: string
+    type: object
+  service.UpdateResult:
+    properties:
+      restartItems:
+        items:
+          type: string
+        type: array
+      restartRequired:
+        type: boolean
+      updated:
+        type: integer
+    type: object
+  service.UpdateRoleRequest:
+    properties:
+      name:
+        type: string
+      permissions:
+        items:
+          type: string
+        type: array
+      remark:
+        type: string
+      status:
+        type: integer
+    type: object
+  service.UpdateSettingsRequest:
+    properties:
+      settings:
+        additionalProperties:
+          additionalProperties: true
+          type: object
+        type: object
+    required:
+    - settings
+    type: object
+  service.UpdateUserRequest:
+    properties:
+      bio:
+        type: string
+      birthday:
+        type: string
+      email:
+        type: string
+      gender:
+        type: integer
+      groupId:
+        type: integer
+      name:
+        type: string
+      nickname:
+        type: string
+      phone:
+        type: string
+      remark:
+        type: string
+      roleIds:
+        description: 角色ID列表
+        items:
+          type: integer
+        type: array
+      status:
+        type: integer
+    type: object
+  service.UserResponse:
+    properties:
+      avatar:
+        type: string
+      bio:
+        type: string
+      birthday:
+        type: string
+      createTime:
+        type: string
+      email:
+        type: string
+      gender:
+        type: integer
+      groupId:
+        type: integer
+      id:
+        type: integer
+      isReal:
+        type: integer
+      lastLoginAt:
+        type: string
+      lastLoginIP:
+        type: string
+      name:
+        type: string
+      nickname:
+        type: string
+      passwordChangedAt:
+        type: string
+      phone:
+        type: string
+      realName:
+        type: string
+      registerSource:
+        type: string
+      remark:
+        type: string
+      roleIds:
+        items:
+          type: integer
+        type: array
+      status:
+        type: integer
+    type: object
+info:
+  contact: {}
+paths:
+  /auth/change-password:
+    put:
+      consumes:
+      - application/json
+      description: 当前用户修改自己的密码
+      parameters:
+      - description: 修改密码请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/service.ChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 修改密码
+      tags:
+      - 认证
+  /auth/codes:
+    get:
+      description: 获取当前用户的权限码列表（带 Redis 缓存，10 分钟 TTL）
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 权限码列表
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    type: string
+                  type: array
+              type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取权限码
+      tags:
+      - 认证
+  /auth/devices:
+    get:
+      description: 获取当前用户所有已登录设备
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.LoginDevice'
+                  type: array
+              type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取登录设备列表
+      tags:
+      - 登录设备
+  /auth/devices/{id}:
+    delete:
+      description: 将指定设备踢下线
+      parameters:
+      - description: 设备 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 踢出指定设备
+      tags:
+      - 登录设备
+  /auth/devices/all:
+    delete:
+      description: 踢出除当前设备外的所有设备
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  additionalProperties:
+                    format: int64
+                    type: integer
+                  type: object
+              type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 踢出所有其他设备
+      tags:
+      - 登录设备
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: 用户名密码登录，返回 AccessToken 和用户信息
+      parameters:
+      - description: 登录请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/service.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.LoginResponse'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: 账号密码错误或账号已禁用
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 用户登录
+      tags:
+      - 认证
+  /auth/logout:
+    post:
+      description: 清除登录状态，删除 Cookie 中的 Token
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 用户登出
+      tags:
+      - 认证
+  /auth/oauth/bind-url:
+    get:
+      description: 获取第三方平台的授权页面 URL
+      parameters:
+      - description: 提供商：wechat/github/google
+        in: query
+        name: provider
+        required: true
+        type: string
+      - description: 授权完成后的回调地址
+        in: query
+        name: redirectUri
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  additionalProperties:
+                    type: string
+                  type: object
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取第三方授权 URL
+      tags:
+      - OAuth绑定
+  /auth/oauth/bindings:
+    get:
+      description: 获取当前用户已绑定的第三方账号列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/service.OAuthBindingItem'
+                  type: array
+              type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取第三方绑定列表
+      tags:
+      - OAuth绑定
+  /auth/oauth/callback:
+    get:
+      description: 第三方平台授权完成后的回调接口
+      parameters:
+      - description: 提供商
+        in: query
+        name: provider
+        required: true
+        type: string
+      - description: 授权码
+        in: query
+        name: code
+        required: true
+        type: string
+      - description: 状态参数
+        in: query
+        name: state
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 第三方授权回调
+      tags:
+      - OAuth绑定
+  /auth/oauth/unbind:
+    post:
+      consumes:
+      - application/json
+      description: 解绑指定的第三方账号
+      parameters:
+      - description: 解绑请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/service.OAuthUnbindRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 解绑第三方账号
+      tags:
+      - OAuth绑定
+  /auth/password-history/check:
+    post:
+      consumes:
+      - application/json
+      description: 修改密码前，校验新密码是否与最近 5 次密码重复
+      parameters:
+      - description: 检查密码请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/service.CheckPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  additionalProperties:
+                    type: boolean
+                  type: object
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 检查密码是否重复
+      tags:
+      - 密码历史
+  /auth/permission-version:
+    get:
+      description: 返回用户当前权限码的 MD5 hash，用于前端检测权限是否变更（轮询比对）
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 权限版本 hash
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  type: string
+              type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取权限版本
+      tags:
+      - 认证
+  /auth/refresh:
+    post:
+      description: 使用 Cookie 中的 RefreshToken 获取新的 AccessToken + RefreshToken（Token
+        轮换，旧 Token 自动失效）
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.TokenRefreshResponse'
+              type: object
+        "403":
+          description: RefreshToken 无效或已过期
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 刷新 AccessToken
+      tags:
+      - 认证
+  /auth/role-applications:
+    get:
+      description: 获取当前用户的角色申请记录
+      parameters:
+      - description: 页码，默认 1
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - description: 每页条数，默认 20
+        in: query
+        maximum: 100
+        minimum: 1
+        name: pageSize
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  allOf:
+                  - $ref: '#/definitions/response.PageData'
+                  - properties:
+                      items:
+                        items:
+                          $ref: '#/definitions/model.RoleApplication'
+                        type: array
+                    type: object
+              type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取我的角色申请列表
+      tags:
+      - 角色申请
+    post:
+      consumes:
+      - application/json
+      description: 用户提交角色申请
+      parameters:
+      - description: 角色申请请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/service.RoleApplicationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建角色申请
+      tags:
+      - 角色申请
+  /auth/security-logs:
+    get:
+      description: 当前用户查看自己的安全操作记录
+      parameters:
+      - description: 页码，默认 1
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - description: 每页条数，默认 20
+        in: query
+        maximum: 100
+        minimum: 1
+        name: pageSize
+        type: integer
+      - description: 事件类型筛选
+        in: query
+        name: eventType
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  allOf:
+                  - $ref: '#/definitions/response.PageData'
+                  - properties:
+                      items:
+                        items:
+                          $ref: '#/definitions/model.SecurityLog'
+                        type: array
+                    type: object
+              type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取当前用户的安全日志
+      tags:
+      - 安全日志
+  /menu/all:
+    get:
+      description: 登录后获取当前用户可访问的菜单树（过滤按钮类型），用于渲染侧边栏导航
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 菜单树
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/service.MenuItem'
+                  type: array
+              type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取用户菜单
+      tags:
+      - 菜单管理
+  /system/group:
+    post:
+      consumes:
+      - application/json
+      description: 创建新分组，可同时指定关联的角色列表
+      parameters:
+      - description: 创建分组请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/service.CreateGroupRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建分组
+      tags:
+      - 分组管理
+  /system/group/{id}:
+    delete:
+      description: 删除指定分组及其所有子分组（级联软删除），同时清除分组-角色关联
+      parameters:
+      - description: 分组 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: 分组不存在
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除分组
+      tags:
+      - 分组管理
+    put:
+      consumes:
+      - application/json
+      description: 更新指定分组信息，可同时更新关联的角色列表
+      parameters:
+      - description: 分组 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 更新分组请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/service.UpdateGroupRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: 分组不存在
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新分组
+      tags:
+      - 分组管理
+  /system/group/list:
+    get:
+      description: 获取分组树形结构数据，包含每个分组的角色 ID 列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 分组树
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/service.GroupTreeNode'
+                  type: array
+              type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取分组列表
+      tags:
+      - 分组管理
+  /system/menu:
+    post:
+      consumes:
+      - application/json
+      description: 创建新菜单（支持 catalog/menu/embedded/link/button 类型）
+      parameters:
+      - description: 创建菜单请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/service.CreateMenuRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建菜单
+      tags:
+      - 菜单管理
+  /system/menu/{id}:
+    delete:
+      description: 删除指定菜单（软删除）
+      parameters:
+      - description: 菜单 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: 菜单不存在
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除菜单
+      tags:
+      - 菜单管理
+    put:
+      consumes:
+      - application/json
+      description: 更新指定菜单信息
+      parameters:
+      - description: 菜单 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 更新菜单请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/service.UpdateMenuRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: 菜单不存在
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新菜单
+      tags:
+      - 菜单管理
+  /system/menu/list:
+    get:
+      description: 获取所有菜单的树形列表（含按钮类型），用于菜单管理页面的 CRUD 操作
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 菜单树
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/service.MenuItem'
+                  type: array
+              type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取菜单列表
+      tags:
+      - 菜单管理
+  /system/menu/name-exists:
+    get:
+      description: 创建/编辑菜单时校验名称唯一性
+      parameters:
+      - description: 菜单名称
+        in: query
+        name: name
+        required: true
+        type: string
+      - description: 编辑时传入当前菜单 ID，排除自身
+        in: query
+        name: id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: true=已存在, false=不存在
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  type: boolean
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 检查菜单名称是否存在
+      tags:
+      - 菜单管理
+  /system/menu/path-exists:
+    get:
+      description: 创建/编辑菜单时校验路径唯一性
+      parameters:
+      - description: 菜单路径
+        in: query
+        name: path
+        required: true
+        type: string
+      - description: 编辑时传入当前菜单 ID，排除自身
+        in: query
+        name: id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: true=已存在, false=不存在
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  type: boolean
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 检查菜单路径是否存在
+      tags:
+      - 菜单管理
+  /system/real-name/{id}/approve:
+    put:
+      description: 审核通过用户的实名认证
+      parameters:
+      - description: 实名认证记录 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 审核通过
+      tags:
+      - 实名认证
+  /system/real-name/{id}/reject:
+    put:
+      consumes:
+      - application/json
+      description: 拒绝用户的实名认证申请
+      parameters:
+      - description: 实名认证记录 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 拒绝原因
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/service.RealNameRejectRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 审核拒绝
+      tags:
+      - 实名认证
+  /system/real-name/list:
+    get:
+      description: 管理员查看实名认证申请列表
+      parameters:
+      - description: 页码，默认 1
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - description: 每页条数，默认 20
+        in: query
+        maximum: 100
+        minimum: 1
+        name: pageSize
+        type: integer
+      - description: 状态：0=待审, 1=已认证, 2=认证失败
+        in: query
+        name: status
+        type: string
+      - description: 用户 ID
+        in: query
+        name: userId
+        type: string
+      - description: 真实姓名（模糊搜索）
+        in: query
+        name: realName
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  allOf:
+                  - $ref: '#/definitions/response.PageData'
+                  - properties:
+                      items:
+                        items:
+                          $ref: '#/definitions/model.UserRealName'
+                        type: array
+                    type: object
+              type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取实名认证列表
+      tags:
+      - 实名认证
+  /system/role:
+    post:
+      consumes:
+      - application/json
+      description: 创建新角色，可同时设置权限码列表
+      parameters:
+      - description: 创建角色请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/service.CreateRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建角色
+      tags:
+      - 角色管理
+  /system/role-applications/{id}/approve:
+    put:
+      consumes:
+      - application/json
+      description: 管理员审核通过角色申请
+      parameters:
+      - description: 申请 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 审核备注
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/service.RoleApplicationReviewRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 审核通过角色申请
+      tags:
+      - 角色申请
+  /system/role-applications/{id}/reject:
+    put:
+      consumes:
+      - application/json
+      description: 管理员审核拒绝角色申请
+      parameters:
+      - description: 申请 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 审核备注
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/service.RoleApplicationReviewRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 审核拒绝角色申请
+      tags:
+      - 角色申请
+  /system/role-applications/list:
+    get:
+      description: 管理员查看所有角色申请
+      parameters:
+      - description: 页码，默认 1
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - description: 每页条数，默认 20
+        in: query
+        maximum: 100
+        minimum: 1
+        name: pageSize
+        type: integer
+      - description: 状态：0=待审, 1=通过, 2=驳回
+        in: query
+        name: status
+        type: string
+      - description: 用户 ID
+        in: query
+        name: userId
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  allOf:
+                  - $ref: '#/definitions/response.PageData'
+                  - properties:
+                      items:
+                        items:
+                          $ref: '#/definitions/model.RoleApplication'
+                        type: array
+                    type: object
+              type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取所有角色申请列表
+      tags:
+      - 角色申请
+  /system/role/{id}:
+    delete:
+      description: 删除指定角色（软删除）
+      parameters:
+      - description: 角色 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: 角色不存在
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除角色
+      tags:
+      - 角色管理
+    get:
+      description: 根据 ID 获取角色详情，包含完整的权限码列表
+      parameters:
+      - description: 角色 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 角色详情
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.RoleResponse'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: 角色不存在
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取角色详情
+      tags:
+      - 角色管理
+    put:
+      consumes:
+      - application/json
+      description: 更新指定角色信息，可同时更新权限码列表
+      parameters:
+      - description: 角色 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 更新角色请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/service.UpdateRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: 角色不存在
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新角色
+      tags:
+      - 角色管理
+  /system/role/list:
+    get:
+      description: 获取角色列表数据，支持分页和多条件筛选
+      parameters:
+      - description: 页码，默认 1
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - description: 每页条数，默认 20
+        in: query
+        maximum: 100
+        minimum: 1
+        name: pageSize
+        type: integer
+      - description: 角色名称（模糊搜索）
+        in: query
+        name: name
+        type: string
+      - description: 角色 ID（精确匹配）
+        in: query
+        name: id
+        type: string
+      - description: 状态：0=禁用, 1=启用
+        in: query
+        name: status
+        type: string
+      - description: 创建时间起始
+        in: query
+        name: startTime
+        type: string
+      - description: 创建时间结束
+        in: query
+        name: endTime
+        type: string
+      - description: 备注（模糊搜索）
+        in: query
+        name: remark
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  allOf:
+                  - $ref: '#/definitions/response.PageData'
+                  - properties:
+                      items:
+                        items:
+                          $ref: '#/definitions/service.RoleResponse'
+                        type: array
+                    type: object
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取角色列表
+      tags:
+      - 角色管理
+  /system/security-logs:
+    get:
+      description: 管理员查看所有用户的安全日志，用于安全审计
+      parameters:
+      - description: 页码，默认 1
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - description: 每页条数，默认 20
+        in: query
+        maximum: 100
+        minimum: 1
+        name: pageSize
+        type: integer
+      - description: 用户 ID
+        in: query
+        name: userId
+        type: string
+      - description: 事件类型筛选
+        in: query
+        name: eventType
+        type: string
+      - description: 状态：0=失败, 1=成功
+        in: query
+        name: status
+        type: string
+      - description: IP 地址
+        in: query
+        name: ip
+        type: string
+      - description: 开始时间
+        in: query
+        name: startTime
+        type: string
+      - description: 结束时间
+        in: query
+        name: endTime
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  allOf:
+                  - $ref: '#/definitions/response.PageData'
+                  - properties:
+                      items:
+                        items:
+                          $ref: '#/definitions/model.SecurityLog'
+                        type: array
+                    type: object
+              type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取所有用户的安全日志
+      tags:
+      - 安全日志
+  /system/settings:
+    get:
+      description: 获取所有分组的系统配置，用于系统设置页面
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  additionalProperties:
+                    items:
+                      $ref: '#/definitions/service.SettingItem'
+                    type: array
+                  type: object
+              type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取所有配置
+      tags:
+      - 系统设置
+    put:
+      consumes:
+      - application/json
+      description: 一次性更新多个分组的配置，敏感字段值为 "******" 则跳过
+      parameters:
+      - description: 配置更新请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/service.UpdateSettingsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.UpdateResult'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 批量更新配置
+      tags:
+      - 系统设置
+  /system/settings/{group}:
+    get:
+      description: 获取单个分组的系统配置
+      parameters:
+      - description: 分组标识
+        enum:
+        - basic
+        - email
+        - sms
+        - captcha
+        - storage
+        - wechat
+        - security
+        in: path
+        name: group
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/service.SettingItem'
+                  type: array
+              type: object
+        "400":
+          description: 无效的分组
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取指定分组配置
+      tags:
+      - 系统设置
+    put:
+      consumes:
+      - application/json
+      description: 更新单个分组的系统配置
+      parameters:
+      - description: 分组标识
+        enum:
+        - basic
+        - email
+        - sms
+        - captcha
+        - storage
+        - wechat
+        - security
+        in: path
+        name: group
+        required: true
+        type: string
+      - description: 配置更新请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/service.SettingGroupUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.UpdateResult'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新指定分组配置
+      tags:
+      - 系统设置
+  /system/settings/public:
+    get:
+      description: 获取前端需要的公开配置（无需登录），如站点名称、验证码开关等
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  additionalProperties:
+                    additionalProperties: true
+                    type: object
+                  type: object
+              type: object
+      summary: 获取公开配置
+      tags:
+      - 系统设置
+  /system/settings/test-email:
+    post:
+      consumes:
+      - application/json
+      description: 测试当前邮件配置是否正确，发送一封测试邮件
+      parameters:
+      - description: 测试邮件请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/service.TestEmailRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  additionalProperties:
+                    type: boolean
+                  type: object
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 测试邮件发送
+      tags:
+      - 系统设置
+  /system/settings/test-sms:
+    post:
+      consumes:
+      - application/json
+      description: 测试当前短信配置是否正确，发送一条测试短信
+      parameters:
+      - description: 测试短信请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/service.TestSMSRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  additionalProperties:
+                    type: boolean
+                  type: object
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 测试短信发送
+      tags:
+      - 系统设置
+  /system/user:
+    post:
+      consumes:
+      - application/json
+      description: 创建新用户，可同时指定角色列表。未设置密码时默认为 123456
+      parameters:
+      - description: 创建用户请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/service.CreateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建用户
+      tags:
+      - 用户管理
+  /system/user/{id}:
+    delete:
+      description: 删除指定用户（软删除）
+      parameters:
+      - description: 用户 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: 用户不存在
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除用户
+      tags:
+      - 用户管理
+    put:
+      consumes:
+      - application/json
+      description: 更新指定用户信息，可同时更新角色列表
+      parameters:
+      - description: 用户 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 更新用户请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/service.UpdateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: 用户不存在
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新用户
+      tags:
+      - 用户管理
+  /system/user/list:
+    get:
+      description: 获取用户列表数据，支持分页和多条件筛选
+      parameters:
+      - description: 页码，默认 1
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - description: 每页条数，默认 20
+        in: query
+        maximum: 100
+        minimum: 1
+        name: pageSize
+        type: integer
+      - description: 用户名称（模糊搜索）
+        in: query
+        name: name
+        type: string
+      - description: 用户 ID（精确匹配）
+        in: query
+        name: id
+        type: string
+      - description: 状态：0=禁用, 1=启用
+        in: query
+        name: status
+        type: string
+      - description: 分组 ID
+        in: query
+        name: groupId
+        type: string
+      - description: 创建时间起始（格式：2006-01-02 15:04:05）
+        in: query
+        name: startTime
+        type: string
+      - description: 创建时间结束（格式：2006-01-02 15:04:05）
+        in: query
+        name: endTime
+        type: string
+      - description: 备注（模糊搜索）
+        in: query
+        name: remark
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  allOf:
+                  - $ref: '#/definitions/response.PageData'
+                  - properties:
+                      items:
+                        items:
+                          $ref: '#/definitions/service.UserResponse'
+                        type: array
+                    type: object
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: 权限不足
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取用户列表
+      tags:
+      - 用户管理
+  /user/info:
+    get:
+      description: 获取当前登录用户的详细信息，包括 ID、用户名、角色列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 用户信息
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.LoginResponse'
+              type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取当前用户信息
+      tags:
+      - 认证
+    put:
+      consumes:
+      - application/json
+      description: 更新当前登录用户的昵称、邮箱、手机、性别、生日、简介
+      parameters:
+      - description: 更新资料请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/service.UpdateProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新个人资料
+      tags:
+      - 认证
+  /user/privacy:
+    get:
+      description: 获取当前用户的隐私设置
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.UserPrivacy'
+              type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取隐私设置
+      tags:
+      - 隐私设置
+    put:
+      consumes:
+      - application/json
+      description: 更新当前用户的隐私设置
+      parameters:
+      - description: 隐私设置请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/service.PrivacyRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新隐私设置
+      tags:
+      - 隐私设置
+  /user/real-name:
+    get:
+      description: 获取当前用户的实名认证状态
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.RealNameStatusResponse'
+              type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取实名认证状态
+      tags:
+      - 实名认证
+    post:
+      consumes:
+      - application/json
+      description: 提交实名认证申请
+      parameters:
+      - description: 实名认证请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/service.RealNameSubmitRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 提交实名认证
+      tags:
+      - 实名认证
+  /ws:
+    get:
+      description: 建立 WebSocket 连接，用于实时消息推送。客户端需在 Header 中携带 JWT Token 完成认证后升级协议。
+      produces:
+      - application/json
+      responses:
+        "101":
+          description: Switching Protocols (WebSocket 升级成功)
+          schema:
+            type: string
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: WebSocket 连接
+      tags:
+      - WebSocket
+swagger: "2.0"

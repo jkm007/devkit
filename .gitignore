@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Build output
+dist/
+build/
+out/
+
+# Temp files
+tmp/
+temp/
+*.tmp
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Env files
+.env
+.env.local
+.env.*.local
+
+# Cache
+.cache/
+*.cache
+
+# Go 编译产物
+backend-server/backend-server
+backend-server/server
