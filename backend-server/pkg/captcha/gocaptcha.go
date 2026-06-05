@@ -92,7 +92,8 @@ func generateGoSlide(config *CaptchaConfig) (*CaptchaData, error) {
 	captchaID, _ := generateID()
 	answer := GoSlideAnswer{X: int(blockData.X), Y: int(blockData.Y)}
 	answerJSON, _ := json.Marshal(answer)
-	if err := saveToRedis(captchaID, "slider", string(answerJSON)); err != nil {
+	startTime, err := saveToRedis(captchaID, "slider", string(answerJSON))
+	if err != nil {
 		return nil, err
 	}
 
@@ -104,6 +105,7 @@ func generateGoSlide(config *CaptchaConfig) (*CaptchaData, error) {
 		Type:      "slider",
 		Width:     width,
 		Height:    height,
+		StartTime: startTime,
 	}, nil
 }
 
@@ -169,7 +171,8 @@ func generateGoPuzzle(config *CaptchaConfig) (*CaptchaData, error) {
 	captchaID, _ := generateID()
 	answer := GoSlideAnswer{X: int(blockData.X), Y: int(blockData.Y)}
 	answerJSON, _ := json.Marshal(answer)
-	if err := saveToRedis(captchaID, "puzzle", string(answerJSON)); err != nil {
+	startTime, err := saveToRedis(captchaID, "puzzle", string(answerJSON))
+	if err != nil {
 		return nil, err
 	}
 
@@ -181,6 +184,7 @@ func generateGoPuzzle(config *CaptchaConfig) (*CaptchaData, error) {
 		Type:      "puzzle",
 		Width:     width,
 		Height:    height,
+		StartTime: startTime,
 	}, nil
 }
 
@@ -231,7 +235,8 @@ func generateGoRotation(config *CaptchaConfig) (*CaptchaData, error) {
 	captchaID, _ := generateID()
 	answer := RotationAnswer{Angle: float64(blockData.Angle)}
 	answerJSON, _ := json.Marshal(answer)
-	if err := saveToRedis(captchaID, "rotation", string(answerJSON)); err != nil {
+	startTime, err := saveToRedis(captchaID, "rotation", string(answerJSON))
+	if err != nil {
 		return nil, err
 	}
 
@@ -242,6 +247,7 @@ func generateGoRotation(config *CaptchaConfig) (*CaptchaData, error) {
 		Type:      "rotation",
 		Width:     size,
 		Height:    size,
+		StartTime: startTime,
 	}, nil
 }
 
@@ -311,7 +317,8 @@ func generateGoClick(config *CaptchaConfig) (*CaptchaData, error) {
 	captchaID, _ := generateID()
 	answer := PointAnswer{Points: points, Chars: chars}
 	answerJSON, _ := json.Marshal(answer)
-	if err := saveToRedis(captchaID, "point", string(answerJSON)); err != nil {
+	startTime, err := saveToRedis(captchaID, "point", string(answerJSON))
+	if err != nil {
 		return nil, err
 	}
 
@@ -324,6 +331,7 @@ func generateGoClick(config *CaptchaConfig) (*CaptchaData, error) {
 		Chars:     chars,
 		Width:     width,
 		Height:    height,
+		StartTime: startTime,
 	}, nil
 }
 
@@ -392,7 +400,8 @@ func generateGoNumeric(config *CaptchaConfig) (*CaptchaData, error) {
 	}
 
 	captchaID, _ := generateID()
-	if err := saveToRedis(captchaID, "numeric", code); err != nil {
+	startTime, err := saveToRedis(captchaID, "numeric", code)
+	if err != nil {
 		return nil, err
 	}
 
@@ -403,6 +412,7 @@ func generateGoNumeric(config *CaptchaConfig) (*CaptchaData, error) {
 		Width:     width,
 		Height:    height,
 		Length:    length,
+		StartTime: startTime,
 	}, nil
 }
 
@@ -445,7 +455,11 @@ type PointAnswer struct {
 // verifySliderAnswer 验证滑块答案（使用配置容差）
 func verifySliderAnswer(answerStr, value string, tolerance int) (bool, string) {
 	var answer GoSlideAnswer
-	if err := json.Unmarshal([]byte(decryptAnswer(answerStr)), &answer); err != nil {
+	decrypted, err := decryptAnswer(answerStr)
+	if err != nil {
+		return false, "验证码数据异常"
+	}
+	if err := json.Unmarshal([]byte(decrypted), &answer); err != nil {
 		return false, "验证码数据异常"
 	}
 
@@ -468,7 +482,11 @@ func verifySliderAnswer(answerStr, value string, tolerance int) (bool, string) {
 // verifyPuzzleAnswer 验证拼图答案（使用配置容差）
 func verifyPuzzleAnswer(answerStr, value string, tolerance int) (bool, string) {
 	var answer GoSlideAnswer
-	if err := json.Unmarshal([]byte(decryptAnswer(answerStr)), &answer); err != nil {
+	decrypted, err := decryptAnswer(answerStr)
+	if err != nil {
+		return false, "验证码数据异常"
+	}
+	if err := json.Unmarshal([]byte(decrypted), &answer); err != nil {
 		return false, "验证码数据异常"
 	}
 
@@ -491,7 +509,11 @@ func verifyPuzzleAnswer(answerStr, value string, tolerance int) (bool, string) {
 // verifyRotationAnswer 验证旋转答案（使用配置容差）
 func verifyRotationAnswer(answerStr, value string, tolerance int) (bool, string) {
 	var answer RotationAnswer
-	if err := json.Unmarshal([]byte(decryptAnswer(answerStr)), &answer); err != nil {
+	decrypted, err := decryptAnswer(answerStr)
+	if err != nil {
+		return false, "验证码数据异常"
+	}
+	if err := json.Unmarshal([]byte(decrypted), &answer); err != nil {
 		return false, "验证码数据异常"
 	}
 
@@ -514,7 +536,11 @@ func verifyRotationAnswer(answerStr, value string, tolerance int) (bool, string)
 // verifyPointAnswer 验证点选答案（使用配置容差）
 func verifyPointAnswer(answerStr string, points []Point, tolerance int) (bool, string) {
 	var answer PointAnswer
-	if err := json.Unmarshal([]byte(decryptAnswer(answerStr)), &answer); err != nil {
+	decrypted, err := decryptAnswer(answerStr)
+	if err != nil {
+		return false, "验证码数据异常"
+	}
+	if err := json.Unmarshal([]byte(decrypted), &answer); err != nil {
 		return false, "验证码数据异常"
 	}
 

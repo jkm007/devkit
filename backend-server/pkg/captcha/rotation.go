@@ -19,7 +19,8 @@ func generateRotation() (*CaptchaData, error) {
 	angle := float64(randInt(30, 331))
 
 	answer, _ := json.Marshal(RotationAnswer{Angle: angle})
-	if err := saveToRedis(captchaID, "rotation", string(answer)); err != nil {
+	startTime, err := saveToRedis(captchaID, "rotation", string(answer))
+	if err != nil {
 		return nil, err
 	}
 
@@ -27,6 +28,7 @@ func generateRotation() (*CaptchaData, error) {
 		CaptchaID: captchaID,
 		Image:     defaultAvatarURL, // 使用 vue-vben-admin 默认头像
 		Type:      "rotation",
+		StartTime: startTime,
 	}, nil
 }
 
@@ -34,7 +36,11 @@ func generateRotation() (*CaptchaData, error) {
 // 前端 SliderRotateCaptcha 组件验证通过后，将角度提交到后端
 func verifyRotation(answerStr, value string) (bool, string) {
 	var answer RotationAnswer
-	if err := json.Unmarshal([]byte(decryptAnswer(answerStr)), &answer); err != nil {
+	decrypted, err := decryptAnswer(answerStr)
+	if err != nil {
+		return false, "验证码数据异常"
+	}
+	if err := json.Unmarshal([]byte(decrypted), &answer); err != nil {
 		return false, "验证码数据异常"
 	}
 

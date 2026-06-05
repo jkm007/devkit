@@ -65,7 +65,8 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	captchaHandler := handler.NewCaptchaHandler()
 	auth := r.Group("/auth")
 	{
-		auth.GET("/captcha", captchaHandler.GetCaptcha)
+		// 验证码接口单独限流（每秒 5 个，突发 10）
+		auth.GET("/captcha", middleware.NewIPRateLimiter(5, 10), captchaHandler.GetCaptcha)
 		auth.POST("/login", authHandler.Login)
 		auth.POST("/logout", authHandler.Logout)
 		auth.POST("/refresh", authHandler.RefreshToken)

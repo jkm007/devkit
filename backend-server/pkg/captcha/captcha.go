@@ -103,7 +103,6 @@ const (
 
 // 配置缓存
 var configCache *CaptchaConfig
-var configCacheOnce sync.Once
 var configCacheMutex sync.RWMutex
 
 // GetConfig 获取验证码配置（带缓存）
@@ -286,8 +285,6 @@ func Generate(captchaType string) (*CaptchaData, error) {
 		return nil, err
 	}
 
-	// 返回验证码生成时间（与 Redis 中存储的 StartTime 一致，用于前端时间检测）
-	data.StartTime = time.Now().UnixMilli()
 	return data, nil
 }
 
@@ -336,7 +333,10 @@ func Verify(captchaID, captchaCode string, startTime int64, points []Point) (boo
 	case "point":
 		return verifyPointAnswer(store.Answer, points, config.PointTolerance)
 	default:
-		code := decryptAnswer(store.Answer)
+		code, err := decryptAnswer(store.Answer)
+		if err != nil {
+			return false, "验证码数据异常"
+		}
 		if strings.EqualFold(code, captchaCode) {
 			return true, "验证通过"
 		}
@@ -345,58 +345,75 @@ func Verify(captchaID, captchaCode string, startTime int64, points []Point) (boo
 }
 
 // saveToRedis 保存验证码到 Redis（使用配置的过期时间）
-func saveToRedis(captchaID, captchaType, answer string) error {
+func saveToRedis(captchaID, captchaType, answer string) (int64, error) {
 	config := GetConfig()
 	rdb := database.GetRedis()
 	ctx := context.Background()
 	key := captchaKeyPrefix + captchaID
 
+	encrypted, err := encryptAnswer(answer)
+	if err != nil {
+		return 0, fmt.Errorf("encrypt captcha answer: %w", err)
+	}
+
+	startTime := time.Now().UnixMilli()
 	store := CaptchaStore{
 		Type:      captchaType,
-		Answer:    encryptAnswer(answer),
-		StartTime: time.Now().UnixMilli(),
+		Answer:    encrypted,
+		StartTime: startTime,
 		Used:      false,
 	}
 	data, _ := json.Marshal(store)
 
 	ttl := time.Duration(config.Expire) * time.Second
-	return rdb.Set(ctx, key, string(data), ttl).Err()
+	if err := rdb.Set(ctx, key, string(data), ttl).Err(); err != nil {
+		return 0, err
+	}
+	return startTime, nil
 }
 
 // encryptAnswer 使用 AES-GCM 加密答案
-func encryptAnswer(plaintext string) string {
+func encryptAnswer(plaintext string) (string, error) {
 	block, err := aes.NewCipher(captchaSecret)
 	if err != nil {
-		return plaintext
+		return "", fmt.Errorf("create AES cipher: %w", err)
 	}
-	gcm, _ := cipher.NewGCM(block)
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", fmt.Errorf("create GCM: %w", err)
+	}
 	nonce := make([]byte, gcm.NonceSize())
-	rand.Read(nonce)
+	if _, err := rand.Read(nonce); err != nil {
+		return "", fmt.Errorf("generate nonce: %w", err)
+	}
 	ciphertext := gcm.Seal(nonce, nonce, []byte(plaintext), nil)
-	return base64.StdEncoding.EncodeToString(ciphertext)
+	return base64.StdEncoding.EncodeToString(ciphertext), nil
 }
 
 // decryptAnswer 使用 AES-GCM 解密答案
-func decryptAnswer(encoded string) string {
+func decryptAnswer(encoded string) (string, error) {
 	data, err := base64.StdEncoding.DecodeString(encoded)
 	if err != nil {
-		return encoded
+		return "", fmt.Errorf("base64 decode: %w", err)
 	}
 	block, err := aes.NewCipher(captchaSecret)
 	if err != nil {
-		return encoded
+		return "", fmt.Errorf("create AES cipher: %w", err)
 	}
-	gcm, _ := cipher.NewGCM(block)
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", fmt.Errorf("create GCM: %w", err)
+	}
 	nonceSize := gcm.NonceSize()
 	if len(data) < nonceSize {
-		return encoded
+		return "", fmt.Errorf("ciphertext too short")
 	}
 	nonce, ciphertext := data[:nonceSize], data[nonceSize:]
 	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
-		return encoded
+		return "", fmt.Errorf("decrypt: %w", err)
 	}
-	return string(plaintext)
+	return string(plaintext), nil
 }
 
 // generateID 生成唯一 ID

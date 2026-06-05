@@ -20,6 +20,11 @@ type ipLimiter struct {
 
 // RateLimiter 限流中间件（令牌桶算法）
 func RateLimiter(cfg config.RateLimitConfig) gin.HandlerFunc {
+	return NewIPRateLimiter(rate.Limit(cfg.Rate), cfg.Burst)
+}
+
+// NewIPRateLimiter 创建基于 IP 的限流中间件
+func NewIPRateLimiter(r rate.Limit, burst int) gin.HandlerFunc {
 	limiters := &sync.Map{}
 
 	// 后台清理过期的 IP 记录，防止内存泄漏
@@ -41,7 +46,7 @@ func RateLimiter(cfg config.RateLimitConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ip := c.ClientIP()
 		val, _ := limiters.LoadOrStore(ip, &ipLimiter{
-			limiter: rate.NewLimiter(rate.Limit(cfg.Rate), cfg.Burst),
+			limiter: rate.NewLimiter(r, burst),
 		})
 		entry := val.(*ipLimiter)
 		entry.lastSeen.Store(time.Now().UnixNano())

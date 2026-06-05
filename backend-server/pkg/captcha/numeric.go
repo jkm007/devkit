@@ -162,7 +162,8 @@ func GenerateNumeric() (*CaptchaData, error) {
 		return nil, err
 	}
 
-	if err := saveToRedis(captchaID, "numeric", code); err != nil {
+	startTime, err := saveToRedis(captchaID, "numeric", code)
+	if err != nil {
 		return nil, err
 	}
 
@@ -170,6 +171,7 @@ func GenerateNumeric() (*CaptchaData, error) {
 		CaptchaID: captchaID,
 		Image:     imgData,
 		Type:      "numeric",
+		StartTime: startTime,
 	}, nil
 }
 

@@ -45,7 +45,8 @@ func generatePuzzle() (*CaptchaData, error) {
 	}
 
 	answer, _ := json.Marshal(PuzzleAnswer{X: gapX, Y: gapY})
-	if err := saveToRedis(captchaID, "puzzle", string(answer)); err != nil {
+	startTime, err := saveToRedis(captchaID, "puzzle", string(answer))
+	if err != nil {
 		return nil, err
 	}
 
@@ -54,13 +55,18 @@ func generatePuzzle() (*CaptchaData, error) {
 		Image:     bgStr,
 		Thumb:     pieceStr,
 		Type:      "puzzle",
+		StartTime: startTime,
 	}, nil
 }
 
 // verifyPuzzle 验证拼图答案，容差 ±5px
 func verifyPuzzle(answerStr, value string) (bool, string) {
 	var answer PuzzleAnswer
-	if err := json.Unmarshal([]byte(decryptAnswer(answerStr)), &answer); err != nil {
+	decrypted, err := decryptAnswer(answerStr)
+	if err != nil {
+		return false, "验证码数据异常"
+	}
+	if err := json.Unmarshal([]byte(decrypted), &answer); err != nil {
 		return false, "验证码数据异常"
 	}
 	var userAnswer struct {

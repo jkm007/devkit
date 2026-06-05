@@ -47,7 +47,8 @@ func generateSlider() (*CaptchaData, error) {
 	}
 
 	answer, _ := json.Marshal(SliderAnswer{X: gapX})
-	if err := saveToRedis(captchaID, "slider", string(answer)); err != nil {
+	startTime, err := saveToRedis(captchaID, "slider", string(answer))
+	if err != nil {
 		return nil, err
 	}
 
@@ -56,13 +57,18 @@ func generateSlider() (*CaptchaData, error) {
 		Image:     bgStr,
 		Thumb:     pieceStr,
 		Type:      "slider",
+		StartTime: startTime,
 	}, nil
 }
 
 // verifySlider 验证滑块答案，容差 ±5px
 func verifySlider(answerStr, value string) (bool, string) {
 	var answer SliderAnswer
-	if err := json.Unmarshal([]byte(decryptAnswer(answerStr)), &answer); err != nil {
+	decrypted, err := decryptAnswer(answerStr)
+	if err != nil {
+		return false, "验证码数据异常"
+	}
+	if err := json.Unmarshal([]byte(decrypted), &answer); err != nil {
 		return false, "验证码数据异常"
 	}
 	var userAnswer struct {

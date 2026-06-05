@@ -63,7 +63,8 @@ func generatePoint() (*CaptchaData, error) {
 	hintText := "请依次点击【" + joinChars(hintRunes, "，") + "】"
 
 	answer, _ := json.Marshal(PointAnswer{Points: points, Chars: hintRunes})
-	if err := saveToRedis(captchaID, "point", string(answer)); err != nil {
+	startTime, err := saveToRedis(captchaID, "point", string(answer))
+	if err != nil {
 		return nil, err
 	}
 
@@ -73,13 +74,18 @@ func generatePoint() (*CaptchaData, error) {
 		Type:      "point",
 		HintText:  hintText,
 		Chars:     hintRunes,
+		StartTime: startTime,
 	}, nil
 }
 
 // verifyPoint 验证点选答案，容差 ±15px
 func verifyPoint(answerStr string, points []Point) (bool, string) {
 	var answer PointAnswer
-	if err := json.Unmarshal([]byte(decryptAnswer(answerStr)), &answer); err != nil {
+	decrypted, err := decryptAnswer(answerStr)
+	if err != nil {
+		return false, "验证码数据异常"
+	}
+	if err := json.Unmarshal([]byte(decrypted), &answer); err != nil {
 		return false, "验证码数据异常"
 	}
 	if len(points) != len(answer.Points) {
