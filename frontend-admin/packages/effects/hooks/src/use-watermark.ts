@@ -35,6 +35,8 @@ const cachedOptions = ref<Partial<WatermarkOptions>>({
   layout: 'grid',
   rotate: 30,
   width: 160,
+  // 水印层级设置在最上层，防止被其他元素遮挡
+  zIndex: 9999,
 });
 
 export function useWatermark() {
