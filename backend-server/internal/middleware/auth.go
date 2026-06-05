@@ -31,7 +31,7 @@ func JWTAuth() gin.HandlerFunc {
 			return
 		}
 
-		// 解析 Token
+		// 解析 Token（已包含算法校验）
 		claims, err := jwt.Parse(parts[1])
 		if err != nil {
 			response.Unauthorized(c, "Token 无效或已过期")
@@ -50,9 +50,18 @@ func JWTAuth() gin.HandlerFunc {
 			deviceID = fmt.Sprintf("web-%x", data)
 		}
 
-		// 检查设备是否被踢出
-		blacklistKey := fmt.Sprintf("kicked_device:%d:%s", claims.UserID, deviceID)
+		// 检查 Token 是否在黑名单中（logout 后失效）
+		blacklistKey := fmt.Sprintf("token_blacklist:%s", parts[1])
 		val, err := database.GetRedis().Get(context.Background(), blacklistKey).Result()
+		if err == nil && val != "" {
+			response.Unauthorized(c, "Token 已失效，请重新登录")
+			c.Abort()
+			return
+		}
+
+		// 检查设备是否被踢出
+		kickedKey := fmt.Sprintf("kicked_device:%d:%s", claims.UserID, deviceID)
+		val, err = database.GetRedis().Get(context.Background(), kickedKey).Result()
 		if err == nil && val != "" {
 			response.Unauthorized(c, "该设备已被踢出，请重新登录")
 			c.Abort()
@@ -62,7 +71,7 @@ func JWTAuth() gin.HandlerFunc {
 		// 将用户信息存入上下文
 		c.Set("user_id", claims.UserID)
 		c.Set("username", claims.Username)
-		c.Set("role", claims.Role)
+		c.Set("roles", claims.Roles)
 		c.Set("device_id", deviceID)
 
 		c.Next()
@@ -77,10 +86,19 @@ func GetCurrentUserID(c *gin.Context) uint {
 	return 0
 }
 
-// GetCurrentRole 从上下文获取当前用户角色
+// GetCurrentRoles 从上下文获取当前用户角色列表
+func GetCurrentRoles(c *gin.Context) []string {
+	if roles, exists := c.Get("roles"); exists {
+		return roles.([]string)
+	}
+	return nil
+}
+
+// GetCurrentRole 从上下文获取当前用户第一个角色（向后兼容）
 func GetCurrentRole(c *gin.Context) string {
-	if role, exists := c.Get("role"); exists {
-		return role.(string)
+	roles := GetCurrentRoles(c)
+	if len(roles) > 0 {
+		return roles[0]
 	}
 	return ""
 }

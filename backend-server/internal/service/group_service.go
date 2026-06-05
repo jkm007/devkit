@@ -156,8 +156,11 @@ func (s *GroupService) invalidateCacheForGroup(groupID uint) {
 	}
 }
 
-// Delete 删除分组
+// Delete 删除分组（同时清除权限缓存）
 func (s *GroupService) Delete(id uint) error {
+	// 先清除该分组所有用户的权限缓存
+	s.invalidateCacheForGroup(id)
+
 	return s.groupRepo.DeleteWithChildren(id)
 }
 

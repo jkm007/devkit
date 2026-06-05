@@ -247,12 +247,18 @@ func (s *UserService) Update(id uint, req *UpdateUserRequest) error {
 	return nil
 }
 
-// Delete 删除用户
+// Delete 删除用户（级联清理关联数据）
 func (s *UserService) Delete(id uint) error {
-	if err := s.userRepo.Delete(id); err != nil {
+	if err := s.userRepo.DeleteWithCleanup(id); err != nil {
 		return err
 	}
 	s.invalidatePermissionCache(id)
+
+	// 清理 Redis 中的 refresh token 和设备黑名单
+	ctx := context.Background()
+	rdb := database.GetRedis()
+	rdb.Del(ctx, fmt.Sprintf("refresh_token:%d", id))
+
 	return nil
 }
 

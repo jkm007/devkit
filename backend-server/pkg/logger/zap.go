@@ -72,27 +72,37 @@ func Sync() {
 
 // Info 信息日志
 func Info(msg string, fields ...zap.Field) {
-	log.Info(msg, fields...)
+	if log != nil {
+		log.Info(msg, fields...)
+	}
 }
 
 // Error 错误日志
 func Error(msg string, fields ...zap.Field) {
-	log.Error(msg, fields...)
+	if log != nil {
+		log.Error(msg, fields...)
+	}
 }
 
 // Fatal 致命错误日志
 func Fatal(msg string, fields ...zap.Field) {
-	log.Fatal(msg, fields...)
+	if log != nil {
+		log.Fatal(msg, fields...)
+	}
 }
 
 // Debug 调试日志
 func Debug(msg string, fields ...zap.Field) {
-	log.Debug(msg, fields...)
+	if log != nil {
+		log.Debug(msg, fields...)
+	}
 }
 
 // Warn 警告日志
 func Warn(msg string, fields ...zap.Field) {
-	log.Warn(msg, fields...)
+	if log != nil {
+		log.Warn(msg, fields...)
+	}
 }
 
 func parseLevel(level string) zapcore.Level {
@@ -105,6 +115,8 @@ func parseLevel(level string) zapcore.Level {
 		return zapcore.WarnLevel
 	case "error":
 		return zapcore.ErrorLevel
+	case "fatal":
+		return zapcore.FatalLevel
 	default:
 		return zapcore.InfoLevel
 	}

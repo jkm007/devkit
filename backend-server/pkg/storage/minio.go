@@ -19,19 +19,19 @@ type MinIOStorage struct {
 }
 
 // NewMinIOStorage 创建 MinIO 存储实例
-func NewMinIOStorage(cfg config.MinIOConfig) *MinIOStorage {
+func NewMinIOStorage(cfg config.MinIOConfig) (*MinIOStorage, error) {
 	client, err := minio.New(cfg.Endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(cfg.AccessKey, cfg.SecretKey, ""),
 		Secure: cfg.UseSSL,
 	})
 	if err != nil {
-		panic(fmt.Sprintf("连接 MinIO 失败: %v", err))
+		return nil, fmt.Errorf("连接 MinIO 失败: %w", err)
 	}
 
 	return &MinIOStorage{
 		client: client,
 		bucket: cfg.Bucket,
-	}
+	}, nil
 }
 
 // Upload 上传文件

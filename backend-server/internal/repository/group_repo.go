@@ -58,22 +58,31 @@ func (r *GroupRepo) GetChildren(pid uint) ([]model.Group, error) {
 	return groups, nil
 }
 
-// DeleteWithChildren 删除分组及其子分组
+// DeleteWithChildren 删除分组及其子分组（事务保护）
 func (r *GroupRepo) DeleteWithChildren(id uint) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		return r.deleteWithChildrenTx(tx, id)
+	})
+}
+
+// deleteWithChildrenTx 递归删除分组（在事务内）
+func (r *GroupRepo) deleteWithChildrenTx(tx *gorm.DB, id uint) error {
 	// 递归删除子分组
 	var children []model.Group
-	if err := r.db.Where("pid = ?", id).Find(&children).Error; err != nil {
+	if err := tx.Where("pid = ?", id).Find(&children).Error; err != nil {
 		return err
 	}
 	for _, child := range children {
-		if err := r.DeleteWithChildren(child.ID); err != nil {
+		if err := r.deleteWithChildrenTx(tx, child.ID); err != nil {
 			return err
 		}
 	}
 	// 删除分组角色关联
-	r.db.Where("group_id = ?", id).Delete(&model.GroupRole{})
+	if err := tx.Where("group_id = ?", id).Delete(&model.GroupRole{}).Error; err != nil {
+		return err
+	}
 	// 删除当前分组
-	return r.db.Where("id = ?", id).Delete(&model.Group{}).Error
+	return tx.Where("id = ?", id).Delete(&model.Group{}).Error
 }
 
 // GetGroupRoleIDs 获取分组的角色 ID 列表
@@ -83,25 +92,27 @@ func (r *GroupRepo) GetGroupRoleIDs(groupID uint) ([]uint, error) {
 	return roleIDs, err
 }
 
-// SyncGroupRoles 同步分组角色
+// SyncGroupRoles 同步分组角色（事务保护）
 func (r *GroupRepo) SyncGroupRoles(groupID uint, roleIDs []uint) error {
-	// 删除旧的关联
-	if err := r.db.Where("group_id = ?", groupID).Delete(&model.GroupRole{}).Error; err != nil {
-		return err
-	}
-
-	// 创建新的关联
-	for _, roleID := range roleIDs {
-		groupRole := &model.GroupRole{
-			GroupID: groupID,
-			RoleID:  roleID,
-		}
-		if err := r.db.Create(groupRole).Error; err != nil {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		// 删除旧的关联
+		if err := tx.Where("group_id = ?", groupID).Delete(&model.GroupRole{}).Error; err != nil {
 			return err
 		}
-	}
 
-	return nil
+		// 创建新的关联
+		for _, roleID := range roleIDs {
+			groupRole := &model.GroupRole{
+				GroupID: groupID,
+				RoleID:  roleID,
+			}
+			if err := tx.Create(groupRole).Error; err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 }
 
 // GetGroupRoleIDsRecursive 递归获取分组及其父分组的角色 ID 列表

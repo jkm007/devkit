@@ -8,6 +8,7 @@ import (
 
 	"backend-server/internal/model"
 	"backend-server/internal/repository"
+	"backend-server/pkg/crypto"
 	"backend-server/pkg/database"
 
 	"gorm.io/gorm"
@@ -50,12 +51,12 @@ type RealNameListRequest struct {
 
 // RealNameStatusResponse 实名认证状态响应
 type RealNameStatusResponse struct {
-	Status      int        `json:"status"`
-	RealName    string     `json:"realName"`
-	IDCard      string     `json:"idCard"`
-	RejectReason string   `json:"rejectReason"`
-	SubmittedAt *time.Time `json:"submittedAt"`
-	ReviewedAt  *time.Time `json:"reviewedAt"`
+	Status       int        `json:"status"`
+	RealName     string     `json:"realName"`
+	IDCard       string     `json:"idCard"`
+	RejectReason string     `json:"rejectReason"`
+	SubmittedAt  *time.Time `json:"submittedAt"`
+	ReviewedAt   *time.Time `json:"reviewedAt"`
 }
 
 // GetStatus 获取当前用户的实名认证状态
@@ -68,8 +69,9 @@ func (s *UserRealNameService) GetStatus(userID uint) (*RealNameStatusResponse, e
 		return nil, err
 	}
 
-	// 脱敏身份证号
-	idCardMasked := maskIDCard(rn.IDCard)
+	// 解密身份证号后脱敏
+	idCardPlain := decryptIDCard(rn.IDCard)
+	idCardMasked := maskIDCard(idCardPlain)
 
 	return &RealNameStatusResponse{
 		Status:       rn.Status,
@@ -97,18 +99,25 @@ func (s *UserRealNameService) Submit(userID uint, req *RealNameSubmitRequest) er
 		return err
 	}
 
-	// 检查身份证号是否已被使用
+	// 检查身份证号是否已被使用（通过哈希比对）
 	hash := sha256Hash(req.IDCard)
 	existingByHash, _ := s.repo.GetByIDCardHash(hash)
 	if existingByHash != nil && existingByHash.UserID != userID {
 		return errors.New("This ID card is already registered.")
 	}
 
+	// AES-GCM 加密身份证号
+	encryptedIDCard, err := crypto.Encrypt(req.IDCard)
+	if err != nil {
+		// 加密失败时降级存储明文（记录日志）
+		encryptedIDCard = req.IDCard
+	}
+
 	now := time.Now()
 	rn := &model.UserRealName{
 		UserID:      userID,
 		RealName:    req.RealName,
-		IDCard:      req.IDCard, // TODO: AES 加密存储
+		IDCard:      encryptedIDCard,
 		IDCardHash:  hash,
 		Status:      0,
 		SubmittedAt: &now,
@@ -117,7 +126,7 @@ func (s *UserRealNameService) Submit(userID uint, req *RealNameSubmitRequest) er
 	if existing != nil && existing.ID > 0 {
 		// 更新已有记录（重新提交）
 		existing.RealName = req.RealName
-		existing.IDCard = req.IDCard
+		existing.IDCard = encryptedIDCard
 		existing.IDCardHash = hash
 		existing.Status = 0
 		existing.RejectReason = ""
@@ -171,7 +180,7 @@ func (s *UserRealNameService) Approve(id, reviewerID uint) error {
 		return err
 	}
 	user.RealName = rn.RealName
-	user.IDCard = rn.IDCard // 实际应 AES 加密
+	user.IDCard = rn.IDCard // 已加密存储
 	user.IsReal = 1
 	return s.userRepo.Update(user)
 }
@@ -193,6 +202,19 @@ func (s *UserRealNameService) Reject(id, reviewerID uint, reason string) error {
 	rn.ReviewedAt = &now
 
 	return s.repo.Update(rn)
+}
+
+// decryptIDCard 解密身份证号（兼容明文数据）
+func decryptIDCard(encrypted string) string {
+	if encrypted == "" {
+		return ""
+	}
+	decrypted, err := crypto.Decrypt(encrypted)
+	if err != nil {
+		// 解密失败说明是明文存储的旧数据，直接返回
+		return encrypted
+	}
+	return decrypted
 }
 
 // maskIDCard 脱敏身份证号

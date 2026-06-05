@@ -187,7 +187,20 @@ func (s *RoleService) invalidateCacheForRole(roleID uint) {
 	}
 }
 
-// Delete 删除角色
+// Delete 删除角色（同时清理关联数据和权限缓存）
 func (s *RoleService) Delete(id uint) error {
-	return s.roleRepo.Delete(id)
+	// 先清除拥有该角色的所有用户的权限缓存
+	s.invalidateCacheForRole(id)
+
+	// 删除角色（软删除）
+	if err := s.roleRepo.Delete(id); err != nil {
+		return err
+	}
+
+	// 清理用户-角色关联
+	db := database.GetMySQL()
+	db.Where("role_id = ?", id).Delete(&model.UserRole{})
+	db.Where("role_id = ?", id).Delete(&model.GroupRole{})
+
+	return nil
 }

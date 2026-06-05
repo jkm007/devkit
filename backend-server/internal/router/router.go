@@ -53,8 +53,10 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 
-	// Swagger 文档
-	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	// Swagger 文档（仅 debug 模式可访问）
+	if cfg.Server.Mode == "debug" {
+		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	}
 
 	// 公开接口（无需认证）
 	r.GET("/system/settings/public", systemSettingHandler.GetPublic)

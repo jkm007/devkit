@@ -170,6 +170,7 @@ type CaptchaConfig struct {
 	Length   int     `mapstructure:"length"`
 	MaxSkew  float64 `mapstructure:"max_skew"`
 	DotCount int     `mapstructure:"dot_count"`
+	Secret   string  `mapstructure:"secret"`
 }
 
 // SMSConfig 短信服务配置

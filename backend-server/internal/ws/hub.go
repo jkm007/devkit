@@ -79,36 +79,61 @@ func (h *Hub) Run() {
 			logger.Info("WebSocket 客户端断开", zap.Uint("user_id", client.UserID))
 
 		case msg := <-h.Broadcast:
-			h.mu.RLock()
+			// 收集需要清理的客户端，避免在遍历中修改 map
+			h.mu.Lock()
+			var toRemove []*Client
+			data := h.marshal(msg)
 			for _, clients := range h.Clients {
 				for client := range clients {
 					select {
-					case client.Send <- h.marshal(msg):
+					case client.Send <- data:
 					default:
-						close(client.Send)
-						delete(clients, client)
+						// 发送缓冲区满，标记为待移除
+						toRemove = append(toRemove, client)
 					}
 				}
 			}
-			h.mu.RUnlock()
+			// 清理发送失败的客户端
+			for _, client := range toRemove {
+				if clients, ok := h.Clients[client.UserID]; ok {
+					if _, ok := clients[client]; ok {
+						close(client.Send)
+						delete(clients, client)
+						if len(clients) == 0 {
+							delete(h.Clients, client.UserID)
+						}
+					}
+				}
+			}
+			h.mu.Unlock()
 		}
 	}
 }
 
 // SendToUser 向指定用户发送消息
 func (h *Hub) SendToUser(userID uint, msg *Message) {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
+	h.mu.Lock()
+	defer h.mu.Unlock()
 
 	if clients, ok := h.Clients[userID]; ok {
 		data := h.marshal(msg)
+		var toRemove []*Client
 		for client := range clients {
 			select {
 			case client.Send <- data:
 			default:
+				toRemove = append(toRemove, client)
+			}
+		}
+		// 清理发送失败的客户端
+		for _, client := range toRemove {
+			if _, ok := clients[client]; ok {
 				close(client.Send)
 				delete(clients, client)
 			}
+		}
+		if len(clients) == 0 {
+			delete(h.Clients, userID)
 		}
 	}
 }

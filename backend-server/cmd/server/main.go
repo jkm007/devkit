@@ -15,6 +15,7 @@ import (
 	"backend-server/internal/service"
 	"backend-server/internal/ws"
 	"backend-server/migrations"
+	"backend-server/pkg/captcha"
 	"backend-server/pkg/database"
 	"backend-server/pkg/logger"
 
@@ -31,6 +32,11 @@ func main() {
 	// 2. 初始化日志
 	if err := logger.Init(cfg.Log); err != nil {
 		log.Fatalf("初始化日志失败: %v", err)
+	}
+
+	// 初始化验证码加密密钥
+	if cfg.Captcha.Secret != "" {
+		captcha.SetSecret([]byte(cfg.Captcha.Secret))
 	}
 	defer logger.Sync()
 

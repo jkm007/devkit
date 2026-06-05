@@ -457,9 +457,6 @@ func verifySliderAnswer(answerStr, value string, tolerance int) (bool, string) {
 		return false, "提交数据格式错误"
 	}
 
-	log.Printf("[Slider Verify] 期望: X=%d, Y=%d, 用户提交: X=%d, Y=%d, X差值=%d, 容差=%d",
-		answer.X, answer.Y, userAnswer.X, userAnswer.Y, abs(userAnswer.X-answer.X), tolerance)
-
 	// 滑块验证码：只检查 X 坐标，Y 使用答案值
 	ok := slide.Validate(userAnswer.X, answer.Y, answer.X, answer.Y, tolerance)
 	if ok {
@@ -482,10 +479,6 @@ func verifyPuzzleAnswer(answerStr, value string, tolerance int) (bool, string) {
 	if err := json.Unmarshal([]byte(value), &userAnswer); err != nil {
 		return false, "提交数据格式错误"
 	}
-
-	log.Printf("[Puzzle Verify] 期望: X=%d, Y=%d, 用户提交: X=%d, Y=%d, X差=%d, Y差=%d, 容差=%d",
-		answer.X, answer.Y, userAnswer.X, userAnswer.Y,
-		abs(userAnswer.X-answer.X), abs(userAnswer.Y-answer.Y), tolerance)
 
 	// 拼图验证码：检查 X 和 Y
 	ok := slide.Validate(userAnswer.X, userAnswer.Y, answer.X, answer.Y, tolerance)
@@ -510,8 +503,6 @@ func verifyRotationAnswer(answerStr, value string, tolerance int) (bool, string)
 	}
 
 	angleDiff := abs(int(userAnswer.Angle) - int(answer.Angle))
-	log.Printf("[Rotation Verify] 期望角度: %d, 用户角度: %d, 差值: %d, 容差: %d",
-		int(answer.Angle), int(userAnswer.Angle), angleDiff, tolerance)
 
 	ok := rotate.Validate(int(userAnswer.Angle), int(answer.Angle), tolerance)
 	if ok {
@@ -538,8 +529,6 @@ func verifyPointAnswer(answerStr string, points []Point, tolerance int) (bool, s
 		}
 		ok := click.Validate(p.X, p.Y, answer.Points[i].X, answer.Points[i].Y, 60, 60, tolerance)
 		if !ok {
-			log.Printf("[Point Verify] 点%d 验证失败: 用户(%d,%d), 期望(%d,%d), 容差%d",
-				i+1, p.X, p.Y, answer.Points[i].X, answer.Points[i].Y, tolerance)
 			return false, fmt.Sprintf("点击位置不正确 (第%d个点)", i+1)
 		}
 	}

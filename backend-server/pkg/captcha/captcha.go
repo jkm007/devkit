@@ -80,8 +80,15 @@ type CaptchaStore struct {
 	Used      bool   `json:"used"`       // 是否已使用
 }
 
-// AES 加密密钥（固定 32 字节）
+// AES 加密密钥（固定 32 字节，通过 SetSecret 在启动时从配置加载）
 var captchaSecret = []byte("captcha_secret_key_32bytes!!!!!1")
+
+// SetSecret 设置验证码加密密钥（应在启动时调用，使用配置文件或环境变量中的值）
+func SetSecret(key []byte) {
+	if len(key) >= 32 {
+		captchaSecret = key[:32]
+	}
+}
 
 const captchaKeyPrefix = "captcha:"
 

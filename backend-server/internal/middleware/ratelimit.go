@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"backend-server/config"
@@ -14,7 +15,7 @@ import (
 // ipLimiter 关联限流器与最后访问时间
 type ipLimiter struct {
 	limiter  *rate.Limiter
-	lastSeen time.Time
+	lastSeen atomic.Int64 // UnixNano，避免数据竞争
 }
 
 // RateLimiter 限流中间件（令牌桶算法）
@@ -29,7 +30,7 @@ func RateLimiter(cfg config.RateLimitConfig) gin.HandlerFunc {
 			now := time.Now()
 			limiters.Range(func(key, value interface{}) bool {
 				entry := value.(*ipLimiter)
-				if now.Sub(entry.lastSeen) > 10*time.Minute {
+				if now.Sub(time.Unix(0, entry.lastSeen.Load())) > 10*time.Minute {
 					limiters.Delete(key)
 				}
 				return true
@@ -40,11 +41,10 @@ func RateLimiter(cfg config.RateLimitConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ip := c.ClientIP()
 		val, _ := limiters.LoadOrStore(ip, &ipLimiter{
-			limiter:  rate.NewLimiter(rate.Limit(cfg.Rate), cfg.Burst),
-			lastSeen: time.Now(),
+			limiter: rate.NewLimiter(rate.Limit(cfg.Rate), cfg.Burst),
 		})
 		entry := val.(*ipLimiter)
-		entry.lastSeen = time.Now()
+		entry.lastSeen.Store(time.Now().UnixNano())
 
 		if !entry.limiter.Allow() {
 			response.TooManyRequests(c, "请求过于频繁，请稍后再试")

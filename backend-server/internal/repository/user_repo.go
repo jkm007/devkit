@@ -23,27 +23,27 @@ func (r *UserRepo) List(page, pageSize int, filters map[string]interface{}) ([]m
 
 	query := r.db.Model(&model.User{})
 
-	// 应用筛选条件
-	if name, ok := filters["name"]; ok && name != "" {
-		query = query.Where("name LIKE ?", "%"+escapeLike(name.(string))+"%")
+	// 应用筛选条件（使用安全类型断言）
+	if name, ok := filters["name"].(string); ok && name != "" {
+		query = query.Where("name LIKE ?", "%"+escapeLike(name)+"%")
 	}
-	if id, ok := filters["id"]; ok && id != "" {
+	if id, ok := filters["id"].(string); ok && id != "" {
 		query = query.Where("id = ?", id)
 	}
-	if status, ok := filters["status"]; ok && status != "" {
+	if status, ok := filters["status"].(string); ok && status != "" {
 		query = query.Where("status = ?", status)
 	}
-	if groupID, ok := filters["groupId"]; ok && groupID != "" {
+	if groupID, ok := filters["groupId"].(string); ok && groupID != "" {
 		query = query.Where("group_id = ?", groupID)
 	}
-	if startTime, ok := filters["startTime"]; ok && startTime != "" {
+	if startTime, ok := filters["startTime"].(string); ok && startTime != "" {
 		query = query.Where("created_at >= ?", startTime)
 	}
-	if endTime, ok := filters["endTime"]; ok && endTime != "" {
+	if endTime, ok := filters["endTime"].(string); ok && endTime != "" {
 		query = query.Where("created_at <= ?", endTime)
 	}
-	if remark, ok := filters["remark"]; ok && remark != "" {
-		query = query.Where("remark LIKE ?", "%"+escapeLike(remark.(string))+"%")
+	if remark, ok := filters["remark"].(string); ok && remark != "" {
+		query = query.Where("remark LIKE ?", "%"+escapeLike(remark)+"%")
 	}
 
 	// 统计总数
@@ -93,6 +93,45 @@ func (r *UserRepo) Delete(id uint) error {
 	return r.db.Where("id = ?", id).Delete(&model.User{}).Error
 }
 
+// DeleteWithCleanup 删除用户并清理关联数据
+func (r *UserRepo) DeleteWithCleanup(id uint) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		// 软删除用户
+		if err := tx.Where("id = ?", id).Delete(&model.User{}).Error; err != nil {
+			return err
+		}
+		// 清理角色关联
+		if err := tx.Where("user_id = ?", id).Delete(&model.UserRole{}).Error; err != nil {
+			return err
+		}
+		// 清理隐私设置
+		if err := tx.Where("user_id = ?", id).Delete(&model.UserPrivacy{}).Error; err != nil {
+			return err
+		}
+		// 清理实名认证
+		if err := tx.Where("user_id = ?", id).Delete(&model.UserRealName{}).Error; err != nil {
+			return err
+		}
+		// 清理登录设备
+		if err := tx.Where("user_id = ?", id).Delete(&model.LoginDevice{}).Error; err != nil {
+			return err
+		}
+		// 清理 OAuth 绑定
+		if err := tx.Where("user_id = ?", id).Delete(&model.OAuthUser{}).Error; err != nil {
+			return err
+		}
+		// 清理密码历史
+		if err := tx.Where("user_id = ?", id).Delete(&model.PasswordHistory{}).Error; err != nil {
+			return err
+		}
+		// 清理角色申请
+		if err := tx.Where("user_id = ?", id).Delete(&model.RoleApplication{}).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
 // GetUserRoles 获取用户的角色列表
 func (r *UserRepo) GetUserRoles(userID uint) ([]model.Role, error) {
 	var roles []model.Role
@@ -111,25 +150,27 @@ func (r *UserRepo) GetUserRoleIDs(userID uint) ([]uint, error) {
 	return roleIDs, err
 }
 
-// SyncUserRoles 同步用户角色（替换所有）
+// SyncUserRoles 同步用户角色（替换所有，事务保护）
 func (r *UserRepo) SyncUserRoles(userID uint, roleIDs []uint) error {
-	// 删除旧的关联
-	if err := r.db.Where("user_id = ?", userID).Delete(&model.UserRole{}).Error; err != nil {
-		return err
-	}
-
-	// 创建新的关联
-	for _, roleID := range roleIDs {
-		userRole := &model.UserRole{
-			UserID: userID,
-			RoleID: roleID,
-		}
-		if err := r.db.Create(userRole).Error; err != nil {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		// 删除旧的关联
+		if err := tx.Where("user_id = ?", userID).Delete(&model.UserRole{}).Error; err != nil {
 			return err
 		}
-	}
 
-	return nil
+		// 创建新的关联
+		for _, roleID := range roleIDs {
+			userRole := &model.UserRole{
+				UserID: userID,
+				RoleID: roleID,
+			}
+			if err := tx.Create(userRole).Error; err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 }
 
 // AddUserRole 添加单个用户角色（不删除已有角色）

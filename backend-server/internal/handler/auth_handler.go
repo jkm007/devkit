@@ -1,13 +1,16 @@
 package handler
 
 import (
-	"crypto/md5"
+	"crypto/sha256"
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
+	"backend-server/config"
 	"backend-server/internal/middleware"
 	"backend-server/internal/service"
+	"backend-server/pkg/database"
 	"backend-server/pkg/jwt"
 	"backend-server/pkg/response"
 
@@ -17,13 +20,20 @@ import (
 // AuthHandler 认证处理器
 type AuthHandler struct {
 	authService *service.AuthService
+	cfg         *config.Config
 }
 
 // NewAuthHandler 创建认证处理器
 func NewAuthHandler() *AuthHandler {
 	return &AuthHandler{
 		authService: service.NewAuthService(),
+		cfg:         config.Get(),
 	}
+}
+
+// cookieSecure 根据服务器模式决定 cookie 是否仅 HTTPS
+func (h *AuthHandler) cookieSecure() bool {
+	return h.cfg.Server.Mode == "release"
 }
 
 // Login 用户登录
@@ -58,22 +68,50 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	deviceID := c.GetHeader("X-Device-ID")
 	h.authService.RecordLoginDevice(result.ID, c.ClientIP(), c.GetHeader("User-Agent"), deviceID)
 
-	// 设置 RefreshToken 到 Cookie
-	c.SetCookie("jwt", result.AccessToken, 30*24*3600, "/", "", false, true)
+	// 设置 AccessToken 和 RefreshToken 到独立的 Cookie
+	c.SetCookie("access_token", result.AccessToken, 30*24*3600, "/", "", h.cookieSecure(), true)
+	c.SetCookie("refresh_token", result.RefreshToken, 30*24*3600, "/", "", h.cookieSecure(), true)
 
 	response.Success(c, result)
 }
 
 // Logout 用户登出
 // @Summary      用户登出
-// @Description  清除登录状态，删除 Cookie 中的 Token
+// @Description  清除登录状态，将 Token 加入黑名单
 // @Tags         认证
 // @Produce      json
 // @Success      200  {object}  response.Response "成功"
 // @Router       /auth/logout [post]
 func (h *AuthHandler) Logout(c *gin.Context) {
+	// 获取当前 Token 并加入黑名单
+	authHeader := c.GetHeader("Authorization")
+	if authHeader != "" {
+		parts := strings.SplitN(authHeader, " ", 2)
+		if len(parts) == 2 && parts[0] == "Bearer" {
+			tokenStr := parts[1]
+			// 将 Token 加入 Redis 黑名单，TTL 与 access token 一致
+			claims, err := jwt.Parse(tokenStr)
+			ttl := h.cfg.JWT.AccessTokenTTL
+			if err == nil && claims.ExpiresAt != nil {
+				remaining := time.Until(claims.ExpiresAt.Time)
+				if remaining > 0 {
+					ttl = remaining
+				}
+			}
+			blacklistKey := fmt.Sprintf("token_blacklist:%s", tokenStr)
+			database.GetRedis().Set(c, blacklistKey, "1", ttl)
+		}
+	}
+
+	// 同时清除 refresh token
+	userID := middleware.GetCurrentUserID(c)
+	if userID > 0 {
+		_ = h.authService.Logout(userID)
+	}
+
 	// 清除 Cookie
-	c.SetCookie("jwt", "", -1, "/", "", false, true)
+	c.SetCookie("access_token", "", -1, "/", "", h.cookieSecure(), true)
+	c.SetCookie("refresh_token", "", -1, "/", "", h.cookieSecure(), true)
 
 	response.Success(c, "")
 }
@@ -88,7 +126,7 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 // @Router       /auth/refresh [post]
 func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	// 从 Cookie 获取 RefreshToken
-	refreshToken, err := c.Cookie("jwt")
+	refreshToken, err := c.Cookie("refresh_token")
 	if err != nil {
 		response.Forbidden(c, "Forbidden Exception")
 		return
@@ -109,7 +147,7 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	}
 
 	// 用新的 RefreshToken 更新 Cookie
-	c.SetCookie("jwt", result.RefreshToken, 30*24*3600, "/", "", false, true)
+	c.SetCookie("refresh_token", result.RefreshToken, 30*24*3600, "/", "", h.cookieSecure(), true)
 
 	response.Success(c, result)
 }
@@ -232,7 +270,7 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 
 // GetPermissionVersion 获取权限版本
 // @Summary      获取权限版本
-// @Description  返回用户当前权限码的 MD5 hash，用于前端检测权限是否变更（轮询比对）
+// @Description  返回用户当前权限码的 SHA-256 hash，用于前端检测权限是否变更（轮询比对）
 // @Tags         认证
 // @Produce      json
 // @Security     BearerAuth
@@ -252,10 +290,14 @@ func (h *AuthHandler) GetPermissionVersion(c *gin.Context) {
 		return
 	}
 
-	// 排序后计算 hash，确保一致性
+	// 排序后计算 hash，确保一致性（使用 SHA-256 替代 MD5）
 	sort.Strings(codes)
-	hash := md5.Sum([]byte(strings.Join(codes, ",")))
-	version := fmt.Sprintf("%x", hash)
+	hash := sha256HashString(strings.Join(codes, ","))
+	response.Success(c, hash)
+}
 
-	response.Success(c, version)
+// sha256HashString 计算 SHA-256 哈希
+func sha256HashString(s string) string {
+	h := sha256.Sum256([]byte(s))
+	return fmt.Sprintf("%x", h)
 }

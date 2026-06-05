@@ -95,13 +95,13 @@ INSERT INTO sys_system_settings (group_key, `key`, value, label, type, options, 
 ('storage', 'storage_allowed_ext', '["jpg","png","gif","pdf","doc","docx","xls","xlsx","mp4","zip"]',
  '允许的文件类型', 'json', NULL, '允许上传的文件扩展名', 3, 0, 0, NOW(3), NOW(3));
 
--- MinIO 配置
+-- MinIO 配置（开发环境默认值，生产环境请通过管理后台修改）
 INSERT INTO sys_system_settings (group_key, `key`, value, label, type, tip, sort, is_public, is_sensitive, created_at, updated_at) VALUES
-('storage', 'minio_endpoint',    '""',    'MinIO Endpoint',  'string',  '如 localhost:9000',  4, 0, 0, NOW(3), NOW(3)),
-('storage', 'minio_access_key',  '""',    'MinIO AccessKey', 'string',  '',                   5, 0, 0, NOW(3), NOW(3)),
-('storage', 'minio_secret_key',  '""',    'MinIO SecretKey', 'string',  '',                   6, 0, 1, NOW(3), NOW(3)),
-('storage', 'minio_bucket',      '""',    'MinIO Bucket',    'string',  '存储桶名称',          7, 0, 0, NOW(3), NOW(3)),
-('storage', 'minio_use_ssl',     'false', 'MinIO SSL',       'boolean', '是否使用 HTTPS',      8, 0, 0, NOW(3), NOW(3));
+('storage', 'minio_endpoint',    '"10.0.50.108:9000"',  'MinIO Endpoint',  'string',  '如 localhost:9000',  4, 0, 0, NOW(3), NOW(3)),
+('storage', 'minio_access_key',  '"minioadmin"',        'MinIO AccessKey', 'string',  '',                   5, 0, 0, NOW(3), NOW(3)),
+('storage', 'minio_secret_key',  '"minioadmin123"',     'MinIO SecretKey', 'string',  '',                   6, 0, 1, NOW(3), NOW(3)),
+('storage', 'minio_bucket',      '"backend"',           'MinIO Bucket',    'string',  '存储桶名称',          7, 0, 0, NOW(3), NOW(3)),
+('storage', 'minio_use_ssl',     'false',               'MinIO SSL',       'boolean', '是否使用 HTTPS',      8, 0, 0, NOW(3), NOW(3));
 
 -- 阿里云 OSS 配置
 INSERT INTO sys_system_settings (group_key, `key`, value, label, type, tip, sort, is_public, is_sensitive, created_at, updated_at) VALUES

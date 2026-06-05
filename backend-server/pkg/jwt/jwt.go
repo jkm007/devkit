@@ -16,9 +16,9 @@ var (
 
 // Claims JWT 声明
 type Claims struct {
-	UserID   uint   `json:"user_id"`
-	Username string `json:"username"`
-	Role     string `json:"role"`
+	UserID   uint     `json:"user_id"`
+	Username string   `json:"username"`
+	Roles    []string `json:"roles"`
 	jwt.RegisteredClaims
 }
 
@@ -29,7 +29,7 @@ type TokenPair struct {
 }
 
 // Generate 生成 Token 对
-func Generate(userID uint, username, role string) (*TokenPair, error) {
+func Generate(userID uint, username string, roles []string) (*TokenPair, error) {
 	cfg := config.Get().JWT
 
 	now := time.Now()
@@ -38,7 +38,7 @@ func Generate(userID uint, username, role string) (*TokenPair, error) {
 	accessClaims := &Claims{
 		UserID:   userID,
 		Username: username,
-		Role:     role,
+		Roles:    roles,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(cfg.AccessTokenTTL)),
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -77,6 +77,10 @@ func Parse(tokenStr string) (*Claims, error) {
 	cfg := config.Get().JWT
 
 	token, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+		// 校验签名算法，防止 alg:none 攻击
+		if token.Method != jwt.SigningMethodHS256 {
+			return nil, errors.New("unexpected signing method")
+		}
 		return []byte(cfg.Secret), nil
 	})
 	if err != nil {

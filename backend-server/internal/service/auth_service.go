@@ -53,23 +53,25 @@ type LoginRequest struct {
 	CaptchaCode string           `json:"captchaCode"` // 验证码值
 	CaptchaType string           `json:"captchaType"` // 验证码类型
 	Points      []captcha.Point  `json:"points"`      // 点选验证码坐标
+	StartTime   int64            `json:"startTime"`   // 验证码生成时间（毫秒，用于时间检测）
 }
 
 // LoginResponse 登录响应
 type LoginResponse struct {
-	ID          uint     `json:"id"`
-	Username    string   `json:"username"`
-	Nickname    string   `json:"nickname"`
-	RealName    string   `json:"realName"`
-	Email       string   `json:"email"`
-	Phone       string   `json:"phone"`
-	Avatar      string   `json:"avatar"`
-	Gender      int      `json:"gender"`
-	Birthday    string   `json:"birthday,omitempty"`
-	Bio         string   `json:"bio"`
-	Roles       []string `json:"roles"`
-	HomePath    string   `json:"homePath,omitempty"`
-	AccessToken string   `json:"accessToken,omitempty"`
+	ID           uint     `json:"id"`
+	Username     string   `json:"username"`
+	Nickname     string   `json:"nickname"`
+	RealName     string   `json:"realName"`
+	Email        string   `json:"email"`
+	Phone        string   `json:"phone"`
+	Avatar       string   `json:"avatar"`
+	Gender       int      `json:"gender"`
+	Birthday     string   `json:"birthday,omitempty"`
+	Bio          string   `json:"bio"`
+	Roles        []string `json:"roles"`
+	HomePath     string   `json:"homePath,omitempty"`
+	AccessToken  string   `json:"accessToken,omitempty"`
+	RefreshToken string   `json:"refreshToken,omitempty"`
 }
 
 // loginFailCountKey 生成登录失败计数的 Redis key
@@ -132,14 +134,8 @@ func (s *AuthService) checkCaptcha(req *LoginRequest, clientIP string) error {
 		return errors.New("Please complete the captcha")
 	}
 
-	// 客户端验证码类型（旧版兼容）：前端传 captchaId="client-verified"
-	if req.CaptchaID == "client-verified" {
-		return nil
-	}
-
 	// 服务端验证码验证（支持所有类型）
-	// startTime 传 0 表示跳过时间检测（登录流程由前端控制）
-	valid, msg := captcha.Verify(req.CaptchaID, req.CaptchaCode, 0, req.Points)
+	valid, msg := captcha.Verify(req.CaptchaID, req.CaptchaCode, req.StartTime, req.Points)
 	if !valid {
 		return errors.New(msg)
 	}
@@ -229,8 +225,8 @@ func (s *AuthService) Login(req *LoginRequest, clientIP string) (*LoginResponse,
 		return nil, errors.New("User has no assigned roles")
 	}
 
-	// 生成 Token
-	tokenPair, err := jwt.Generate(user.ID, user.Name, roleNames[0])
+	// 生成 Token（包含所有角色）
+	tokenPair, err := jwt.Generate(user.ID, user.Name, roleNames)
 	if err != nil {
 		return nil, err
 	}
@@ -255,18 +251,19 @@ func (s *AuthService) Login(req *LoginRequest, clientIP string) (*LoginResponse,
 	}
 
 	return &LoginResponse{
-		ID:          user.ID,
-		Username:    user.Name,
-		Nickname:    user.Nickname,
-		RealName:    user.Name,
-		Email:       user.Email,
-		Phone:       user.Phone,
-		Avatar:      user.Avatar,
-		Gender:      user.Gender,
-		Birthday:    birthday,
-		Bio:         user.Bio,
-		Roles:       roleNames,
-		AccessToken: tokenPair.AccessToken,
+		ID:           user.ID,
+		Username:     user.Name,
+		Nickname:     user.Nickname,
+		RealName:     user.Name,
+		Email:        user.Email,
+		Phone:        user.Phone,
+		Avatar:       user.Avatar,
+		Gender:       user.Gender,
+		Birthday:     birthday,
+		Bio:          user.Bio,
+		Roles:        roleNames,
+		AccessToken:  tokenPair.AccessToken,
+		RefreshToken: tokenPair.RefreshToken,
 	}, nil
 }
 
@@ -299,8 +296,8 @@ func (s *AuthService) RefreshToken(userID uint, refreshToken string) (*TokenRefr
 		return nil, errors.New("User has no assigned roles")
 	}
 
-	// 3. 生成新的 Token 对（轮换）
-	tokenPair, err := jwt.Generate(user.ID, user.Name, roleNames[0])
+	// 3. 生成新的 Token 对（轮换，包含所有角色）
+	tokenPair, err := jwt.Generate(user.ID, user.Name, roleNames)
 	if err != nil {
 		return nil, err
 	}
@@ -683,6 +680,14 @@ func (s *AuthService) ChangePassword(userID uint, req *ChangePasswordRequest, ip
 	// 校验新密码和确认密码
 	if req.NewPassword != req.ConfirmPassword {
 		return fmt.Errorf("两次输入的密码不一致")
+	}
+
+	// 密码强度校验
+	if len(req.NewPassword) < 6 {
+		return fmt.Errorf("密码长度不能少于 6 位")
+	}
+	if len(req.NewPassword) > 128 {
+		return fmt.Errorf("密码长度不能超过 128 位")
 	}
 
 	user, err := s.userRepo.GetByID(userID)
