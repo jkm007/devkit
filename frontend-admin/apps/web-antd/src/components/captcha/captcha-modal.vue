@@ -35,7 +35,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   'update:visible': [value: boolean];
-  success: [data: { captchaId: string; captchaCode: string }];
+  success: [data: { captchaCode: string; captchaId: string; startTime?: number }];
   fail: [message: string];
   close: [];
 }>();
@@ -50,6 +50,7 @@ const captchaThumbY = ref(0);
 const captchaHintText = ref('');
 const captchaChars = ref<string[]>([]);
 const captchaPointCount = ref(4); // 点选验证码的点数
+const captchaStartTime = ref(0);
 const captchaResult = ref<{ valid: boolean; message: string } | null>(null);
 
 // 组件引用
@@ -99,6 +100,7 @@ async function loadCaptcha() {
       captchaHintText.value = (data as any).hint_text || '';
       captchaChars.value = (data as any).chars || [];
       captchaPointCount.value = (data as any).chars?.length || 4; // 点选数量
+      captchaStartTime.value = (data as any).start_time || Date.now();
     } else {
       emit('fail', '获取验证码失败');
       modalVisible.value = false;
@@ -118,6 +120,7 @@ function resetState() {
   captchaThumbY.value = 0;
   captchaHintText.value = '';
   captchaChars.value = [];
+  captchaStartTime.value = 0;
   captchaResult.value = null;
   if (backendCaptchaRef.value) {
     backendCaptchaRef.value.refresh?.();
@@ -130,7 +133,7 @@ function resetState() {
 async function handleCaptchaSuccess(data: { captchaCode: string; captchaId: string }) {
   // 公开模式：直接返回验证数据，不调用验证接口
   if (props.public) {
-    emit('success', { captchaId: captchaId.value, captchaCode: data.captchaCode });
+    emit('success', { captchaId: captchaId.value, captchaCode: data.captchaCode, startTime: captchaStartTime.value });
     setTimeout(() => {
       modalVisible.value = false;
     }, 500);

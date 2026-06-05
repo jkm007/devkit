@@ -42,11 +42,14 @@ export const useAuthStore = defineStore('auth', () => {
     let userInfo: null | UserInfo = null;
     try {
       loginLoading.value = true;
-      const { accessToken } = await loginApi(params);
+      const { accessToken, refreshToken } = await loginApi(params);
 
       // 如果成功获取到 accessToken
       if (accessToken) {
         accessStore.setAccessToken(accessToken);
+        if (refreshToken) {
+          accessStore.setRefreshToken(refreshToken);
+        }
 
         // 获取用户信息、权限码、权限版本
         const [fetchUserInfoResult, accessCodes, permVersion] =

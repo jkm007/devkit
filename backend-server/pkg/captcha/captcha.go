@@ -70,6 +70,7 @@ type CaptchaData struct {
 	Width     int      `json:"width,omitempty"`      // 图片宽度（前端可能需要）
 	Height    int      `json:"height,omitempty"`     // 图片高度（前端可能需要）
 	Length    int      `json:"length,omitempty"`     // 数字验证码长度
+	StartTime int64    `json:"start_time,omitempty"` // 验证码生成时间戳（毫秒，用于时间检测）
 }
 
 // CaptchaStore 存储在 Redis 中的数据
@@ -265,18 +266,29 @@ func RefreshConfig() {
 func Generate(captchaType string) (*CaptchaData, error) {
 	config := GetConfig()
 
+	var data *CaptchaData
+	var err error
+
 	switch captchaType {
 	case "slider":
-		return generateGoSlide(config)
+		data, err = generateGoSlide(config)
 	case "puzzle":
-		return generateGoPuzzle(config)
+		data, err = generateGoPuzzle(config)
 	case "rotation":
-		return generateGoRotation(config)
+		data, err = generateGoRotation(config)
 	case "point":
-		return generateGoClick(config)
+		data, err = generateGoClick(config)
 	default:
-		return generateGoNumeric(config)
+		data, err = generateGoNumeric(config)
 	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	// 返回验证码生成时间（与 Redis 中存储的 StartTime 一致，用于前端时间检测）
+	data.StartTime = time.Now().UnixMilli()
+	return data, nil
 }
 
 // Verify 根据类型验证验证码（使用配置）

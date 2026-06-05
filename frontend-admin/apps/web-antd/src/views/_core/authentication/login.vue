@@ -36,7 +36,7 @@ const settingsLoaded = ref(false);
 // 弹框验证码状态
 const captchaModalVisible = ref(false);
 const captchaVerified = ref(false);
-const captchaResult = ref<{ captchaId: string; captchaCode: string } | null>(null);
+const captchaResult = ref<{ captchaId: string; captchaCode: string; startTime?: number } | null>(null);
 
 // 待登录参数（验证成功后继续登录）
 const pendingLoginParams = ref<Record<string, any> | null>(null);
@@ -116,7 +116,7 @@ function openCaptchaModal() {
 }
 
 // 弹框验证成功
-function onCaptchaModalSuccess(data: { captchaId: string; captchaCode: string }) {
+function onCaptchaModalSuccess(data: { captchaId: string; captchaCode: string; startTime?: number }) {
   captchaVerified.value = true;
   captchaResult.value = data;
   message.success('验证通过');
@@ -258,6 +258,7 @@ function doLogin(params: Record<string, any>, captchaData?: { captchaId: string;
     loginParams.captchaId = captchaData.captchaId;
     loginParams.captchaCode = captchaData.captchaCode;
     loginParams.captchaType = captchaType.value;
+    loginParams.startTime = (captchaData as any).startTime || 0;
     if (captchaType.value === 'point' && captchaData.captchaCode) {
       loginParams.points = JSON.parse(captchaData.captchaCode);
     }
@@ -265,6 +266,7 @@ function doLogin(params: Record<string, any>, captchaData?: { captchaId: string;
     loginParams.captchaId = captchaResult.value.captchaId;
     loginParams.captchaCode = captchaResult.value.captchaCode;
     loginParams.captchaType = captchaType.value;
+    loginParams.startTime = captchaResult.value.startTime || 0;
     if (captchaType.value === 'point' && captchaResult.value.captchaCode) {
       loginParams.points = JSON.parse(captchaResult.value.captchaCode);
     }
