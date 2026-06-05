@@ -97,3 +97,13 @@ func InternalError(c *gin.Context, msg string) {
 func TooManyRequests(c *gin.Context, msg string) {
 	Fail(c, http.StatusTooManyRequests, msg)
 }
+
+// CaptchaRequired 需要验证码验证 (HTTP 200, code=403001)
+func CaptchaRequired(c *gin.Context, msg string) {
+	c.JSON(http.StatusOK, Response{
+		Code:    403001,
+		Data:    nil,
+		Error:   nil,
+		Message: msg,
+	})
+}

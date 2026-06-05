@@ -6,6 +6,7 @@ import { preferences, usePreferences } from '@vben/preferences';
 
 import { App, ConfigProvider, theme } from 'ant-design-vue';
 
+import CaptchaVerifyModal from '#/components/captcha/captcha-verify-modal.vue';
 import { antdLocale } from '#/locales';
 
 defineOptions({ name: 'App' });
@@ -34,6 +35,7 @@ const tokenTheme = computed(() => {
   <ConfigProvider :locale="antdLocale" :theme="tokenTheme">
     <App>
       <RouterView />
+      <CaptchaVerifyModal />
     </App>
   </ConfigProvider>
 </template>

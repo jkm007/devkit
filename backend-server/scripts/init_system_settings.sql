@@ -137,3 +137,30 @@ INSERT INTO sys_system_settings (group_key, `key`, value, label, type, tip, sort
 ('security', 'password_history_count', '5',    '密码历史检查次数', 'number',  '修改密码时检查最近N次是否重复',   5, 0, 0, NOW(3), NOW(3)),
 ('security', 'session_timeout',        '60',   '会话超时(分钟)',   'number',  '前端无操作自动登出时间',          6, 0, 0, NOW(3), NOW(3)),
 ('security', 'allow_multi_device',     'true', '允许多设备登录',   'boolean', '关闭后新设备登录会踢出旧设备',    7, 0, 0, NOW(3), NOW(3));
+
+-- 风险评分配置
+INSERT INTO sys_system_settings (group_key, `key`, value, label, type, tip, sort, is_public, is_sensitive, created_at, updated_at) VALUES
+('risk_score', 'risk_enabled',        'true',  '启用风险评分',         'boolean', '开启后对敏感接口进行风险评估，高风险请求需要验证码', 1, 0, 0, NOW(3), NOW(3)),
+('risk_score', 'risk_trigger_score',  '50',    '触发验证码阈值',       'number',  '风险分达到此值时要求验证码',                         2, 0, 0, NOW(3), NOW(3)),
+('risk_score', 'risk_block_score',    '80',    '直接拦截阈值',         'number',  '风险分达到此值时直接拒绝请求（0=不拦截）',            3, 0, 0, NOW(3), NOW(3)),
+('risk_score', 'risk_decay_minutes',  '30',    '分数衰减周期(分钟)',    'number',  '无请求后风险分开始衰减的时间',                       4, 0, 0, NOW(3), NOW(3)),
+('risk_score', 'risk_decay_rate',     '0.5',   '衰减比例',             'number',  '每个衰减周期风险分减少的比例（0-1）',                 5, 0, 0, NOW(3), NOW(3)),
+('risk_score', 'risk_protected_paths','"/system/user,/system/role,/system/group,/system/settings"', '受保护路径前缀', 'string', '需要风险评估的API路径前缀（逗号分隔）', 6, 0, 0, NOW(3), NOW(3)),
+
+('risk_score', 'rule_frequency_enabled',   'true',  '频率检测-启用',           'boolean', '',  10, 0, 0, NOW(3), NOW(3)),
+('risk_score', 'rule_frequency_threshold', '30',    '频率检测-每分钟请求阈值',  'number',  '',  11, 0, 0, NOW(3), NOW(3)),
+('risk_score', 'rule_frequency_score',     '30',    '频率检测-超限加分',        'number',  '',  12, 0, 0, NOW(3), NOW(3)),
+
+('risk_score', 'rule_no_referer_enabled',  'true',  '无Referer检测-启用',      'boolean', '直接调用API而非从页面发起的请求通常没有Referer', 20, 0, 0, NOW(3), NOW(3)),
+('risk_score', 'rule_no_referer_score',    '20',    '无Referer检测-加分',      'number',  '',  21, 0, 0, NOW(3), NOW(3)),
+
+('risk_score', 'rule_no_lang_enabled',     'true',  '无Accept-Language-启用',  'boolean', '机器请求通常不携带Accept-Language头', 30, 0, 0, NOW(3), NOW(3)),
+('risk_score', 'rule_no_lang_score',       '15',    '无Accept-Language-加分',  'number',  '',  31, 0, 0, NOW(3), NOW(3)),
+
+('risk_score', 'rule_ua_enabled',          'true',  'UA异常检测-启用',         'boolean', '',  40, 0, 0, NOW(3), NOW(3)),
+('risk_score', 'rule_ua_keywords',         '"curl,python,java,go-http,postman,scrapy,requests,httpie"', 'UA异常关键词', 'string', '包含这些关键词的User-Agent视为异常（逗号分隔）', 41, 0, 0, NOW(3), NOW(3)),
+('risk_score', 'rule_ua_score',            '25',    'UA异常检测-加分',         'number',  '',  42, 0, 0, NOW(3), NOW(3)),
+
+('risk_score', 'rule_interval_enabled',    'true',  '请求间隔检测-启用',       'boolean', '短时间内大量请求视为异常', 60, 0, 0, NOW(3), NOW(3)),
+('risk_score', 'rule_interval_min_ms',     '500',   '最小请求间隔(毫秒)',      'number',  '',  61, 0, 0, NOW(3), NOW(3)),
+('risk_score', 'rule_interval_score',      '20',    '间隔过短-加分',           'number',  '',  62, 0, 0, NOW(3), NOW(3));

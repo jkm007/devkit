@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"backend-server/config"
+	"backend-server/internal/middleware"
 	"backend-server/internal/router"
 	"backend-server/internal/service"
 	"backend-server/internal/ws"
@@ -38,6 +39,31 @@ func main() {
 	if cfg.Captcha.Secret != "" {
 		captcha.SetSecret([]byte(cfg.Captcha.Secret))
 	}
+
+	// 初始化风险评分配置获取器
+	middleware.SetRiskConfigGetter(func() *middleware.RiskConfigGetter {
+		rc := service.GetRiskConfig()
+		rules := make([]middleware.RiskRuleItem, len(rc.Rules))
+		for i, r := range rc.Rules {
+			rules[i] = middleware.RiskRuleItem{
+				Key:       r.Key,
+				Enabled:   r.Enabled,
+				Score:     r.Score,
+				Threshold: r.Threshold,
+				Keywords:  r.Keywords,
+			}
+		}
+		return &middleware.RiskConfigGetter{
+			Enabled:      rc.Enabled,
+			TriggerScore: rc.TriggerScore,
+			BlockScore:   rc.BlockScore,
+			DecayMinutes: rc.DecayMinutes,
+			DecayRate:    rc.DecayRate,
+			Paths:        rc.Paths,
+			Rules:        rules,
+		}
+	})
+
 	defer logger.Sync()
 
 	// 3. 初始化数据库

@@ -18,6 +18,7 @@ import { message } from 'ant-design-vue';
 import { useAuthStore } from '#/store';
 
 import { getDeviceId } from '#/utils/device-id';
+import { showCaptchaVerify } from '#/utils/captcha-verify';
 import { refreshTokenApi } from './core';
 
 const { apiURL } = useAppConfig(import.meta.env, import.meta.env.PROD);
@@ -80,6 +81,32 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
       config.headers['Accept-Language'] = preferences.app.locale;
       config.headers['X-Device-ID'] = getDeviceId();
       return config;
+    },
+  });
+
+  // 风险评分拦截：处理 403001 需要验证码的情况（在数据解包之前拦截，保留原始 config）
+  client.addResponseInterceptor({
+    fulfilled: async (response: any) => {
+      const data = response?.data;
+      if (data?.code === 403001 && !response.config?._captchaRetried) {
+        try {
+          const result = await showCaptchaVerify();
+          const config = { ...response.config, _captchaRetried: true };
+          config.headers = {
+            ...config.headers,
+            'X-Captcha-Id': result.captchaId,
+            'X-Captcha-Code': result.captchaCode,
+          };
+          return client.instance.request(config);
+        } catch {
+          message.warning('操作已取消');
+          return Promise.reject(new Error('验证码验证已取消'));
+        }
+      }
+      return response;
+    },
+    rejected: async (error: any) => {
+      return Promise.reject(error);
     },
   });
 

@@ -77,6 +77,7 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	authorized := r.Group("")
 	authorized.Use(middleware.JWTAuth())
 	authorized.Use(middleware.SecurityLogMiddleware())
+	authorized.Use(middleware.CaptchaGuard())
 	{
 		// 用户信息
 		authorized.GET("/user/info", authHandler.GetUserInfo)

@@ -16,13 +16,14 @@ import (
 
 // 有效分组列表
 var validGroups = map[string]bool{
-	"basic":     true,
-	"email":     true,
-	"sms":       true,
-	"captcha":   true,
-	"storage":   true,
-	"wechat":    true,
-	"security":  true,
+	"basic":      true,
+	"email":      true,
+	"sms":        true,
+	"captcha":    true,
+	"storage":    true,
+	"wechat":     true,
+	"security":   true,
+	"risk_score": true,
 }
 
 // SystemSettingService 系统配置服务
@@ -177,11 +178,13 @@ func (s *SystemSettingService) Update(req *UpdateSettingsRequest, userID uint) (
 		return nil, err
 	}
 
-	// 如果更新了 captcha 配置，刷新缓存
+	// 如果更新了 captcha 或 risk_score 配置，刷新缓存
 	for groupKey := range req.Settings {
 		if groupKey == "captcha" {
 			captcha.RefreshConfig()
-			break
+		}
+		if groupKey == "risk_score" {
+			RefreshRiskConfig()
 		}
 	}
 
@@ -248,9 +251,12 @@ func (s *SystemSettingService) UpdateByGroup(groupKey string, req *SettingGroupU
 		return nil, err
 	}
 
-	// 如果更新了 captcha 配置，刷新缓存
+	// 如果更新了 captcha 或 risk_score 配置，刷新缓存
 	if groupKey == "captcha" {
 		captcha.RefreshConfig()
+	}
+	if groupKey == "risk_score" {
+		RefreshRiskConfig()
 	}
 
 	return &UpdateResult{
