@@ -2,19 +2,25 @@
 import type { VbenFormSchema } from '@vben/common-ui';
 import type { BasicOption } from '@vben/types';
 
-import { computed, markRaw, onMounted, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, markRaw, onMounted, ref, watch } from 'vue';
 
 import {
   AuthenticationLogin,
-  NumericCaptcha,
   z,
 } from '@vben/common-ui';
 import { $t } from '@vben/locales';
 import { message } from 'ant-design-vue';
 
-import CaptchaModal from '#/components/captcha/captcha-modal.vue';
 import { getCaptcha, getPublicSettings } from '#/api/system/settings';
 import { useAuthStore } from '#/store';
+
+// 动态导入验证码组件，避免影响其他 authentication 页面
+const CaptchaModal = defineAsyncComponent(() =>
+  import('#/components/captcha/captcha-modal.vue')
+);
+const NumericCaptcha = defineAsyncComponent(() =>
+  import('@vben/common-ui').then((m) => m.NumericCaptcha)
+);
 
 defineOptions({ name: 'Login' });
 
@@ -272,12 +278,8 @@ function doLogin(params: Record<string, any>, captchaData?: { captchaId: string;
       captchaResult.value = null;
 
       // 数字验证码需要重新获取
-      if (isNumericCaptcha.value) {
+      if (isNumericCaptcha.value && shouldShowCaptcha.value) {
         fetchNumericCaptcha();
-      } else if (isModalCaptcha.value) {
-        // 弹框验证码：重新弹出验证框
-        pendingLoginParams.value = params;
-        captchaModalVisible.value = true;
       }
     }
   });

@@ -13,18 +13,16 @@ defineProps<{
     class="relative flex-col-center bg-background px-6 py-10 lg:flex-initial lg:px-8 dark:bg-background-deep"
   >
     <slot></slot>
-    <!-- Router View with Transition and KeepAlive -->
+    <!-- Router View (removed transition to fix blank page issue) -->
     <RouterView v-slot="{ Component, route }">
-      <Transition appear mode="out-in" name="slide-right">
-        <KeepAlive :include="['Login']">
-          <component
-            :is="Component"
-            :key="route.fullPath"
-            class="side-content mt-6 w-full sm:mx-auto md:max-w-md"
-            :data-side="dataSide"
-          />
-        </KeepAlive>
-      </Transition>
+      <KeepAlive :include="['Login']">
+        <component
+          :is="Component"
+          :key="route.fullPath"
+          class="side-content mt-6 w-full sm:mx-auto md:max-w-md"
+          :data-side="dataSide"
+        />
+      </KeepAlive>
     </RouterView>
 
     <!-- Footer Copyright -->
