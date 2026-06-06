@@ -19,6 +19,7 @@ import (
 type UploadService struct {
 	uploadRepo *repository.UploadRepo
 	assetRepo  *repository.FileAssetRepo
+	fileRepo   *repository.FileRepo
 }
 
 func NewUploadService() *UploadService {
@@ -26,6 +27,7 @@ func NewUploadService() *UploadService {
 	return &UploadService{
 		uploadRepo: repository.NewUploadRepo(db),
 		assetRepo:  repository.NewFileAssetRepo(db),
+		fileRepo:   repository.NewFileRepo(db),
 	}
 }
 
@@ -220,6 +222,17 @@ func (s *UploadService) CompleteUpload(uploadID string) (*CompleteResult, error)
 		RefCount:    1,
 	}
 	s.assetRepo.Create(asset)
+
+	// 创建文件条目（用于文件列表显示）
+	entry := &model.FileEntry{
+		FolderID:     0, // 根目录
+		FileAssetID:  asset.ID,
+		Name:         task.FileName,
+		Size:         task.FileSize,
+		ContentType:  task.ContentType,
+		UserID:       task.UserID,
+	}
+	s.fileRepo.CreateEntry(entry)
 
 	// 清理 Redis
 	rdb := database.GetRedis()
