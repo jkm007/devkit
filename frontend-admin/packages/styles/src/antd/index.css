@@ -7,6 +7,26 @@
   color: inherit;
 }
 
+/* 修复浅色模式下 placeholder 颜色对比度不足 */
+.ant-input::placeholder,
+.ant-input-affix-wrapper input::placeholder,
+.ant-select-selection-placeholder,
+.ant-picker input::placeholder,
+.ant-input-number input::placeholder,
+.ant-input-search input::placeholder {
+  color: hsl(var(--input-placeholder));
+}
+
+/* 深色模式下 placeholder 样式 */
+:is(.dark *) .ant-input::placeholder,
+:is(.dark *) .ant-input-affix-wrapper input::placeholder,
+:is(.dark *) .ant-select-selection-placeholder,
+:is(.dark *) .ant-picker input::placeholder,
+:is(.dark *) .ant-input-number input::placeholder,
+:is(.dark *) .ant-input-search input::placeholder {
+  color: hsl(var(--input-placeholder));
+}
+
 .ant-btn {
   .anticon {
     display: inline-flex;
