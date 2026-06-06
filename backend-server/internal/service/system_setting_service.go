@@ -17,6 +17,7 @@ import (
 // 有效分组列表
 var validGroups = map[string]bool{
 	"basic":      true,
+	"auth":       true,
 	"email":      true,
 	"sms":        true,
 	"captcha":    true,
@@ -523,8 +524,8 @@ func toJSONValue(val interface{}, typ string) (string, error) {
 			return "", fmt.Errorf("not a valid boolean: %v", v)
 		}
 
-	case "json":
-		// JSON 类型：直接存储
+	case "json", "array":
+		// JSON/Array 类型：直接存储
 		switch v := val.(type) {
 		case string:
 			// 验证是否为合法 JSON
