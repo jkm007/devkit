@@ -54,6 +54,11 @@ const groupConfig: Record<
     title: $t('system.settings.groups.basic'),
     description: $t('system.settings.groupDesc.basic'),
   },
+  auth: {
+    icon: '🔐',
+    title: '认证设置',
+    description: '管理登录方式的启用与配置',
+  },
   email: {
     icon: '📧',
     title: $t('system.settings.groups.email'),
@@ -93,6 +98,7 @@ const groupConfig: Record<
 
 const ALL_GROUPS = [
   'basic',
+  'auth',
   'email',
   'sms',
   'captcha',
@@ -1577,6 +1583,49 @@ onMounted(() => {
                     v-else-if="item.type === 'boolean'"
                     v-model:checked="formValues.wechat[item.key]"
                   />
+                </div>
+              </Col>
+            </Row>
+          </div>
+
+          <!-- ==================== 认证设置 ==================== -->
+          <div
+            v-else-if="activeGroup === 'auth' && formValues.auth"
+          >
+            <Alert
+              message="配置登录方式的开启与关闭"
+              type="info"
+              show-icon
+              class="mb-4"
+            />
+            <Row :gutter="[16, 16]">
+              <Col
+                v-for="item in currentGroupItems"
+                :key="item.key"
+                :span="12"
+              >
+                <div class="setting-item">
+                  <label class="setting-label">
+                    {{ item.label }}
+                    <Tooltip v-if="item.tip" :title="item.tip">
+                      <span class="text-foreground/40 ml-1 cursor-help">ⓘ</span>
+                    </Tooltip>
+                  </label>
+                  <Switch
+                    v-if="item.type === 'boolean'"
+                    v-model:checked="formValues.auth[item.key]"
+                  />
+                  <Select
+                    v-else-if="item.type === 'array'"
+                    v-model:value="formValues.auth[item.key]"
+                    mode="tags"
+                    class="w-full"
+                    :placeholder="item.tip || '选择启用的提供商'"
+                  >
+                    <SelectOption value="github">GitHub</SelectOption>
+                    <SelectOption value="wechat">微信</SelectOption>
+                    <SelectOption value="google">Google</SelectOption>
+                  </Select>
                 </div>
               </Col>
             </Row>
