@@ -12,6 +12,7 @@ import (
 	"backend-server/internal/repository"
 	"backend-server/pkg/captcha"
 	"backend-server/pkg/database"
+	"backend-server/pkg/storage"
 )
 
 // 有效分组列表
@@ -187,6 +188,11 @@ func (s *SystemSettingService) Update(req *UpdateSettingsRequest, userID uint) (
 		if groupKey == "risk_score" {
 			RefreshRiskConfig()
 		}
+		if groupKey == "storage" {
+			if err := storage.RefreshStorage(); err != nil {
+				return nil, fmt.Errorf("刷新存储配置失败: %w", err)
+			}
+		}
 	}
 
 	return &UpdateResult{
@@ -258,6 +264,11 @@ func (s *SystemSettingService) UpdateByGroup(groupKey string, req *SettingGroupU
 	}
 	if groupKey == "risk_score" {
 		RefreshRiskConfig()
+	}
+	if groupKey == "storage" {
+		if err := storage.RefreshStorage(); err != nil {
+			return nil, fmt.Errorf("刷新存储配置失败: %w", err)
+		}
 	}
 
 	return &UpdateResult{

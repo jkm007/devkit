@@ -5,7 +5,6 @@ import (
 	"backend-server/internal/handler"
 	"backend-server/internal/middleware"
 	"backend-server/internal/ws"
-	"backend-server/pkg/storage"
 
 	_ "backend-server/docs" // swagger docs
 
@@ -15,7 +14,7 @@ import (
 )
 
 // Setup 初始化路由
-func Setup(cfg *config.Config, hub *ws.Hub, storageInstance storage.Storage) *gin.Engine {
+func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	// 设置运行模式
 	gin.SetMode(cfg.Server.Mode)
 
@@ -44,9 +43,9 @@ func Setup(cfg *config.Config, hub *ws.Hub, storageInstance storage.Storage) *gi
 	systemSettingHandler := handler.NewSystemSettingHandler()
 	riskScoreHandler := handler.NewRiskScoreHandler()
 	wechatHandler := handler.NewWeChatHandler()
-	uploadHandler := handler.NewUploadHandler(storageInstance)
+	uploadHandler := handler.NewUploadHandler()
 	fileHandler := handler.NewFileHandler()
-	mediaHandler := handler.NewMediaHandler(storageInstance)
+	mediaHandler := handler.NewMediaHandler()
 
 	// 健康检查
 	// @Summary      健康检查

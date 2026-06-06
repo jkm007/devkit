@@ -14,14 +14,12 @@ import (
 type MediaHandler struct {
 	mediaService *service.MediaService
 	fileService  *service.FileService
-	storage      storage.Storage
 }
 
-func NewMediaHandler(storageInstance storage.Storage) *MediaHandler {
+func NewMediaHandler() *MediaHandler {
 	return &MediaHandler{
 		mediaService: service.NewMediaService(),
 		fileService:  service.NewFileService(),
-		storage:      storageInstance,
 	}
 }
 
@@ -79,7 +77,7 @@ func (h *MediaHandler) GetStream(c *gin.Context) {
 	// 检查是否有 HLS 转码
 	media, _ := h.mediaService.GetMediaInfo(asset.ID)
 	if media != nil && media.TranscodeStatus == "completed" && media.HLSPath != "" {
-		url, err := h.storage.GetPresignedURL(c, media.HLSPath, 3600)
+		url, err := storage.GetStorage().GetPresignedURL(c, media.HLSPath, 3600)
 		if err != nil {
 			response.InternalError(c, err.Error())
 			return
@@ -89,7 +87,7 @@ func (h *MediaHandler) GetStream(c *gin.Context) {
 	}
 
 	// 原始文件 presigned URL
-	url, err := h.storage.GetPresignedURL(c, asset.ObjectKey, 3600)
+	url, err := storage.GetStorage().GetPresignedURL(c, asset.ObjectKey, 3600)
 	if err != nil {
 		response.InternalError(c, err.Error())
 		return
@@ -119,7 +117,7 @@ func (h *MediaHandler) DownloadFile(c *gin.Context) {
 		return
 	}
 
-	url, err := h.storage.GetPresignedURL(c, asset.ObjectKey, 3600)
+	url, err := storage.GetStorage().GetPresignedURL(c, asset.ObjectKey, 3600)
 	if err != nil {
 		response.InternalError(c, err.Error())
 		return

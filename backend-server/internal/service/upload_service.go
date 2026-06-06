@@ -19,21 +19,27 @@ import (
 
 // UploadService 文件上传服务
 type UploadService struct {
-	storage     storage.Storage
-	uploader    storage.MultipartUploader
-	uploadRepo  *repository.UploadRepo
-	assetRepo   *repository.FileAssetRepo
+	uploadRepo *repository.UploadRepo
+	assetRepo  *repository.FileAssetRepo
 }
 
-func NewUploadService(storageInstance storage.Storage) *UploadService {
+func NewUploadService() *UploadService {
 	db := database.GetMySQL()
-	uploader, _ := storageInstance.(storage.MultipartUploader)
 	return &UploadService{
-		storage:    storageInstance,
-		uploader:   uploader,
 		uploadRepo: repository.NewUploadRepo(db),
 		assetRepo:  repository.NewFileAssetRepo(db),
 	}
+}
+
+// getStorage 获取当前存储实例
+func (s *UploadService) getStorage() storage.Storage {
+	return storage.GetStorage()
+}
+
+// getUploader 获取分片上传器（如果支持）
+func (s *UploadService) getUploader() storage.MultipartUploader {
+	uploader, _ := s.getStorage().(storage.MultipartUploader)
+	return uploader
 }
 
 // CheckResult 秒传检查结果
@@ -59,7 +65,7 @@ func (s *UploadService) CheckUpload(fileHash string, fileSize int64) (*CheckResu
 	return &CheckResult{
 		Exists:    true,
 		ObjectKey: asset.ObjectKey,
-		URL:       s.storage.GetURL(asset.ObjectKey),
+		URL:       s.getStorage().GetURL(asset.ObjectKey),
 	}, nil
 }
 
@@ -71,7 +77,8 @@ type InitResult struct {
 
 // InitUpload 初始化分片上传
 func (s *UploadService) InitUpload(userID uint, fileName string, fileSize int64, fileHash string, contentType string, totalParts int) (*InitResult, error) {
-	if s.uploader == nil {
+	uploader := s.getUploader()
+	if uploader == nil {
 		return nil, fmt.Errorf("当前存储驱动不支持分片上传")
 	}
 
@@ -89,8 +96,8 @@ func (s *UploadService) InitUpload(userID uint, fileName string, fileSize int64,
 		fileHash[:16], // 取前16位作为路径
 		ext)
 
-	// 初始化 MinIO 分片上传
-	if _, err := s.uploader.InitiateUpload(context.Background(), objectKey, contentType); err != nil {
+	// 初始化分片上传
+	if _, err := uploader.InitiateUpload(context.Background(), objectKey, contentType); err != nil {
 		return nil, err
 	}
 
@@ -129,7 +136,8 @@ type UploadPartResult struct {
 
 // UploadPart 上传分片
 func (s *UploadService) UploadPart(uploadID string, partNumber int, reader interface{}, size int64) (*UploadPartResult, error) {
-	if s.uploader == nil {
+	uploader := s.getUploader()
+	if uploader == nil {
 		return nil, fmt.Errorf("当前存储驱动不支持分片上传")
 	}
 
@@ -141,12 +149,12 @@ func (s *UploadService) UploadPart(uploadID string, partNumber int, reader inter
 		return nil, fmt.Errorf("上传任务已结束")
 	}
 
-	// 上传到 MinIO
+	// 上传到存储
 	rdr, ok := reader.(interface{ Read([]byte) (int, error) })
 	if !ok {
 		return nil, fmt.Errorf("无效的 reader")
 	}
-	etag, err := s.uploader.UploadPart(context.Background(), task.ObjectKey, uploadID, partNumber, rdr, size)
+	etag, err := uploader.UploadPart(context.Background(), task.ObjectKey, uploadID, partNumber, rdr, size)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +184,8 @@ type CompleteResult struct {
 
 // CompleteUpload 合并分片
 func (s *UploadService) CompleteUpload(uploadID string) (*CompleteResult, error) {
-	if s.uploader == nil {
+	uploader := s.getUploader()
+	if uploader == nil {
 		return nil, fmt.Errorf("当前存储驱动不支持分片上传")
 	}
 
@@ -201,7 +210,7 @@ func (s *UploadService) CompleteUpload(uploadID string) (*CompleteResult, error)
 	}
 
 	// 合并
-	url, err := s.uploader.CompleteUpload(context.Background(), task.ObjectKey, uploadID, completedParts)
+	url, err := uploader.CompleteUpload(context.Background(), task.ObjectKey, uploadID, completedParts)
 	if err != nil {
 		return nil, err
 	}
@@ -237,8 +246,8 @@ func (s *UploadService) AbortUpload(uploadID string) error {
 		return nil // 任务不存在，视为成功
 	}
 
-	if s.uploader != nil {
-		s.uploader.AbortUpload(context.Background(), task.ObjectKey, uploadID)
+	if uploader := s.getUploader(); uploader != nil {
+		uploader.AbortUpload(context.Background(), task.ObjectKey, uploadID)
 	}
 
 	s.uploadRepo.UpdateTaskStatus(uploadID, "aborted")
@@ -286,8 +295,8 @@ func (s *UploadService) CleanupStaleUploads(olderThan time.Duration) error {
 	}
 
 	for _, task := range tasks {
-		if s.uploader != nil {
-			s.uploader.AbortUpload(context.Background(), task.ObjectKey, task.UploadID)
+		if uploader := s.getUploader(); uploader != nil {
+			uploader.AbortUpload(context.Background(), task.ObjectKey, task.UploadID)
 		}
 		s.uploadRepo.UpdateTaskStatus(task.UploadID, "aborted")
 		s.uploadRepo.DeletePartsByTaskID(task.ID)

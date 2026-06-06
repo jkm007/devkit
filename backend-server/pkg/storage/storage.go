@@ -2,8 +2,8 @@ package storage
 
 import (
 	"context"
+	"fmt"
 	"io"
-	"log"
 
 	"backend-server/config"
 )
@@ -63,30 +63,27 @@ type FileInfo struct {
 }
 
 // New 根据配置创建存储实例
-func New(cfg config.StorageConfig) Storage {
+func New(cfg config.StorageConfig) (Storage, error) {
 	switch cfg.Driver {
 	case "minio":
 		s, err := NewMinIOStorage(cfg.MinIO)
 		if err != nil {
-			log.Printf("[WARN] MinIO 初始化失败，回退到本地存储: %v", err)
-			return NewLocalStorage(cfg.Local)
+			return nil, fmt.Errorf("MinIO 初始化失败: %w", err)
 		}
-		return s
+		return s, nil
 	case "oss":
 		s, err := NewOSSStorage(cfg.OSS)
 		if err != nil {
-			log.Printf("[WARN] OSS 初始化失败，回退到本地存储: %v", err)
-			return NewLocalStorage(cfg.Local)
+			return nil, fmt.Errorf("OSS 初始化失败: %w", err)
 		}
-		return s
+		return s, nil
 	case "cos":
 		s, err := NewCOStorage(cfg.COS)
 		if err != nil {
-			log.Printf("[WARN] COS 初始化失败，回退到本地存储: %v", err)
-			return NewLocalStorage(cfg.Local)
+			return nil, fmt.Errorf("COS 初始化失败: %w", err)
 		}
-		return s
+		return s, nil
 	default:
-		return NewLocalStorage(cfg.Local)
+		return NewLocalStorage(cfg.Local), nil
 	}
 }

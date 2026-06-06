@@ -19,18 +19,16 @@ import (
 
 // TranscodeWorker 视频转码 Worker
 type TranscodeWorker struct {
-	storage     storage.Storage
 	mediaSvc    *service.MediaService
 	ffmpegPath  string
 	concurrency int
 }
 
-func NewTranscodeWorker(storageInstance storage.Storage, ffmpegPath string) *TranscodeWorker {
+func NewTranscodeWorker(ffmpegPath string) *TranscodeWorker {
 	if ffmpegPath == "" {
 		ffmpegPath = "ffmpeg"
 	}
 	return &TranscodeWorker{
-		storage:     storageInstance,
 		mediaSvc:    service.NewMediaService(),
 		ffmpegPath:  ffmpegPath,
 		concurrency: 2,
@@ -169,7 +167,7 @@ func (w *TranscodeWorker) uploadHLSFiles(localDir, remotePrefix string) error {
 			contentType = "video/mp2t"
 		}
 
-		_, err = w.storage.Upload(context.Background(), remoteKey, file, contentType)
+		_, err = storage.GetStorage().Upload(context.Background(), remoteKey, file, contentType)
 		return err
 	})
 }

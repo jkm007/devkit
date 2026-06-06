@@ -7,7 +7,6 @@ import (
 	"backend-server/internal/middleware"
 	"backend-server/internal/service"
 	"backend-server/pkg/response"
-	"backend-server/pkg/storage"
 
 	"github.com/gin-gonic/gin"
 )
@@ -17,9 +16,9 @@ type UploadHandler struct {
 	uploadService *service.UploadService
 }
 
-func NewUploadHandler(storageInstance storage.Storage) *UploadHandler {
+func NewUploadHandler() *UploadHandler {
 	return &UploadHandler{
-		uploadService: service.NewUploadService(storageInstance),
+		uploadService: service.NewUploadService(),
 	}
 }
 

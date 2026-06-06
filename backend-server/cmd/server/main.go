@@ -94,15 +94,20 @@ func main() {
 		logger.Fatal("初始化默认用户失败", zap.Error(err))
 	}
 
-	// 7. 启动 WebSocket Hub
+	// 7. 初始化默认存储配置
+	if err := service.InitDefaultStorageSettings(cfg.Storage); err != nil {
+		logger.Fatal("初始化默认存储配置失败", zap.Error(err))
+	}
+
+	// 8. 启动 WebSocket Hub
 	hub := ws.NewHub()
 	go hub.Run()
 
-	// 8. 初始化存储
-	storageInstance := storage.New(cfg.Storage)
+	// 9. 初始化存储（优先从 DB 加载配置）
+	storage.InitStorage(cfg.Storage)
 
-	// 9. 初始化路由
-	r := router.Setup(cfg, hub, storageInstance)
+	// 10. 初始化路由
+	r := router.Setup(cfg, hub)
 
 	// 10. 启动 HTTP 服务
 	srv := &http.Server{
