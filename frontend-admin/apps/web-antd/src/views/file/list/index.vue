@@ -94,7 +94,8 @@ function formatFileSize(size: number) {
 
 async function loadFolderTree() {
   try {
-    folderTree.value = await getFolderTree();
+    const result = await getFolderTree();
+    folderTree.value = result || [];
   } catch {
     message.error('加载文件夹树失败');
   }
@@ -110,8 +111,8 @@ async function loadFileList() {
       page: pagination.value.current,
       pageSize: pagination.value.pageSize,
     });
-    fileList.value = result.items;
-    totalFiles.value = result.total;
+    fileList.value = result?.items || [];
+    totalFiles.value = result?.total || 0;
   } catch {
     message.error('加载文件列表失败');
   } finally {

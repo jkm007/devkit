@@ -233,13 +233,27 @@ export function downloadFile(id: number) {
 
 // ==================== 简单文件上传（用于头像等小文件） ====================
 
+/** 计算文件 hash（兼容非 HTTPS 环境） */
+async function calculateFileHash(file: File): Promise<string> {
+  // crypto.subtle 只在安全上下文（HTTPS 或 localhost）中可用
+  if (crypto?.subtle?.digest) {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+    } catch {
+      // fallback
+    }
+  }
+  // 非 HTTPS 环境：使用文件名+大小+时间戳生成简单标识
+  return `${file.name}_${file.size}_${Date.now()}`;
+}
+
 /** 简单上传（不分片） */
 export async function simpleUpload(file: File): Promise<FileApi.CompleteUploadResult> {
   // 计算文件 hash
-  const arrayBuffer = await file.arrayBuffer();
-  const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const fileHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  const fileHash = await calculateFileHash(file);
 
   // 先尝试秒传
   const checkResult = await checkUpload({ fileHash, fileSize: file.size });
