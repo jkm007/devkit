@@ -21,9 +21,12 @@ import {
 import { getUserInfo, updateProfile } from '#/api';
 import { $t } from '#/locales';
 
+import AvatarUpload from '#/components/avatar-upload/index.vue';
+
 const loading = ref(false);
 const saving = ref(false);
 const userInfo = ref<AccountApi.UserInfo>({} as AccountApi.UserInfo);
+const avatarUploadRef = ref<InstanceType<typeof AvatarUpload> | null>(null);
 
 const formState = ref({
   nickname: '',
@@ -70,16 +73,32 @@ async function handleSave() {
 onMounted(() => {
   loadUserInfo();
 });
+
+// 打开头像上传
+function handleAvatarChange() {
+  avatarUploadRef.value?.open();
+}
+
+// 头像上传成功后刷新用户信息
+async function handleAvatarSuccess(url: string) {
+  userInfo.value.avatar = url;
+}
 </script>
 
 <template>
   <div v-loading="loading">
     <div class="mb-6 flex items-center gap-4">
-      <VbenAvatar
-        :src="userInfo.avatar"
-        :alt="userInfo.username || 'avatar'"
-        :size="72"
-      />
+      <div class="avatar-wrapper cursor-pointer" @click="handleAvatarChange">
+        <VbenAvatar
+          :src="userInfo.avatar"
+          :alt="userInfo.username || 'avatar'"
+          :size="72"
+        />
+        <div class="avatar-overlay">
+          <span class="i-ant-design:camera-outlined text-lg" />
+          <span class="text-xs">{{ $t('file.avatar.change') }}</span>
+        </div>
+      </div>
       <div>
         <div class="text-xl font-medium">
           {{ userInfo.nickname || userInfo.username }}
@@ -92,6 +111,9 @@ onMounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- 头像上传组件 -->
+    <AvatarUpload ref="avatarUploadRef" @success="handleAvatarSuccess" />
 
     <Form layout="vertical" :model="formState">
       <Row :gutter="16">
@@ -164,3 +186,29 @@ onMounted(() => {
     </Form>
   </div>
 </template>
+
+<style scoped>
+.avatar-wrapper {
+  position: relative;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.avatar-wrapper:hover .avatar-overlay {
+  opacity: 1;
+}
+
+.avatar-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  color: white;
+}
+</style>
