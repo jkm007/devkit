@@ -20,6 +20,7 @@ import {
 } from '#/api';
 import { $t } from '#/locales';
 import { getDeviceId } from '#/utils/device-id';
+import { showCaptchaVerify } from '#/utils/captcha-verify';
 
 // ==================== 修改密码 ====================
 const passwordForm = ref({
@@ -34,9 +35,22 @@ async function handleChangePassword() {
     message.warning($t('account.security.passwordMismatch'));
     return;
   }
+
+  // 先弹验证码
+  let captchaResult: { captchaId: string; captchaCode: string };
+  try {
+    captchaResult = await showCaptchaVerify();
+  } catch {
+    return; // 用户取消
+  }
+
   changingPassword.value = true;
   try {
-    await changePassword(passwordForm.value);
+    await changePassword({
+      ...passwordForm.value,
+      captchaId: captchaResult.captchaId,
+      captchaCode: captchaResult.captchaCode,
+    });
     message.success($t('account.security.changePasswordSuccess'));
     passwordForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' };
   } catch {

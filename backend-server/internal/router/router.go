@@ -63,6 +63,7 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 
 	// 认证接口（无需认证）
 	captchaHandler := handler.NewCaptchaHandler()
+	verifyCodeHandler := handler.NewVerifyCodeHandler()
 	auth := r.Group("/auth")
 	{
 		// 验证码接口单独限流（每秒 5 个，突发 10）
@@ -71,6 +72,12 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		auth.POST("/logout", authHandler.Logout)
 		auth.POST("/refresh", authHandler.RefreshToken)
 		auth.GET("/oauth/callback", oauthHandler.Callback)
+		// 邮箱验证码（限流：每秒 1 个，突发 2）
+		auth.POST("/send-code", middleware.NewIPRateLimiter(1, 2), verifyCodeHandler.SendCode)
+		auth.POST("/verify-code", verifyCodeHandler.VerifyCode)
+		// 注册和重置密码
+		auth.POST("/register", authHandler.Register)
+		auth.POST("/reset-password", authHandler.ResetPassword)
 	}
 
 	// 需要认证的接口

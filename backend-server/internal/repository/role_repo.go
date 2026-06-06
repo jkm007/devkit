@@ -66,6 +66,15 @@ func (r *RoleRepo) GetByID(id uint) (*model.Role, error) {
 	return &role, nil
 }
 
+// GetByName 根据名称获取角色
+func (r *RoleRepo) GetByName(name string) (*model.Role, error) {
+	var role model.Role
+	if err := r.db.Where("name = ?", name).First(&role).Error; err != nil {
+		return nil, err
+	}
+	return &role, nil
+}
+
 // Create 创建角色
 func (r *RoleRepo) Create(role *model.Role) error {
 	return r.db.Create(role).Error

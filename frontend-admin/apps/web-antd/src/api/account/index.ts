@@ -40,6 +40,8 @@ export namespace AccountApi {
     oldPassword: string;
     newPassword: string;
     confirmPassword: string;
+    captchaId?: string;
+    captchaCode?: string;
   }
 
   /** 登录设备 */

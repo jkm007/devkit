@@ -57,3 +57,42 @@ export async function getAccessCodesApi() {
 export async function getPermissionVersionApi() {
   return requestClient.get<string>('/auth/permission-version');
 }
+
+/**
+ * 发送邮箱验证码
+ */
+export async function sendVerifyCodeApi(email: string, purpose: 'register' | 'reset_password') {
+  return requestClient.post('/auth/send-code', { email, purpose });
+}
+
+/**
+ * 验证邮箱验证码
+ */
+export async function verifyEmailCodeApi(email: string, code: string, purpose: 'register' | 'reset_password') {
+  return requestClient.post('/auth/verify-code', { email, code, purpose });
+}
+
+/**
+ * 用户注册
+ */
+export async function registerApi(data: {
+  username: string;
+  email: string;
+  emailCode: string;
+  password: string;
+  confirmPassword: string;
+}) {
+  return requestClient.post('/auth/register', data);
+}
+
+/**
+ * 重置密码
+ */
+export async function resetPasswordApi(data: {
+  email: string;
+  emailCode: string;
+  newPassword: string;
+  confirmPassword: string;
+}) {
+  return requestClient.post('/auth/reset-password', data);
+}

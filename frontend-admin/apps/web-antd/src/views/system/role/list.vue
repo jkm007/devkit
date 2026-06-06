@@ -14,6 +14,7 @@ import { useAccess } from '@vben/access';
 import { useVbenVxeGrid, VbenTableAction } from '#/adapter/vxe-table';
 import { deleteRole, getRoleList, updateRole } from '#/api';
 import { $t } from '#/locales';
+import { showCaptchaVerify } from '#/utils/captcha-verify';
 
 import { useColumns, useGridFormSchema } from './data';
 import Form from './modules/form.vue';
@@ -105,7 +106,13 @@ function onEdit(row: SystemRoleApi.SystemRole) {
   formDrawerApi.setData(row).open();
 }
 
-function onDelete(row: SystemRoleApi.SystemRole) {
+async function onDelete(row: SystemRoleApi.SystemRole) {
+  try {
+    await showCaptchaVerify();
+  } catch {
+    return;
+  }
+
   const hideLoading = message.loading({
     content: $t('ui.actionMessage.deleting', [row.name]),
     duration: 0,

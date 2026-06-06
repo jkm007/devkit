@@ -78,6 +78,20 @@ func (r *UserRepo) GetByName(name string) (*model.User, error) {
 	return &user, nil
 }
 
+// GetByUsername 根据用户名获取用户（别名）
+func (r *UserRepo) GetByUsername(username string) (*model.User, error) {
+	return r.GetByName(username)
+}
+
+// GetByEmail 根据邮箱获取用户
+func (r *UserRepo) GetByEmail(email string) (*model.User, error) {
+	var user model.User
+	if err := r.db.Where("email = ?", email).First(&user).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
 // Create 创建用户
 func (r *UserRepo) Create(user *model.User) error {
 	return r.db.Create(user).Error

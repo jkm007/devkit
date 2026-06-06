@@ -1,95 +1,176 @@
 <script lang="ts" setup>
-import type { VbenFormSchema } from '@vben/common-ui';
-import type { Recordable } from '@vben/types';
+import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 
-import { computed, h, ref } from 'vue';
-
-import { AuthenticationRegister, z } from '@vben/common-ui';
 import { $t } from '@vben/locales';
+
+import { Button, Form, FormItem, Input, InputPassword, message, Space } from 'ant-design-vue';
+
+import { registerApi, sendVerifyCodeApi } from '#/api/core/auth';
 
 defineOptions({ name: 'Register' });
 
+const router = useRouter();
 const loading = ref(false);
 
-const formSchema = computed((): VbenFormSchema[] => {
-  return [
-    {
-      component: 'VbenInput',
-      componentProps: {
-        placeholder: $t('authentication.usernameTip'),
-      },
-      fieldName: 'username',
-      label: $t('authentication.username'),
-      rules: z.string().min(1, { message: $t('authentication.usernameTip') }),
-    },
-    {
-      component: 'VbenInputPassword',
-      componentProps: {
-        passwordStrength: true,
-        placeholder: $t('authentication.password'),
-      },
-      fieldName: 'password',
-      label: $t('authentication.password'),
-      renderComponentContent() {
-        return {
-          strengthText: () => $t('authentication.passwordStrength'),
-        };
-      },
-      rules: z.string().min(1, { message: $t('authentication.passwordTip') }),
-    },
-    {
-      component: 'VbenInputPassword',
-      componentProps: {
-        placeholder: $t('authentication.confirmPassword'),
-      },
-      dependencies: {
-        rules(values) {
-          const { password } = values;
-          return z
-            .string({ required_error: $t('authentication.passwordTip') })
-            .min(1, { message: $t('authentication.passwordTip') })
-            .refine((value) => value === password, {
-              message: $t('authentication.confirmPasswordTip'),
-            });
-        },
-        triggerFields: ['password'],
-      },
-      fieldName: 'confirmPassword',
-      label: $t('authentication.confirmPassword'),
-    },
-    {
-      component: 'VbenCheckbox',
-      fieldName: 'agreePolicy',
-      renderComponentContent: () => ({
-        default: () =>
-          h('span', [
-            $t('authentication.agree'),
-            h(
-              'a',
-              {
-                class: 'vben-link ml-1 ',
-                href: '',
-              },
-              `${$t('authentication.privacyPolicy')} & ${$t('authentication.terms')}`,
-            ),
-          ]),
-      }),
-      rules: z.boolean().refine((value) => !!value, {
-        message: $t('authentication.agreeTip'),
-      }),
-    },
-  ];
+// 表单数据
+const formData = ref({
+  username: '',
+  email: '',
+  emailCode: '',
+  password: '',
+  confirmPassword: '',
 });
 
-function handleSubmit(value: Recordable<any>) {
-  void value;
+// 验证码倒计时
+const codeCountdown = ref(0);
+let countdownTimer: ReturnType<typeof setInterval> | null = null;
+
+function startCountdown() {
+  codeCountdown.value = 60;
+  countdownTimer = setInterval(() => {
+    codeCountdown.value--;
+    if (codeCountdown.value <= 0 && countdownTimer) {
+      clearInterval(countdownTimer);
+      countdownTimer = null;
+    }
+  }, 1000);
+}
+
+async function handleSendCode() {
+  if (!formData.value.email) {
+    message.warning('请先输入邮箱');
+    return;
+  }
+  try {
+    await sendVerifyCodeApi(formData.value.email, 'register');
+    message.success('验证码已发送到您的邮箱');
+    startCountdown();
+  } catch (e: any) {
+    message.error(e?.message || '发送失败');
+  }
+}
+
+async function handleSubmit() {
+  // 表单校验
+  if (!formData.value.username || formData.value.username.length < 3) {
+    message.warning('用户名至少3个字符');
+    return;
+  }
+  if (!formData.value.email) {
+    message.warning('请输入邮箱');
+    return;
+  }
+  if (!formData.value.emailCode || formData.value.emailCode.length !== 6) {
+    message.warning('请输入6位验证码');
+    return;
+  }
+  if (!formData.value.password || formData.value.password.length < 6) {
+    message.warning('密码至少6个字符');
+    return;
+  }
+  if (formData.value.password !== formData.value.confirmPassword) {
+    message.warning('两次输入的密码不一致');
+    return;
+  }
+
+  loading.value = true;
+  try {
+    await registerApi({
+      username: formData.value.username,
+      email: formData.value.email,
+      emailCode: formData.value.emailCode,
+      password: formData.value.password,
+      confirmPassword: formData.value.confirmPassword,
+    });
+    message.success('注册成功，请登录');
+    router.push('/auth/login');
+  } catch (e: any) {
+    message.error(e?.message || '注册失败');
+  } finally {
+    loading.value = false;
+  }
+}
+
+function goToLogin() {
+  router.push('/auth/login');
 }
 </script>
 
 <template>
-  <AuthenticationRegister
-    :form-schema="formSchema"
-    :loading="loading"
-    @submit="handleSubmit"
-  />
+  <div class="mx-auto w-full max-w-[400px]">
+    <h2 class="mb-6 text-center text-2xl font-bold">注册账号 🚀</h2>
+
+    <Form layout="vertical" :model="formData" @finish="handleSubmit">
+      <FormItem label="用户名" name="username" required>
+        <Input
+          v-model:value="formData.username"
+          placeholder="请输入用户名（至少3个字符）"
+          size="large"
+        />
+      </FormItem>
+
+      <FormItem label="邮箱" name="email" required>
+        <Input
+          v-model:value="formData.email"
+          placeholder="请输入邮箱地址"
+          size="large"
+          type="email"
+        />
+      </FormItem>
+
+      <FormItem label="验证码" name="emailCode" required>
+        <Space style="width: 100%;">
+          <Input
+            v-model:value="formData.emailCode"
+            placeholder="请输入6位验证码"
+            :maxlength="6"
+            size="large"
+            style="flex: 1;"
+          />
+          <Button
+            type="primary"
+            size="large"
+            :disabled="codeCountdown > 0"
+            @click="handleSendCode"
+          >
+            {{ codeCountdown > 0 ? `${codeCountdown}s` : '发送验证码' }}
+          </Button>
+        </Space>
+      </FormItem>
+
+      <FormItem label="密码" name="password" required>
+        <InputPassword
+          v-model:value="formData.password"
+          placeholder="请输入密码（至少6个字符）"
+          size="large"
+        />
+      </FormItem>
+
+      <FormItem label="确认密码" name="confirmPassword" required>
+        <InputPassword
+          v-model:value="formData.confirmPassword"
+          placeholder="请再次输入密码"
+          size="large"
+        />
+      </FormItem>
+
+      <FormItem>
+        <Button
+          type="primary"
+          html-type="submit"
+          block
+          size="large"
+          :loading="loading"
+        >
+          注册
+        </Button>
+      </FormItem>
+
+      <div class="text-center">
+        <span class="text-muted-foreground">已有账号？</span>
+        <a class="ml-1 text-primary" @click="goToLogin">去登录</a>
+      </div>
+    </Form>
+  </div>
 </template>

@@ -12,6 +12,7 @@ import { Button, message } from 'ant-design-vue';
 import { useVbenVxeGrid, VbenTableAction } from '#/adapter/vxe-table';
 import { deleteGroup, getGroupList } from '#/api/system/group';
 import { $t } from '#/locales';
+import { showCaptchaVerify } from '#/utils/captcha-verify';
 
 import { useColumns } from './data';
 import Form from './modules/form.vue';
@@ -47,7 +48,13 @@ function onCreate() {
 /**
  * 删除分组
  */
-function onDelete(row: SystemGroupApi.SystemGroup) {
+async function onDelete(row: SystemGroupApi.SystemGroup) {
+  try {
+    await showCaptchaVerify();
+  } catch {
+    return;
+  }
+
   const hideLoading = message.loading({
     content: $t('ui.actionMessage.deleting', [row.name]),
     duration: 0,

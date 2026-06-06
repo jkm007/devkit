@@ -17,6 +17,7 @@ import (
 	"backend-server/pkg/captcha"
 	"backend-server/pkg/database"
 	"backend-server/pkg/jwt"
+	"backend-server/pkg/logger"
 
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -673,10 +674,21 @@ type ChangePasswordRequest struct {
 	OldPassword     string `json:"oldPassword" binding:"required"`
 	NewPassword     string `json:"newPassword" binding:"required"`
 	ConfirmPassword string `json:"confirmPassword" binding:"required"`
+	CaptchaID       string `json:"captchaId"`
+	CaptchaCode     string `json:"captchaCode"`
 }
 
 // ChangePassword 修改密码
 func (s *AuthService) ChangePassword(userID uint, req *ChangePasswordRequest, ip, userAgent string) error {
+	// 验证码校验
+	if req.CaptchaID == "" || req.CaptchaCode == "" {
+		return fmt.Errorf("请先完成验证码验证")
+	}
+	valid, _ := captcha.Verify(req.CaptchaID, req.CaptchaCode, 0, nil)
+	if !valid {
+		return fmt.Errorf("验证码错误或已过期")
+	}
+
 	// 校验新密码和确认密码
 	if req.NewPassword != req.ConfirmPassword {
 		return fmt.Errorf("两次输入的密码不一致")
@@ -719,6 +731,129 @@ func (s *AuthService) ChangePassword(userID uint, req *ChangePasswordRequest, ip
 	// 记录安全日志
 	s.RecordSecurityLog(userID, "password_change", "修改密码成功", ip, userAgent, 1)
 
+	return nil
+}
+
+// RegisterRequest 注册请求
+type RegisterRequest struct {
+	Username        string `json:"username" binding:"required,min=3,max=50"`
+	Email           string `json:"email" binding:"required,email"`
+	EmailCode       string `json:"emailCode" binding:"required,len=6"`
+	Password        string `json:"password" binding:"required,min=6,max=128"`
+	ConfirmPassword string `json:"confirmPassword" binding:"required"`
+}
+
+// Register 用户注册
+func (s *AuthService) Register(req *RegisterRequest, ip, userAgent string) error {
+	// 校验密码一致性
+	if req.Password != req.ConfirmPassword {
+		return errors.New("两次输入的密码不一致")
+	}
+
+	// 验证邮箱验证码
+	verifyCodeService := NewVerifyCodeService()
+	valid, err := verifyCodeService.VerifyCode(req.Email, req.EmailCode, "register")
+	if err != nil {
+		return fmt.Errorf("验证码验证失败: %w", err)
+	}
+	if !valid {
+		return errors.New("验证码错误")
+	}
+
+	// 检查用户名是否已存在
+	existingUser, _ := s.userRepo.GetByUsername(req.Username)
+	if existingUser != nil && existingUser.ID > 0 {
+		return errors.New("用户名已存在")
+	}
+
+	// 检查邮箱是否已存在
+	existingByEmail, _ := s.userRepo.GetByEmail(req.Email)
+	if existingByEmail != nil && existingByEmail.ID > 0 {
+		return errors.New("该邮箱已被注册")
+	}
+
+	// 加密密码
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("密码加密失败: %w", err)
+	}
+
+	// 创建用户
+	user := &model.User{
+		Name:     req.Username,
+		Email:    req.Email,
+		Password: string(hashedPassword),
+		Status:   1,
+		Nickname: req.Username,
+	}
+	if err := s.userRepo.Create(user); err != nil {
+		return fmt.Errorf("创建用户失败: %w", err)
+	}
+
+	// 分配默认角色（普通用户）
+	defaultRole, err := s.roleRepo.GetByName("user")
+	if err == nil && defaultRole != nil {
+		s.userRepo.SyncUserRoles(user.ID, []uint{defaultRole.ID})
+	}
+
+	logger.Info(fmt.Sprintf("新用户注册: %s (%s)", req.Username, req.Email))
+	return nil
+}
+
+// ResetPasswordRequest 重置密码请求
+type ResetPasswordRequest struct {
+	Email           string `json:"email" binding:"required,email"`
+	EmailCode       string `json:"emailCode" binding:"required,len=6"`
+	NewPassword     string `json:"newPassword" binding:"required,min=6,max=128"`
+	ConfirmPassword string `json:"confirmPassword" binding:"required"`
+}
+
+// ResetPassword 重置密码（通过邮箱验证码）
+func (s *AuthService) ResetPassword(req *ResetPasswordRequest, ip, userAgent string) error {
+	// 校验密码一致性
+	if req.NewPassword != req.ConfirmPassword {
+		return errors.New("两次输入的密码不一致")
+	}
+
+	// 验证邮箱验证码
+	verifyCodeService := NewVerifyCodeService()
+	valid, err := verifyCodeService.VerifyCode(req.Email, req.EmailCode, "reset_password")
+	if err != nil {
+		return fmt.Errorf("验证码验证失败: %w", err)
+	}
+	if !valid {
+		return errors.New("验证码错误")
+	}
+
+	// 根据邮箱查找用户
+	user, err := s.userRepo.GetByEmail(req.Email)
+	if err != nil || user == nil || user.ID == 0 {
+		return errors.New("该邮箱未注册")
+	}
+
+	// 加密新密码
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("密码加密失败: %w", err)
+	}
+
+	// 更新密码
+	now := time.Now()
+	user.Password = string(hashedPassword)
+	user.PasswordChangedAt = &now
+	user.LoginFailCount = 0
+	if err := s.userRepo.Update(user); err != nil {
+		return fmt.Errorf("更新密码失败: %w", err)
+	}
+
+	// 清除该用户的 refresh token
+	rdb := database.GetRedis()
+	rdb.Del(context.Background(), fmt.Sprintf("refresh_token:%d", user.ID))
+
+	// 记录安全日志
+	s.RecordSecurityLog(user.ID, "password_reset", "通过邮箱验证码重置密码", ip, userAgent, 1)
+
+	logger.Info(fmt.Sprintf("用户重置密码: %s (%s)", user.Name, req.Email))
 	return nil
 }
 

@@ -268,6 +268,54 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 	response.Success(c, nil)
 }
 
+// Register 用户注册
+// @Summary      用户注册
+// @Description  新用户注册（需要邮箱验证码）
+// @Tags         认证
+// @Accept       json
+// @Produce      json
+// @Param        body  body  service.RegisterRequest  true  "注册请求"
+// @Success      200   {object}  response.Response
+// @Router       /auth/register [post]
+func (h *AuthHandler) Register(c *gin.Context) {
+	var req service.RegisterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	if err := h.authService.Register(&req, c.ClientIP(), c.GetHeader("User-Agent")); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	response.SuccessWithMessage(c, "注册成功", nil)
+}
+
+// ResetPassword 重置密码
+// @Summary      重置密码
+// @Description  通过邮箱验证码重置密码
+// @Tags         认证
+// @Accept       json
+// @Produce      json
+// @Param        body  body  service.ResetPasswordRequest  true  "重置密码请求"
+// @Success      200   {object}  response.Response
+// @Router       /auth/reset-password [post]
+func (h *AuthHandler) ResetPassword(c *gin.Context) {
+	var req service.ResetPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	if err := h.authService.ResetPassword(&req, c.ClientIP(), c.GetHeader("User-Agent")); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	response.SuccessWithMessage(c, "密码重置成功", nil)
+}
+
 // GetPermissionVersion 获取权限版本
 // @Summary      获取权限版本
 // @Description  返回用户当前权限码的 SHA-256 hash，用于前端检测权限是否变更（轮询比对）
