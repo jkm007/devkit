@@ -2,11 +2,10 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { $t } from '@vben/locales';
-
 import { Button, Form, FormItem, Input, InputPassword, message, Space } from 'ant-design-vue';
 
 import { registerApi, sendVerifyCodeApi } from '#/api/core/auth';
+import { showCaptchaVerify } from '#/utils/captcha-verify';
 
 defineOptions({ name: 'Register' });
 
@@ -43,11 +42,20 @@ async function handleSendCode() {
     return;
   }
   try {
-    await sendVerifyCodeApi(formData.value.email, 'register');
+    // 先弹出图形验证码
+    const { captchaId, captchaCode } = await showCaptchaVerify();
+    await sendVerifyCodeApi({
+      email: formData.value.email,
+      purpose: 'register',
+      captchaId,
+      captchaCode,
+    });
     message.success('验证码已发送到您的邮箱');
     startCountdown();
   } catch (e: any) {
-    message.error(e?.message || '发送失败');
+    if (e?.message !== '用户取消验证码验证') {
+      message.error(e?.message || '发送失败');
+    }
   }
 }
 

@@ -27,6 +27,12 @@ func CaptchaGuard() gin.HandlerFunc {
 
 		path := c.Request.URL.Path
 
+		// 跳过认证相关路径（它们有自己的验证码校验）
+		if len(path) >= 6 && path[:6] == "/auth/" {
+			c.Next()
+			return
+		}
+
 		// 只对受保护路径生效
 		if !cfg.IsProtectedPath(path) {
 			c.Next()
