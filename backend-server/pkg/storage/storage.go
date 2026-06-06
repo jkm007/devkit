@@ -26,6 +26,27 @@ type Storage interface {
 	GetPresignedURL(ctx context.Context, objectKey string, expire int64) (string, error)
 }
 
+// MultipartUploader 分片上传接口
+type MultipartUploader interface {
+	// InitiateUpload 初始化分片上传，返回 uploadID
+	InitiateUpload(ctx context.Context, objectKey string, contentType string) (string, error)
+
+	// UploadPart 上传单个分片，返回 ETag
+	UploadPart(ctx context.Context, objectKey string, uploadID string, partNumber int, reader io.Reader, size int64) (string, error)
+
+	// CompleteUpload 合并所有分片，返回文件访问 URL
+	CompleteUpload(ctx context.Context, objectKey string, uploadID string, parts []CompletedPart) (string, error)
+
+	// AbortUpload 取消上传，清理临时分片
+	AbortUpload(ctx context.Context, objectKey string, uploadID string) error
+}
+
+// CompletedPart 已完成的分片信息
+type CompletedPart struct {
+	PartNumber int    `json:"part_number"`
+	ETag       string `json:"etag"`
+}
+
 // FileInfo 文件信息
 type FileInfo struct {
 	ObjectKey   string `json:"object_key"`

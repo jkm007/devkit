@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sort"
 	"time"
 
 	"github.com/minio/minio-go/v7"
@@ -72,4 +73,82 @@ func (s *MinIOStorage) GetPresignedURL(ctx context.Context, objectKey string, ex
 		return "", fmt.Errorf("生成 MinIO 临时 URL 失败: %w", err)
 	}
 	return url.String(), nil
+}
+
+// chunkPrefix 返回分片临时存储路径前缀
+func chunkPrefix(uploadID string) string {
+	return fmt.Sprintf("uploads/%s", uploadID)
+}
+
+// chunkKey 返回单个分片的存储路径
+func chunkKey(uploadID string, partNumber int) string {
+	return fmt.Sprintf("uploads/%s/part-%06d", uploadID, partNumber)
+}
+
+// InitiateUpload 初始化分片上传（uploadID 由调用方生成并传入）
+func (s *MinIOStorage) InitiateUpload(ctx context.Context, objectKey string, contentType string) (string, error) {
+	// uploadID 由 service 层生成，这里仅做占位
+	// 实际的 MinIO 分片由 UploadPart 逐个上传临时对象
+	return "", nil
+}
+
+// UploadPart 上传单个分片为临时对象
+func (s *MinIOStorage) UploadPart(ctx context.Context, objectKey string, uploadID string, partNumber int, reader io.Reader, size int64) (string, error) {
+	key := chunkKey(uploadID, partNumber)
+	_, err := s.client.PutObject(ctx, s.bucket, key, reader, size, minio.PutObjectOptions{})
+	if err != nil {
+		return "", fmt.Errorf("上传分片 %d 失败: %w", partNumber, err)
+	}
+	return key, nil // 返回临时对象路径作为 ETag
+}
+
+// CompleteUpload 使用 ComposeObject 合并所有分片到最终路径
+func (s *MinIOStorage) CompleteUpload(ctx context.Context, objectKey string, uploadID string, parts []CompletedPart) (string, error) {
+	sort.Slice(parts, func(i, j int) bool { return parts[i].PartNumber < parts[j].PartNumber })
+
+	// 构建 ComposeObject 源
+	srcs := make([]minio.CopySrcOptions, len(parts))
+	for i, p := range parts {
+		srcs[i] = minio.CopySrcOptions{
+			Bucket: s.bucket,
+			Object: p.ETag, // ETag 存的是临时对象路径
+		}
+	}
+
+	dst := minio.CopyDestOptions{
+		Bucket: s.bucket,
+		Object: objectKey,
+	}
+
+	_, err := s.client.ComposeObject(ctx, dst, srcs...)
+	if err != nil {
+		return "", fmt.Errorf("合并分片失败: %w", err)
+	}
+
+	// 清理临时分片对象
+	go func() {
+		delCtx := context.Background()
+		for _, p := range parts {
+			s.client.RemoveObject(delCtx, s.bucket, p.ETag, minio.RemoveObjectOptions{})
+		}
+	}()
+
+	return s.GetURL(objectKey), nil
+}
+
+// AbortUpload 取消上传，清理所有临时分片
+func (s *MinIOStorage) AbortUpload(ctx context.Context, objectKey string, uploadID string) error {
+	// 列出所有临时分片并删除
+	prefix := chunkPrefix(uploadID)
+	objectCh := s.client.ListObjects(ctx, s.bucket, minio.ListObjectsOptions{
+		Prefix:    prefix,
+		Recursive: true,
+	})
+	for obj := range objectCh {
+		if obj.Err != nil {
+			continue
+		}
+		s.client.RemoveObject(ctx, s.bucket, obj.Key, minio.RemoveObjectOptions{})
+	}
+	return nil
 }

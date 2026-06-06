@@ -5,6 +5,7 @@ import (
 	"backend-server/internal/handler"
 	"backend-server/internal/middleware"
 	"backend-server/internal/ws"
+	"backend-server/pkg/storage"
 
 	_ "backend-server/docs" // swagger docs
 
@@ -14,7 +15,7 @@ import (
 )
 
 // Setup 初始化路由
-func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
+func Setup(cfg *config.Config, hub *ws.Hub, storageInstance storage.Storage) *gin.Engine {
 	// 设置运行模式
 	gin.SetMode(cfg.Server.Mode)
 
@@ -43,6 +44,9 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	systemSettingHandler := handler.NewSystemSettingHandler()
 	riskScoreHandler := handler.NewRiskScoreHandler()
 	wechatHandler := handler.NewWeChatHandler()
+	uploadHandler := handler.NewUploadHandler(storageInstance)
+	fileHandler := handler.NewFileHandler()
+	mediaHandler := handler.NewMediaHandler(storageInstance)
 
 	// 健康检查
 	// @Summary      健康检查
@@ -147,6 +151,28 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		authorized.PUT("/user/privacy", userPrivacyHandler.Update)
 		authorized.GET("/user/real-name", userRealNameHandler.GetStatus)
 		authorized.POST("/user/real-name", userRealNameHandler.Submit)
+
+		// 文件上传（分片上传）
+		authorized.POST("/files/upload/check", uploadHandler.CheckUpload)
+		authorized.POST("/files/upload/init", uploadHandler.InitUpload)
+		authorized.POST("/files/upload/part", uploadHandler.UploadPart)
+		authorized.POST("/files/upload/complete", uploadHandler.CompleteUpload)
+		authorized.POST("/files/upload/abort", uploadHandler.AbortUpload)
+		authorized.GET("/files/upload/status", uploadHandler.GetUploadStatus)
+
+		// 文件管理
+		authorized.POST("/files/folder", fileHandler.CreateFolder)
+		authorized.GET("/files/tree", fileHandler.GetFolderTree)
+		authorized.PUT("/files/folder/:id", fileHandler.RenameFolder)
+		authorized.DELETE("/files/folder/:id", fileHandler.DeleteFolder)
+		authorized.GET("/files/list", fileHandler.ListFiles)
+		authorized.POST("/files/move", fileHandler.MoveFile)
+		authorized.DELETE("/files/:id", fileHandler.DeleteFile)
+
+		// 媒体文件
+		authorized.GET("/files/:id/metadata", mediaHandler.GetMediaInfo)
+		authorized.GET("/files/:id/stream", mediaHandler.GetStream)
+		authorized.GET("/files/:id/download", mediaHandler.DownloadFile)
 
 		// 系统管理
 		system := authorized.Group("/system")

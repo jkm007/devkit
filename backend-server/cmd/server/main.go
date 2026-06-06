@@ -20,6 +20,7 @@ import (
 	"backend-server/pkg/database"
 	"backend-server/pkg/logger"
 	"backend-server/pkg/oauth"
+	"backend-server/pkg/storage"
 
 	"go.uber.org/zap"
 )
@@ -97,10 +98,13 @@ func main() {
 	hub := ws.NewHub()
 	go hub.Run()
 
-	// 8. 初始化路由
-	r := router.Setup(cfg, hub)
+	// 8. 初始化存储
+	storageInstance := storage.New(cfg.Storage)
 
-	// 9. 启动 HTTP 服务
+	// 9. 初始化路由
+	r := router.Setup(cfg, hub, storageInstance)
+
+	// 10. 启动 HTTP 服务
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.Server.Port),
 		Handler:      r,
@@ -115,7 +119,7 @@ func main() {
 		}
 	}()
 
-	// 10. 优雅退出
+	// 11. 优雅退出
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit

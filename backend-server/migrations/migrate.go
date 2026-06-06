@@ -22,5 +22,11 @@ func Run(db *gorm.DB) error {
 		&model.UserRealName{},
 		&model.RoleApplication{},
 		&model.SystemSetting{},
+		&model.UploadTask{},
+		&model.UploadedPart{},
+		&model.FileAsset{},
+		&model.FileFolder{},
+		&model.FileEntry{},
+		&model.MediaAsset{},
 	)
 }
