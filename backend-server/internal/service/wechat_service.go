@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -14,14 +15,17 @@ import (
 	"backend-server/pkg/jwt"
 	"backend-server/pkg/logger"
 	"backend-server/pkg/wechat"
+
+	"go.uber.org/zap"
 )
 
 // WeChatService 微信登录服务
 type WeChatService struct {
-	userRepo      *repository.UserRepo
-	oauthRepo     *repository.OAuthUserRepo
-	roleRepo      *repository.RoleRepo
-	settingRepo   *repository.SystemSettingRepo
+	userRepo       *repository.UserRepo
+	oauthRepo      *repository.OAuthUserRepo
+	roleRepo       *repository.RoleRepo
+	groupRepo      *repository.GroupRepo
+	settingRepo    *repository.SystemSettingRepo
 	securityLogSvc *SecurityLogService
 }
 
@@ -32,6 +36,7 @@ func NewWeChatService() *WeChatService {
 		userRepo:       repository.NewUserRepo(db),
 		oauthRepo:      repository.NewOAuthUserRepo(db),
 		roleRepo:       repository.NewRoleRepo(db),
+		groupRepo:      repository.NewGroupRepo(db),
 		settingRepo:    repository.NewSystemSettingRepo(db),
 		securityLogSvc: NewSecurityLogService(),
 	}
@@ -72,38 +77,56 @@ func (s *WeChatService) loadConfig() (*wechatConfig, error) {
 	cfg := &wechatConfig{}
 	for _, setting := range settings {
 		val := setting.Value
-		// 去除 JSON 引号
-		if len(val) >= 2 && val[0] == '"' && val[len(val)-1] == '"' {
-			val = val[1 : len(val)-1]
-		}
 
 		switch setting.Key {
 		case "wechat_oauth_enabled":
-			cfg.OAuthEnabled = val == "true"
+			cfg.OAuthEnabled = parseSettingBool(val)
 		case "wechat_oauth_appid":
-			cfg.OAuthAppID = val
+			cfg.OAuthAppID = parseSettingString(val)
 		case "wechat_oauth_secret":
-			cfg.OAuthSecret = val
+			cfg.OAuthSecret = parseSettingString(val)
 		case "wechat_oauth_redirect_url":
-			cfg.OAuthRedirectURL = val
+			cfg.OAuthRedirectURL = parseSettingString(val)
 		case "wechat_miniapp_enabled":
-			cfg.MiniAppEnabled = val == "true"
+			cfg.MiniAppEnabled = parseSettingBool(val)
 		case "wechat_miniapp_appid":
-			cfg.MiniAppAppID = val
+			cfg.MiniAppAppID = parseSettingString(val)
 		case "wechat_miniapp_secret":
-			cfg.MiniAppSecret = val
+			cfg.MiniAppSecret = parseSettingString(val)
 		case "wechat_official_enabled":
-			cfg.OfficialEnabled = val == "true"
+			cfg.OfficialEnabled = parseSettingBool(val)
 		case "wechat_official_appid":
-			cfg.OfficialAppID = val
+			cfg.OfficialAppID = parseSettingString(val)
 		case "wechat_official_secret":
-			cfg.OfficialSecret = val
+			cfg.OfficialSecret = parseSettingString(val)
 		case "wechat_official_redirect_url":
-			cfg.OfficialRedirectURL = val
+			cfg.OfficialRedirectURL = parseSettingString(val)
 		}
 	}
 
 	return cfg, nil
+}
+
+// parseSettingString 解析 JSON 字符串值（支持转义字符）
+func parseSettingString(val string) string {
+	var s string
+	if err := json.Unmarshal([]byte(val), &s); err != nil {
+		// 兼容非 JSON 格式的原始值
+		if len(val) >= 2 && val[0] == '"' && val[len(val)-1] == '"' {
+			return val[1 : len(val)-1]
+		}
+		return val
+	}
+	return s
+}
+
+// parseSettingBool 解析 JSON 布尔值
+func parseSettingBool(val string) bool {
+	var b bool
+	if err := json.Unmarshal([]byte(val), &b); err != nil {
+		return val == "true"
+	}
+	return b
 }
 
 // LoginByMiniProgram 小程序登录
@@ -155,7 +178,16 @@ func (s *WeChatService) GetOfficialAuthorizeURL(scope string) (string, error) {
 
 // LoginByOfficial 公众号 H5 登录
 func (s *WeChatService) LoginByOfficial(code, state, clientIP string) (*LoginResponse, error) {
-	// 验证 state
+	// 先校验配置（避免 state 被无效消耗）
+	cfg, err := s.loadConfig()
+	if err != nil {
+		return nil, err
+	}
+	if !cfg.OfficialEnabled {
+		return nil, errors.New("公众号登录未启用")
+	}
+
+	// 验证并消费 state
 	rdb := database.GetRedis()
 	storedType, err := rdb.Get(context.Background(), "wechat_state:"+state).Result()
 	if err != nil {
@@ -165,14 +197,6 @@ func (s *WeChatService) LoginByOfficial(code, state, clientIP string) (*LoginRes
 		return nil, errors.New("state 参数不匹配")
 	}
 	rdb.Del(context.Background(), "wechat_state:"+state)
-
-	cfg, err := s.loadConfig()
-	if err != nil {
-		return nil, err
-	}
-	if !cfg.OfficialEnabled {
-		return nil, errors.New("公众号登录未启用")
-	}
 
 	provider := wechat.NewOfficialAccount(cfg.OfficialAppID, cfg.OfficialSecret, cfg.OfficialRedirectURL)
 	result, err := provider.Login(code)
@@ -210,7 +234,16 @@ func (s *WeChatService) GetWebAuthorizeURL() (string, error) {
 
 // LoginByWeb 网站扫码登录
 func (s *WeChatService) LoginByWeb(code, state, clientIP string) (*LoginResponse, error) {
-	// 验证 state
+	// 先校验配置（避免 state 被无效消耗）
+	cfg, err := s.loadConfig()
+	if err != nil {
+		return nil, err
+	}
+	if !cfg.OAuthEnabled {
+		return nil, errors.New("微信扫码登录未启用")
+	}
+
+	// 验证并消费 state
 	rdb := database.GetRedis()
 	storedType, err := rdb.Get(context.Background(), "wechat_state:"+state).Result()
 	if err != nil {
@@ -220,14 +253,6 @@ func (s *WeChatService) LoginByWeb(code, state, clientIP string) (*LoginResponse
 		return nil, errors.New("state 参数不匹配")
 	}
 	rdb.Del(context.Background(), "wechat_state:"+state)
-
-	cfg, err := s.loadConfig()
-	if err != nil {
-		return nil, err
-	}
-	if !cfg.OAuthEnabled {
-		return nil, errors.New("微信扫码登录未启用")
-	}
 
 	provider := wechat.NewWeb(cfg.OAuthAppID, cfg.OAuthSecret, cfg.OAuthRedirectURL)
 	result, err := provider.Login(code)
@@ -239,27 +264,41 @@ func (s *WeChatService) LoginByWeb(code, state, clientIP string) (*LoginResponse
 }
 
 // findOrCreateUser 查找或创建用户（三种微信登录共用）
+// 优先级：1. 同 provider 绑定 2. UnionID 跨 provider 绑定 3. 自动注册
 func (s *WeChatService) findOrCreateUser(openID, unionID, nickname, avatar, source, clientIP string) (*LoginResponse, error) {
-	// 优先用 unionID 查找（跨应用统一身份），其次用 openid + provider
+	// providerUserID：优先用 unionID（跨应用统一身份），没有则用 openID
 	providerUserID := unionID
 	if providerUserID == "" {
 		providerUserID = openID
 	}
 
-	// 查找已绑定的用户
+	// 1. 查找同 provider 的绑定
 	existingBinding, _ := s.oauthRepo.GetByProvider(source, providerUserID)
 	if existingBinding != nil && existingBinding.ID > 0 {
-		user, err := s.userRepo.GetByID(existingBinding.UserID)
-		if err != nil || user == nil {
-			return nil, errors.New("绑定的用户不存在")
-		}
-		if user.Status != 1 {
-			return nil, errors.New("账号已被禁用")
-		}
-		return s.buildLoginResponse(user, clientIP)
+		return s.loginByBinding(existingBinding, clientIP)
 	}
 
-	// 自动注册新用户
+	// 2. UnionID 跨 provider 去重：如果 unionID 非空，查找其他微信渠道的绑定
+	if unionID != "" {
+		crossBinding, _ := s.oauthRepo.GetByProviderUserID(unionID)
+		if crossBinding != nil && crossBinding.ID > 0 {
+			// 找到其他渠道的绑定，为当前渠道创建新绑定指向同一用户
+			newBinding := &model.OAuthUser{
+				UserID:           crossBinding.UserID,
+				Provider:         source,
+				ProviderType:     source,
+				ProviderUserID:   providerUserID,
+				ProviderUsername: nickname,
+				ProviderAvatar:   avatar,
+			}
+			if err := s.oauthRepo.Create(newBinding); err != nil {
+				logger.Error("创建微信跨渠道绑定失败", zap.Error(err))
+			}
+			return s.loginByBinding(crossBinding, clientIP)
+		}
+	}
+
+	// 3. 自动注册新用户
 	newUser := &model.User{
 		Name:           source + "_" + openID,
 		Nickname:       nickname,
@@ -291,12 +330,27 @@ func (s *WeChatService) findOrCreateUser(openID, unionID, nickname, avatar, sour
 		ProviderAvatar:   avatar,
 	}
 	if err := s.oauthRepo.Create(oauthUser); err != nil {
-		logger.Error("创建微信绑定失败")
+		// 绑定创建失败，回滚用户
+		logger.Error("创建微信绑定失败，回滚用户", zap.Error(err))
+		s.userRepo.Delete(newUser.ID)
+		return nil, fmt.Errorf("创建绑定失败: %w", err)
 	}
 
 	logger.Info(fmt.Sprintf("微信自动注册: %s (%s)", newUser.Name, source))
 
 	return s.buildLoginResponse(newUser, clientIP)
+}
+
+// loginByBinding 通过已有绑定登录
+func (s *WeChatService) loginByBinding(binding *model.OAuthUser, clientIP string) (*LoginResponse, error) {
+	user, err := s.userRepo.GetByID(binding.UserID)
+	if err != nil || user == nil {
+		return nil, errors.New("绑定的用户不存在")
+	}
+	if user.Status != 1 {
+		return nil, errors.New("账号已被禁用")
+	}
+	return s.buildLoginResponse(user, clientIP)
 }
 
 // buildLoginResponse 构建登录响应
@@ -369,7 +423,7 @@ func (s *WeChatService) collectRoleNames(user *model.User) ([]string, error) {
 	}
 
 	if user.GroupID > 0 {
-		groupRoleIDs, err := repository.NewGroupRepo(database.GetMySQL()).GetGroupRoleIDsRecursive(user.GroupID)
+		groupRoleIDs, err := s.groupRepo.GetGroupRoleIDsRecursive(user.GroupID)
 		if err != nil {
 			return nil, err
 		}

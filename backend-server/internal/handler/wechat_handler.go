@@ -53,9 +53,12 @@ func (h *WeChatHandler) LoginByMiniProgram(c *gin.Context) {
 
 	result, err := h.wechatService.LoginByMiniProgram(req.Code, c.ClientIP())
 	if err != nil {
+		h.wechatService.RecordSecurityLog(0, "login_fail", fmt.Sprintf("小程序登录失败: %s", err.Error()), c.ClientIP(), c.GetHeader("User-Agent"), 0)
 		response.BadRequest(c, err.Error())
 		return
 	}
+
+	h.wechatService.RecordSecurityLog(result.ID, "login", fmt.Sprintf("小程序登录成功, 来源: %s", result.RegisterSource), c.ClientIP(), c.GetHeader("User-Agent"), 1)
 
 	c.SetCookie("access_token", result.AccessToken, 30*24*3600, "/", "", h.cookieSecure(), true)
 	c.SetCookie("refresh_token", result.RefreshToken, 30*24*3600, "/", "", h.cookieSecure(), true)
@@ -78,13 +81,13 @@ func (h *WeChatHandler) GetOfficialAuthorizeURL(c *gin.Context) {
 		scope = "snsapi_userinfo"
 	}
 
-	url, err := h.wechatService.GetOfficialAuthorizeURL(scope)
+	authURL, err := h.wechatService.GetOfficialAuthorizeURL(scope)
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return
 	}
 
-	response.Success(c, gin.H{"url": url})
+	response.Success(c, gin.H{"url": authURL})
 }
 
 // LoginByOfficial 公众号 H5 登录回调
@@ -107,9 +110,12 @@ func (h *WeChatHandler) LoginByOfficial(c *gin.Context) {
 
 	result, err := h.wechatService.LoginByOfficial(code, state, c.ClientIP())
 	if err != nil {
+		h.wechatService.RecordSecurityLog(0, "login_fail", fmt.Sprintf("公众号登录失败: %s", err.Error()), c.ClientIP(), c.GetHeader("User-Agent"), 0)
 		response.BadRequest(c, err.Error())
 		return
 	}
+
+	h.wechatService.RecordSecurityLog(result.ID, "login", fmt.Sprintf("公众号登录成功, 来源: %s", result.RegisterSource), c.ClientIP(), c.GetHeader("User-Agent"), 1)
 
 	c.SetCookie("access_token", result.AccessToken, 30*24*3600, "/", "", h.cookieSecure(), true)
 	c.SetCookie("refresh_token", result.RefreshToken, 30*24*3600, "/", "", h.cookieSecure(), true)
@@ -126,13 +132,13 @@ func (h *WeChatHandler) LoginByOfficial(c *gin.Context) {
 // @Failure      400  {object}  response.Response "配置错误"
 // @Router       /auth/wechat/web-authorize [get]
 func (h *WeChatHandler) GetWebAuthorizeURL(c *gin.Context) {
-	url, err := h.wechatService.GetWebAuthorizeURL()
+	authURL, err := h.wechatService.GetWebAuthorizeURL()
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return
 	}
 
-	response.Success(c, gin.H{"url": url})
+	response.Success(c, gin.H{"url": authURL})
 }
 
 // LoginByWeb 网站扫码登录回调

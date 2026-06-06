@@ -67,3 +67,12 @@ func (r *OAuthUserRepo) CountByUser(userID uint) (int64, error) {
 	err := r.db.Model(&model.OAuthUser{}).Where("user_id = ?", userID).Count(&count).Error
 	return count, err
 }
+
+// GetByProviderUserID 根据第三方用户ID查找绑定（跨所有 provider，用于 UnionID 去重）
+func (r *OAuthUserRepo) GetByProviderUserID(providerUserID string) (*model.OAuthUser, error) {
+	var binding model.OAuthUser
+	if err := r.db.Where("provider_user_id = ?", providerUserID).First(&binding).Error; err != nil {
+		return nil, err
+	}
+	return &binding, nil
+}

@@ -1,10 +1,7 @@
 package wechat
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"net/url"
 )
 
@@ -39,17 +36,9 @@ func (m *MiniApp) Login(code string) (*LoginResult, error) {
 	params.Set("js_code", code)
 	params.Set("grant_type", "authorization_code")
 
-	reqURL := "https://api.weixin.qq.com/sns/jscode2session?" + params.Encode()
-	resp, err := http.Get(reqURL)
-	if err != nil {
-		return nil, fmt.Errorf("小程序登录请求失败: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, _ := io.ReadAll(resp.Body)
 	var result miniAppSessionResponse
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("解析小程序登录响应失败: %w", err)
+	if err := doWeChatRequest("https://api.weixin.qq.com/sns/jscode2session?"+params.Encode(), &result); err != nil {
+		return nil, err
 	}
 	if result.ErrCode != 0 {
 		return nil, fmt.Errorf("微信错误: %d - %s", result.ErrCode, result.ErrMsg)

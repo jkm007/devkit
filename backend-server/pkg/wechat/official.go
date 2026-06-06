@@ -1,10 +1,7 @@
 package wechat
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"net/url"
 )
 
@@ -61,12 +58,16 @@ func (o *OfficialAccount) Login(code string) (*LoginResult, error) {
 	// 2. 用 access_token + openid 获取用户信息
 	userInfo, err := o.getUserInfo(tokenResult.AccessToken, tokenResult.OpenID)
 	if err != nil {
-		// 静默授权模式下可能获取不到用户信息，只返回 openid
-		return &LoginResult{
-			OpenID:      tokenResult.OpenID,
-			UnionID:     tokenResult.UnionID,
-			AccessToken: tokenResult.AccessToken,
-		}, nil
+		// 静默授权模式下（snsapi_base）无法获取用户信息，只返回 openid
+		// ErrCode 48001 = api unauthorized (snsapi_base 模式无权调用 userinfo)
+		if tokenResult.ErrCode == 0 {
+			return &LoginResult{
+				OpenID:      tokenResult.OpenID,
+				UnionID:     tokenResult.UnionID,
+				AccessToken: tokenResult.AccessToken,
+			}, nil
+		}
+		return nil, err
 	}
 
 	return &LoginResult{
@@ -86,17 +87,9 @@ func (o *OfficialAccount) exchangeToken(code string) (*officialTokenResponse, er
 	params.Set("code", code)
 	params.Set("grant_type", "authorization_code")
 
-	reqURL := "https://api.weixin.qq.com/sns/oauth2/access_token?" + params.Encode()
-	resp, err := http.Get(reqURL)
-	if err != nil {
-		return nil, fmt.Errorf("公众号 token 请求失败: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, _ := io.ReadAll(resp.Body)
 	var result officialTokenResponse
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("解析公众号 token 响应失败: %w", err)
+	if err := doWeChatRequest("https://api.weixin.qq.com/sns/oauth2/access_token?"+params.Encode(), &result); err != nil {
+		return nil, err
 	}
 	if result.ErrCode != 0 {
 		return nil, fmt.Errorf("微信错误: %d - %s", result.ErrCode, result.ErrMsg)
@@ -122,17 +115,9 @@ func (o *OfficialAccount) getUserInfo(accessToken, openID string) (*officialUser
 	params.Set("openid", openID)
 	params.Set("lang", "zh_CN")
 
-	reqURL := "https://api.weixin.qq.com/sns/userinfo?" + params.Encode()
-	resp, err := http.Get(reqURL)
-	if err != nil {
-		return nil, fmt.Errorf("公众号用户信息请求失败: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, _ := io.ReadAll(resp.Body)
 	var result officialUserInfo
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("解析公众号用户信息失败: %w", err)
+	if err := doWeChatRequest("https://api.weixin.qq.com/sns/userinfo?"+params.Encode(), &result); err != nil {
+		return nil, err
 	}
 	if result.ErrCode != 0 {
 		return nil, fmt.Errorf("微信错误: %d - %s", result.ErrCode, result.ErrMsg)

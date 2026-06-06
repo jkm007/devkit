@@ -1,10 +1,7 @@
 package wechat
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"net/url"
 )
 
@@ -77,17 +74,9 @@ func (w *Web) exchangeToken(code string) (*wechatTokenResponse, error) {
 	params.Set("code", code)
 	params.Set("grant_type", "authorization_code")
 
-	reqURL := "https://api.weixin.qq.com/sns/oauth2/access_token?" + params.Encode()
-	resp, err := http.Get(reqURL)
-	if err != nil {
-		return nil, fmt.Errorf("微信 token 请求失败: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, _ := io.ReadAll(resp.Body)
 	var result wechatTokenResponse
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("解析微信 token 响应失败: %w", err)
+	if err := doWeChatRequest("https://api.weixin.qq.com/sns/oauth2/access_token?"+params.Encode(), &result); err != nil {
+		return nil, err
 	}
 	if result.ErrCode != 0 {
 		return nil, fmt.Errorf("微信错误: %d - %s", result.ErrCode, result.ErrMsg)
@@ -113,17 +102,9 @@ func (w *Web) getUserInfo(accessToken, openID string) (*wechatUserInfo, error) {
 	params.Set("openid", openID)
 	params.Set("lang", "zh_CN")
 
-	reqURL := "https://api.weixin.qq.com/sns/userinfo?" + params.Encode()
-	resp, err := http.Get(reqURL)
-	if err != nil {
-		return nil, fmt.Errorf("微信用户信息请求失败: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, _ := io.ReadAll(resp.Body)
 	var result wechatUserInfo
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("解析微信用户信息失败: %w", err)
+	if err := doWeChatRequest("https://api.weixin.qq.com/sns/userinfo?"+params.Encode(), &result); err != nil {
+		return nil, err
 	}
 	if result.ErrCode != 0 {
 		return nil, fmt.Errorf("微信错误: %d - %s", result.ErrCode, result.ErrMsg)
