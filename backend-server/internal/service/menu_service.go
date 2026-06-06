@@ -183,11 +183,11 @@ func (s *MenuService) menuToMap(menu model.Menu) *MenuItem {
 		Status:     menu.Status,
 		CreateTime: menu.CreatedAt,
 	}
-	// component 为空时返回 null
+	// component 为空时返回空字符串（前端需要字符串类型）
 	if menu.Component != "" {
 		item.Component = menu.Component
 	} else {
-		item.Component = nil
+		item.Component = ""
 	}
 	// 解析 meta JSON 字符串为对象
 	if menu.Meta != "" {
