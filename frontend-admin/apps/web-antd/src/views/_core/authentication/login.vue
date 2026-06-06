@@ -29,6 +29,12 @@ defineOptions({ name: 'Login' });
 
 const authStore = useAuthStore();
 
+// ==================== 登录方式设置 ====================
+const loginEmailEnabled = ref(false);
+const loginPhoneEnabled = ref(false);
+const loginOauthEnabled = ref(false);
+const loginOauthProviders = ref<string[]>([]);
+
 // ==================== 验证码状态 ====================
 const captchaEnabled = ref(false);
 const captchaType = ref('slider');
@@ -69,6 +75,7 @@ const isModalCaptcha = computed(() =>
 async function loadSettings() {
   try {
     const settings = await getPublicSettings();
+    // 加载验证码设置
     if (settings?.captcha) {
       captchaEnabled.value =
         settings.captcha.captcha_enabled === true ||
@@ -83,6 +90,23 @@ async function loadSettings() {
         captchaLoginTrigger.value = Number(
           settings.captcha.captcha_login_trigger,
         );
+      }
+    }
+    // 加载登录方式设置
+    if (settings?.auth) {
+      loginEmailEnabled.value =
+        settings.auth.login_email_enabled === true ||
+        settings.auth.login_email_enabled === 'true';
+      loginPhoneEnabled.value =
+        settings.auth.login_phone_enabled === true ||
+        settings.auth.login_phone_enabled === 'true';
+      loginOauthEnabled.value =
+        settings.auth.login_oauth_enabled === true ||
+        settings.auth.login_oauth_enabled === 'true';
+      if (settings.auth.login_oauth_providers) {
+        loginOauthProviders.value = Array.isArray(settings.auth.login_oauth_providers)
+          ? settings.auth.login_oauth_providers
+          : [];
       }
     }
   } catch (e) {
@@ -335,11 +359,13 @@ async function handleOAuthLogin(provider: string) {
   <AuthenticationLogin
     :form-schema="formSchema"
     :loading="authStore.loginLoading"
+    :show-code-login="loginEmailEnabled || loginPhoneEnabled"
+    :show-third-party-login="loginOauthEnabled && loginOauthProviders.length > 0"
     @submit="handleSubmit"
   >
     <!-- 自定义第三方登录（绑定实际 OAuth 跳转） -->
     <template #third-party-login>
-      <div class="w-full sm:mx-auto md:max-w-md">
+      <div v-if="loginOauthEnabled && loginOauthProviders.length > 0" class="w-full sm:mx-auto md:max-w-md">
         <div class="mt-4 flex items-center justify-between">
           <span class="w-[35%] border-b border-input dark:border-gray-600"></span>
           <span class="text-center text-xs text-muted-foreground uppercase">
@@ -348,13 +374,13 @@ async function handleOAuthLogin(provider: string) {
           <span class="w-[35%] border-b border-input dark:border-gray-600"></span>
         </div>
         <div class="mt-4 flex flex-wrap justify-center gap-4">
-          <VbenIconButton tooltip="微信登录" tooltip-side="top" @click="handleOAuthLogin('wechat')">
+          <VbenIconButton v-if="loginOauthProviders.includes('wechat')" tooltip="微信登录" tooltip-side="top" @click="handleOAuthLogin('wechat')">
             <SvgWeChatIcon />
           </VbenIconButton>
-          <VbenIconButton tooltip="GitHub 登录" tooltip-side="top" @click="handleOAuthLogin('github')">
+          <VbenIconButton v-if="loginOauthProviders.includes('github')" tooltip="GitHub 登录" tooltip-side="top" @click="handleOAuthLogin('github')">
             <SvgGithubIcon />
           </VbenIconButton>
-          <VbenIconButton tooltip="Google 登录" tooltip-side="top" @click="handleOAuthLogin('google')">
+          <VbenIconButton v-if="loginOauthProviders.includes('google')" tooltip="Google 登录" tooltip-side="top" @click="handleOAuthLogin('google')">
             <SvgGoogleIcon />
           </VbenIconButton>
         </div>
