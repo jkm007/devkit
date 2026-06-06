@@ -7,13 +7,15 @@
   color: inherit;
 }
 
-/* 修复浅色模式下 placeholder 颜色对比度不足 */
+/* 修复浅色模式下输入组件颜色对比度不足 */
 .ant-input::placeholder,
 .ant-input-affix-wrapper input::placeholder,
 .ant-select-selection-placeholder,
 .ant-picker input::placeholder,
+.ant-picker-input > input::placeholder,
 .ant-input-number input::placeholder,
-.ant-input-search input::placeholder {
+.ant-input-search input::placeholder,
+.ant-time-picker input::placeholder {
   color: hsl(var(--input-placeholder));
 }
 
@@ -22,9 +24,31 @@
 :is(.dark *) .ant-input-affix-wrapper input::placeholder,
 :is(.dark *) .ant-select-selection-placeholder,
 :is(.dark *) .ant-picker input::placeholder,
+:is(.dark *) .ant-picker-input > input::placeholder,
 :is(.dark *) .ant-input-number input::placeholder,
-:is(.dark *) .ant-input-search input::placeholder {
+:is(.dark *) .ant-input-search input::placeholder,
+:is(.dark *) .ant-time-picker input::placeholder {
   color: hsl(var(--input-placeholder));
+}
+
+/* DatePicker 弹出面板样式修复 */
+.ant-picker-dropdown {
+  :is(.dark *) & {
+    background-color: hsl(var(--popover));
+  }
+}
+
+.ant-picker-panel-container {
+  :is(.dark *) & {
+    background-color: hsl(var(--popover));
+  }
+}
+
+/* 时间选择器弹出面板 */
+.ant-time-picker-panel {
+  :is(.dark *) & {
+    background-color: hsl(var(--popover));
+  }
 }
 
 .ant-btn {
