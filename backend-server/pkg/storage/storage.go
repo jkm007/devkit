@@ -47,6 +47,13 @@ type CompletedPart struct {
 	ETag       string `json:"etag"`
 }
 
+// UploadedPart 已上传的分片信息（用于列举已上传分片）
+type UploadedPart struct {
+	PartNumber int   `json:"part_number"`
+	ETag       string `json:"etag"`
+	Size       int64  `json:"size"`
+}
+
 // FileInfo 文件信息
 type FileInfo struct {
 	ObjectKey   string `json:"object_key"`
@@ -66,11 +73,19 @@ func New(cfg config.StorageConfig) Storage {
 		}
 		return s
 	case "oss":
-		log.Printf("[WARN] OSS 存储驱动尚未实现，回退到本地存储")
-		return NewLocalStorage(cfg.Local)
+		s, err := NewOSSStorage(cfg.OSS)
+		if err != nil {
+			log.Printf("[WARN] OSS 初始化失败，回退到本地存储: %v", err)
+			return NewLocalStorage(cfg.Local)
+		}
+		return s
 	case "cos":
-		log.Printf("[WARN] COS 存储驱动尚未实现，回退到本地存储")
-		return NewLocalStorage(cfg.Local)
+		s, err := NewCOStorage(cfg.COS)
+		if err != nil {
+			log.Printf("[WARN] COS 初始化失败，回退到本地存储: %v", err)
+			return NewLocalStorage(cfg.Local)
+		}
+		return s
 	default:
 		return NewLocalStorage(cfg.Local)
 	}
