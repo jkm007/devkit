@@ -217,6 +217,32 @@ func (s *AuthService) LoginByEmail(email, code, clientIP string) (*LoginResponse
 	return s.generateLoginResponse(user, clientIP)
 }
 
+// LoginByPhone 手机号验证码登录
+func (s *AuthService) LoginByPhone(phone, code, clientIP string) (*LoginResponse, error) {
+	// 验证短信验证码
+	verifyCodeService := NewVerifyCodeService()
+	valid, err := verifyCodeService.VerifySMSCode(phone, code, "login")
+	if err != nil {
+		return nil, fmt.Errorf("验证码验证失败: %w", err)
+	}
+	if !valid {
+		return nil, errors.New("验证码错误")
+	}
+
+	// 根据手机号查找用户
+	user, err := s.userRepo.GetByPhone(phone)
+	if err != nil || user == nil || user.ID == 0 {
+		return nil, errors.New("该手机号未注册")
+	}
+
+	// 检查状态
+	if user.Status != 1 {
+		return nil, errors.New("账号已被禁用")
+	}
+
+	return s.generateLoginResponse(user, clientIP)
+}
+
 // generateLoginResponse 为已验证用户生成登录响应（token、角色、日志等）
 func (s *AuthService) generateLoginResponse(user *model.User, clientIP string) (*LoginResponse, error) {
 	// 收集角色名称

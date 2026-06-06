@@ -88,6 +88,28 @@ export async function loginByEmailApi(data: {
 }
 
 /**
+ * 发送短信验证码（需先完成图形验证码）
+ */
+export async function sendSmsCodeApi(data: {
+  phone: string;
+  purpose: 'login';
+  captchaId: string;
+  captchaCode: string;
+}) {
+  return requestClient.post('/auth/send-sms-code', data);
+}
+
+/**
+ * 手机号验证码登录
+ */
+export async function loginByPhoneApi(data: {
+  phone: string;
+  code: string;
+}) {
+  return requestClient.post<AuthApi.LoginResult>('/auth/login-by-phone', data);
+}
+
+/**
  * 用户注册
  */
 export async function registerApi(data: {

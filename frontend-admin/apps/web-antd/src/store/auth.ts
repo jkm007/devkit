@@ -16,6 +16,7 @@ import {
   getUserInfoApi,
   loginApi,
   loginByEmailApi,
+  loginByPhoneApi,
   logoutApi,
 } from '#/api';
 import { $t } from '#/locales';
@@ -116,6 +117,25 @@ export const useAuthStore = defineStore('auth', () => {
       return await handleLoginResult(result, onSuccess);
     } catch (error) {
       console.error('Email login failed:', error);
+      return { userInfo: null };
+    } finally {
+      loginLoading.value = false;
+    }
+  }
+
+  /**
+   * 手机号验证码登录
+   */
+  async function authLoginByPhone(
+    params: { code: string; phone: string },
+    onSuccess?: () => Promise<void> | void,
+  ) {
+    try {
+      loginLoading.value = true;
+      const result = await loginByPhoneApi(params);
+      return await handleLoginResult(result, onSuccess);
+    } catch (error) {
+      console.error('Phone login failed:', error);
       return { userInfo: null };
     } finally {
       loginLoading.value = false;
@@ -227,6 +247,7 @@ export const useAuthStore = defineStore('auth', () => {
     $reset,
     authLogin,
     authLoginByEmail,
+    authLoginByPhone,
     checkPermissionVersion,
     fetchUserInfo,
     loginLoading,

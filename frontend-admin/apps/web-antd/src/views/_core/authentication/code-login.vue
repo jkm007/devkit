@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router';
 
 import { Button, Form, FormItem, Input, message, Space, TabPane, Tabs } from 'ant-design-vue';
 
-import { sendVerifyCodeApi } from '#/api/core/auth';
+import { sendSmsCodeApi, sendVerifyCodeApi } from '#/api/core/auth';
 import { useAuthStore } from '#/store';
 import { showCaptchaVerify } from '#/utils/captcha-verify';
 
@@ -29,16 +29,29 @@ const phoneForm = ref({
 });
 
 // ==================== 验证码倒计时 ====================
-const codeCountdown = ref(0);
-let countdownTimer: ReturnType<typeof setInterval> | null = null;
+const emailCountdown = ref(0);
+const phoneCountdown = ref(0);
+let emailCountdownTimer: ReturnType<typeof setInterval> | null = null;
+let phoneCountdownTimer: ReturnType<typeof setInterval> | null = null;
 
-function startCountdown() {
-  codeCountdown.value = 60;
-  countdownTimer = setInterval(() => {
-    codeCountdown.value--;
-    if (codeCountdown.value <= 0 && countdownTimer) {
-      clearInterval(countdownTimer);
-      countdownTimer = null;
+function startEmailCountdown() {
+  emailCountdown.value = 60;
+  emailCountdownTimer = setInterval(() => {
+    emailCountdown.value--;
+    if (emailCountdown.value <= 0 && emailCountdownTimer) {
+      clearInterval(emailCountdownTimer);
+      emailCountdownTimer = null;
+    }
+  }, 1000);
+}
+
+function startPhoneCountdown() {
+  phoneCountdown.value = 60;
+  phoneCountdownTimer = setInterval(() => {
+    phoneCountdown.value--;
+    if (phoneCountdown.value <= 0 && phoneCountdownTimer) {
+      clearInterval(phoneCountdownTimer);
+      phoneCountdownTimer = null;
     }
   }, 1000);
 }
@@ -58,7 +71,34 @@ async function handleSendEmailCode() {
       captchaCode,
     });
     message.success('验证码已发送到您的邮箱');
-    startCountdown();
+    startEmailCountdown();
+  } catch (e: any) {
+    if (e?.message !== '用户取消验证码验证') {
+      message.error(e?.message || '发送失败');
+    }
+  }
+}
+
+// ==================== 发送短信验证码 ====================
+async function handleSendSmsCode() {
+  if (!phoneForm.value.phone) {
+    message.warning('请先输入手机号');
+    return;
+  }
+  if (!/^1\d{10}$/.test(phoneForm.value.phone)) {
+    message.warning('请输入正确的手机号');
+    return;
+  }
+  try {
+    const { captchaId, captchaCode } = await showCaptchaVerify();
+    await sendSmsCodeApi({
+      phone: phoneForm.value.phone,
+      purpose: 'login',
+      captchaId,
+      captchaCode,
+    });
+    message.success('验证码已发送到您的手机');
+    startPhoneCountdown();
   } catch (e: any) {
     if (e?.message !== '用户取消验证码验证') {
       message.error(e?.message || '发送失败');
@@ -86,9 +126,27 @@ async function handleEmailLogin() {
   }
 }
 
-function handlePhoneLogin() {
-  // TODO: 第二阶段实现短信验证码登录
-  message.info('短信验证码登录即将上线');
+async function handlePhoneLogin() {
+  if (!phoneForm.value.phone) {
+    message.warning('请输入手机号');
+    return;
+  }
+  if (!/^1\d{10}$/.test(phoneForm.value.phone)) {
+    message.warning('请输入正确的手机号');
+    return;
+  }
+  if (!phoneForm.value.code || phoneForm.value.code.length !== 6) {
+    message.warning('请输入6位验证码');
+    return;
+  }
+
+  const result = await authStore.authLoginByPhone({
+    phone: phoneForm.value.phone,
+    code: phoneForm.value.code,
+  });
+  if (!result?.userInfo) {
+    message.error('登录失败，请检查手机号和验证码');
+  }
 }
 
 function goToLogin() {
@@ -128,10 +186,10 @@ function goToLogin() {
               <Button
                 type="primary"
                 size="large"
-                :disabled="codeCountdown > 0"
+                :disabled="emailCountdown > 0"
                 @click="handleSendEmailCode"
               >
-                {{ codeCountdown > 0 ? `${codeCountdown}s` : '发送验证码' }}
+                {{ emailCountdown > 0 ? `${emailCountdown}s` : '发送验证码' }}
               </Button>
             </Space>
           </FormItem>
@@ -150,7 +208,7 @@ function goToLogin() {
         </Form>
       </TabPane>
 
-      <!-- 手机号登录（预留） -->
+      <!-- 手机号登录 -->
       <TabPane key="phone" tab="手机号登录">
         <Form layout="vertical" :model="phoneForm" @finish="handlePhoneLogin">
           <FormItem label="手机号" name="phone" required>
@@ -174,9 +232,10 @@ function goToLogin() {
               <Button
                 type="primary"
                 size="large"
-                disabled
+                :disabled="phoneCountdown > 0"
+                @click="handleSendSmsCode"
               >
-                发送验证码
+                {{ phoneCountdown > 0 ? `${phoneCountdown}s` : '发送验证码' }}
               </Button>
             </Space>
           </FormItem>
@@ -187,9 +246,9 @@ function goToLogin() {
               html-type="submit"
               block
               size="large"
-              disabled
+              :loading="authStore.loginLoading"
             >
-              登录（即将上线）
+              登录
             </Button>
           </FormItem>
         </Form>

@@ -92,6 +92,15 @@ func (r *UserRepo) GetByEmail(email string) (*model.User, error) {
 	return &user, nil
 }
 
+// GetByPhone 根据手机号获取用户
+func (r *UserRepo) GetByPhone(phone string) (*model.User, error) {
+	var user model.User
+	if err := r.db.Where("phone = ?", phone).First(&user).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
 // Create 创建用户
 func (r *UserRepo) Create(user *model.User) error {
 	return r.db.Create(user).Error

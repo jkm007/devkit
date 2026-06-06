@@ -77,6 +77,9 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		// 邮箱验证码（限流：每秒 1 个，突发 2）
 		auth.POST("/send-code", middleware.NewIPRateLimiter(1, 2), verifyCodeHandler.SendCode)
 		auth.POST("/verify-code", verifyCodeHandler.VerifyCode)
+		// 短信验证码（限流：每秒 1 个，突发 2）
+		auth.POST("/send-sms-code", middleware.NewIPRateLimiter(1, 2), verifyCodeHandler.SendSMSCode)
+		auth.POST("/login-by-phone", authHandler.LoginByPhone)
 		// 注册和重置密码
 		auth.POST("/register", authHandler.Register)
 		auth.POST("/reset-password", authHandler.ResetPassword)

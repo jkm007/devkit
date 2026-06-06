@@ -10,12 +10,18 @@ import (
 	"backend-server/pkg/database"
 	"backend-server/pkg/email"
 	"backend-server/pkg/logger"
+	"backend-server/pkg/sms"
 )
 
 const (
 	verifyCodeKeyPrefix       = "verify_code:"
 	verifyCodeCooldownPrefix  = "verify_code_cooldown:"
 	verifyCodeFailPrefix      = "verify_code_fail:"
+
+	smsCodeKeyPrefix      = "sms_code:"
+	smsCodeCooldownPrefix = "sms_code_cooldown:"
+	smsCodeFailPrefix     = "sms_code_fail:"
+
 	verifyCodeExpireMinutes   = 5
 	verifyCodeCooldownSeconds = 60
 	verifyCodeMaxFail         = 5
@@ -145,6 +151,94 @@ func PurposeText(purpose string) string {
 	default:
 		return purpose
 	}
+}
+
+// SendSMSCode 发送短信验证码
+func (s *VerifyCodeService) SendSMSCode(phone, purpose string) error {
+	rdb := database.GetRedis()
+	ctx := context.Background()
+
+	// 检查发送频率限制
+	cooldownKey := smsCodeCooldownPrefix + purpose + ":" + phone
+	exists, _ := rdb.Exists(ctx, cooldownKey).Result()
+	if exists > 0 {
+		return fmt.Errorf("验证码发送过于频繁，请 %d 秒后再试", verifyCodeCooldownSeconds)
+	}
+
+	// 检查失败锁定
+	failKey := smsCodeFailPrefix + purpose + ":" + phone
+	failCount, _ := rdb.Get(ctx, failKey).Int()
+	if failCount >= verifyCodeMaxFail {
+		ttl := rdb.TTL(ctx, failKey).Val()
+		if ttl > 0 {
+			return fmt.Errorf("验证码验证失败次数过多，请 %d 分钟后再试", int(ttl.Minutes())+1)
+		}
+	}
+
+	// 生成6位随机数字验证码
+	code, err := generateVerifyCode(6)
+	if err != nil {
+		return fmt.Errorf("生成验证码失败: %w", err)
+	}
+
+	// 存入 Redis
+	codeKey := smsCodeKeyPrefix + purpose + ":" + phone
+	rdb.Set(ctx, codeKey, code, verifyCodeExpireMinutes*time.Minute)
+
+	// 设置发送频率限制
+	rdb.Set(ctx, cooldownKey, "1", verifyCodeCooldownSeconds*time.Second)
+
+	// 获取短信发送器
+	sender, err := sms.GetSender()
+	if err != nil {
+		rdb.Del(ctx, codeKey)
+		return fmt.Errorf("短信服务不可用: %w", err)
+	}
+
+	// 发送短信
+	if err := sender.Send(phone, code); err != nil {
+		// 发送失败，删除已存储的验证码
+		rdb.Del(ctx, codeKey)
+		return fmt.Errorf("发送短信失败: %w", err)
+	}
+
+	logger.Info(fmt.Sprintf("短信验证码已发送: %s, purpose: %s", phone, purpose))
+	return nil
+}
+
+// VerifySMSCode 验证短信验证码
+func (s *VerifyCodeService) VerifySMSCode(phone, code, purpose string) (bool, error) {
+	rdb := database.GetRedis()
+	ctx := context.Background()
+
+	// 检查失败锁定
+	failKey := smsCodeFailPrefix + purpose + ":" + phone
+	failCount, _ := rdb.Get(ctx, failKey).Int()
+	if failCount >= verifyCodeMaxFail {
+		return false, fmt.Errorf("验证码验证失败次数过多，请稍后再试")
+	}
+
+	// 从 Redis 获取验证码
+	codeKey := smsCodeKeyPrefix + purpose + ":" + phone
+	storedCode, err := rdb.Get(ctx, codeKey).Result()
+	if err != nil {
+		return false, fmt.Errorf("验证码已过期或不存在")
+	}
+
+	// 比对验证码
+	if storedCode != code {
+		// 记录失败次数
+		rdb.Incr(ctx, failKey)
+		rdb.Expire(ctx, failKey, verifyCodeLockMinutes*time.Minute)
+		return false, nil
+	}
+
+	// 验证成功，删除验证码和失败记录
+	rdb.Del(ctx, codeKey)
+	rdb.Del(ctx, failKey)
+
+	logger.Info(fmt.Sprintf("短信验证码验证成功: %s, purpose: %s", phone, purpose))
+	return true, nil
 }
 
 // getSiteName 从数据库获取站点名称
