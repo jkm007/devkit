@@ -127,6 +127,7 @@
       "email": "Email",
       "sms": "SMS",
       "captcha": "Captcha",
+      "riskScore": "Risk Score",
       "storage": "Storage",
       "wechat": "WeChat",
       "security": "Security"
@@ -136,6 +137,7 @@
       "email": "SMTP email service configuration",
       "sms": "SMS service provider configuration",
       "captcha": "Captcha type and trigger rules",
+      "riskScore": "API risk scoring system to prevent malicious requests",
       "storage": "File storage method and cloud storage configuration",
       "wechat": "WeChat Mini Program and Official Account login",
       "security": "Login security, password policy, session timeout"

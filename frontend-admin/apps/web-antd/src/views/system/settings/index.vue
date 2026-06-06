@@ -69,6 +69,11 @@ const groupConfig: Record<
     title: $t('system.settings.groups.captcha'),
     description: $t('system.settings.groupDesc.captcha'),
   },
+  risk_score: {
+    icon: '⚠️',
+    title: $t('system.settings.groups.riskScore'),
+    description: $t('system.settings.groupDesc.riskScore'),
+  },
   storage: {
     icon: '📁',
     title: $t('system.settings.groups.storage'),
@@ -91,6 +96,7 @@ const ALL_GROUPS = [
   'email',
   'sms',
   'captcha',
+  'risk_score',
   'storage',
   'wechat',
   'security',
@@ -1199,6 +1205,217 @@ onMounted(() => {
                 </div>
               </Spin>
             </Modal>
+          </div>
+
+          <!-- ==================== 风险评分设置 ==================== -->
+          <div
+            v-else-if="activeGroup === 'risk_score' && formValues.risk_score"
+          >
+            <!-- 通用配置 -->
+            <div class="settings-section">
+              <h3 class="settings-section-title">⚙️ 通用配置</h3>
+              <Row :gutter="[16, 16]">
+                <Col
+                  v-for="item in currentGroupItems.filter((i) => i.key.startsWith('risk_') && !i.key.startsWith('rule_'))"
+                  :key="item.key"
+                  :span="12"
+                >
+                  <div class="setting-item">
+                    <label class="setting-label">
+                      {{ item.label }}
+                      <Tooltip v-if="item.tip" :title="item.tip">
+                        <span class="text-foreground/40 ml-1 cursor-help">ⓘ</span>
+                      </Tooltip>
+                    </label>
+                    <Switch
+                      v-if="item.type === 'boolean'"
+                      v-model:checked="formValues.risk_score[item.key]"
+                    />
+                    <InputNumber
+                      v-else-if="item.type === 'number'"
+                      v-model:value="formValues.risk_score[item.key]"
+                      class="w-full"
+                      :min="0"
+                    />
+                    <Input
+                      v-else-if="item.type === 'string'"
+                      v-model:value="formValues.risk_score[item.key]"
+                      :placeholder="item.tip"
+                    />
+                  </div>
+                </Col>
+              </Row>
+            </div>
+
+            <Divider />
+
+            <!-- 频率检测规则 -->
+            <div class="settings-section">
+              <h3 class="settings-section-title">📊 频率检测规则</h3>
+              <Row :gutter="[16, 16]">
+                <Col
+                  v-for="item in currentGroupItems.filter((i) => i.key.startsWith('rule_frequency'))"
+                  :key="item.key"
+                  :span="12"
+                >
+                  <div class="setting-item">
+                    <label class="setting-label">
+                      {{ item.label }}
+                      <Tooltip v-if="item.tip" :title="item.tip">
+                        <span class="text-foreground/40 ml-1 cursor-help">ⓘ</span>
+                      </Tooltip>
+                    </label>
+                    <Switch
+                      v-if="item.type === 'boolean'"
+                      v-model:checked="formValues.risk_score[item.key]"
+                    />
+                    <InputNumber
+                      v-else-if="item.type === 'number'"
+                      v-model:value="formValues.risk_score[item.key]"
+                      class="w-full"
+                      :min="0"
+                    />
+                  </div>
+                </Col>
+              </Row>
+            </div>
+
+            <Divider />
+
+            <!-- 无 Referer 规则 -->
+            <div class="settings-section">
+              <h3 class="settings-section-title">🔗 无 Referer 规则</h3>
+              <Row :gutter="[16, 16]">
+                <Col
+                  v-for="item in currentGroupItems.filter((i) => i.key.startsWith('rule_no_referer'))"
+                  :key="item.key"
+                  :span="12"
+                >
+                  <div class="setting-item">
+                    <label class="setting-label">
+                      {{ item.label }}
+                      <Tooltip v-if="item.tip" :title="item.tip">
+                        <span class="text-foreground/40 ml-1 cursor-help">ⓘ</span>
+                      </Tooltip>
+                    </label>
+                    <Switch
+                      v-if="item.type === 'boolean'"
+                      v-model:checked="formValues.risk_score[item.key]"
+                    />
+                    <InputNumber
+                      v-else-if="item.type === 'number'"
+                      v-model:value="formValues.risk_score[item.key]"
+                      class="w-full"
+                      :min="0"
+                    />
+                  </div>
+                </Col>
+              </Row>
+            </div>
+
+            <Divider />
+
+            <!-- 无 Accept-Language 规则 -->
+            <div class="settings-section">
+              <h3 class="settings-section-title">🌐 无 Accept-Language 规则</h3>
+              <Row :gutter="[16, 16]">
+                <Col
+                  v-for="item in currentGroupItems.filter((i) => i.key.startsWith('rule_no_lang'))"
+                  :key="item.key"
+                  :span="12"
+                >
+                  <div class="setting-item">
+                    <label class="setting-label">
+                      {{ item.label }}
+                      <Tooltip v-if="item.tip" :title="item.tip">
+                        <span class="text-foreground/40 ml-1 cursor-help">ⓘ</span>
+                      </Tooltip>
+                    </label>
+                    <Switch
+                      v-if="item.type === 'boolean'"
+                      v-model:checked="formValues.risk_score[item.key]"
+                    />
+                    <InputNumber
+                      v-else-if="item.type === 'number'"
+                      v-model:value="formValues.risk_score[item.key]"
+                      class="w-full"
+                      :min="0"
+                    />
+                  </div>
+                </Col>
+              </Row>
+            </div>
+
+            <Divider />
+
+            <!-- UA 异常规则 -->
+            <div class="settings-section">
+              <h3 class="settings-section-title">🤖 UA 异常规则</h3>
+              <Row :gutter="[16, 16]">
+                <Col
+                  v-for="item in currentGroupItems.filter((i) => i.key.startsWith('rule_ua'))"
+                  :key="item.key"
+                  :span="12"
+                >
+                  <div class="setting-item">
+                    <label class="setting-label">
+                      {{ item.label }}
+                      <Tooltip v-if="item.tip" :title="item.tip">
+                        <span class="text-foreground/40 ml-1 cursor-help">ⓘ</span>
+                      </Tooltip>
+                    </label>
+                    <Switch
+                      v-if="item.type === 'boolean'"
+                      v-model:checked="formValues.risk_score[item.key]"
+                    />
+                    <InputNumber
+                      v-else-if="item.type === 'number'"
+                      v-model:value="formValues.risk_score[item.key]"
+                      class="w-full"
+                      :min="0"
+                    />
+                    <Input
+                      v-else-if="item.type === 'string'"
+                      v-model:value="formValues.risk_score[item.key]"
+                      :placeholder="item.tip"
+                    />
+                  </div>
+                </Col>
+              </Row>
+            </div>
+
+            <Divider />
+
+            <!-- 请求间隔规则 -->
+            <div class="settings-section">
+              <h3 class="settings-section-title">⏱️ 请求间隔规则</h3>
+              <Row :gutter="[16, 16]">
+                <Col
+                  v-for="item in currentGroupItems.filter((i) => i.key.startsWith('rule_interval'))"
+                  :key="item.key"
+                  :span="12"
+                >
+                  <div class="setting-item">
+                    <label class="setting-label">
+                      {{ item.label }}
+                      <Tooltip v-if="item.tip" :title="item.tip">
+                        <span class="text-foreground/40 ml-1 cursor-help">ⓘ</span>
+                      </Tooltip>
+                    </label>
+                    <Switch
+                      v-if="item.type === 'boolean'"
+                      v-model:checked="formValues.risk_score[item.key]"
+                    />
+                    <InputNumber
+                      v-else-if="item.type === 'number'"
+                      v-model:value="formValues.risk_score[item.key]"
+                      class="w-full"
+                      :min="0"
+                    />
+                  </div>
+                </Col>
+              </Row>
+            </div>
           </div>
 
           <!-- ==================== 存储设置 ==================== -->

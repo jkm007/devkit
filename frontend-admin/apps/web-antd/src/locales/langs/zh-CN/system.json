@@ -129,6 +129,7 @@
       "email": "邮箱设置",
       "sms": "短信设置",
       "captcha": "验证码设置",
+      "riskScore": "风险评分",
       "storage": "存储设置",
       "wechat": "微信设置",
       "security": "安全设置"
@@ -138,6 +139,7 @@
       "email": "SMTP 邮件服务配置",
       "sms": "短信服务商配置",
       "captcha": "验证码类型和触发规则",
+      "riskScore": "API 风险评分系统配置，防止恶意请求",
       "storage": "文件存储方式和云存储配置",
       "wechat": "微信小程序、公众号登录配置",
       "security": "登录安全、密码策略、会话超时"
