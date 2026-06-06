@@ -16,6 +16,7 @@ import (
 	"backend-server/pkg/cache"
 	"backend-server/pkg/captcha"
 	"backend-server/pkg/database"
+	"backend-server/pkg/email"
 	"backend-server/pkg/jwt"
 	"backend-server/pkg/logger"
 
@@ -768,11 +769,26 @@ type RegisterRequest struct {
 	ConfirmPassword string `json:"confirmPassword" binding:"required"`
 }
 
+// validUsername 验证用户名格式（只允许字母、数字、下划线、连字符）
+func validUsername(username string) bool {
+	for _, c := range username {
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-') {
+			return false
+		}
+	}
+	return true
+}
+
 // Register 用户注册
 func (s *AuthService) Register(req *RegisterRequest, ip, userAgent string) error {
 	// 校验密码一致性
 	if req.Password != req.ConfirmPassword {
 		return errors.New("两次输入的密码不一致")
+	}
+
+	// 校验用户名格式
+	if !validUsername(req.Username) {
+		return errors.New("用户名只能包含字母、数字、下划线和连字符")
 	}
 
 	// 验证邮箱验证码
@@ -791,10 +807,10 @@ func (s *AuthService) Register(req *RegisterRequest, ip, userAgent string) error
 		return errors.New("用户名已存在")
 	}
 
-	// 检查邮箱是否已存在
+	// 检查邮箱是否已存在（一个邮箱只能注册一个账号）
 	existingByEmail, _ := s.userRepo.GetByEmail(req.Email)
 	if existingByEmail != nil && existingByEmail.ID > 0 {
-		return errors.New("该邮箱已被注册")
+		return errors.New("该邮箱已被注册，一个邮箱只能绑定一个账号")
 	}
 
 	// 加密密码
@@ -815,11 +831,16 @@ func (s *AuthService) Register(req *RegisterRequest, ip, userAgent string) error
 		return fmt.Errorf("创建用户失败: %w", err)
 	}
 
-	// 分配默认角色（普通用户）
+	// 分配默认角色（必须存在 "user" 角色）
 	defaultRole, err := s.roleRepo.GetByName("user")
-	if err == nil && defaultRole != nil {
+	if err != nil || defaultRole == nil {
+		logger.Warn("默认角色 'user' 不存在，新用户将无角色，无法登录")
+	} else {
 		s.userRepo.SyncUserRoles(user.ID, []uint{defaultRole.ID})
 	}
+
+	// 记录安全日志
+	s.RecordSecurityLog(user.ID, "register", fmt.Sprintf("新用户注册成功: %s", req.Username), ip, userAgent, 1)
 
 	logger.Info(fmt.Sprintf("新用户注册: %s (%s)", req.Username, req.Email))
 	return nil
@@ -871,15 +892,50 @@ func (s *AuthService) ResetPassword(req *ResetPasswordRequest, ip, userAgent str
 		return fmt.Errorf("更新密码失败: %w", err)
 	}
 
-	// 清除该用户的 refresh token
+	// === 安全措施：踢出所有登录状态 ===
 	rdb := database.GetRedis()
-	rdb.Del(context.Background(), fmt.Sprintf("refresh_token:%d", user.ID))
+	ctx := context.Background()
+
+	// 1. 清除 refresh token
+	rdb.Del(ctx, fmt.Sprintf("refresh_token:%d", user.ID))
+
+	// 2. 清除权限缓存（强制重新加载权限）
+	cache.Delete(ctx, permissionCacheKey(user.ID))
+
+	// 3. 清除所有登录设备记录
+	s.loginDeviceSvc.DeleteAllDevices(user.ID)
+
+	// 4. 发送安全通知邮件
+	siteName := getSiteName()
+	notifySubject := fmt.Sprintf("【%s】密码重置通知", siteName)
+	notifyBody := fmt.Sprintf(`
+		<p>尊敬的 %s：</p>
+		<p>您的账号密码已于 %s 成功重置。</p>
+		<p>如果不是您本人操作，请立即联系管理员或修改密码。</p>
+		<p>此邮件为系统自动发送，请勿回复。</p>
+	`, user.Name, now.Format("2006-01-02 15:04:05"))
+	email.SendHTMLEmail(req.Email, notifySubject, notifyBody)
 
 	// 记录安全日志
-	s.RecordSecurityLog(user.ID, "password_reset", "通过邮箱验证码重置密码", ip, userAgent, 1)
+	s.RecordSecurityLog(user.ID, "password_reset", "通过邮箱验证码重置密码，已踢出所有设备", ip, userAgent, 1)
 
-	logger.Info(fmt.Sprintf("用户重置密码: %s (%s)", user.Name, req.Email))
+	logger.Info(fmt.Sprintf("用户重置密码: %s (%s)，已踢出所有设备", user.Name, req.Email))
 	return nil
+}
+
+// getSiteName 从数据库获取站点名称
+func getSiteName() string {
+	db := database.GetMySQL()
+	var value string
+	err := db.Raw("SELECT value FROM sys_system_settings WHERE group_key = 'basic' AND `key` = 'site_name' AND deleted_at IS NULL").Scan(&value).Error
+	if err != nil || value == "" {
+		return "管理系统"
+	}
+	// 去除 JSON 引号
+	if len(value) >= 2 && value[0] == '"' && value[len(value)-1] == '"' {
+		value = value[1 : len(value)-1]
+	}
+	return value
 }
 
 // Logout 用户登出

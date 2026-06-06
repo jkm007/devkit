@@ -61,3 +61,8 @@ func (r *LoginDeviceRepo) DeleteByUserExcept(userID uint, exceptID uint) (int64,
 	result := r.db.Where("user_id = ? AND id != ?", userID, exceptID).Delete(&model.LoginDevice{})
 	return result.RowsAffected, result.Error
 }
+
+// DeleteAllByUser 删除用户的所有设备记录
+func (r *LoginDeviceRepo) DeleteAllByUser(userID uint) error {
+	return r.db.Where("user_id = ?", userID).Delete(&model.LoginDevice{}).Error
+}

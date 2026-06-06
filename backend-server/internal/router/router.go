@@ -77,13 +77,15 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		auth.GET("/oauth/callback", oauthHandler.Callback)
 		// 邮箱验证码（限流：每秒 1 个，突发 2）
 		auth.POST("/send-code", middleware.NewIPRateLimiter(1, 2), verifyCodeHandler.SendCode)
-		auth.POST("/verify-code", verifyCodeHandler.VerifyCode)
+		// 验证验证码（限流：每秒 5 个，突发 10）
+		auth.POST("/verify-code", middleware.NewIPRateLimiter(5, 10), verifyCodeHandler.VerifyCode)
 		// 短信验证码（限流：每秒 1 个，突发 2）
 		auth.POST("/send-sms-code", middleware.NewIPRateLimiter(1, 2), verifyCodeHandler.SendSMSCode)
 		auth.POST("/login-by-phone", authHandler.LoginByPhone)
-		// 注册和重置密码
-		auth.POST("/register", authHandler.Register)
-		auth.POST("/reset-password", authHandler.ResetPassword)
+		// 注册（限流：每秒 1 个，突发 3）
+		auth.POST("/register", middleware.NewIPRateLimiter(1, 3), authHandler.Register)
+		// 重置密码（限流：每秒 1 个，突发 3）
+		auth.POST("/reset-password", middleware.NewIPRateLimiter(1, 3), authHandler.ResetPassword)
 	}
 
 	// 需要认证的接口

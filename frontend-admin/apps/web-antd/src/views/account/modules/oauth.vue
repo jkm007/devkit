@@ -3,15 +3,7 @@ import type { AccountApi } from '#/api';
 
 import { onMounted, ref } from 'vue';
 
-import {
-  Button,
-  List,
-  ListItem,
-  ListItemMeta,
-  message,
-  Popconfirm,
-  Tag,
-} from 'ant-design-vue';
+import { Button, Card, message, Popconfirm, Spin, Tag } from 'ant-design-vue';
 
 import { getOAuthBindings, unbindOAuth } from '#/api';
 import { $t } from '#/locales';
@@ -19,16 +11,17 @@ import { $t } from '#/locales';
 const bindings = ref<AccountApi.OAuthBinding[]>([]);
 const loading = ref(false);
 
-const providerLabels: Record<string, string> = {
-  wechat: 'WeChat',
-  github: 'GitHub',
-  google: 'Google',
-};
+const providers = [
+  { key: 'wechat', label: 'WeChat' },
+  { key: 'github', label: 'GitHub' },
+  { key: 'google', label: 'Google' },
+];
 
 async function loadBindings() {
   loading.value = true;
   try {
-    bindings.value = await getOAuthBindings();
+    const data = await getOAuthBindings();
+    bindings.value = Array.isArray(data) ? data : [];
   } catch {
     bindings.value = [];
   } finally {
@@ -49,7 +42,7 @@ async function handleUnbind(provider: string) {
 }
 
 function isProviderBound(provider: string) {
-  return bindings.value.some((b) => b.provider === provider);
+  return (bindings.value || []).some((b) => b.provider === provider);
 }
 
 onMounted(() => {
@@ -58,34 +51,31 @@ onMounted(() => {
 </script>
 
 <template>
-  <div v-loading="loading">
-    <List :data-source="['wechat', 'github', 'google']" bordered>
-      <template #renderItem="{ item: provider }">
-        <ListItem>
-          <ListItemMeta :title="providerLabels[provider]">
-            <template #description>
-              <Tag v-if="isProviderBound(provider)" color="success">
-                {{ $t('account.security.bound') }}
-              </Tag>
-              <Tag v-else>{{ $t('account.security.unbound') }}</Tag>
-            </template>
-          </ListItemMeta>
-          <template #actions>
-            <Popconfirm
-              v-if="isProviderBound(provider)"
-              :title="$t('account.security.unbindConfirm', [providerLabels[provider]])"
-              @confirm="handleUnbind(provider)"
-            >
-              <Button danger size="small">
-                {{ $t('account.security.unbind') }}
-              </Button>
-            </Popconfirm>
-            <Button v-else size="small" type="primary">
-              {{ $t('account.security.bind') }}
+  <Spin :spinning="loading">
+    <div class="space-y-4">
+      <Card v-for="provider in providers" :key="provider.key" size="small">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <span class="font-medium">{{ provider.label }}</span>
+            <Tag v-if="isProviderBound(provider.key)" color="success">
+              {{ $t('account.security.bound') }}
+            </Tag>
+            <Tag v-else>{{ $t('account.security.unbound') }}</Tag>
+          </div>
+          <Popconfirm
+            v-if="isProviderBound(provider.key)"
+            :title="$t('account.security.unbindConfirm', [provider.label])"
+            @confirm="handleUnbind(provider.key)"
+          >
+            <Button danger size="small">
+              {{ $t('account.security.unbind') }}
             </Button>
-          </template>
-        </ListItem>
-      </template>
-    </List>
-  </div>
+          </Popconfirm>
+          <Button v-else size="small" type="primary">
+            {{ $t('account.security.bind') }}
+          </Button>
+        </div>
+      </Card>
+    </div>
+  </Spin>
 </template>

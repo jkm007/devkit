@@ -133,3 +133,20 @@ func (s *LoginDeviceService) KickAllOther(userID uint, currentDeviceID string) (
 
 	return s.repo.DeleteByUserExcept(userID, currentID)
 }
+
+// DeleteAllDevices 删除用户的所有登录设备记录（用于重置密码等场景）
+func (s *LoginDeviceService) DeleteAllDevices(userID uint) error {
+	// 将所有设备加入Redis黑名单
+	devices, err := s.repo.ListByUser(userID)
+	if err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	for _, d := range devices {
+		blacklistKey := fmt.Sprintf("kicked_device:%d:%s", userID, d.DeviceID)
+		database.GetRedis().Set(ctx, blacklistKey, 1, 24*time.Hour)
+	}
+
+	return s.repo.DeleteAllByUser(userID)
+}

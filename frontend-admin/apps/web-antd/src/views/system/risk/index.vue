@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
+import { $t } from '#/locales';
 
 import {
   Alert,
@@ -117,7 +118,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <Page title="风险评分监控" auto-content-height>
+  <Page :title="$t('system.risk.title')" auto-content-height>
     <Spin :spinning="loading">
       <!-- 统计卡片 -->
       <Row :gutter="16" class="mb-4">

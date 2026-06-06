@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"backend-server/pkg/database"
@@ -26,6 +27,9 @@ const (
 	verifyCodeCooldownSeconds = 60
 	verifyCodeMaxFail         = 5
 	verifyCodeLockMinutes     = 15
+	// 邮箱维度限制：同一邮箱每天最多发送 10 次
+	verifyCodeDailyLimit      = 10
+	verifyCodeDailyPrefix     = "verify_code_daily:"
 )
 
 // VerifyCodeService 邮箱验证码服务
@@ -41,11 +45,18 @@ func (s *VerifyCodeService) SendCode(to, purpose string) error {
 	rdb := database.GetRedis()
 	ctx := context.Background()
 
-	// 检查发送频率限制
+	// 检查发送频率限制（60秒冷却）
 	cooldownKey := verifyCodeCooldownPrefix + purpose + ":" + to
 	exists, _ := rdb.Exists(ctx, cooldownKey).Result()
 	if exists > 0 {
 		return fmt.Errorf("验证码发送过于频繁，请 %d 秒后再试", verifyCodeCooldownSeconds)
+	}
+
+	// 检查每日发送限制（同一邮箱每天最多 10 次）
+	dailyKey := verifyCodeDailyPrefix + purpose + ":" + to
+	dailyCount, _ := rdb.Get(ctx, dailyKey).Int()
+	if dailyCount >= verifyCodeDailyLimit {
+		return fmt.Errorf("今日发送次数已达上限，请明天再试")
 	}
 
 	// 检查失败锁定
@@ -64,12 +75,21 @@ func (s *VerifyCodeService) SendCode(to, purpose string) error {
 		return fmt.Errorf("生成验证码失败: %w", err)
 	}
 
-	// 存入 Redis
+	// 哈希存储验证码（安全存储，防止 Redis 泄露）
+	codeHash := sha256Hash(code)
 	codeKey := verifyCodeKeyPrefix + purpose + ":" + to
-	rdb.Set(ctx, codeKey, code, verifyCodeExpireMinutes*time.Minute)
+	rdb.Set(ctx, codeKey, codeHash, verifyCodeExpireMinutes*time.Minute)
 
 	// 设置发送频率限制
 	rdb.Set(ctx, cooldownKey, "1", verifyCodeCooldownSeconds*time.Second)
+
+	// 增加每日发送计数（每天凌晨自动过期）
+	dailyTTL := time.Duration(24*60-time.Now().Hour()*60-time.Now().Minute()) * time.Minute
+	if dailyTTL < time.Minute {
+		dailyTTL = 24 * time.Hour
+	}
+	rdb.Incr(ctx, dailyKey)
+	rdb.Expire(ctx, dailyKey, dailyTTL)
 
 	// 获取站点名称
 	siteName := getSiteName()
@@ -84,6 +104,8 @@ func (s *VerifyCodeService) SendCode(to, purpose string) error {
 	if err := email.SendHTMLEmail(to, subject, htmlBody); err != nil {
 		// 发送失败，删除已存储的验证码
 		rdb.Del(ctx, codeKey)
+		rdb.Del(ctx, cooldownKey)
+		rdb.Decr(ctx, dailyKey)
 		return fmt.Errorf("发送邮件失败: %w", err)
 	}
 
@@ -103,15 +125,16 @@ func (s *VerifyCodeService) VerifyCode(to, code, purpose string) (bool, error) {
 		return false, fmt.Errorf("验证码验证失败次数过多，请稍后再试")
 	}
 
-	// 从 Redis 获取验证码
+	// 从 Redis 获取验证码哈希
 	codeKey := verifyCodeKeyPrefix + purpose + ":" + to
-	storedCode, err := rdb.Get(ctx, codeKey).Result()
+	storedHash, err := rdb.Get(ctx, codeKey).Result()
 	if err != nil {
 		return false, fmt.Errorf("验证码已过期或不存在")
 	}
 
-	// 比对验证码（不区分大小写）
-	if storedCode != code {
+	// 比对验证码哈希（不区分大小写）
+	codeHash := sha256Hash(strings.ToLower(code))
+	if storedHash != codeHash {
 		// 记录失败次数
 		rdb.Incr(ctx, failKey)
 		rdb.Expire(ctx, failKey, verifyCodeLockMinutes*time.Minute)

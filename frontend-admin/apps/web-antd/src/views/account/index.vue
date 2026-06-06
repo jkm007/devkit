@@ -63,7 +63,7 @@ onMounted(() => {
         </div>
 
         <Menu
-          v-model:selected-keys="activeKey"
+          v-model:selectedKeys="activeKey"
           mode="inline"
           :bordered="false"
           class="bg-transparent"
