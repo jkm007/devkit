@@ -67,7 +67,9 @@ func (r *UserRealNameRepo) List(page, pageSize int, filters map[string]interface
 		query = query.Where("user_id = ?", userID)
 	}
 	if realName, ok := filters["realName"]; ok && realName != "" {
-		query = query.Where("real_name LIKE ?", "%"+escapeLike(realName.(string))+"%")
+		if rnStr, ok := realName.(string); ok {
+			query = query.Where("real_name LIKE ?", "%"+escapeLike(rnStr)+"%")
+		}
 	}
 
 	if err := query.Count(&total).Error; err != nil {

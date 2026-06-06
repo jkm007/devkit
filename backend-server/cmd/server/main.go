@@ -122,6 +122,9 @@ func main() {
 
 	logger.Info("正在关闭服务...")
 
+	// 停止 WebSocket Hub
+	hub.Stop()
+
 	// 等待最多 5 秒处理完当前请求
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

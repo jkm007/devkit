@@ -65,7 +65,9 @@ func (r *SecurityLogRepo) ListAll(page, pageSize int, filters map[string]interfa
 		query = query.Where("sys_security_logs.status = ?", status)
 	}
 	if ip, ok := filters["ip"]; ok && ip != "" {
-		query = query.Where("sys_security_logs.ip LIKE ?", "%"+escapeLike(ip.(string))+"%")
+		if ipStr, ok := ip.(string); ok {
+			query = query.Where("sys_security_logs.ip LIKE ?", "%"+escapeLike(ipStr)+"%")
+		}
 	}
 	if startTime, ok := filters["startTime"]; ok && startTime != "" {
 		query = query.Where("sys_security_logs.created_at >= ?", startTime)

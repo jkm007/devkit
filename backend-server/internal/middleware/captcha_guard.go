@@ -18,6 +18,10 @@ const riskScoreKeyPrefix = "risk:score:"
 // 对受保护路径进行风险评估，高风险请求要求验证码
 func CaptchaGuard() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if getRiskCfg == nil {
+			c.Next()
+			return
+		}
 		cfg := getRiskCfg()
 
 		if !cfg.Enabled {

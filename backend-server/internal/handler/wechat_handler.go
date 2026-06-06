@@ -80,6 +80,11 @@ func (h *WeChatHandler) GetOfficialAuthorizeURL(c *gin.Context) {
 	if scope == "" {
 		scope = "snsapi_userinfo"
 	}
+	// 白名单校验 scope
+	if scope != "snsapi_base" && scope != "snsapi_userinfo" {
+		response.BadRequest(c, "scope 只支持 snsapi_base 或 snsapi_userinfo")
+		return
+	}
 
 	authURL, err := h.wechatService.GetOfficialAuthorizeURL(scope)
 	if err != nil {

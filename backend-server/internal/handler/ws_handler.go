@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 
+	"backend-server/config"
 	"backend-server/internal/middleware"
 	"backend-server/internal/ws"
 	"backend-server/pkg/logger"
@@ -18,7 +19,18 @@ var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
-		return true // 生产环境应限制来源
+		origin := r.Header.Get("Origin")
+		if origin == "" {
+			return false
+		}
+		// 从配置中获取允许的来源
+		cfg := config.Get()
+		for _, allowed := range cfg.CORS.AllowOrigins {
+			if allowed == "*" || allowed == origin {
+				return true
+			}
+		}
+		return false
 	},
 }
 

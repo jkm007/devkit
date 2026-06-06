@@ -2,6 +2,7 @@ package mq
 
 import (
 	"context"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
@@ -28,7 +29,11 @@ func NewStream(streamKey, groupName string) *Stream {
 func (s *Stream) Init(ctx context.Context) error {
 	rdb := database.GetRedis()
 	// 创建消费者组（如果不存在）
-	return rdb.XGroupCreateMkStream(ctx, s.streamKey, s.groupName, "0").Err()
+	err := rdb.XGroupCreateMkStream(ctx, s.streamKey, s.groupName, "0").Err()
+	if err != nil && err.Error() == "BUSYGROUP Consumer Group name already exists" {
+		return nil
+	}
+	return err
 }
 
 // Publish 发布消息
@@ -55,7 +60,7 @@ func (s *Stream) Subscribe(ctx context.Context, consumerName string, handler fun
 					Consumer: consumerName,
 					Streams:  []string{s.streamKey, ">"},
 					Count:    10,
-					Block:    5 * 1000, // 5 秒
+					Block:    5 * time.Second,
 				}).Result()
 				if err != nil {
 					if err != redis.Nil {

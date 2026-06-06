@@ -428,7 +428,10 @@ func generateID() (string, error) {
 
 // randInt 生成 [min, max) 范围的随机整数
 func randInt(min, max int) int {
-	n, _ := rand.Int(rand.Reader, big.NewInt(int64(max-min)))
+	n, err := rand.Int(rand.Reader, big.NewInt(int64(max-min)))
+	if err != nil {
+		return min
+	}
 	return min + int(n.Int64())
 }
 

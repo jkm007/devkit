@@ -120,8 +120,16 @@ func SendHTMLEmail(to, subject, htmlBody string) error {
 	return sendViaSTARTTLS(addr, cfg.Host, cfg.Username, cfg.Password, cfg.From, to, msg)
 }
 
+// sanitizeHeader 清理邮件头字段，防止 Header Injection
+func sanitizeHeader(s string) string {
+	return strings.NewReplacer("\r", "", "\n", "", "%0d", "", "%0a", "").Replace(s)
+}
+
 // buildMessage 构建邮件消息
 func buildMessage(cfg *Config, to, subject, htmlBody, boundary string) string {
+	subject = sanitizeHeader(subject)
+	to = sanitizeHeader(to)
+
 	var sb strings.Builder
 
 	sb.WriteString("From: ")

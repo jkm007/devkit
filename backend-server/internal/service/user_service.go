@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"regexp"
 	"time"
@@ -152,7 +153,12 @@ func (s *UserService) Create(req *CreateUserRequest) error {
 	// 加密密码
 	password := req.Password
 	if password == "" {
-		password = "123456" // 默认密码
+		// 生成随机临时密码（8 位十六进制）
+		b := make([]byte, 4)
+		if _, err := rand.Read(b); err != nil {
+			return fmt.Errorf("生成临时密码失败: %w", err)
+		}
+		password = fmt.Sprintf("Tmp%s!", fmt.Sprintf("%x", b))
 	}
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {

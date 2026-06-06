@@ -91,10 +91,6 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		// 重置密码（限流：每秒 1 个，突发 3）
 		auth.POST("/reset-password", middleware.NewIPRateLimiter(1, 3), authHandler.ResetPassword)
 
-		auth.POST("/login-by-phone", authHandler.LoginByPhone)
-		// 注册和重置密码
-		auth.POST("/register", authHandler.Register)
-		auth.POST("/reset-password", authHandler.ResetPassword)
 
 		// 微信登录
 		wechat := auth.Group("/wechat")
@@ -201,8 +197,6 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 
 			// 系统设置（固定路径必须在 :group 参数路由之前）
 			system.GET("/settings", middleware.Permission("system:setting:list"), systemSettingHandler.GetAll)
-			system.GET("/settings/test-email", middleware.Permission("system:setting:edit"), systemSettingHandler.TestEmail)
-			system.GET("/settings/test-sms", middleware.Permission("system:setting:edit"), systemSettingHandler.TestSMS)
 			system.POST("/settings/test-email", middleware.Permission("system:setting:edit"), systemSettingHandler.TestEmail)
 			system.POST("/settings/test-sms", middleware.Permission("system:setting:edit"), systemSettingHandler.TestSMS)
 			system.PUT("/settings", middleware.Permission("system:setting:edit"), systemSettingHandler.Update)

@@ -756,6 +756,11 @@ func (s *AuthService) ChangePassword(userID uint, req *ChangePasswordRequest, ip
 		return err
 	}
 
+	// 使现有 Token 失效，强制所有设备重新登录
+	rdb := database.GetRedis()
+	ctx := context.Background()
+	rdb.Del(ctx, fmt.Sprintf("refresh_token:%d", userID))
+
 	// 记录安全日志
 	s.RecordSecurityLog(userID, "password_change", "修改密码成功", ip, userAgent, 1)
 

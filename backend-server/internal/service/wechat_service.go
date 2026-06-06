@@ -298,9 +298,10 @@ func (s *WeChatService) findOrCreateUser(openID, unionID, nickname, avatar, sour
 		}
 	}
 
-	// 3. 自动注册新用户
+	// 3. 自动注册新用户（使用随机用户名，避免泄露 openID）
+	randomSuffix, _ := generateRandomSuffix(8)
 	newUser := &model.User{
-		Name:           source + "_" + openID,
+		Name:           source + "_" + randomSuffix,
 		Nickname:       nickname,
 		Avatar:         avatar,
 		Status:         1,

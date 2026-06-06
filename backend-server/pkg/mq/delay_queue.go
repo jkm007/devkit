@@ -56,13 +56,15 @@ func (q *DelayQueue) Consume(ctx context.Context, handler func(payload string) e
 				}
 
 				for _, payload := range results {
-					rdb.ZRem(ctx, q.queueKey, payload)
 					if err := handler(payload); err != nil {
 						logger.Error("延迟消息处理失败",
 							zap.String("payload", payload),
 							zap.Error(err),
 						)
+						continue
 					}
+					// 处理成功后才删除
+					rdb.ZRem(ctx, q.queueKey, payload)
 				}
 			}
 		}

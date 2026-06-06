@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"time"
 
 	"backend-server/internal/model"
@@ -109,8 +110,7 @@ func (s *UserRealNameService) Submit(userID uint, req *RealNameSubmitRequest) er
 	// AES-GCM 加密身份证号
 	encryptedIDCard, err := crypto.Encrypt(req.IDCard)
 	if err != nil {
-		// 加密失败时降级存储明文（记录日志）
-		encryptedIDCard = req.IDCard
+		return fmt.Errorf("身份证号加密失败，操作中止: %w", err)
 	}
 
 	now := time.Now()

@@ -25,7 +25,9 @@ func (r *RoleRepo) List(page, pageSize int, filters map[string]interface{}) ([]m
 
 	// 应用筛选条件
 	if name, ok := filters["name"]; ok && name != "" {
-		query = query.Where("name LIKE ?", "%"+escapeLike(name.(string))+"%")
+		if nameStr, ok := name.(string); ok {
+			query = query.Where("name LIKE ?", "%"+escapeLike(nameStr)+"%")
+		}
 	}
 	if id, ok := filters["id"]; ok && id != "" {
 		query = query.Where("id = ?", id)
@@ -40,7 +42,9 @@ func (r *RoleRepo) List(page, pageSize int, filters map[string]interface{}) ([]m
 		query = query.Where("created_at <= ?", endTime)
 	}
 	if remark, ok := filters["remark"]; ok && remark != "" {
-		query = query.Where("remark LIKE ?", "%"+escapeLike(remark.(string))+"%")
+		if remarkStr, ok := remark.(string); ok {
+			query = query.Where("remark LIKE ?", "%"+escapeLike(remarkStr)+"%")
+		}
 	}
 
 	// 统计总数

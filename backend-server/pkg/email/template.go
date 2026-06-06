@@ -1,6 +1,9 @@
 package email
 
-import "fmt"
+import (
+	"fmt"
+	"html"
+)
 
 // RenderVerifyCode 渲染验证码邮件 HTML
 func RenderVerifyCode(code, purpose string, expireMinutes int, siteName string) string {
@@ -18,6 +21,11 @@ func RenderVerifyCode(code, purpose string, expireMinutes int, siteName string) 
 	case "reset_password":
 		purposeText = "重置密码"
 	}
+
+	// 转义用户可控输入，防止 XSS
+	siteName = html.EscapeString(siteName)
+	purposeText = html.EscapeString(purposeText)
+	code = html.EscapeString(code)
 
 	return fmt.Sprintf(`<!DOCTYPE html>
 <html>

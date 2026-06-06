@@ -273,8 +273,8 @@ func generateGoClick(config *CaptchaConfig) (*CaptchaData, error) {
 	}
 
 	font, err := fzshengsksjw.GetFont()
-	if err != nil {
-		log.Printf("[Captcha] 加载字体失败: %v", err)
+	if err != nil || font == nil {
+		return nil, fmt.Errorf("加载字体失败: %w", err)
 	}
 
 	builder.SetResources(

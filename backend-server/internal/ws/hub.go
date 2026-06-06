@@ -38,6 +38,9 @@ type Hub struct {
 	// 注销通道
 	Unregister chan *Client
 
+	// 停止信号
+	done chan struct{}
+
 	mu sync.RWMutex
 }
 
@@ -48,13 +51,31 @@ func NewHub() *Hub {
 		Broadcast:  make(chan *Message),
 		Register:   make(chan *Client),
 		Unregister: make(chan *Client),
+		done:       make(chan struct{}),
 	}
+}
+
+// Stop 停止 Hub 并关闭所有客户端连接
+func (h *Hub) Stop() {
+	close(h.done)
 }
 
 // Run 启动 Hub
 func (h *Hub) Run() {
 	for {
 		select {
+		case <-h.done:
+			// 关闭所有客户端连接
+			h.mu.Lock()
+			for _, clients := range h.Clients {
+				for client := range clients {
+					close(client.Send)
+					client.Conn.Close()
+				}
+			}
+			h.Clients = make(map[uint]map[*Client]bool)
+			h.mu.Unlock()
+			return
 		case client := <-h.Register:
 			h.mu.Lock()
 			if _, ok := h.Clients[client.UserID]; !ok {
@@ -83,6 +104,10 @@ func (h *Hub) Run() {
 			h.mu.Lock()
 			var toRemove []*Client
 			data := h.marshal(msg)
+			if data == nil {
+				h.mu.Unlock()
+				break
+			}
 			for _, clients := range h.Clients {
 				for client := range clients {
 					select {
