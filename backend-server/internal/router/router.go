@@ -42,6 +42,7 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	roleApplicationHandler := handler.NewRoleApplicationHandler()
 	systemSettingHandler := handler.NewSystemSettingHandler()
 	riskScoreHandler := handler.NewRiskScoreHandler()
+	wechatHandler := handler.NewWeChatHandler()
 
 	// 健康检查
 	// @Summary      健康检查
@@ -89,6 +90,21 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		auth.POST("/register", middleware.NewIPRateLimiter(1, 3), authHandler.Register)
 		// 重置密码（限流：每秒 1 个，突发 3）
 		auth.POST("/reset-password", middleware.NewIPRateLimiter(1, 3), authHandler.ResetPassword)
+
+		auth.POST("/login-by-phone", authHandler.LoginByPhone)
+		// 注册和重置密码
+		auth.POST("/register", authHandler.Register)
+		auth.POST("/reset-password", authHandler.ResetPassword)
+
+		// 微信登录
+		wechat := auth.Group("/wechat")
+		{
+			wechat.POST("/miniapp-login", wechatHandler.LoginByMiniProgram)
+			wechat.GET("/official-authorize", wechatHandler.GetOfficialAuthorizeURL)
+			wechat.GET("/official-callback", wechatHandler.LoginByOfficial)
+			wechat.GET("/web-authorize", wechatHandler.GetWebAuthorizeURL)
+			wechat.GET("/web-callback", wechatHandler.LoginByWeb)
+		}
 	}
 
 	// 需要认证的接口

@@ -126,7 +126,11 @@ INSERT INTO sys_system_settings (group_key, `key`, value, label, type, tip, sort
 ('wechat', 'wechat_official_enabled', 'false', '启用公众号登录',   'boolean', '开启微信公众号网页授权登录',     4, 0, 0, NOW(3), NOW(3)),
 ('wechat', 'wechat_official_appid',   '""',    '公众号 AppID',     'string',  '',                              5, 0, 0, NOW(3), NOW(3)),
 ('wechat', 'wechat_official_secret',  '""',    '公众号 AppSecret', 'string',  '',                              6, 0, 1, NOW(3), NOW(3)),
-('wechat', 'wechat_oauth_enabled',    'false', '启用微信扫码登录', 'boolean', 'PC 端微信扫码登录',              7, 0, 0, NOW(3), NOW(3));
+('wechat', 'wechat_oauth_enabled',    'false', '启用微信扫码登录', 'boolean', 'PC 端微信扫码登录',              7, 0, 0, NOW(3), NOW(3)),
+('wechat', 'wechat_oauth_appid',     '""',    '网站应用 AppID',   'string',  '微信开放平台-网站应用的 AppID',   8, 0, 0, NOW(3), NOW(3)),
+('wechat', 'wechat_oauth_secret',    '""',    '网站应用 AppSecret','string',  '微信开放平台-网站应用的 AppSecret',9, 0, 1, NOW(3), NOW(3)),
+('wechat', 'wechat_oauth_redirect_url','""',  '网站扫码回调地址', 'string',  '如 https://your-domain/auth/wechat/web-callback', 10, 0, 0, NOW(3), NOW(3)),
+('wechat', 'wechat_official_redirect_url','""','公众号回调地址',  'string',  '如 https://your-domain/auth/wechat/official-callback', 11, 0, 0, NOW(3), NOW(3));
 
 -- 安全设置
 INSERT INTO sys_system_settings (group_key, `key`, value, label, type, tip, sort, is_public, is_sensitive, created_at, updated_at) VALUES
