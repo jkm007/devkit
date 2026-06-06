@@ -289,19 +289,20 @@ func (s *OAuthService) oauthBuildLoginResponse(user *model.User, clientIP string
 	}
 
 	return &LoginResponse{
-		ID:           user.ID,
-		Username:     user.Name,
-		Nickname:     user.Nickname,
-		RealName:     user.Name,
-		Email:        user.Email,
-		Phone:        user.Phone,
-		Avatar:       user.Avatar,
-		Gender:       user.Gender,
-		Birthday:     birthday,
-		Bio:          user.Bio,
-		Roles:        roleNames,
-		AccessToken:  tokenPair.AccessToken,
-		RefreshToken: tokenPair.RefreshToken,
+		ID:             user.ID,
+		Username:       user.Name,
+		Nickname:       user.Nickname,
+		RealName:       user.Name,
+		Email:          user.Email,
+		Phone:          user.Phone,
+		Avatar:         user.Avatar,
+		Gender:         user.Gender,
+		Birthday:       birthday,
+		Bio:            user.Bio,
+		Roles:          roleNames,
+		RegisterSource: user.RegisterSource,
+		AccessToken:    tokenPair.AccessToken,
+		RefreshToken:   tokenPair.RefreshToken,
 	}, nil
 }
 

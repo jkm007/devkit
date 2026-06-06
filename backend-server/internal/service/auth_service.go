@@ -60,20 +60,21 @@ type LoginRequest struct {
 
 // LoginResponse 登录响应
 type LoginResponse struct {
-	ID           uint     `json:"id"`
-	Username     string   `json:"username"`
-	Nickname     string   `json:"nickname"`
-	RealName     string   `json:"realName"`
-	Email        string   `json:"email"`
-	Phone        string   `json:"phone"`
-	Avatar       string   `json:"avatar"`
-	Gender       int      `json:"gender"`
-	Birthday     string   `json:"birthday,omitempty"`
-	Bio          string   `json:"bio"`
-	Roles        []string `json:"roles"`
-	HomePath     string   `json:"homePath,omitempty"`
-	AccessToken  string   `json:"accessToken,omitempty"`
-	RefreshToken string   `json:"refreshToken,omitempty"`
+	ID             uint     `json:"id"`
+	Username       string   `json:"username"`
+	Nickname       string   `json:"nickname"`
+	RealName       string   `json:"realName"`
+	Email          string   `json:"email"`
+	Phone          string   `json:"phone"`
+	Avatar         string   `json:"avatar"`
+	Gender         int      `json:"gender"`
+	Birthday       string   `json:"birthday,omitempty"`
+	Bio            string   `json:"bio"`
+	Roles          []string `json:"roles"`
+	RegisterSource string   `json:"registerSource,omitempty"`
+	HomePath       string   `json:"homePath,omitempty"`
+	AccessToken    string   `json:"accessToken,omitempty"`
+	RefreshToken   string   `json:"refreshToken,omitempty"`
 }
 
 // loginFailCountKey 生成登录失败计数的 Redis key
@@ -278,19 +279,20 @@ func (s *AuthService) generateLoginResponse(user *model.User, clientIP string) (
 	}
 
 	return &LoginResponse{
-		ID:           user.ID,
-		Username:     user.Name,
-		Nickname:     user.Nickname,
-		RealName:     user.Name,
-		Email:        user.Email,
-		Phone:        user.Phone,
-		Avatar:       user.Avatar,
-		Gender:       user.Gender,
-		Birthday:     birthday,
-		Bio:          user.Bio,
-		Roles:        roleNames,
-		AccessToken:  tokenPair.AccessToken,
-		RefreshToken: tokenPair.RefreshToken,
+		ID:             user.ID,
+		Username:       user.Name,
+		Nickname:       user.Nickname,
+		RealName:       user.Name,
+		Email:          user.Email,
+		Phone:          user.Phone,
+		Avatar:         user.Avatar,
+		Gender:         user.Gender,
+		Birthday:       birthday,
+		Bio:            user.Bio,
+		Roles:          roleNames,
+		RegisterSource: user.RegisterSource,
+		AccessToken:    tokenPair.AccessToken,
+		RefreshToken:   tokenPair.RefreshToken,
 	}, nil
 }
 
@@ -780,43 +782,43 @@ func validUsername(username string) bool {
 }
 
 // Register 用户注册
-func (s *AuthService) Register(req *RegisterRequest, ip, userAgent string) error {
+func (s *AuthService) Register(req *RegisterRequest, ip, userAgent string) (uint, error) {
 	// 校验密码一致性
 	if req.Password != req.ConfirmPassword {
-		return errors.New("两次输入的密码不一致")
+		return 0, errors.New("两次输入的密码不一致")
 	}
 
 	// 校验用户名格式
 	if !validUsername(req.Username) {
-		return errors.New("用户名只能包含字母、数字、下划线和连字符")
+		return 0, errors.New("用户名只能包含字母、数字、下划线和连字符")
 	}
 
 	// 验证邮箱验证码
 	verifyCodeService := NewVerifyCodeService()
 	valid, err := verifyCodeService.VerifyCode(req.Email, req.EmailCode, "register")
 	if err != nil {
-		return fmt.Errorf("验证码验证失败: %w", err)
+		return 0, fmt.Errorf("验证码验证失败: %w", err)
 	}
 	if !valid {
-		return errors.New("验证码错误")
+		return 0, errors.New("验证码错误")
 	}
 
 	// 检查用户名是否已存在
 	existingUser, _ := s.userRepo.GetByUsername(req.Username)
 	if existingUser != nil && existingUser.ID > 0 {
-		return errors.New("用户名已存在")
+		return 0, errors.New("用户名已存在")
 	}
 
 	// 检查邮箱是否已存在（一个邮箱只能注册一个账号）
 	existingByEmail, _ := s.userRepo.GetByEmail(req.Email)
 	if existingByEmail != nil && existingByEmail.ID > 0 {
-		return errors.New("该邮箱已被注册，一个邮箱只能绑定一个账号")
+		return 0, errors.New("该邮箱已被注册，一个邮箱只能绑定一个账号")
 	}
 
 	// 加密密码
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return fmt.Errorf("密码加密失败: %w", err)
+		return 0, fmt.Errorf("密码加密失败: %w", err)
 	}
 
 	// 创建用户
@@ -828,7 +830,7 @@ func (s *AuthService) Register(req *RegisterRequest, ip, userAgent string) error
 		Nickname: req.Username,
 	}
 	if err := s.userRepo.Create(user); err != nil {
-		return fmt.Errorf("创建用户失败: %w", err)
+		return 0, fmt.Errorf("创建用户失败: %w", err)
 	}
 
 	// 分配默认角色（必须存在 "user" 角色）
@@ -843,7 +845,7 @@ func (s *AuthService) Register(req *RegisterRequest, ip, userAgent string) error
 	s.RecordSecurityLog(user.ID, "register", fmt.Sprintf("新用户注册成功: %s", req.Username), ip, userAgent, 1)
 
 	logger.Info(fmt.Sprintf("新用户注册: %s (%s)", req.Username, req.Email))
-	return nil
+	return user.ID, nil
 }
 
 // ResetPasswordRequest 重置密码请求

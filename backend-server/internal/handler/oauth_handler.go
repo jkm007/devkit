@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"fmt"
+
 	"backend-server/config"
 	"backend-server/internal/middleware"
 	"backend-server/internal/service"
@@ -11,15 +13,17 @@ import (
 
 // OAuthHandler 第三方登录绑定处理器
 type OAuthHandler struct {
-	service *service.OAuthService
-	cfg     *config.Config
+	service     *service.OAuthService
+	authService *service.AuthService
+	cfg         *config.Config
 }
 
 // NewOAuthHandler 创建第三方登录绑定处理器
 func NewOAuthHandler() *OAuthHandler {
 	return &OAuthHandler{
-		service: service.NewOAuthService(),
-		cfg:     config.Get(),
+		service:     service.NewOAuthService(),
+		authService: service.NewAuthService(),
+		cfg:         config.Get(),
 	}
 }
 
@@ -101,11 +105,14 @@ func (h *OAuthHandler) Callback(c *gin.Context) {
 
 	result, err := h.service.HandleCallback(provider, code, state, c.ClientIP(), c.GetHeader("User-Agent"))
 	if err != nil {
+		h.authService.RecordSecurityLog(0, "login_fail", fmt.Sprintf("OAuth登录失败(%s): %s", provider, err.Error()), c.ClientIP(), c.GetHeader("User-Agent"), 0)
 		response.BadRequest(c, err.Error())
 		return
 	}
 
-	// 设置 Cookie（根据服务器模式决定是否仅 HTTPS）
+	h.authService.RecordSecurityLog(result.ID, "login", fmt.Sprintf("OAuth登录成功(%s), 来源: %s", provider, result.RegisterSource), c.ClientIP(), c.GetHeader("User-Agent"), 1)
+
+	// 设置 Cookie
 	c.SetCookie("access_token", result.AccessToken, 30*24*3600, "/", "", h.cookieSecure(), true)
 	c.SetCookie("refresh_token", result.RefreshToken, 30*24*3600, "/", "", h.cookieSecure(), true)
 

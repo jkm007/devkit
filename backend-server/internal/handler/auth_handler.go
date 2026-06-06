@@ -63,7 +63,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	// 记录登录成功日志
-	h.authService.RecordSecurityLog(result.ID, "login", "登录成功", c.ClientIP(), c.GetHeader("User-Agent"), 1)
+	h.authService.RecordSecurityLog(result.ID, "login", fmt.Sprintf("登录成功, 来源: %s", result.RegisterSource), c.ClientIP(), c.GetHeader("User-Agent"), 1)
 	// 使用前端传来的 X-Device-ID，没有则用 User-Agent+IP 生成
 	deviceID := c.GetHeader("X-Device-ID")
 	h.authService.RecordLoginDevice(result.ID, c.ClientIP(), c.GetHeader("User-Agent"), deviceID)
@@ -299,7 +299,7 @@ func (h *AuthHandler) LoginByEmail(c *gin.Context) {
 	}
 
 	// 记录登录成功日志
-	h.authService.RecordSecurityLog(result.ID, "login", "邮箱验证码登录成功", c.ClientIP(), c.GetHeader("User-Agent"), 1)
+	h.authService.RecordSecurityLog(result.ID, "login", fmt.Sprintf("邮箱验证码登录成功, 来源: %s", result.RegisterSource), c.ClientIP(), c.GetHeader("User-Agent"), 1)
 	deviceID := c.GetHeader("X-Device-ID")
 	h.authService.RecordLoginDevice(result.ID, c.ClientIP(), c.GetHeader("User-Agent"), deviceID)
 
@@ -341,7 +341,7 @@ func (h *AuthHandler) LoginByPhone(c *gin.Context) {
 	}
 
 	// 记录登录成功日志
-	h.authService.RecordSecurityLog(result.ID, "login", "手机号验证码登录成功", c.ClientIP(), c.GetHeader("User-Agent"), 1)
+	h.authService.RecordSecurityLog(result.ID, "login", fmt.Sprintf("手机号验证码登录成功, 来源: %s", result.RegisterSource), c.ClientIP(), c.GetHeader("User-Agent"), 1)
 	deviceID := c.GetHeader("X-Device-ID")
 	h.authService.RecordLoginDevice(result.ID, c.ClientIP(), c.GetHeader("User-Agent"), deviceID)
 
@@ -368,11 +368,14 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	if err := h.authService.Register(&req, c.ClientIP(), c.GetHeader("User-Agent")); err != nil {
+	userID, err := h.authService.Register(&req, c.ClientIP(), c.GetHeader("User-Agent"))
+	if err != nil {
+		h.authService.RecordSecurityLog(0, "register_fail", err.Error(), c.ClientIP(), c.GetHeader("User-Agent"), 0)
 		response.BadRequest(c, err.Error())
 		return
 	}
 
+	h.authService.RecordSecurityLog(userID, "register", fmt.Sprintf("新用户注册: %s", req.Username), c.ClientIP(), c.GetHeader("User-Agent"), 1)
 	response.SuccessWithMessage(c, "注册成功", nil)
 }
 

@@ -154,17 +154,17 @@ func (p *WeChatProvider) ExchangeTokenWithOpenID(code string) (*WeChatTokenRespo
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
-	var result WeChatTokenResponse
-	var errResult struct {
+	var result struct {
+		WeChatTokenResponse
 		ErrCode int    `json:"errcode"`
 		ErrMsg  string `json:"errmsg"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, fmt.Errorf("parse WeChat token response failed: %w", err)
 	}
-	if errResult.ErrCode != 0 {
-		return nil, fmt.Errorf("WeChat OAuth error: %d - %s", errResult.ErrCode, errResult.ErrMsg)
+	if result.ErrCode != 0 {
+		return nil, fmt.Errorf("WeChat OAuth error: %d - %s", result.ErrCode, result.ErrMsg)
 	}
 
-	return &result, nil
+	return &result.WeChatTokenResponse, nil
 }
