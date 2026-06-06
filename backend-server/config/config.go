@@ -24,6 +24,7 @@ type Config struct {
 	SMS       SMSConfig       `mapstructure:"sms"`
 	Email     EmailConfig     `mapstructure:"email"`
 	WeChat    WeChatConfig    `mapstructure:"wechat"`
+	OAuth     OAuthConfig     `mapstructure:"oauth"`
 }
 
 // ServerConfig 服务配置
@@ -234,6 +235,20 @@ type WeChatOfficial struct {
 // WeChatOAuth 微信 OAuth 配置
 type WeChatOAuth struct {
 	RedirectURL string `mapstructure:"redirect_url"`
+}
+
+// OAuthConfig 第三方 OAuth 配置
+type OAuthConfig struct {
+	GitHub  OAuthProviderConfig `mapstructure:"github"`
+	Google  OAuthProviderConfig `mapstructure:"google"`
+	WeChat  OAuthProviderConfig `mapstructure:"wechat"`
+}
+
+// OAuthProviderConfig 单个 OAuth 提供商配置
+type OAuthProviderConfig struct {
+	ClientID     string `mapstructure:"client_id"`
+	ClientSecret string `mapstructure:"client_secret"`
+	RedirectURL  string `mapstructure:"redirect_url"`
 }
 
 var globalConfig *Config

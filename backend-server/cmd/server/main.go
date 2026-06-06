@@ -19,6 +19,7 @@ import (
 	"backend-server/pkg/captcha"
 	"backend-server/pkg/database"
 	"backend-server/pkg/logger"
+	"backend-server/pkg/oauth"
 
 	"go.uber.org/zap"
 )
@@ -39,6 +40,9 @@ func main() {
 	if cfg.Captcha.Secret != "" {
 		captcha.SetSecret([]byte(cfg.Captcha.Secret))
 	}
+
+	// 初始化 OAuth 提供商
+	initOAuthProviders(cfg)
 
 	// 初始化风险评分配置获取器
 	middleware.SetRiskConfigGetter(func() *middleware.RiskConfigGetter {
@@ -125,4 +129,37 @@ func main() {
 		logger.Error("服务关闭异常", zap.Error(err))
 	}
 	logger.Info("服务已关闭")
+}
+
+// initOAuthProviders 初始化 OAuth 登录提供商
+func initOAuthProviders(cfg *config.Config) {
+	// GitHub
+	if cfg.OAuth.GitHub.ClientID != "" && cfg.OAuth.GitHub.ClientSecret != "" {
+		oauth.Register(oauth.NewGitHubProvider(oauth.ProviderConfig{
+			ClientID:     cfg.OAuth.GitHub.ClientID,
+			ClientSecret: cfg.OAuth.GitHub.ClientSecret,
+			RedirectURL:  cfg.OAuth.GitHub.RedirectURL,
+		}))
+		logger.Info("OAuth 提供商已注册: github")
+	}
+
+	// Google
+	if cfg.OAuth.Google.ClientID != "" && cfg.OAuth.Google.ClientSecret != "" {
+		oauth.Register(oauth.NewGoogleProvider(oauth.ProviderConfig{
+			ClientID:     cfg.OAuth.Google.ClientID,
+			ClientSecret: cfg.OAuth.Google.ClientSecret,
+			RedirectURL:  cfg.OAuth.Google.RedirectURL,
+		}))
+		logger.Info("OAuth 提供商已注册: google")
+	}
+
+	// WeChat
+	if cfg.OAuth.WeChat.ClientID != "" && cfg.OAuth.WeChat.ClientSecret != "" {
+		oauth.Register(oauth.NewWeChatProvider(oauth.ProviderConfig{
+			ClientID:     cfg.OAuth.WeChat.ClientID,
+			ClientSecret: cfg.OAuth.WeChat.ClientSecret,
+			RedirectURL:  cfg.OAuth.WeChat.RedirectURL,
+		}))
+		logger.Info("OAuth 提供商已注册: wechat")
+	}
 }

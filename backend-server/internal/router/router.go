@@ -73,6 +73,7 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		auth.POST("/login-by-email", authHandler.LoginByEmail)
 		auth.POST("/logout", authHandler.Logout)
 		auth.POST("/refresh", authHandler.RefreshToken)
+		auth.GET("/oauth/authorize", oauthHandler.GetBindURL)
 		auth.GET("/oauth/callback", oauthHandler.Callback)
 		// 邮箱验证码（限流：每秒 1 个，突发 2）
 		auth.POST("/send-code", middleware.NewIPRateLimiter(1, 2), verifyCodeHandler.SendCode)

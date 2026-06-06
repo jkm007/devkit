@@ -8,9 +8,12 @@ import {
   AuthenticationLogin,
   z,
 } from '@vben/common-ui';
+import { SvgGithubIcon, SvgGoogleIcon, SvgWeChatIcon } from '@vben/icons';
 import { $t } from '@vben/locales';
 import { message } from 'ant-design-vue';
+import { VbenIconButton } from '@vben-core/shadcn-ui';
 
+import { getOAuthUrl } from '#/api/core/auth';
 import { getCaptcha, getPublicSettings } from '#/api/system/settings';
 import { useAuthStore } from '#/store';
 
@@ -315,6 +318,17 @@ function handleSubmit(params: Record<string, any>) {
     captchaModalVisible.value = true;
   }
 }
+
+// ==================== 第三方登录 ====================
+async function handleOAuthLogin(provider: string) {
+  try {
+    const { url } = await getOAuthUrl(provider);
+    // 跳转到第三方授权页面
+    window.location.href = url;
+  } catch (e: any) {
+    message.error(e?.message || '获取授权链接失败');
+  }
+}
 </script>
 
 <template>
@@ -322,7 +336,31 @@ function handleSubmit(params: Record<string, any>) {
     :form-schema="formSchema"
     :loading="authStore.loginLoading"
     @submit="handleSubmit"
-  />
+  >
+    <!-- 自定义第三方登录（绑定实际 OAuth 跳转） -->
+    <template #third-party-login>
+      <div class="w-full sm:mx-auto md:max-w-md">
+        <div class="mt-4 flex items-center justify-between">
+          <span class="w-[35%] border-b border-input dark:border-gray-600"></span>
+          <span class="text-center text-xs text-muted-foreground uppercase">
+            其他登录方式
+          </span>
+          <span class="w-[35%] border-b border-input dark:border-gray-600"></span>
+        </div>
+        <div class="mt-4 flex flex-wrap justify-center gap-4">
+          <VbenIconButton tooltip="微信登录" tooltip-side="top" @click="handleOAuthLogin('wechat')">
+            <SvgWeChatIcon />
+          </VbenIconButton>
+          <VbenIconButton tooltip="GitHub 登录" tooltip-side="top" @click="handleOAuthLogin('github')">
+            <SvgGithubIcon />
+          </VbenIconButton>
+          <VbenIconButton tooltip="Google 登录" tooltip-side="top" @click="handleOAuthLogin('google')">
+            <SvgGoogleIcon />
+          </VbenIconButton>
+        </div>
+      </div>
+    </template>
+  </AuthenticationLogin>
 
   <!-- 验证码弹框（公开模式，无需认证） -->
   <CaptchaModal

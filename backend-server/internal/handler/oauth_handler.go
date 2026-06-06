@@ -50,13 +50,10 @@ func (h *OAuthHandler) GetBindings(c *gin.Context) {
 // @Description  获取第三方平台的授权页面 URL
 // @Tags         OAuth绑定
 // @Produce      json
-// @Security     BearerAuth
 // @Param        provider     query  string  true  "提供商：wechat/github/google"
-// @Param        redirectUri  query  string  false "授权完成后的回调地址"
 // @Success      200  {object}  response.Response{data=map[string]string} "成功"
 // @Failure      400  {object}  response.Response "参数错误"
-// @Failure      401  {object}  response.Response "未授权"
-// @Router       /auth/oauth/bind-url [get]
+// @Router       /auth/oauth/authorize [get]
 func (h *OAuthHandler) GetBindURL(c *gin.Context) {
 	provider := c.Query("provider")
 	if provider == "" {
@@ -64,25 +61,47 @@ func (h *OAuthHandler) GetBindURL(c *gin.Context) {
 		return
 	}
 
-	// TODO: 根据 provider 生成真实的授权 URL
-	url := "https://example.com/oauth/authorize?provider=" + provider
+	url, err := h.service.GetAuthorizeURL(provider)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
 	response.Success(c, gin.H{"url": url})
 }
 
 // Callback 第三方授权回调
 // @Summary      第三方授权回调
-// @Description  第三方平台授权完成后的回调接口
+// @Description  第三方平台授权完成后的回调接口，返回 JWT token
 // @Tags         OAuth绑定
 // @Produce      json
 // @Param        provider  query  string  true  "提供商"
 // @Param        code      query  string  true  "授权码"
 // @Param        state     query  string  true  "状态参数"
-// @Success      200  {object}  response.Response "成功"
+// @Success      200  {object}  response.Response{data=service.LoginResponse} "成功"
 // @Failure      400  {object}  response.Response "参数错误"
 // @Router       /auth/oauth/callback [get]
 func (h *OAuthHandler) Callback(c *gin.Context) {
-	// TODO: 实现 OAuth code-for-token exchange + state 验证
-	response.BadRequest(c, "OAuth callback not yet implemented")
+	provider := c.Query("provider")
+	code := c.Query("code")
+	state := c.Query("state")
+
+	if provider == "" || code == "" || state == "" {
+		response.BadRequest(c, "缺少必要参数: provider, code, state")
+		return
+	}
+
+	result, err := h.service.HandleCallback(provider, code, state, c.ClientIP(), c.GetHeader("User-Agent"))
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	// 设置 Cookie
+	c.SetCookie("access_token", result.AccessToken, 30*24*3600, "/", "", false, true)
+	c.SetCookie("refresh_token", result.RefreshToken, 30*24*3600, "/", "", false, true)
+
+	response.Success(c, result)
 }
 
 // Unbind 解绑第三方账号

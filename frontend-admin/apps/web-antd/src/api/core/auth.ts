@@ -133,3 +133,21 @@ export async function resetPasswordApi(data: {
 }) {
   return requestClient.post('/auth/reset-password', data);
 }
+
+/**
+ * 获取第三方登录授权 URL
+ */
+export async function getOAuthUrl(provider: string) {
+  return requestClient.get<{ url: string }>('/auth/oauth/authorize', {
+    params: { provider },
+  });
+}
+
+/**
+ * 处理第三方登录回调
+ */
+export async function handleOAuthCallback(provider: string, code: string, state: string) {
+  return requestClient.get<AuthApi.LoginResult>('/auth/oauth/callback', {
+    params: { provider, code, state },
+  });
+}
