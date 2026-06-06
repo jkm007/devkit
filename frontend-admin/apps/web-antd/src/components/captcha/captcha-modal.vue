@@ -132,8 +132,9 @@ function resetState() {
 
 async function handleCaptchaSuccess(data: { captchaCode: string; captchaId: string }) {
   // 公开模式：直接返回验证数据，不调用验证接口
+  // startTime 使用用户完成验证的时间（Date.now()），用于后端检测操作耗时
   if (props.public) {
-    emit('success', { captchaId: captchaId.value, captchaCode: data.captchaCode, startTime: captchaStartTime.value });
+    emit('success', { captchaId: captchaId.value, captchaCode: data.captchaCode, startTime: Date.now() });
     setTimeout(() => {
       modalVisible.value = false;
     }, 500);
