@@ -102,21 +102,36 @@ export function downloadFileFromBlobPart({
  */
 export function urlToBase64(url: string, mineType?: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    let canvas = document.createElement('CANVAS') as HTMLCanvasElement | null;
-    const ctx = canvas?.getContext('2d');
     const img = new Image();
     img.crossOrigin = '';
+
+    const canvas = document.createElement('CANVAS') as HTMLCanvasElement;
+    const ctx = canvas.getContext('2d');
+
+    const cleanup = () => {
+      // 清理 DOM 和内存
+      canvas.remove();
+      img.src = ''; // 取消图片加载
+    };
+
     img.addEventListener('load', () => {
-      if (!canvas || !ctx) {
-        return reject(new Error('Failed to create canvas.'));
+      if (!ctx) {
+        cleanup();
+        return reject(new Error('Failed to create canvas context.'));
       }
       canvas.height = img.height;
       canvas.width = img.width;
       ctx.drawImage(img, 0, 0);
       const dataURL = canvas.toDataURL(mineType || 'image/png');
-      canvas = null;
+      cleanup();
       resolve(dataURL);
     });
+
+    img.addEventListener('error', (e) => {
+      cleanup();
+      reject(new Error(`Failed to load image: ${url}`));
+    });
+
     img.src = url;
   });
 }

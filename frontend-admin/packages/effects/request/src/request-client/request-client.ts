@@ -156,7 +156,16 @@ class RequestClient {
       });
       return response as T;
     } catch (error: any) {
-      throw error.response ? error.response.data : error;
+      // 保留完整错误上下文，便于调试
+      const enhancedError = {
+        ...error,
+        url,
+        method: config.method,
+        requestData: config.data,
+        response: error.response,
+        message: error.message || 'Request failed',
+      };
+      throw enhancedError;
     }
   }
 }
