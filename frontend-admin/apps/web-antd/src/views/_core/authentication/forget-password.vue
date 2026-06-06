@@ -5,6 +5,13 @@ import { useRouter } from 'vue-router';
 import { Button, Form, FormItem, Input, InputPassword, message, Space } from 'ant-design-vue';
 
 import { resetPasswordApi, sendVerifyCodeApi } from '#/api/core/auth';
+import {
+  validateCode,
+  validateEmail,
+  validatePassword,
+  validatePasswordMatch,
+  VALIDATION_MESSAGES,
+} from '#/utils/form-validation';
 import { showCaptchaVerify } from '#/utils/captcha-verify';
 
 defineOptions({ name: 'ForgetPassword' });
@@ -36,8 +43,8 @@ function startCountdown() {
 }
 
 async function handleSendCode() {
-  if (!formData.value.email) {
-    message.warning('请先输入邮箱');
+  if (!validateEmail(formData.value.email)) {
+    message.warning(VALIDATION_MESSAGES.emailRequired);
     return;
   }
   try {
@@ -60,20 +67,20 @@ async function handleSendCode() {
 
 async function handleSubmit() {
   // 表单校验
-  if (!formData.value.email) {
-    message.warning('请输入邮箱');
+  if (!validateEmail(formData.value.email)) {
+    message.warning(VALIDATION_MESSAGES.emailRequired);
     return;
   }
-  if (!formData.value.emailCode || formData.value.emailCode.length !== 6) {
-    message.warning('请输入6位验证码');
+  if (!validateCode(formData.value.emailCode)) {
+    message.warning(VALIDATION_MESSAGES.codeInvalid);
     return;
   }
-  if (!formData.value.newPassword || formData.value.newPassword.length < 6) {
-    message.warning('密码至少6个字符');
+  if (!validatePassword(formData.value.newPassword)) {
+    message.warning(VALIDATION_MESSAGES.passwordMinLength);
     return;
   }
-  if (formData.value.newPassword !== formData.value.confirmPassword) {
-    message.warning('两次输入的密码不一致');
+  if (!validatePasswordMatch(formData.value.newPassword, formData.value.confirmPassword)) {
+    message.warning(VALIDATION_MESSAGES.passwordMismatch);
     return;
   }
 

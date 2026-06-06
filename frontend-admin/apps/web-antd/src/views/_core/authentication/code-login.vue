@@ -6,6 +6,12 @@ import { Button, Form, FormItem, Input, message, Space, TabPane, Tabs } from 'an
 
 import { sendSmsCodeApi, sendVerifyCodeApi } from '#/api/core/auth';
 import { getPublicSettings } from '#/api/system/settings';
+import {
+  validateCode,
+  validateEmail,
+  validatePhone,
+  VALIDATION_MESSAGES,
+} from '#/utils/form-validation';
 import { useAuthStore } from '#/store';
 import { showCaptchaVerify } from '#/utils/captcha-verify';
 
@@ -93,8 +99,8 @@ function startPhoneCountdown() {
 
 // ==================== 发送验证码 ====================
 async function handleSendEmailCode() {
-  if (!emailForm.value.email) {
-    message.warning('请先输入邮箱');
+  if (!validateEmail(emailForm.value.email)) {
+    message.warning(VALIDATION_MESSAGES.emailRequired);
     return;
   }
   try {
@@ -116,12 +122,8 @@ async function handleSendEmailCode() {
 
 // ==================== 发送短信验证码 ====================
 async function handleSendSmsCode() {
-  if (!phoneForm.value.phone) {
-    message.warning('请先输入手机号');
-    return;
-  }
-  if (!/^1\d{10}$/.test(phoneForm.value.phone)) {
-    message.warning('请输入正确的手机号');
+  if (!validatePhone(phoneForm.value.phone)) {
+    message.warning(VALIDATION_MESSAGES.phoneInvalid);
     return;
   }
   try {
@@ -143,12 +145,12 @@ async function handleSendSmsCode() {
 
 // ==================== 提交登录 ====================
 async function handleEmailLogin() {
-  if (!emailForm.value.email) {
-    message.warning('请输入邮箱');
+  if (!validateEmail(emailForm.value.email)) {
+    message.warning(VALIDATION_MESSAGES.emailRequired);
     return;
   }
-  if (!emailForm.value.code || emailForm.value.code.length !== 6) {
-    message.warning('请输入6位验证码');
+  if (!validateCode(emailForm.value.code)) {
+    message.warning(VALIDATION_MESSAGES.codeInvalid);
     return;
   }
 
@@ -162,16 +164,12 @@ async function handleEmailLogin() {
 }
 
 async function handlePhoneLogin() {
-  if (!phoneForm.value.phone) {
-    message.warning('请输入手机号');
+  if (!validatePhone(phoneForm.value.phone)) {
+    message.warning(VALIDATION_MESSAGES.phoneInvalid);
     return;
   }
-  if (!/^1\d{10}$/.test(phoneForm.value.phone)) {
-    message.warning('请输入正确的手机号');
-    return;
-  }
-  if (!phoneForm.value.code || phoneForm.value.code.length !== 6) {
-    message.warning('请输入6位验证码');
+  if (!validateCode(phoneForm.value.code)) {
+    message.warning(VALIDATION_MESSAGES.codeInvalid);
     return;
   }
 
