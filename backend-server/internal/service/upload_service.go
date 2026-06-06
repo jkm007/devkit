@@ -2,8 +2,6 @@ package service
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -82,13 +80,6 @@ func (s *UploadService) InitUpload(userID uint, fileName string, fileSize int64,
 		return nil, fmt.Errorf("当前存储驱动不支持分片上传")
 	}
 
-	// 生成 uploadID
-	b := make([]byte, 16)
-	if _, err := rand.Read(b); err != nil {
-		return nil, fmt.Errorf("生成 uploadID 失败: %w", err)
-	}
-	uploadID := hex.EncodeToString(b)
-
 	// 生成最终 objectKey
 	ext := filepath.Ext(fileName)
 	objectKey := fmt.Sprintf("files/%s/%s%s",
@@ -96,8 +87,9 @@ func (s *UploadService) InitUpload(userID uint, fileName string, fileSize int64,
 		fileHash[:16], // 取前16位作为路径
 		ext)
 
-	// 初始化分片上传
-	if _, err := uploader.InitiateUpload(context.Background(), objectKey, contentType); err != nil {
+	// 初始化分片上传（由存储层生成 uploadID）
+	uploadID, err := uploader.InitiateUpload(context.Background(), objectKey, contentType)
+	if err != nil {
 		return nil, err
 	}
 
