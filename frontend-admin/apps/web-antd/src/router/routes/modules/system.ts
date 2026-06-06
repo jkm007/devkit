@@ -75,6 +75,15 @@ const routes: RouteRecordRaw[] = [
         },
         component: () => import('#/views/system/settings/index.vue'),
       },
+      {
+        path: '/system/risk',
+        name: 'SystemRisk',
+        meta: {
+          icon: 'lucide:shield-alert',
+          title: $t('system.risk.title'),
+        },
+        component: () => import('#/views/system/risk/index.vue'),
+      },
     ],
   },
 ];

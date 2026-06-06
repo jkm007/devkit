@@ -41,6 +41,7 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	userRealNameHandler := handler.NewUserRealNameHandler()
 	roleApplicationHandler := handler.NewRoleApplicationHandler()
 	systemSettingHandler := handler.NewSystemSettingHandler()
+	riskScoreHandler := handler.NewRiskScoreHandler()
 
 	// 健康检查
 	// @Summary      健康检查
@@ -181,6 +182,12 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 			system.PUT("/settings", middleware.Permission("system:setting:edit"), systemSettingHandler.Update)
 			system.GET("/settings/:group", middleware.Permission("system:setting:list"), systemSettingHandler.GetByGroup)
 			system.PUT("/settings/:group", middleware.Permission("system:setting:edit"), systemSettingHandler.UpdateByGroup)
+
+			// 风险评分管理
+			system.GET("/risk/scores", middleware.Permission("system:setting:list"), riskScoreHandler.GetRiskScores)
+			system.GET("/risk/score", middleware.Permission("system:setting:list"), riskScoreHandler.GetRiskScoreByIP)
+			system.GET("/risk/stats", middleware.Permission("system:setting:list"), riskScoreHandler.GetRiskScoreStats)
+			system.POST("/risk/clear", middleware.Permission("system:setting:edit"), riskScoreHandler.ClearRiskScore)
 		}
 	}
 

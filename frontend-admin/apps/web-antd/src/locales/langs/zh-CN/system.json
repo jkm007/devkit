@@ -122,6 +122,19 @@
     "createTime": "发生时间",
     "operation": "操作"
   },
+  "risk": {
+    "title": "风险评分监控",
+    "list": "评分列表",
+    "stats": "统计数据",
+    "ip": "IP地址",
+    "score": "风险分数",
+    "level": "风险等级",
+    "updatedAt": "最后更新",
+    "expireAt": "过期时间",
+    "clear": "清除评分",
+    "refresh": "刷新数据",
+    "search": "搜索IP"
+  },
   "settings": {
     "title": "系统设置",
     "groups": {

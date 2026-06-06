@@ -120,6 +120,19 @@
     "createTime": "Time",
     "operation": "Operation"
   },
+  "risk": {
+    "title": "Risk Score Monitor",
+    "list": "Score List",
+    "stats": "Statistics",
+    "ip": "IP Address",
+    "score": "Risk Score",
+    "level": "Risk Level",
+    "updatedAt": "Last Updated",
+    "expireAt": "Expires At",
+    "clear": "Clear Score",
+    "refresh": "Refresh Data",
+    "search": "Search IP"
+  },
   "settings": {
     "title": "System Settings",
     "groups": {
