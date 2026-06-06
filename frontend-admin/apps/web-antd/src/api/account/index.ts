@@ -119,7 +119,7 @@ export function updateProfile(data: AccountApi.UpdateProfileRequest) {
 
 /** 更新头像 */
 export function updateAvatar(data: { avatar: string }) {
-  return requestClient.put('/user/avatar', data);
+  return requestClient.put('/user/info', data);
 }
 
 // ==================== 修改密码 ====================

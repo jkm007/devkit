@@ -664,6 +664,7 @@ type UpdateProfileRequest struct {
 	Gender   int    `json:"gender"`
 	Birthday string `json:"birthday"`
 	Bio      string `json:"bio"`
+	Avatar   string `json:"avatar"`
 }
 
 // UpdateProfile 更新当前用户个人资料
@@ -692,6 +693,9 @@ func (s *AuthService) UpdateProfile(userID uint, req *UpdateProfileRequest) erro
 	}
 	if req.Bio != "" {
 		user.Bio = req.Bio
+	}
+	if req.Avatar != "" {
+		user.Avatar = req.Avatar
 	}
 
 	return s.userRepo.Update(user)
