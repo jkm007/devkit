@@ -6,6 +6,9 @@
 - 数据库地址：114.215.190.52
 - 数据库用户：root / root123456
 - Redis 地址：114.215.190.52:6379
+- MinIO 地址：114.215.190.52:9000
+- MinIO API 端口：9000（API）、9001（Web 控制台）
+- MinIO 用户：admin / minio123456
 
 ## 目录结构
 
@@ -50,6 +53,18 @@ mysql:
 
 redis:
   host: 114.215.190.52  # Redis 地址
+
+storage:
+  driver: minio  # 使用 MinIO 存储
+  minio:
+    endpoint: 114.215.190.52:9000
+    access_key: admin
+    secret_key: minio123456
+    bucket: devkit
+    use_ssl: false
+  local:
+    path: ./uploads
+    url_prefix: /uploads
 
 cors:
   allow_origins:
@@ -120,6 +135,47 @@ mysql -h 114.215.190.52 -u root -p'root123456' -e "DROP DATABASE IF EXISTS backe
 # 导入数据
 mysql -h 114.215.190.52 -u root -p'root123456' backend_db < backend_db_full.sql
 ```
+
+## MinIO 部署
+
+MinIO 部署在 114.215.190.52 服务器上。
+
+### MinIO Docker 部署命令
+
+```bash
+docker run -d \
+  --name minio \
+  -p 9000:9000 \
+  -p 9001:9001 \
+  -e MINIO_ROOT_USER=admin \
+  -e MINIO_ROOT_PASSWORD=minio123456 \
+  -v /data/minio:/data \
+  minio/minio server /data --console-address ":9001"
+```
+
+### 创建存储桶
+
+```bash
+# 安装 mc 客户端
+curl -O https://dl.min.io/client/mc/release/linux-amd64/mc
+chmod +x mc
+sudo mv mc /usr/local/bin/
+
+# 配置别名
+mc alias set myminio http://114.215.190.52:9000 admin minio123456
+
+# 创建桶
+mc mb myminio/devkit
+
+# 设置桶策略（允许公共读取）
+mc anonymous set download myminio/devkit
+```
+
+### MinIO Web 控制台
+
+- 地址：http://114.215.190.52:9001
+- 用户名：admin
+- 密码：minio123456
 
 ## 默认账号
 
