@@ -15,6 +15,7 @@ import {
   getPermissionVersionApi,
   getUserInfoApi,
   loginApi,
+  loginByEmailApi,
   logoutApi,
 } from '#/api';
 import { $t } from '#/locales';
@@ -30,72 +31,95 @@ export const useAuthStore = defineStore('auth', () => {
   let permissionCheckTimer: ReturnType<typeof setInterval> | null = null;
 
   /**
-   * 异步处理登录操作
-   * Asynchronously handle the login process
-   * @param params 登录表单数据
+   * 登录后通用处理：存储 token、获取用户信息、跳转
+   */
+  async function handleLoginResult(
+    result: AuthApi.LoginResult,
+    onSuccess?: () => Promise<void> | void,
+  ): Promise<{ userInfo: null | UserInfo }> {
+    let userInfo: null | UserInfo = null;
+    const { accessToken, refreshToken } = result;
+
+    if (!accessToken) return { userInfo: null };
+
+    accessStore.setAccessToken(accessToken);
+    if (refreshToken) {
+      accessStore.setRefreshToken(refreshToken);
+    }
+
+    // 获取用户信息、权限码、权限版本
+    const [fetchUserInfoResult, accessCodes, permVersion] =
+      await Promise.all([
+        fetchUserInfo(),
+        getAccessCodesApi(),
+        getPermissionVersionApi(),
+      ]);
+
+    userInfo = fetchUserInfoResult;
+    userStore.setUserInfo(userInfo);
+    accessStore.setAccessCodes(accessCodes);
+    permissionVersion.value = permVersion;
+
+    // 启动权限版本检查
+    startPermissionCheck();
+
+    if (accessStore.loginExpired) {
+      accessStore.setLoginExpired(false);
+    } else {
+      onSuccess
+        ? await onSuccess?.()
+        : await router.push(
+            userInfo.homePath || preferences.app.defaultHomePath,
+          );
+    }
+
+    if (userInfo?.realName) {
+      notification.success({
+        description: `${$t('authentication.loginSuccessDesc')}:${userInfo?.realName}`,
+        duration: 3,
+        message: $t('authentication.loginSuccess'),
+      });
+    }
+
+    return { userInfo };
+  }
+
+  /**
+   * 用户名密码登录
    */
   async function authLogin(
     params: Recordable<any>,
     onSuccess?: () => Promise<void> | void,
   ) {
-    // 异步处理用户登录操作并获取 accessToken
-    let userInfo: null | UserInfo = null;
     try {
       loginLoading.value = true;
-      const { accessToken, refreshToken } = await loginApi(params);
-
-      // 如果成功获取到 accessToken
-      if (accessToken) {
-        accessStore.setAccessToken(accessToken);
-        if (refreshToken) {
-          accessStore.setRefreshToken(refreshToken);
-        }
-
-        // 获取用户信息、权限码、权限版本
-        const [fetchUserInfoResult, accessCodes, permVersion] =
-          await Promise.all([
-            fetchUserInfo(),
-            getAccessCodesApi(),
-            getPermissionVersionApi(),
-          ]);
-
-        userInfo = fetchUserInfoResult;
-
-        userStore.setUserInfo(userInfo);
-        accessStore.setAccessCodes(accessCodes);
-        permissionVersion.value = permVersion;
-
-        // 启动权限版本检查
-        startPermissionCheck();
-
-        if (accessStore.loginExpired) {
-          accessStore.setLoginExpired(false);
-        } else {
-          onSuccess
-            ? await onSuccess?.()
-            : await router.push(
-                userInfo.homePath || preferences.app.defaultHomePath,
-              );
-        }
-
-        if (userInfo?.realName) {
-          notification.success({
-            description: `${$t('authentication.loginSuccessDesc')}:${userInfo?.realName}`,
-            duration: 3,
-            message: $t('authentication.loginSuccess'),
-          });
-        }
-      }
+      const result = await loginApi(params);
+      return await handleLoginResult(result, onSuccess);
     } catch (error) {
-      // 登录失败，错误已由拦截器处理（弹出提示），这里防止未捕获异常
       console.error('Login failed:', error);
+      return { userInfo: null };
     } finally {
       loginLoading.value = false;
     }
+  }
 
-    return {
-      userInfo,
-    };
+  /**
+   * 邮箱验证码登录
+   */
+  async function authLoginByEmail(
+    params: { code: string; email: string },
+    onSuccess?: () => Promise<void> | void,
+  ) {
+    try {
+      loginLoading.value = true;
+      const result = await loginByEmailApi(params);
+      return await handleLoginResult(result, onSuccess);
+    } catch (error) {
+      console.error('Email login failed:', error);
+      return { userInfo: null };
+    } finally {
+      loginLoading.value = false;
+    }
   }
 
   async function logout(redirect: boolean = true) {
@@ -202,6 +226,7 @@ export const useAuthStore = defineStore('auth', () => {
   return {
     $reset,
     authLogin,
+    authLoginByEmail,
     checkPermissionVersion,
     fetchUserInfo,
     loginLoading,

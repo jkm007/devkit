@@ -59,17 +59,32 @@ export async function getPermissionVersionApi() {
 }
 
 /**
- * 发送邮箱验证码
+ * 发送邮箱验证码（需先完成图形验证码）
  */
-export async function sendVerifyCodeApi(email: string, purpose: 'register' | 'reset_password') {
-  return requestClient.post('/auth/send-code', { email, purpose });
+export async function sendVerifyCodeApi(data: {
+  email: string;
+  purpose: 'login' | 'register' | 'reset_password';
+  captchaId: string;
+  captchaCode: string;
+}) {
+  return requestClient.post('/auth/send-code', data);
 }
 
 /**
  * 验证邮箱验证码
  */
-export async function verifyEmailCodeApi(email: string, code: string, purpose: 'register' | 'reset_password') {
+export async function verifyEmailCodeApi(email: string, code: string, purpose: 'login' | 'register' | 'reset_password') {
   return requestClient.post('/auth/verify-code', { email, code, purpose });
+}
+
+/**
+ * 邮箱验证码登录
+ */
+export async function loginByEmailApi(data: {
+  email: string;
+  code: string;
+}) {
+  return requestClient.post<AuthApi.LoginResult>('/auth/login-by-email', data);
 }
 
 /**

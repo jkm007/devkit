@@ -268,6 +268,48 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 	response.Success(c, nil)
 }
 
+// LoginByEmailRequest 邮箱验证码登录请求
+type LoginByEmailRequest struct {
+	Email string `json:"email" binding:"required,email"`
+	Code  string `json:"code" binding:"required,len=6"`
+}
+
+// LoginByEmail 邮箱验证码登录
+// @Summary      邮箱验证码登录
+// @Description  使用邮箱+验证码登录，返回 AccessToken 和用户信息
+// @Tags         认证
+// @Accept       json
+// @Produce      json
+// @Param        body  body  handler.LoginByEmailRequest  true  "邮箱登录请求"
+// @Success      200   {object}  response.Response{data=service.LoginResponse} "成功"
+// @Failure      400   {object}  response.Response "参数错误或验证码错误"
+// @Router       /auth/login-by-email [post]
+func (h *AuthHandler) LoginByEmail(c *gin.Context) {
+	var req LoginByEmailRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "参数错误: "+err.Error())
+		return
+	}
+
+	result, err := h.authService.LoginByEmail(req.Email, req.Code, c.ClientIP())
+	if err != nil {
+		h.authService.RecordSecurityLog(0, "login_fail", "邮箱登录失败: "+err.Error(), c.ClientIP(), c.GetHeader("User-Agent"), 0)
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	// 记录登录成功日志
+	h.authService.RecordSecurityLog(result.ID, "login", "邮箱验证码登录成功", c.ClientIP(), c.GetHeader("User-Agent"), 1)
+	deviceID := c.GetHeader("X-Device-ID")
+	h.authService.RecordLoginDevice(result.ID, c.ClientIP(), c.GetHeader("User-Agent"), deviceID)
+
+	// 设置 Cookie
+	c.SetCookie("access_token", result.AccessToken, 30*24*3600, "/", "", h.cookieSecure(), true)
+	c.SetCookie("refresh_token", result.RefreshToken, 30*24*3600, "/", "", h.cookieSecure(), true)
+
+	response.Success(c, result)
+}
+
 // Register 用户注册
 // @Summary      用户注册
 // @Description  新用户注册（需要邮箱验证码）

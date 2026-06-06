@@ -188,56 +188,55 @@ func (s *AuthService) Login(req *LoginRequest, clientIP string) (*LoginResponse,
 		return nil, errors.New("Account is disabled")
 	}
 
-	// 获取用户角色（包括直接角色和分组继承的角色）
-	roleIDSet := make(map[uint]bool)
+	return s.generateLoginResponse(user, clientIP)
+}
 
-	// 1. 获取用户直接关联的角色
-	directRoles, err := s.userRepo.GetUserRoles(user.ID)
+// LoginByEmail 邮箱验证码登录
+func (s *AuthService) LoginByEmail(email, code, clientIP string) (*LoginResponse, error) {
+	// 验证邮箱验证码
+	verifyCodeService := NewVerifyCodeService()
+	valid, err := verifyCodeService.VerifyCode(email, code, "login")
+	if err != nil {
+		return nil, fmt.Errorf("验证码验证失败: %w", err)
+	}
+	if !valid {
+		return nil, errors.New("验证码错误")
+	}
+
+	// 根据邮箱查找用户
+	user, err := s.userRepo.GetByEmail(email)
+	if err != nil || user == nil || user.ID == 0 {
+		return nil, errors.New("该邮箱未注册")
+	}
+
+	// 检查状态
+	if user.Status != 1 {
+		return nil, errors.New("账号已被禁用")
+	}
+
+	return s.generateLoginResponse(user, clientIP)
+}
+
+// generateLoginResponse 为已验证用户生成登录响应（token、角色、日志等）
+func (s *AuthService) generateLoginResponse(user *model.User, clientIP string) (*LoginResponse, error) {
+	// 收集角色名称
+	roleNames, err := s.collectRoleNames(user)
 	if err != nil {
 		return nil, err
 	}
-	for _, role := range directRoles {
-		roleIDSet[role.ID] = true
-	}
-
-	// 2. 获取分组关联的角色（递归向上查找父分组）
-	if user.GroupID > 0 {
-		groupRoleIDs, err := s.groupRepo.GetGroupRoleIDsRecursive(user.GroupID)
-		if err != nil {
-			return nil, err
-		}
-		for _, roleID := range groupRoleIDs {
-			roleIDSet[roleID] = true
-		}
-	}
-
-	// 3. 收集所有角色名称
-	roleNames := make([]string, 0, len(roleIDSet))
-	for roleID := range roleIDSet {
-		role, err := s.roleRepo.GetByID(roleID)
-		if err != nil {
-			continue
-		}
-		roleNames = append(roleNames, role.Name)
-	}
-
-	// 检查用户是否有角色
 	if len(roleNames) == 0 {
 		return nil, errors.New("User has no assigned roles")
 	}
 
-	// 生成 Token（包含所有角色）
+	// 生成 Token
 	tokenPair, err := jwt.Generate(user.ID, user.Name, roleNames)
 	if err != nil {
 		return nil, err
 	}
 
-	// 存储 RefreshToken 哈希到 Redis（不存明文）
+	// 存储 RefreshToken 哈希到 Redis
 	rdb := database.GetRedis()
 	rdb.Set(context.Background(), fmt.Sprintf("refresh_token:%d", user.ID), hashToken(tokenPair.RefreshToken), 30*24*time.Hour)
-
-	// 登录成功，清除失败计数
-	s.clearLoginFail(clientIP)
 
 	// 更新用户最后登录信息
 	now := time.Now()

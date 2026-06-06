@@ -69,13 +69,7 @@ func (s *VerifyCodeService) SendCode(to, purpose string) error {
 	siteName := getSiteName()
 
 	// 渲染邮件模板
-	purposeText := purpose
-	switch purpose {
-	case "register":
-		purposeText = "注册账号"
-	case "reset_password":
-		purposeText = "重置密码"
-	}
+	purposeText := PurposeText(purpose)
 
 	subject := fmt.Sprintf("【%s】%s验证码", siteName, purposeText)
 	htmlBody := email.RenderVerifyCode(code, purposeText, verifyCodeExpireMinutes, siteName)
@@ -137,6 +131,20 @@ func generateVerifyCode(length int) (string, error) {
 		code[i] = byte('0' + n.Int64())
 	}
 	return string(code), nil
+}
+
+// PurposeText 将 purpose 标识转为中文说明，供邮件模板等场景复用
+func PurposeText(purpose string) string {
+	switch purpose {
+	case "register":
+		return "注册账号"
+	case "reset_password":
+		return "重置密码"
+	case "login":
+		return "登录账号"
+	default:
+		return purpose
+	}
 }
 
 // getSiteName 从数据库获取站点名称

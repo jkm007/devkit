@@ -2,6 +2,7 @@ package handler
 
 import (
 	"backend-server/internal/service"
+	"backend-server/pkg/captcha"
 	"backend-server/pkg/response"
 
 	"github.com/gin-gonic/gin"
@@ -21,15 +22,17 @@ func NewVerifyCodeHandler() *VerifyCodeHandler {
 
 // SendCodeRequest 发送验证码请求
 type SendCodeRequest struct {
-	Email   string `json:"email" binding:"required,email"`
-	Purpose string `json:"purpose" binding:"required,oneof=register reset_password"`
+	Email       string `json:"email" binding:"required,email"`
+	Purpose     string `json:"purpose" binding:"required,oneof=register reset_password login"`
+	CaptchaID   string `json:"captchaId" binding:"required"`
+	CaptchaCode string `json:"captchaCode" binding:"required,min=1,max=256"`
 }
 
 // VerifyCodeRequest 验证验证码请求
 type VerifyCodeRequest struct {
 	Email   string `json:"email" binding:"required,email"`
 	Code    string `json:"code" binding:"required,len=6"`
-	Purpose string `json:"purpose" binding:"required,oneof=register reset_password"`
+	Purpose string `json:"purpose" binding:"required,oneof=register reset_password login"`
 }
 
 // SendCode 发送邮箱验证码
@@ -45,6 +48,13 @@ func (h *VerifyCodeHandler) SendCode(c *gin.Context) {
 	var req SendCodeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "参数错误: "+err.Error())
+		return
+	}
+
+	// 先校验图形验证码，防止接口被滥用
+	ok, msg := captcha.Verify(req.CaptchaID, req.CaptchaCode, 0, nil)
+	if !ok {
+		response.BadRequest(c, msg)
 		return
 	}
 
