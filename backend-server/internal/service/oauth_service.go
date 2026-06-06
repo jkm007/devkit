@@ -204,8 +204,11 @@ func (s *OAuthService) HandleCallback(providerName, code, state, clientIP, userA
 	}
 
 	// 5. 未绑定，自动注册新用户
+	// 生成规范化用户名：provider_随机8位字符
+	randomSuffix, _ := generateRandomSuffix(8)
+	username := providerName + "_" + randomSuffix
 	newUser := &model.User{
-		Name:           providerName + "_" + userInfo.ProviderUserID,
+		Name:           username,
 		Nickname:       userInfo.Username,
 		Avatar:         userInfo.Avatar,
 		Email:          userInfo.Email,
@@ -342,6 +345,16 @@ func generateOAuthState() (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(b), nil
+}
+
+// generateRandomSuffix 生成随机字符串后缀
+func generateRandomSuffix(length int) (string, error) {
+	b := make([]byte, length)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	// 使用 hex 编码并截取所需长度
+	return hex.EncodeToString(b)[:length], nil
 }
 
 // oauthHashToken 对 token 做 SHA256 哈希

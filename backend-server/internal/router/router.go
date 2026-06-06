@@ -70,18 +70,21 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		// 验证码接口单独限流（每秒 5 个，突发 10）
 		auth.GET("/captcha", middleware.NewIPRateLimiter(5, 10), captchaHandler.GetCaptcha)
 		auth.POST("/login", authHandler.Login)
-		auth.POST("/login-by-email", authHandler.LoginByEmail)
+		// 邮箱登录（限流：每秒 1 个，突发 3）
+		auth.POST("/login-by-email", middleware.NewIPRateLimiter(1, 3), authHandler.LoginByEmail)
 		auth.POST("/logout", authHandler.Logout)
 		auth.POST("/refresh", authHandler.RefreshToken)
 		auth.GET("/oauth/authorize", oauthHandler.GetBindURL)
-		auth.GET("/oauth/callback", oauthHandler.Callback)
+		// OAuth 回调（限流：每秒 2 个，突发 5）
+		auth.GET("/oauth/callback", middleware.NewIPRateLimiter(2, 5), oauthHandler.Callback)
 		// 邮箱验证码（限流：每秒 1 个，突发 2）
 		auth.POST("/send-code", middleware.NewIPRateLimiter(1, 2), verifyCodeHandler.SendCode)
 		// 验证验证码（限流：每秒 5 个，突发 10）
 		auth.POST("/verify-code", middleware.NewIPRateLimiter(5, 10), verifyCodeHandler.VerifyCode)
 		// 短信验证码（限流：每秒 1 个，突发 2）
 		auth.POST("/send-sms-code", middleware.NewIPRateLimiter(1, 2), verifyCodeHandler.SendSMSCode)
-		auth.POST("/login-by-phone", authHandler.LoginByPhone)
+		// 手机号登录（限流：每秒 1 个，突发 3）
+		auth.POST("/login-by-phone", middleware.NewIPRateLimiter(1, 3), authHandler.LoginByPhone)
 		// 注册（限流：每秒 1 个，突发 3）
 		auth.POST("/register", middleware.NewIPRateLimiter(1, 3), authHandler.Register)
 		// 重置密码（限流：每秒 1 个，突发 3）

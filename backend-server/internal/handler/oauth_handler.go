@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"backend-server/config"
 	"backend-server/internal/middleware"
 	"backend-server/internal/service"
 	"backend-server/pkg/response"
@@ -11,13 +12,20 @@ import (
 // OAuthHandler 第三方登录绑定处理器
 type OAuthHandler struct {
 	service *service.OAuthService
+	cfg     *config.Config
 }
 
 // NewOAuthHandler 创建第三方登录绑定处理器
 func NewOAuthHandler() *OAuthHandler {
 	return &OAuthHandler{
 		service: service.NewOAuthService(),
+		cfg:     config.Get(),
 	}
+}
+
+// cookieSecure 根据服务器模式决定 cookie 是否仅 HTTPS
+func (h *OAuthHandler) cookieSecure() bool {
+	return h.cfg.Server.Mode == "release"
 }
 
 // GetBindings 获取当前用户的第三方绑定列表
@@ -97,9 +105,9 @@ func (h *OAuthHandler) Callback(c *gin.Context) {
 		return
 	}
 
-	// 设置 Cookie
-	c.SetCookie("access_token", result.AccessToken, 30*24*3600, "/", "", false, true)
-	c.SetCookie("refresh_token", result.RefreshToken, 30*24*3600, "/", "", false, true)
+	// 设置 Cookie（根据服务器模式决定是否仅 HTTPS）
+	c.SetCookie("access_token", result.AccessToken, 30*24*3600, "/", "", h.cookieSecure(), true)
+	c.SetCookie("refresh_token", result.RefreshToken, 30*24*3600, "/", "", h.cookieSecure(), true)
 
 	response.Success(c, result)
 }
