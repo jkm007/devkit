@@ -6,12 +6,12 @@ import { computed, defineAsyncComponent, markRaw, onMounted, ref, watch } from '
 
 import {
   AuthenticationLogin,
+  VbenIconButton,
   z,
 } from '@vben/common-ui';
 import { SvgGithubIcon, SvgGoogleIcon, SvgWeChatIcon } from '@vben/icons';
 import { $t } from '@vben/locales';
 import { message } from 'ant-design-vue';
-import { VbenIconButton } from '@vben-core/shadcn-ui';
 
 import { getOAuthUrl } from '#/api/core/auth';
 import { getCaptcha, getPublicSettings } from '#/api/system/settings';
