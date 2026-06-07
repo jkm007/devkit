@@ -148,26 +148,26 @@ func loadStorageConfigFromDB() *config.StorageConfig {
 	cfg.Local.Path = getSettingStr(settings, "storage_local_path", "./uploads")
 	cfg.Local.URLPrefix = getSettingStr(settings, "storage_local_url_prefix", "/uploads")
 
-	// MinIO 配置
-	cfg.MinIO.Endpoint = getSettingStr(settings, "storage_minio_endpoint", "")
-	cfg.MinIO.AccessKey = getSettingStr(settings, "storage_minio_access_key", "")
-	cfg.MinIO.SecretKey = getSettingStr(settings, "storage_minio_secret_key", "")
-	cfg.MinIO.Bucket = getSettingStr(settings, "storage_minio_bucket", "")
-	cfg.MinIO.UseSSL = getSettingBool(settings, "storage_minio_use_ssl", false)
+	// MinIO 配置 - 同时支持带前缀和不带前缀的 key
+	cfg.MinIO.Endpoint = getSettingStr2(settings, "storage_minio_endpoint", "minio_endpoint")
+	cfg.MinIO.AccessKey = getSettingStr2(settings, "storage_minio_access_key", "minio_access_key")
+	cfg.MinIO.SecretKey = getSettingStr2(settings, "storage_minio_secret_key", "minio_secret_key")
+	cfg.MinIO.Bucket = getSettingStr2(settings, "storage_minio_bucket", "minio_bucket")
+	cfg.MinIO.UseSSL = getSettingBool2(settings, "storage_minio_use_ssl", "minio_use_ssl")
 
-	// OSS 配置
-	cfg.OSS.Endpoint = getSettingStr(settings, "storage_oss_endpoint", "")
-	cfg.OSS.AccessKeyID = getSettingStr(settings, "storage_oss_access_key_id", "")
-	cfg.OSS.AccessKeySecret = getSettingStr(settings, "storage_oss_access_key_secret", "")
-	cfg.OSS.Bucket = getSettingStr(settings, "storage_oss_bucket", "")
-	cfg.OSS.CDNDomain = getSettingStr(settings, "storage_oss_cdn_domain", "")
+	// OSS 配置 - 同时支持带前缀和不带前缀的 key
+	cfg.OSS.Endpoint = getSettingStr2(settings, "storage_oss_endpoint", "oss_endpoint")
+	cfg.OSS.AccessKeyID = getSettingStr2(settings, "storage_oss_access_key_id", "oss_access_key_id")
+	cfg.OSS.AccessKeySecret = getSettingStr3(settings, "storage_oss_access_key_secret", "oss_access_key_secret", "oss_secret_key")
+	cfg.OSS.Bucket = getSettingStr2(settings, "storage_oss_bucket", "oss_bucket")
+	cfg.OSS.CDNDomain = getSettingStr2(settings, "storage_oss_cdn_domain", "oss_cdn_domain")
 
-	// COS 配置
-	cfg.COS.Region = getSettingStr(settings, "storage_cos_region", "")
-	cfg.COS.SecretID = getSettingStr(settings, "storage_cos_secret_id", "")
-	cfg.COS.SecretKey = getSettingStr(settings, "storage_cos_secret_key", "")
-	cfg.COS.Bucket = getSettingStr(settings, "storage_cos_bucket", "")
-	cfg.COS.CDNDomain = getSettingStr(settings, "storage_cos_cdn_domain", "")
+	// COS 配置 - 同时支持带前缀和不带前缀的 key
+	cfg.COS.Region = getSettingStr2(settings, "storage_cos_region", "cos_region")
+	cfg.COS.SecretID = getSettingStr2(settings, "storage_cos_secret_id", "cos_secret_id")
+	cfg.COS.SecretKey = getSettingStr2(settings, "storage_cos_secret_key", "cos_secret_key")
+	cfg.COS.Bucket = getSettingStr2(settings, "storage_cos_bucket", "cos_bucket")
+	cfg.COS.CDNDomain = getSettingStr2(settings, "storage_cos_cdn_domain", "cos_cdn_domain")
 
 	return cfg
 }
@@ -190,6 +190,25 @@ func getSettingStr(settings map[string]string, key, defaultVal string) string {
 	return val
 }
 
+// getSettingStr2 从设置 map 中获取字符串值，尝试两个 key
+func getSettingStr2(settings map[string]string, key1, key2 string) string {
+	if val := getSettingStr(settings, key1, ""); val != "" {
+		return val
+	}
+	return getSettingStr(settings, key2, "")
+}
+
+// getSettingStr3 从设置 map 中获取字符串值，尝试三个 key
+func getSettingStr3(settings map[string]string, key1, key2, key3 string) string {
+	if val := getSettingStr(settings, key1, ""); val != "" {
+		return val
+	}
+	if val := getSettingStr(settings, key2, ""); val != "" {
+		return val
+	}
+	return getSettingStr(settings, key3, "")
+}
+
 // getSettingBool 从设置 map 中获取布尔值
 func getSettingBool(settings map[string]string, key string, defaultVal bool) bool {
 	val, ok := settings[key]
@@ -208,4 +227,13 @@ func getSettingBool(settings map[string]string, key string, defaultVal bool) boo
 		return false
 	}
 	return defaultVal
+}
+
+// getSettingBool2 从设置 map 中获取布尔值，尝试两个 key
+func getSettingBool2(settings map[string]string, key1, key2 string) bool {
+	val1, ok1 := settings[key1]
+	if ok1 && val1 != "" {
+		return getSettingBool(settings, key1, false)
+	}
+	return getSettingBool(settings, key2, false)
 }

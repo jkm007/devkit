@@ -515,9 +515,10 @@ function getSelectOptions(
 
 function getStorageSubGroup(item: SystemSettingsApi.SettingItem): string {
   const key = item.key;
-  if (key.startsWith('storage_minio_')) return 'minio';
-  if (key.startsWith('storage_oss_')) return 'oss';
-  if (key.startsWith('storage_cos_')) return 'cos';
+  // 支持带前缀和不带前缀的 key
+  if (key.startsWith('storage_minio_') || key.startsWith('minio_')) return 'minio';
+  if (key.startsWith('storage_oss_') || key.startsWith('oss_')) return 'oss';
+  if (key.startsWith('storage_cos_') || key.startsWith('cos_')) return 'cos';
   return 'general';
 }
 
