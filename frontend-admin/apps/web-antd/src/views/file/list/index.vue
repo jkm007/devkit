@@ -85,6 +85,7 @@ const shareModalVisible = ref(false);
 const shareFileId = ref<number | null>(null);
 const shareResult = ref<{ shareCode: string; shareUrl: string } | null>(null);
 const shareExpireHours = ref(0);
+const shareLoading = ref(false);
 
 // 预览
 const previewVisible = ref(false);
@@ -473,11 +474,11 @@ async function handleShare(file: FileApi.FileEntry) {
 
 async function confirmShare() {
   if (shareResult.value) {
-    // 已经生成过，直接关闭
     closeShareModal();
     return;
   }
 
+  shareLoading.value = true;
   try {
     const result = await createFileShare(shareFileId.value!, {
       expireHours: shareExpireHours.value || undefined,
@@ -488,6 +489,8 @@ async function confirmShare() {
   } catch (err) {
     console.error('Share error:', err);
     message.error('分享失败');
+  } finally {
+    shareLoading.value = false;
   }
 }
 
@@ -739,20 +742,22 @@ const folderSelectData = computed(() => {
     </Modal>
 
     <!-- 分享 -->
-    <Modal v-model:open="shareModalVisible" title="创建分享链接" @ok="confirmShare" @cancel="closeShareModal">
+    <Modal v-model:open="shareModalVisible" title="创建分享链接" :closable="true" :maskClosable="false">
       <template #footer>
         <Button @click="closeShareModal">{{ shareResult ? '关闭' : '取消' }}</Button>
-        <Button v-if="!shareResult" type="primary" @click="confirmShare">确定</Button>
+        <Button v-if="!shareResult" type="primary" :loading="shareLoading" @click="confirmShare">确定</Button>
       </template>
-      <Form layout="vertical" v-if="!shareResult">
-        <FormItem label="过期时间">
-          <Space>
-            <InputNumber v-model:value="shareExpireHours" :min="0" style="width: 100px" />
-            <span>小时（0表示永久有效）</span>
-          </Space>
-        </FormItem>
-      </Form>
-      <div v-if="shareResult" class="mt-4 p-3 bg-gray-50 rounded">
+      <div v-if="!shareResult">
+        <Form layout="vertical">
+          <FormItem label="过期时间">
+            <Space>
+              <InputNumber v-model:value="shareExpireHours" :min="0" style="width: 100px" />
+              <span>小时（0表示永久有效）</span>
+            </Space>
+          </FormItem>
+        </Form>
+      </div>
+      <div v-else class="p-3 bg-gray-50 rounded">
         <p class="mb-2 font-medium">分享链接：</p>
         <div class="flex gap-2">
           <Input :value="`${window.location.origin}${shareResult.shareUrl}`" readonly class="flex-1" />
