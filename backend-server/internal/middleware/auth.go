@@ -107,6 +107,16 @@ func GetCurrentRole(c *gin.Context) string {
 	return ""
 }
 
+// GeneratePreviewToken 生成预签名 Token
+func GeneratePreviewToken(userID uint, fileID uint) (string, error) {
+	return jwt.GeneratePreviewToken(userID, fileID)
+}
+
+// ValidatePreviewToken 验证预签名 Token
+func ValidatePreviewToken(tokenStr string) (uint, uint, error) {
+	return jwt.ValidatePreviewToken(tokenStr)
+}
+
 // GetCurrentDeviceID 从上下文获取当前设备ID
 func GetCurrentDeviceID(c *gin.Context) string {
 	if did, exists := c.Get("device_id"); exists {

@@ -97,3 +97,53 @@ func Parse(tokenStr string) (*Claims, error) {
 
 	return claims, nil
 }
+
+// PreviewClaims 预签名 Token 声明
+type PreviewClaims struct {
+	UserID uint `json:"user_id"`
+	FileID uint `json:"file_id"`
+	jwt.RegisteredClaims
+}
+
+// GeneratePreviewToken 生成预签名 Token（用于视频预览，有效期 1 小时）
+func GeneratePreviewToken(userID uint, fileID uint) (string, error) {
+	cfg := config.Get().JWT
+
+	claims := &PreviewClaims{
+		UserID: userID,
+		FileID: fileID,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			Issuer:    cfg.Issuer,
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(cfg.Secret))
+}
+
+// ValidatePreviewToken 验证预签名 Token
+func ValidatePreviewToken(tokenStr string) (userID uint, fileID uint, err error) {
+	cfg := config.Get().JWT
+
+	token, err := jwt.ParseWithClaims(tokenStr, &PreviewClaims{}, func(token *jwt.Token) (interface{}, error) {
+		if token.Method != jwt.SigningMethodHS256 {
+			return nil, errors.New("unexpected signing method")
+		}
+		return []byte(cfg.Secret), nil
+	})
+	if err != nil {
+		if errors.Is(err, jwt.ErrTokenExpired) {
+			return 0, 0, ErrTokenExpired
+		}
+		return 0, 0, ErrTokenInvalid
+	}
+
+	claims, ok := token.Claims.(*PreviewClaims)
+	if !ok || !token.Valid {
+		return 0, 0, ErrTokenInvalid
+	}
+
+	return claims.UserID, claims.FileID, nil
+}

@@ -327,6 +327,11 @@ export function viewFile(id: number) {
   return requestClient.get(`/files/${id}/view`, { responseType: 'blob' });
 }
 
+/** 获取预签名 URL（用于视频流式播放） */
+export function getPreviewURL(id: number) {
+  return requestClient.get<{ url: string; contentType: string; name: string }>(`/files/${id}/preview-url`);
+}
+
 // ==================== 分享 ====================
 
 export interface ShareInfo {

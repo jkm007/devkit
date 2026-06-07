@@ -258,6 +258,147 @@ func (h *MediaHandler) ViewFile(c *gin.Context) {
 	io.CopyBuffer(c.Writer, reader, buf)
 }
 
+// GetPreviewURL 获取临时预签名 URL（用于视频流式播放）
+// @Summary      获取临时预签名 URL
+// @Description  返回带临时 token 的 URL，用于视频流式播放
+// @Tags         媒体文件
+// @Produce      json
+// @Param        id  path  int  true  "文件ID"
+// @Success      200  {object}  response.Response
+// @Router       /files/{id}/preview-url [get]
+func (h *MediaHandler) GetPreviewURL(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.BadRequest(c, "无效的ID")
+		return
+	}
+
+	// 获取当前用户ID
+	userID := middleware.GetCurrentUserID(c)
+
+	// 验证文件归属
+	entry, err := h.fileService.GetFileEntry(userID, uint(id))
+	if err != nil {
+		response.NotFound(c, "文件不存在或无权访问")
+		return
+	}
+
+	// 生成临时 token（使用 JWT 的短期 token）
+	token, err := middleware.GeneratePreviewToken(userID, uint(id))
+	if err != nil {
+		response.InternalError(c, "生成预览 token 失败")
+		return
+	}
+
+	// 返回带 token 的 URL
+	previewURL := fmt.Sprintf("/files/%d/preview?token=%s", id, token)
+	response.Success(c, gin.H{
+		"url":         previewURL,
+		"contentType": entry.ContentType,
+		"name":        entry.Name,
+	})
+}
+
+// PreviewFile 临时预览文件（使用 token 认证）
+// @Summary      临时预览文件
+// @Description  使用临时 token 预览文件（支持 Range 请求）
+// @Tags         媒体文件
+// @Produce      octet-stream
+// @Param        id     path  int     true  "文件ID"
+// @Param        token  query string  true  "临时 token"
+// @Success      200   {file}  binary
+// @Router       /files/{id}/preview [get]
+func (h *MediaHandler) PreviewFile(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.BadRequest(c, "无效的ID")
+		return
+	}
+
+	token := c.Query("token")
+	if token == "" {
+		response.BadRequest(c, "缺少 token")
+		return
+	}
+
+	// 验证临时 token
+	userID, fileID, err := middleware.ValidatePreviewToken(token)
+	if err != nil || fileID != uint(id) {
+		response.Unauthorized(c, "无效或过期的 token")
+		return
+	}
+
+	// 获取文件信息
+	entry, err := h.fileService.GetFileEntry(userID, uint(id))
+	if err != nil {
+		response.NotFound(c, "文件不存在或无权访问")
+		return
+	}
+
+	// 获取文件资产
+	asset, err := h.fileService.GetAssetByID(entry.FileAssetID)
+	if err != nil {
+		response.NotFound(c, "文件资产不存在")
+		return
+	}
+
+	// 根据存储类型获取对应的存储实例
+	st := storage.GetStorageByDriver(asset.StorageType)
+
+	fileSize := asset.FileSize
+	contentType := asset.ContentType
+
+	// 设置通用响应头
+	c.Header("Accept-Ranges", "bytes")
+	c.Header("Content-Disposition", "inline; filename="+entry.Name)
+	c.Header("Cache-Control", "private, max-age=3600")
+
+	// 处理 Range 请求
+	rangeHeader := c.GetHeader("Range")
+	if rangeHeader != "" {
+		start, end := parseRange(rangeHeader, fileSize)
+		if start < 0 || start >= fileSize {
+			c.Status(http.StatusRequestedRangeNotSatisfiable)
+			return
+		}
+		if end < 0 || end >= fileSize {
+			end = fileSize - 1
+		}
+
+		length := end - start + 1
+
+		reader, err := st.DownloadRange(c, asset.ObjectKey, start, length)
+		if err != nil {
+			response.InternalError(c, "获取文件失败")
+			return
+		}
+		defer reader.Close()
+
+		c.Header("Content-Type", contentType)
+		c.Header("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, fileSize))
+		c.Header("Content-Length", strconv.FormatInt(length, 10))
+		c.Status(http.StatusPartialContent)
+
+		buf := make([]byte, 32*1024)
+		io.CopyBuffer(c.Writer, reader, buf)
+		return
+	}
+
+	// 非 Range 请求
+	reader, err := st.Download(c, asset.ObjectKey)
+	if err != nil {
+		response.InternalError(c, "获取文件失败")
+		return
+	}
+	defer reader.Close()
+
+	c.Header("Content-Type", contentType)
+	c.Header("Content-Length", strconv.FormatInt(fileSize, 10))
+
+	buf := make([]byte, 32*1024)
+	io.CopyBuffer(c.Writer, reader, buf)
+}
+
 // parseRange 解析 Range 头，返回 start 和 end
 func parseRange(rangeHeader string, fileSize int64) (start, end int64) {
 	// 格式: bytes=start-end 或 bytes=start-

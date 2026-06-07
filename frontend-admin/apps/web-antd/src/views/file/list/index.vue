@@ -415,27 +415,28 @@ async function handlePreview(file: FileApi.FileEntry) {
   }
 
   const token = accessStore.accessToken;
-  const viewUrl = `/api/files/${file.id}/view`;
 
   // 先显示 Modal 和加载状态
   previewVisible.value = true;
 
-  // 视频使用流式播放（Range 请求）
+  // 视频使用预签名 URL（支持流式播放，不需要下载整个文件）
   if (isVideo) {
     previewType.value = 'video';
-    // 视频需要通过 fetch + blob URL（因为需要认证头）
-    // 使用 ReadableStream 实现渐进式加载
     try {
-      const response = await fetch(viewUrl, {
+      // 获取预签名 URL
+      const response = await fetch(`/api/files/${file.id}/preview-url`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       if (response.ok) {
-        const blob = await response.blob();
-        previewUrl.value = URL.createObjectURL(blob);
-      } else {
-        message.error('获取预览失败');
-        previewVisible.value = false;
+        const result = await response.json();
+        if (result.code === 0) {
+          // 使用预签名 URL，浏览器可以直接请求（支持 Range 请求）
+          previewUrl.value = `/api${result.data.url}`;
+          return;
+        }
       }
+      message.error('获取预览失败');
+      previewVisible.value = false;
     } catch {
       message.error('获取预览失败');
       previewVisible.value = false;
@@ -444,6 +445,7 @@ async function handlePreview(file: FileApi.FileEntry) {
   }
 
   // 图片和 PDF 需要先下载
+  const viewUrl = `/api/files/${file.id}/view`;
   try {
     const response = await fetch(viewUrl, {
       headers: { 'Authorization': `Bearer ${token}` },

@@ -186,6 +186,10 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		authorized.GET("/files/:id/stream", mediaHandler.GetStream)
 		authorized.GET("/files/:id/download", mediaHandler.DownloadFile)
 			authorized.GET("/files/:id/view", mediaHandler.ViewFile)
+			authorized.GET("/files/:id/preview-url", mediaHandler.GetPreviewURL)
+
+		// 临时预览（使用 token 认证，支持 Range 请求）
+		r.GET("/files/:id/preview", mediaHandler.PreviewFile)
 
 		// 系统管理
 		system := authorized.Group("/system")
