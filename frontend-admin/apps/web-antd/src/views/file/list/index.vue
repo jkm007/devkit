@@ -514,18 +514,32 @@ function closeShareModal() {
 
 function copyShareUrl() {
   const url = shareFullUrl.value;
-  navigator.clipboard.writeText(url).then(() => {
-    message.success('链接已复制到剪贴板');
-  }).catch(() => {
-    // 备用方案
-    const input = document.createElement('input');
-    input.value = url;
-    document.body.appendChild(input);
-    input.select();
+  // 优先使用 Clipboard API（需要 HTTPS）
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(url).then(() => {
+      message.success('链接已复制到剪贴板');
+    }).catch(() => {
+      fallbackCopy(url);
+    });
+  } else {
+    fallbackCopy(url);
+  }
+}
+
+function fallbackCopy(text: string) {
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.style.cssText = 'position:fixed;left:0;top:0;opacity:0';
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  try {
     document.execCommand('copy');
-    document.body.removeChild(input);
-    message.success('链接已复制');
-  });
+    message.success('链接已复制到剪贴板');
+  } catch {
+    message.error('复制失败，请手动复制');
+  }
+  document.body.removeChild(textarea);
 }
 
 // ==================== 上传 ====================
