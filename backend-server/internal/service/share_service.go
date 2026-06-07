@@ -271,12 +271,13 @@ func (s *ShareService) GetMyShares(userID uint) ([]model.FileShare, error) {
 }
 
 // DeleteShare 删除分享
-func (s *ShareService) DeleteShare(userID, shareID uint) error {
+// hasPermission=true 时可以删除任何分享，否则只能删除自己的
+func (s *ShareService) DeleteShare(userID, shareID uint, hasPermission bool) error {
 	share, err := s.shareRepo.GetByID(shareID)
 	if err != nil {
 		return err
 	}
-	if share.UserID != userID {
+	if !hasPermission && share.UserID != userID {
 		return fmt.Errorf("无权删除")
 	}
 	return s.shareRepo.Delete(shareID)
@@ -381,12 +382,12 @@ func (s *ShareService) GetUserShares(userID uint, page, pageSize int, viewAll bo
 }
 
 // RenewShare 续签分享（延长过期时间）
-func (s *ShareService) RenewShare(userID, shareID uint, expireHours int) error {
+func (s *ShareService) RenewShare(userID, shareID uint, expireHours int, hasPermission bool) error {
 	share, err := s.shareRepo.GetByID(shareID)
 	if err != nil {
 		return fmt.Errorf("分享不存在")
 	}
-	if share.UserID != userID {
+	if !hasPermission && share.UserID != userID {
 		return fmt.Errorf("无权操作")
 	}
 
@@ -400,12 +401,12 @@ func (s *ShareService) RenewShare(userID, shareID uint, expireHours int) error {
 }
 
 // ExpireShare 立即过期分享
-func (s *ShareService) ExpireShare(userID, shareID uint) error {
+func (s *ShareService) ExpireShare(userID, shareID uint, hasPermission bool) error {
 	share, err := s.shareRepo.GetByID(shareID)
 	if err != nil {
 		return fmt.Errorf("分享不存在")
 	}
-	if share.UserID != userID {
+	if !hasPermission && share.UserID != userID {
 		return fmt.Errorf("无权操作")
 	}
 
@@ -413,12 +414,12 @@ func (s *ShareService) ExpireShare(userID, shareID uint) error {
 }
 
 // DisableShare 禁用分享
-func (s *ShareService) DisableShare(userID, shareID uint) error {
+func (s *ShareService) DisableShare(userID, shareID uint, hasPermission bool) error {
 	share, err := s.shareRepo.GetByID(shareID)
 	if err != nil {
 		return fmt.Errorf("分享不存在")
 	}
-	if share.UserID != userID {
+	if !hasPermission && share.UserID != userID {
 		return fmt.Errorf("无权操作")
 	}
 
@@ -426,12 +427,12 @@ func (s *ShareService) DisableShare(userID, shareID uint) error {
 }
 
 // EnableShare 启用分享
-func (s *ShareService) EnableShare(userID, shareID uint) error {
+func (s *ShareService) EnableShare(userID, shareID uint, hasPermission bool) error {
 	share, err := s.shareRepo.GetByID(shareID)
 	if err != nil {
 		return fmt.Errorf("分享不存在")
 	}
-	if share.UserID != userID {
+	if !hasPermission && share.UserID != userID {
 		return fmt.Errorf("无权操作")
 	}
 
@@ -444,12 +445,12 @@ func (s *ShareService) EnableShare(userID, shareID uint) error {
 }
 
 // UpdateShareExpiry 修改分享到期时间
-func (s *ShareService) UpdateShareExpiry(userID, shareID uint, expireAt *time.Time) error {
+func (s *ShareService) UpdateShareExpiry(userID, shareID uint, expireAt *time.Time, hasPermission bool) error {
 	share, err := s.shareRepo.GetByID(shareID)
 	if err != nil {
 		return fmt.Errorf("分享不存在")
 	}
-	if share.UserID != userID {
+	if !hasPermission && share.UserID != userID {
 		return fmt.Errorf("无权操作")
 	}
 

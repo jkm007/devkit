@@ -27,6 +27,21 @@ func NewShareHandler() *ShareHandler {
 	}
 }
 
+// hasSharePermission 检查用户是否有指定的分享权限
+func (h *ShareHandler) hasSharePermission(userID uint, permission string) bool {
+	authService := service.NewAuthService()
+	codes, err := authService.GetPermissionCodes(userID)
+	if err != nil {
+		return false
+	}
+	for _, code := range codes {
+		if code == permission {
+			return true
+		}
+	}
+	return false
+}
+
 // CreateFileShare 创建文件分享
 // @Router /files/:id/share [post]
 func (h *ShareHandler) CreateFileShare(c *gin.Context) {
@@ -311,7 +326,10 @@ func (h *ShareHandler) DeleteShare(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 32)
 	userID := middleware.GetCurrentUserID(c)
 
-	err := h.shareService.DeleteShare(userID, uint(id))
+	// 检查是否有删除权限
+	hasPermission := h.hasSharePermission(userID, "share:delete") || h.hasSharePermission(userID, "share:manage")
+
+	err := h.shareService.DeleteShare(userID, uint(id), hasPermission)
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -378,7 +396,10 @@ func (h *ShareHandler) RenewShare(c *gin.Context) {
 		return
 	}
 
-	err := h.shareService.RenewShare(userID, uint(id), req.ExpireHours)
+	// 检查是否有管理权限
+	hasPermission := h.hasSharePermission(userID, "share:manage")
+
+	err := h.shareService.RenewShare(userID, uint(id), req.ExpireHours, hasPermission)
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -393,7 +414,10 @@ func (h *ShareHandler) ExpireShare(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 32)
 	userID := middleware.GetCurrentUserID(c)
 
-	err := h.shareService.ExpireShare(userID, uint(id))
+	// 检查是否有管理权限
+	hasPermission := h.hasSharePermission(userID, "share:manage")
+
+	err := h.shareService.ExpireShare(userID, uint(id), hasPermission)
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -426,7 +450,10 @@ func (h *ShareHandler) UpdateShareExpiry(c *gin.Context) {
 		expireAt = &t
 	}
 
-	err := h.shareService.UpdateShareExpiry(userID, uint(id), expireAt)
+	// 检查是否有管理权限
+	hasPermission := h.hasSharePermission(userID, "share:manage")
+
+	err := h.shareService.UpdateShareExpiry(userID, uint(id), expireAt, hasPermission)
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -441,7 +468,10 @@ func (h *ShareHandler) DisableShare(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 32)
 	userID := middleware.GetCurrentUserID(c)
 
-	err := h.shareService.DisableShare(userID, uint(id))
+	// 检查是否有管理权限
+	hasPermission := h.hasSharePermission(userID, "share:manage")
+
+	err := h.shareService.DisableShare(userID, uint(id), hasPermission)
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -456,7 +486,10 @@ func (h *ShareHandler) EnableShare(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 32)
 	userID := middleware.GetCurrentUserID(c)
 
-	err := h.shareService.EnableShare(userID, uint(id))
+	// 检查是否有管理权限
+	hasPermission := h.hasSharePermission(userID, "share:manage")
+
+	err := h.shareService.EnableShare(userID, uint(id), hasPermission)
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return

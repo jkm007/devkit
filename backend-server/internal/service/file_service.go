@@ -344,12 +344,13 @@ func (s *FileService) MoveFile(userID uint, fileID uint, targetFolderID uint) er
 }
 
 // DeleteFile 删除文件
-func (s *FileService) DeleteFile(userID uint, fileID uint) error {
+// hasPermission=true 时可以删除任何文件，否则只能删除自己的
+func (s *FileService) DeleteFile(userID uint, fileID uint, hasPermission bool) error {
 	entry, err := s.fileRepo.GetEntryByID(fileID)
 	if err != nil {
 		return fmt.Errorf("文件不存在")
 	}
-	if entry.UserID != userID {
+	if !hasPermission && entry.UserID != userID {
 		return fmt.Errorf("无权操作")
 	}
 
@@ -362,12 +363,12 @@ func (s *FileService) DeleteFile(userID uint, fileID uint) error {
 }
 
 // BatchDeleteFiles 批量删除文件
-func (s *FileService) BatchDeleteFiles(userID uint, fileIDs []uint) (int, []string) {
+func (s *FileService) BatchDeleteFiles(userID uint, fileIDs []uint, hasPermission bool) (int, []string) {
 	deleted := 0
 	errList := []string{}
 
 	for _, fileID := range fileIDs {
-		err := s.DeleteFile(userID, fileID)
+		err := s.DeleteFile(userID, fileID, hasPermission)
 		if err != nil {
 			errList = append(errList, fmt.Sprintf("文件 %d: %s", fileID, err.Error()))
 		} else {

@@ -21,6 +21,21 @@ func NewFileHandler() *FileHandler {
 	}
 }
 
+// hasFilePermission 检查用户是否有指定的文件权限
+func (h *FileHandler) hasFilePermission(userID uint, permission string) bool {
+	authService := service.NewAuthService()
+	codes, err := authService.GetPermissionCodes(userID)
+	if err != nil {
+		return false
+	}
+	for _, code := range codes {
+		if code == permission {
+			return true
+		}
+	}
+	return false
+}
+
 // createFolderRequest 创建文件夹请求
 type createFolderRequest struct {
 	Name     string `json:"name" binding:"required,max=255"`
@@ -230,7 +245,10 @@ func (h *FileHandler) DeleteFile(c *gin.Context) {
 	}
 
 	userID := middleware.GetCurrentUserID(c)
-	if err := h.fileService.DeleteFile(userID, uint(id)); err != nil {
+	// 检查是否有删除权限
+	hasPermission := h.hasFilePermission(userID, "file:delete") || h.hasFilePermission(userID, "file:manage")
+
+	if err := h.fileService.DeleteFile(userID, uint(id), hasPermission); err != nil {
 		response.InternalError(c, err.Error())
 		return
 	}
@@ -259,7 +277,10 @@ func (h *FileHandler) BatchDeleteFiles(c *gin.Context) {
 	}
 
 	userID := middleware.GetCurrentUserID(c)
-	deleted, errors := h.fileService.BatchDeleteFiles(userID, req.FileIDs)
+	// 检查是否有删除权限
+	hasPermission := h.hasFilePermission(userID, "file:delete") || h.hasFilePermission(userID, "file:manage")
+
+	deleted, errors := h.fileService.BatchDeleteFiles(userID, req.FileIDs, hasPermission)
 
 	response.Success(c, gin.H{
 		"deleted": deleted,
