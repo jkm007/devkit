@@ -196,16 +196,17 @@ func (s *FileService) collectChildFolderIDs(parentID uint, ids *[]uint) {
 
 // FileEntryWithURL 文件条目带预览URL
 type FileEntryWithURL struct {
-	ID            uint   `json:"id"`
-	FolderID      uint   `json:"folderId"`
-	Name          string `json:"name"`
-	Size          int64  `json:"size"`
-	ContentType   string `json:"contentType"`
-	UserID        uint   `json:"userId"`
-	CreatedAt     string `json:"createdAt"`
-	UpdatedAt     string `json:"updatedAt"`
-	PreviewURL    string `json:"previewUrl,omitempty"`
-	UploaderName  string `json:"uploaderName"`
+	ID             uint   `json:"id"`
+	FolderID       uint   `json:"folderId"`
+	Name           string `json:"name"`
+	Size           int64  `json:"size"`
+	ContentType    string `json:"contentType"`
+	StorageType    string `json:"storageType"`
+	UserID         uint   `json:"userId"`
+	CreatedAt      string `json:"createdAt"`
+	UpdatedAt      string `json:"updatedAt"`
+	PreviewURL     string `json:"previewUrl,omitempty"`
+	UploaderName   string `json:"uploaderName"`
 	UploaderAvatar string `json:"uploaderAvatar"`
 }
 
@@ -271,13 +272,14 @@ func (s *FileService) ListFiles(userID uint, req *ListFilesRequest) ([]FileEntry
 			result[i].UploaderAvatar = user.Avatar
 		}
 
-		// 获取预览 URL
+		// 获取预览 URL 和存储类型
 		if entry.FileAssetID > 0 {
 			asset, err := s.assetRepo.GetByID(entry.FileAssetID)
 			if err == nil {
 				// 根据存储类型获取对应的存储实例
 				st := storage.GetStorageByDriver(asset.StorageType)
 				result[i].PreviewURL = st.GetURL(asset.ObjectKey)
+				result[i].StorageType = asset.StorageType
 			}
 		}
 	}

@@ -21,6 +21,7 @@ import {
   Space,
   Spin,
   Table,
+  Tag,
   Tree,
   TreeSelect,
   Upload,
@@ -515,9 +516,18 @@ onMounted(() => {
 
 // ==================== 表格列 ====================
 
+// 存储类型标签映射
+const storageTypeLabels: Record<string, { label: string; color: string }> = {
+  local: { label: '本地', color: 'default' },
+  minio: { label: 'MinIO', color: 'blue' },
+  oss: { label: 'OSS', color: 'orange' },
+  cos: { label: 'COS', color: 'green' },
+};
+
 const columns = [
   { title: '文件名', dataIndex: 'name', key: 'name', width: 200, ellipsis: true },
   { title: '大小', dataIndex: 'size', key: 'size', width: 80, customRender: ({ text }) => formatFileSize(text) },
+  { title: '存储', key: 'storage', width: 80 },
   { title: '上传者', key: 'uploader', width: 80 },
   { title: '时间', dataIndex: 'createdAt', key: 'createdAt', width: 120 },
   { title: '操作', key: 'operation', width: 180, fixed: 'right' },
@@ -623,6 +633,11 @@ const folderSelectData = computed(() => {
             <template v-if="column.key === 'name'">
               <span :class="getFileIcon(record.contentType)" class="mr-1" />
               {{ record.name }}
+            </template>
+            <template v-if="column.key === 'storage'">
+              <Tag :color="storageTypeLabels[record.storageType]?.color || 'default'">
+                {{ storageTypeLabels[record.storageType]?.label || record.storageType || '本地' }}
+              </Tag>
             </template>
             <template v-if="column.key === 'uploader'">
               <span class="text-sm">{{ record.uploaderName || '-' }}</span>

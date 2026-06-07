@@ -29,6 +29,7 @@ export namespace FileApi {
     folderId: number | null;
     size: number;
     contentType: string;
+    storageType: string;
     createdAt: string;
     updatedAt: string;
     previewUrl?: string;
