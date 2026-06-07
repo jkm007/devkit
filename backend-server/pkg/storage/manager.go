@@ -20,6 +20,7 @@ var (
 
 // InitStorage 初始化存储（启动时调用）
 // 优先从 DB 加载配置，如果 DB 无配置则使用 config.yaml 的值
+// 本地存储始终初始化，如果有启用的外部存储则使用它作为主要存储
 func InitStorage(cfg config.StorageConfig) {
 	storageMutex.Lock()
 	defer storageMutex.Unlock()
@@ -33,20 +34,29 @@ func InitStorage(cfg config.StorageConfig) {
 		log.Printf("[INFO] 数据库无存储配置，使用 config.yaml: driver=%s", cfg.Driver)
 	}
 
-	s, err := New(cfg)
-	if err != nil {
-		log.Printf("[WARN] 存储初始化失败 (%s)，回退到本地存储: %v", cfg.Driver, err)
-		s = NewLocalStorage(cfg.Local)
-	}
-	currentStorage = s
+	// 本地存储始终初始化
+	localStorage := NewLocalStorage(cfg.Local)
+	storageCache["local"] = localStorage
+	log.Printf("[INFO] 本地存储已初始化: path=%s", cfg.Local.Path)
 
-	// 缓存当前存储实例
-	storageCache[cfg.Driver] = s
-	// 本地存储始终可用
-	if cfg.Driver != "local" {
-		localStorage := NewLocalStorage(cfg.Local)
-		storageCache["local"] = localStorage
-		log.Printf("[INFO] 本地存储已初始化: path=%s", cfg.Local.Path)
+	// 检查是否有启用的外部存储
+	activeDriver := determineActiveDriver(cfg)
+
+	if activeDriver == "local" {
+		currentStorage = localStorage
+		log.Printf("[INFO] 使用本地存储作为主要存储")
+	} else {
+		// 尝试初始化外部存储
+		cfg.Driver = activeDriver
+		s, err := New(cfg)
+		if err != nil {
+			log.Printf("[WARN] 外部存储初始化失败 (%s)，回退到本地存储: %v", activeDriver, err)
+			currentStorage = localStorage
+		} else {
+			currentStorage = s
+			storageCache[activeDriver] = s
+			log.Printf("[INFO] 使用 %s 作为主要存储", activeDriver)
+		}
 	}
 }
 
@@ -92,6 +102,85 @@ func GetStorageByDriver(driver string) Storage {
 	return currentStorage
 }
 
+// determineActiveDriver 确定应该使用哪个存储驱动
+// 优先级：COS > OSS > MinIO > Local（按启用顺序，最后启用的优先）
+// 如果没有启用任何外部存储，则返回 "local"
+func determineActiveDriver(cfg config.StorageConfig) string {
+	// 检查是否有启用的外部存储（按优先级）
+	// 这里我们检查配置中是否有有效的连接信息
+	// 用户通过前端启用某个存储时，会设置 enabled = true
+
+	// 从数据库设置中获取启用状态
+	db := database.GetMySQL()
+	if db == nil {
+		return "local"
+	}
+
+	// 查询所有 storage 组的设置
+	rows, err := db.Raw("SELECT `key`, value FROM sys_system_settings WHERE group_key = 'storage' AND deleted_at IS NULL").Rows()
+	if err != nil {
+		log.Printf("[WARN] 查询存储设置失败: %v", err)
+		return "local"
+	}
+	defer rows.Close()
+
+	settings := make(map[string]string)
+	for rows.Next() {
+		var key, value string
+		if err := rows.Scan(&key, &value); err != nil {
+			continue
+		}
+		settings[key] = value
+	}
+
+	// 检查各存储的启用状态（按优先级从高到低）
+	// 如果多个存储同时启用，使用优先级最高的
+	if isStorageEnabled(settings, "storage_cos_enabled") && hasRequiredConfig(settings, "cos") {
+		return "cos"
+	}
+	if isStorageEnabled(settings, "storage_oss_enabled") && hasRequiredConfig(settings, "oss") {
+		return "oss"
+	}
+	if isStorageEnabled(settings, "storage_minio_enabled") && hasRequiredConfig(settings, "minio") {
+		return "minio"
+	}
+
+	return "local"
+}
+
+// isStorageEnabled 检查存储是否启用
+func isStorageEnabled(settings map[string]string, key string) bool {
+	val, ok := settings[key]
+	if !ok || val == "" {
+		return false
+	}
+	val = strings.TrimSpace(val)
+	// 去除 JSON 引号
+	if len(val) >= 2 && val[0] == '"' && val[len(val)-1] == '"' {
+		val = val[1 : len(val)-1]
+	}
+	return strings.ToLower(val) == "true"
+}
+
+// hasRequiredConfig 检查存储是否有必要的配置
+func hasRequiredConfig(settings map[string]string, driver string) bool {
+	switch driver {
+	case "minio":
+		endpoint := getSettingStr2(settings, "storage_minio_endpoint", "minio_endpoint")
+		bucket := getSettingStr2(settings, "storage_minio_bucket", "minio_bucket")
+		return endpoint != "" && bucket != ""
+	case "oss":
+		endpoint := getSettingStr2(settings, "storage_oss_endpoint", "oss_endpoint")
+		bucket := getSettingStr2(settings, "storage_oss_bucket", "oss_bucket")
+		return endpoint != "" && bucket != ""
+	case "cos":
+		region := getSettingStr2(settings, "storage_cos_region", "cos_region")
+		bucket := getSettingStr2(settings, "storage_cos_bucket", "cos_bucket")
+		return region != "" && bucket != ""
+	}
+	return false
+}
+
 // RefreshStorage 从 DB 重新加载存储配置并重建实例
 func RefreshStorage() error {
 	storageMutex.Lock()
@@ -102,15 +191,33 @@ func RefreshStorage() error {
 		return fmt.Errorf("数据库中无存储配置")
 	}
 
+	// 本地存储始终初始化
+	localStorage := NewLocalStorage(dbCfg.Local)
+	storageCache["local"] = localStorage
+
+	// 检查是否有启用的外部存储
+	activeDriver := determineActiveDriver(*dbCfg)
+
+	if activeDriver == "local" {
+		currentStorage = localStorage
+		log.Printf("[INFO] 存储配置已热重载: driver=local")
+		return nil
+	}
+
+	// 尝试初始化外部存储
+	dbCfg.Driver = activeDriver
 	s, err := New(*dbCfg)
 	if err != nil {
-		return fmt.Errorf("重建存储实例失败: %w", err)
+		log.Printf("[WARN] 外部存储初始化失败 (%s)，回退到本地存储: %v", activeDriver, err)
+		currentStorage = localStorage
+		return nil
 	}
 
 	// 旧实例如果是 LocalStorage，不需要特殊清理
 	// MinIO/OSS/COS 客户端会被 GC 回收
 	currentStorage = s
-	log.Printf("[INFO] 存储配置已热重载: driver=%s", dbCfg.Driver)
+	storageCache[activeDriver] = s
+	log.Printf("[INFO] 存储配置已热重载: driver=%s", activeDriver)
 	return nil
 }
 

@@ -1429,131 +1429,160 @@ onMounted(() => {
           <div
             v-else-if="activeGroup === 'storage' && formValues.storage"
           >
-            <h3 class="mb-3 text-sm font-medium text-foreground/70">
-              {{ $t('system.settings.storageGeneral') }}
-            </h3>
-            <Row :gutter="[16, 16]">
-              <Col
-                v-for="item in currentGroupItems.filter(
-                  (i) => getStorageSubGroup(i) === 'general',
-                )"
-                :key="item.key"
-                :span="12"
-              >
-                <div class="setting-item">
-                  <label class="setting-label">
-                    {{ item.label }}
-                    <Tooltip v-if="item.tip" :title="item.tip">
-                      <span class="text-foreground/40 ml-1 cursor-help">ⓘ</span>
-                    </Tooltip>
-                  </label>
-                  <Input
-                    v-if="item.type === 'string'"
-                    v-model:value="formValues.storage[item.key]"
-                    :placeholder="item.tip"
-                  />
-                  <Switch
-                    v-else-if="item.type === 'boolean'"
-                    v-model:checked="formValues.storage[item.key]"
-                  />
-                  <InputNumber
-                    v-else-if="item.type === 'number'"
-                    v-model:value="formValues.storage[item.key]"
-                    class="w-full"
-                    :min="0"
-                  />
-                  <Select
-                    v-else-if="item.type === 'select'"
-                    v-model:value="formValues.storage[item.key]"
-                    class="w-full"
+            <!-- 本地存储（始终启用） -->
+            <div class="settings-section">
+              <h3 class="settings-section-title">
+                💻 本地存储
+                <Tag color="green" class="ml-2">始终启用</Tag>
+              </h3>
+              <Row :gutter="[16, 16]">
+                <Col
+                  v-for="item in currentGroupItems.filter((i) => i.key === 'storage_local_path' || i.key === 'storage_local_url_prefix')"
+                  :key="item.key"
+                  :span="12"
+                >
+                  <div class="setting-item">
+                    <label class="setting-label">
+                      {{ item.label }}
+                      <Tooltip v-if="item.tip" :title="item.tip">
+                        <span class="text-foreground/40 ml-1 cursor-help">ⓘ</span>
+                      </Tooltip>
+                    </label>
+                    <Input
+                      v-model:value="formValues.storage[item.key]"
+                      :placeholder="item.tip"
+                    />
+                  </div>
+                </Col>
+              </Row>
+            </div>
+
+            <Divider />
+
+            <!-- MinIO 存储 -->
+            <div class="settings-section">
+              <h3 class="settings-section-title">
+                📦 MinIO 存储
+              </h3>
+              <Row :gutter="[16, 16]">
+                <Col :span="12">
+                  <div class="setting-item">
+                    <label class="setting-label">启用 MinIO</label>
+                    <Switch v-model:checked="formValues.storage.storage_minio_enabled" />
+                  </div>
+                </Col>
+              </Row>
+              <template v-if="formValues.storage.storage_minio_enabled">
+                <Row :gutter="[16, 16]" class="mt-3">
+                  <Col
+                    v-for="item in currentGroupItems.filter((i) => getStorageSubGroup(i) === 'minio' && i.key !== 'storage_minio_enabled')"
+                    :key="item.key"
+                    :span="12"
                   >
-                    <SelectOption
-                      v-for="opt in getSelectOptions(item)"
-                      :key="opt.value"
-                      :value="opt.value"
-                    >
-                      {{ opt.label }}
-                    </SelectOption>
-                  </Select>
-                  <Select
-                    v-else-if="item.type === 'json'"
-                    v-model:value="formValues.storage[item.key]"
-                    mode="tags"
-                    class="w-full"
-                    :placeholder="item.tip"
-                  />
-                </div>
-              </Col>
-            </Row>
-            <template v-if="formValues.storage.storage_driver === 'minio'">
-              <Divider />
-              <h3 class="mb-3 text-sm font-medium text-foreground/70">MinIO {{ $t('system.settings.config') }}</h3>
+                    <div class="setting-item">
+                      <label class="setting-label">
+                        {{ item.label }}
+                        <Tag v-if="item.isSensitive" color="orange" class="ml-2">{{ $t('system.settings.sensitive') }}</Tag>
+                      </label>
+                      <Input
+                        v-if="item.type === 'string'"
+                        v-model:value="formValues.storage[item.key]"
+                        :placeholder="item.tip"
+                        :type="item.isSensitive ? 'password' : 'text'"
+                      />
+                      <Switch
+                        v-else-if="item.type === 'boolean'"
+                        v-model:checked="formValues.storage[item.key]"
+                      />
+                    </div>
+                  </Col>
+                </Row>
+              </template>
+            </div>
+
+            <Divider />
+
+            <!-- OSS 存储 -->
+            <div class="settings-section">
+              <h3 class="settings-section-title">
+                ☁️ 阿里云 OSS
+              </h3>
               <Row :gutter="[16, 16]">
-                <Col
-                  v-for="item in currentGroupItems.filter((i) => getStorageSubGroup(i) === 'minio')"
-                  :key="item.key"
-                  :span="12"
-                >
+                <Col :span="12">
                   <div class="setting-item">
-                    <label class="setting-label">
-                      {{ item.label }}
-                      <Tag v-if="item.isSensitive" color="orange" class="ml-2">{{ $t('system.settings.sensitive') }}</Tag>
-                    </label>
-                    <Input
-                      v-model:value="formValues.storage[item.key]"
-                      :placeholder="item.tip"
-                      :type="item.isSensitive ? 'password' : 'text'"
-                    />
+                    <label class="setting-label">启用 OSS</label>
+                    <Switch v-model:checked="formValues.storage.storage_oss_enabled" />
                   </div>
                 </Col>
               </Row>
-            </template>
-            <template v-if="formValues.storage.storage_driver === 'oss'">
-              <Divider />
-              <h3 class="mb-3 text-sm font-medium text-foreground/70">Alibaba Cloud OSS {{ $t('system.settings.config') }}</h3>
+              <template v-if="formValues.storage.storage_oss_enabled">
+                <Row :gutter="[16, 16]" class="mt-3">
+                  <Col
+                    v-for="item in currentGroupItems.filter((i) => getStorageSubGroup(i) === 'oss' && i.key !== 'storage_oss_enabled')"
+                    :key="item.key"
+                    :span="12"
+                  >
+                    <div class="setting-item">
+                      <label class="setting-label">
+                        {{ item.label }}
+                        <Tag v-if="item.isSensitive" color="orange" class="ml-2">{{ $t('system.settings.sensitive') }}</Tag>
+                      </label>
+                      <Input
+                        v-model:value="formValues.storage[item.key]"
+                        :placeholder="item.tip"
+                        :type="item.isSensitive ? 'password' : 'text'"
+                      />
+                    </div>
+                  </Col>
+                </Row>
+              </template>
+            </div>
+
+            <Divider />
+
+            <!-- COS 存储 -->
+            <div class="settings-section">
+              <h3 class="settings-section-title">
+                🌊 腾讯云 COS
+              </h3>
               <Row :gutter="[16, 16]">
-                <Col
-                  v-for="item in currentGroupItems.filter((i) => getStorageSubGroup(i) === 'oss')"
-                  :key="item.key"
-                  :span="12"
-                >
+                <Col :span="12">
                   <div class="setting-item">
-                    <label class="setting-label">
-                      {{ item.label }}
-                      <Tag v-if="item.isSensitive" color="orange" class="ml-2">{{ $t('system.settings.sensitive') }}</Tag>
-                    </label>
-                    <Input
-                      v-model:value="formValues.storage[item.key]"
-                      :placeholder="item.tip"
-                      :type="item.isSensitive ? 'password' : 'text'"
-                    />
+                    <label class="setting-label">启用 COS</label>
+                    <Switch v-model:checked="formValues.storage.storage_cos_enabled" />
                   </div>
                 </Col>
               </Row>
-            </template>
-            <template v-if="formValues.storage.storage_driver === 'cos'">
-              <Divider />
-              <h3 class="mb-3 text-sm font-medium text-foreground/70">Tencent Cloud COS {{ $t('system.settings.config') }}</h3>
-              <Row :gutter="[16, 16]">
-                <Col
-                  v-for="item in currentGroupItems.filter((i) => getStorageSubGroup(i) === 'cos')"
-                  :key="item.key"
-                  :span="12"
-                >
-                  <div class="setting-item">
-                    <label class="setting-label">
-                      {{ item.label }}
-                      <Tag v-if="item.isSensitive" color="orange" class="ml-2">{{ $t('system.settings.sensitive') }}</Tag>
-                    </label>
-                    <Input
-                      v-model:value="formValues.storage[item.key]"
-                      :placeholder="item.tip"
-                      :type="item.isSensitive ? 'password' : 'text'"
-                    />
-                  </div>
-                </Col>
-              </Row>
-            </template>
+              <template v-if="formValues.storage.storage_cos_enabled">
+                <Row :gutter="[16, 16]" class="mt-3">
+                  <Col
+                    v-for="item in currentGroupItems.filter((i) => getStorageSubGroup(i) === 'cos' && i.key !== 'storage_cos_enabled')"
+                    :key="item.key"
+                    :span="12"
+                  >
+                    <div class="setting-item">
+                      <label class="setting-label">
+                        {{ item.label }}
+                        <Tag v-if="item.isSensitive" color="orange" class="ml-2">{{ $t('system.settings.sensitive') }}</Tag>
+                      </label>
+                      <Input
+                        v-model:value="formValues.storage[item.key]"
+                        :placeholder="item.tip"
+                        :type="item.isSensitive ? 'password' : 'text'"
+                      />
+                    </div>
+                  </Col>
+                </Row>
+              </template>
+            </div>
+
+            <Alert
+              message="存储优先级"
+              description="本地存储始终启用。如果同时启用了多个外部存储，优先级为：COS > OSS > MinIO。启用外部存储后，新上传的文件将存储到外部存储，但历史文件仍可通过本地存储访问。"
+              type="info"
+              show-icon
+              class="mt-4"
+            />
           </div>
 
           <!-- ==================== 微信设置 ==================== -->
