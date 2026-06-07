@@ -39,8 +39,9 @@ func NewMinIOStorage(cfg config.MinIOConfig) (*MinIOStorage, error) {
 	}
 
 	client, err := minio.New(endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(cfg.AccessKey, cfg.SecretKey, ""),
-		Secure: cfg.UseSSL,
+		Creds:     credentials.NewStaticV4(cfg.AccessKey, cfg.SecretKey, ""),
+		Secure:    cfg.UseSSL,
+		Transport: nil, // 使用默认 transport，后续可自定义超时
 	})
 	if err != nil {
 		return nil, fmt.Errorf("连接 MinIO 失败 (endpoint=%s, useSSL=%v): %w", endpoint, cfg.UseSSL, err)
