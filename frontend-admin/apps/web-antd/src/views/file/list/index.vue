@@ -98,7 +98,7 @@ const moveTargetFolderId = ref<number | null>(null);
 // 分享
 const shareModalVisible = ref(false);
 const shareFileId = ref<number | null>(null);
-const shareResult = ref<{ shareCode: string; shareUrl: string } | null>(null);
+const shareResult = ref<{ shareCode: string } | null>(null);
 const shareExpireHours = ref(0);
 const shareLoading = ref(false);
 
@@ -107,8 +107,14 @@ const hasShareResult = computed(() => !!shareResult.value?.shareCode);
 
 // 计算属性：分享链接完整URL
 const shareFullUrl = computed(() => {
-  if (!shareResult.value?.shareUrl) return '';
-  return `${window.location.origin}${shareResult.value.shareUrl}`;
+  if (!shareResult.value?.shareCode) return '';
+  return `${window.location.origin}/share/${shareResult.value.shareCode}`;
+});
+
+// 计算属性：文件夹分享链接完整URL
+const folderShareFullUrl = computed(() => {
+  if (!folderShareResult.value?.shareCode) return '';
+  return `${window.location.origin}/share/${folderShareResult.value.shareCode}`;
 });
 
 // 预览
@@ -219,7 +225,7 @@ function folderMenuAction(action: string) {
 const folderShareModalVisible = ref(false);
 const folderShareId = ref<number | null>(null);
 const folderShareName = ref('');
-const folderShareResult = ref<{ shareCode: string; shareUrl: string } | null>(null);
+const folderShareResult = ref<{ shareCode: string } | null>(null);
 const folderShareExpireHours = ref(0);
 
 function openFolderShareModal(id: number, name: string) {
@@ -245,7 +251,11 @@ async function confirmFolderShare() {
 }
 
 function copyFolderShareUrl() {
-  const url = `${window.location.origin}/share/${folderShareResult.value?.shareCode}`;
+  const url = folderShareFullUrl.value;
+  if (!url) {
+    message.error('分享链接不存在');
+    return;
+  }
   navigator.clipboard.writeText(url).then(() => {
     message.success('链接已复制到剪贴板');
   }).catch(() => {
@@ -930,7 +940,7 @@ const folderSelectData = computed(() => {
       <div v-if="folderShareResult" class="mt-4 p-3 bg-gray-50 rounded">
         <p class="mb-2 font-medium">分享链接：</p>
         <Input.Group compact>
-          <Input :value="folderShareResult ? `${window.location.origin}${folderShareResult.shareUrl}` : ''" style="width: 280px" readonly />
+          <Input :value="folderShareFullUrl" style="width: 280px" readonly />
           <Button type="primary" @click="copyFolderShareUrl">复制</Button>
         </Input.Group>
       </div>
