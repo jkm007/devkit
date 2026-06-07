@@ -90,6 +90,12 @@ const shareLoading = ref(false);
 // 计算属性：是否有分享结果
 const hasShareResult = computed(() => !!shareResult.value?.shareCode);
 
+// 计算属性：分享链接完整URL
+const shareFullUrl = computed(() => {
+  if (!shareResult.value?.shareUrl) return '';
+  return `${window.location.origin}${shareResult.value.shareUrl}`;
+});
+
 // 预览
 const previewVisible = ref(false);
 const previewUrl = ref('');
@@ -507,7 +513,7 @@ function closeShareModal() {
 }
 
 function copyShareUrl() {
-  const url = `${window.location.origin}/share/${shareResult.value?.shareCode}`;
+  const url = shareFullUrl.value;
   navigator.clipboard.writeText(url).then(() => {
     message.success('链接已复制到剪贴板');
   }).catch(() => {
@@ -767,7 +773,7 @@ const folderSelectData = computed(() => {
       <div v-else class="p-3 bg-gray-50 rounded">
         <p class="mb-2 font-medium">分享链接：</p>
         <div class="flex gap-2">
-          <Input :value="`${window.location.origin}${shareResult?.shareUrl}`" readonly class="flex-1" />
+          <Input :value="shareFullUrl" readonly class="flex-1" />
           <Button type="primary" @click="copyShareUrl">复制</Button>
         </div>
       </div>
