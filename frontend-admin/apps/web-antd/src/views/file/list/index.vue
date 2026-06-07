@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
+import { useAccessStore } from '@vben/stores';
 
 import {
   Button,
@@ -45,6 +46,8 @@ import type { FileApi, UploadProgressCallback } from '#/api/file';
 import { $t } from '#/locales';
 
 defineOptions({ name: 'FileList' });
+
+const accessStore = useAccessStore();
 
 // ==================== 状态 ====================
 
@@ -208,7 +211,7 @@ async function confirmFolderShare() {
 }
 
 function copyFolderShareUrl() {
-  const url = `http://123.57.201.44/share/${folderShareResult.value?.shareCode}`;
+  const url = `${window.location.origin}/share/${folderShareResult.value?.shareCode}`;
   navigator.clipboard.writeText(url).then(() => {
     message.success('链接已复制到剪贴板');
   }).catch(() => {
@@ -367,14 +370,26 @@ async function handleBatchMove() {
 
 async function handleDownload(file: FileApi.FileEntry) {
   try {
-    const res = await downloadFile(file.id);
-    if (res?.url) {
-      const link = document.createElement('a');
-      link.href = res.url;
-      link.download = file.name;
-      link.target = '_blank';
-      link.click();
+    // 直接使用 fetch 下载文件
+    const response = await fetch(`/api/files/${file.id}/download`, {
+      headers: {
+        'Authorization': `Bearer ${useAccessStore().accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('下载失败');
     }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = file.name;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
   } catch {
     message.error('下载失败');
   }
@@ -443,7 +458,7 @@ async function confirmShare() {
 }
 
 function copyShareUrl() {
-  const url = `http://123.57.201.44/share/${shareResult.value?.shareCode}`;
+  const url = `${window.location.origin}/share/${shareResult.value?.shareCode}`;
   navigator.clipboard.writeText(url).then(() => {
     message.success('链接已复制到剪贴板');
   }).catch(() => {
@@ -460,13 +475,20 @@ function copyShareUrl() {
 
 // ==================== 上传 ====================
 
+const uploadSaving = ref(false);
+
 async function handleUpload(file: File) {
   uploading.value = true;
   uploadProgress.value = 0;
   uploadFileName.value = file.name;
+  uploadSaving.value = false;
 
   const onProgress: UploadProgressCallback = (event) => {
     uploadProgress.value = event.percent;
+    // 当进度达到100%时，显示"正在保存到服务器..."
+    if (event.percent >= 100) {
+      uploadSaving.value = true;
+    }
   };
 
   try {
@@ -479,6 +501,7 @@ async function handleUpload(file: File) {
     uploading.value = false;
     uploadProgress.value = 0;
     uploadFileName.value = '';
+    uploadSaving.value = false;
   }
   return false;
 }
@@ -578,11 +601,11 @@ const folderSelectData = computed(() => {
           <div class="flex items-center justify-between mb-2">
             <span class="text-sm text-blue-700">
               <span class="i-ant-design:loading-outlined animate-spin mr-1" />
-              正在上传: {{ uploadFileName }}
+              {{ uploadSaving ? '正在保存到服务器...' : `正在上传: ${uploadFileName}` }}
             </span>
-            <span class="text-sm font-medium text-blue-700">{{ uploadProgress }}%</span>
+            <span class="text-sm font-medium text-blue-700">{{ uploadSaving ? '处理中...' : `${uploadProgress}%` }}</span>
           </div>
-          <Progress :percent="uploadProgress" :show-info="false" status="active" :stroke-color="{ from: '#108ee9', to: '#87d068' }" />
+          <Progress :percent="uploadSaving ? 100 : uploadProgress" :show-info="false" status="active" :stroke-color="{ from: '#108ee9', to: '#87d068' }" />
         </div>
 
         <!-- 文件表格 -->
@@ -675,7 +698,7 @@ const folderSelectData = computed(() => {
       <div v-if="shareResult" class="mt-4 p-3 bg-gray-50 rounded">
         <p class="mb-2 font-medium">分享链接：</p>
         <Input.Group compact>
-          <Input :value="shareResult ? `http://123.57.201.44${shareResult.shareUrl}` : ''" style="width: 280px" readonly />
+          <Input :value="shareResult ? `${window.location.origin}${shareResult.shareUrl}` : ''" style="width: 280px" readonly />
           <Button type="primary" @click="copyShareUrl">复制</Button>
         </Input.Group>
       </div>
@@ -721,7 +744,7 @@ const folderSelectData = computed(() => {
       <div v-if="folderShareResult" class="mt-4 p-3 bg-gray-50 rounded">
         <p class="mb-2 font-medium">分享链接：</p>
         <Input.Group compact>
-          <Input :value="folderShareResult ? `http://123.57.201.44${folderShareResult.shareUrl}` : ''" style="width: 280px" readonly />
+          <Input :value="folderShareResult ? `${window.location.origin}${folderShareResult.shareUrl}` : ''" style="width: 280px" readonly />
           <Button type="primary" @click="copyFolderShareUrl">复制</Button>
         </Input.Group>
       </div>

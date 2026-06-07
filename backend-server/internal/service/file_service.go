@@ -275,7 +275,9 @@ func (s *FileService) ListFiles(userID uint, req *ListFilesRequest) ([]FileEntry
 		if entry.FileAssetID > 0 {
 			asset, err := s.assetRepo.GetByID(entry.FileAssetID)
 			if err == nil {
-				result[i].PreviewURL = storage.GetStorage().GetURL(asset.ObjectKey)
+				// 根据存储类型获取对应的存储实例
+				st := storage.GetStorageByDriver(asset.StorageType)
+				result[i].PreviewURL = st.GetURL(asset.ObjectKey)
 			}
 		}
 	}

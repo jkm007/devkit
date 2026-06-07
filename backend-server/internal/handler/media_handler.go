@@ -141,8 +141,11 @@ func (h *MediaHandler) DownloadFile(c *gin.Context) {
 		return
 	}
 
+	// 根据存储类型获取对应的存储实例
+	st := storage.GetStorageByDriver(asset.StorageType)
+
 	// 下载文件内容
-	reader, err := storage.GetStorage().Download(c, asset.ObjectKey)
+	reader, err := st.Download(c, asset.ObjectKey)
 	if err != nil {
 		response.InternalError(c, "获取文件失败")
 		return
@@ -190,8 +193,11 @@ func (h *MediaHandler) ViewFile(c *gin.Context) {
 		return
 	}
 
+	// 根据存储类型获取对应的存储实例
+	st := storage.GetStorageByDriver(asset.StorageType)
+
 	// 下载文件内容
-	reader, err := storage.GetStorage().Download(c, asset.ObjectKey)
+	reader, err := st.Download(c, asset.ObjectKey)
 	if err != nil {
 		response.InternalError(c, "获取文件失败")
 		return

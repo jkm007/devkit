@@ -515,9 +515,9 @@ function getSelectOptions(
 
 function getStorageSubGroup(item: SystemSettingsApi.SettingItem): string {
   const key = item.key;
-  if (key.startsWith('minio_')) return 'minio';
-  if (key.startsWith('oss_')) return 'oss';
-  if (key.startsWith('cos_')) return 'cos';
+  if (key.startsWith('storage_minio_')) return 'minio';
+  if (key.startsWith('storage_oss_')) return 'oss';
+  if (key.startsWith('storage_cos_')) return 'cos';
   return 'general';
 }
 

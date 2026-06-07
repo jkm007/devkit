@@ -60,6 +60,11 @@ func (s *UploadService) CheckUpload(fileHash string, fileSize int64) (*CheckResu
 	if asset.FileSize != fileSize {
 		return &CheckResult{Exists: false}, nil
 	}
+	// 存储类型校验：必须在当前存储中存在
+	currentDriver := storage.GetStorageDriver()
+	if asset.StorageType != currentDriver {
+		return &CheckResult{Exists: false}, nil
+	}
 	// 秒传命中，增加引用计数
 	s.assetRepo.IncrementRefCount(asset.ID)
 	return &CheckResult{
@@ -222,6 +227,7 @@ func (s *UploadService) CompleteUpload(uploadID string) (*CompleteResult, error)
 		FileName:    task.FileName,
 		FileSize:    task.FileSize,
 		ContentType: task.ContentType,
+		StorageType: storage.GetStorageDriver(),
 		RefCount:    1,
 	}
 	s.assetRepo.Create(asset)

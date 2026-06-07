@@ -14,6 +14,8 @@ import (
 var (
 	currentStorage Storage
 	storageMutex   sync.RWMutex
+	// storageCache 缓存不同驱动的存储实例，用于访问历史文件
+	storageCache = make(map[string]Storage)
 )
 
 // InitStorage 初始化存储（启动时调用）
@@ -37,6 +39,13 @@ func InitStorage(cfg config.StorageConfig) {
 		s = NewLocalStorage(cfg.Local)
 	}
 	currentStorage = s
+
+	// 缓存当前存储实例
+	storageCache[cfg.Driver] = s
+	// 本地存储始终可用
+	if cfg.Driver != "local" {
+		storageCache["local"] = NewLocalStorage(cfg.Local)
+	}
 }
 
 // GetStorage 获取当前存储实例（线程安全）
@@ -64,6 +73,21 @@ func GetStorageDriver() string {
 	default:
 		return "local"
 	}
+}
+
+// GetStorageByDriver 根据驱动名称获取存储实例
+// 用于访问历史文件（切换存储后旧文件仍需可访问）
+func GetStorageByDriver(driver string) Storage {
+	storageMutex.RLock()
+	defer storageMutex.RUnlock()
+
+	// 先从缓存中获取
+	if s, ok := storageCache[driver]; ok {
+		return s
+	}
+
+	// 缓存中没有，使用当前存储（可能是相同驱动）
+	return currentStorage
 }
 
 // RefreshStorage 从 DB 重新加载存储配置并重建实例
@@ -125,25 +149,25 @@ func loadStorageConfigFromDB() *config.StorageConfig {
 	cfg.Local.URLPrefix = getSettingStr(settings, "storage_local_url_prefix", "/uploads")
 
 	// MinIO 配置
-	cfg.MinIO.Endpoint = getSettingStr(settings, "minio_endpoint", "")
-	cfg.MinIO.AccessKey = getSettingStr(settings, "minio_access_key", "")
-	cfg.MinIO.SecretKey = getSettingStr(settings, "minio_secret_key", "")
-	cfg.MinIO.Bucket = getSettingStr(settings, "minio_bucket", "")
-	cfg.MinIO.UseSSL = getSettingBool(settings, "minio_use_ssl", false)
+	cfg.MinIO.Endpoint = getSettingStr(settings, "storage_minio_endpoint", "")
+	cfg.MinIO.AccessKey = getSettingStr(settings, "storage_minio_access_key", "")
+	cfg.MinIO.SecretKey = getSettingStr(settings, "storage_minio_secret_key", "")
+	cfg.MinIO.Bucket = getSettingStr(settings, "storage_minio_bucket", "")
+	cfg.MinIO.UseSSL = getSettingBool(settings, "storage_minio_use_ssl", false)
 
 	// OSS 配置
-	cfg.OSS.Endpoint = getSettingStr(settings, "oss_endpoint", "")
-	cfg.OSS.AccessKeyID = getSettingStr(settings, "oss_access_key_id", "")
-	cfg.OSS.AccessKeySecret = getSettingStr(settings, "oss_secret_key", "")
-	cfg.OSS.Bucket = getSettingStr(settings, "oss_bucket", "")
-	cfg.OSS.CDNDomain = getSettingStr(settings, "oss_cdn_domain", "")
+	cfg.OSS.Endpoint = getSettingStr(settings, "storage_oss_endpoint", "")
+	cfg.OSS.AccessKeyID = getSettingStr(settings, "storage_oss_access_key_id", "")
+	cfg.OSS.AccessKeySecret = getSettingStr(settings, "storage_oss_access_key_secret", "")
+	cfg.OSS.Bucket = getSettingStr(settings, "storage_oss_bucket", "")
+	cfg.OSS.CDNDomain = getSettingStr(settings, "storage_oss_cdn_domain", "")
 
 	// COS 配置
-	cfg.COS.Region = getSettingStr(settings, "cos_region", "")
-	cfg.COS.SecretID = getSettingStr(settings, "cos_secret_id", "")
-	cfg.COS.SecretKey = getSettingStr(settings, "cos_secret_key", "")
-	cfg.COS.Bucket = getSettingStr(settings, "cos_bucket", "")
-	cfg.COS.CDNDomain = getSettingStr(settings, "cos_cdn_domain", "")
+	cfg.COS.Region = getSettingStr(settings, "storage_cos_region", "")
+	cfg.COS.SecretID = getSettingStr(settings, "storage_cos_secret_id", "")
+	cfg.COS.SecretKey = getSettingStr(settings, "storage_cos_secret_key", "")
+	cfg.COS.Bucket = getSettingStr(settings, "storage_cos_bucket", "")
+	cfg.COS.CDNDomain = getSettingStr(settings, "storage_cos_cdn_domain", "")
 
 	return cfg
 }
