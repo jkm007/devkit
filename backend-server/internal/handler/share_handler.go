@@ -1,6 +1,9 @@
 package handler
 
 import (
+	"fmt"
+	"io"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -116,7 +119,7 @@ func (h *ShareHandler) GetShareFolderFiles(c *gin.Context) {
 	response.Success(c, files)
 }
 
-// GetShareFile 获取分享的文件内容（公开）
+// GetShareFile 获取分享的文件内容（公开，支持 Range 请求）
 // 支持：/share/:code/file (文件分享)
 // 支持：/share/:code/file/:fileId (文件夹分享中指定文件)
 // @Router /share/:code/file [get]
@@ -131,7 +134,7 @@ func (h *ShareHandler) GetShareFile(c *gin.Context) {
 		return
 	}
 
-	var objectKey, fileName, contentType string
+	var objectKey, fileName, contentType, storageType string
 	var fileSize int64
 
 	if info["type"] == "file" {
@@ -140,6 +143,7 @@ func (h *ShareHandler) GetShareFile(c *gin.Context) {
 		fileName = info["fileName"].(string)
 		contentType = info["contentType"].(string)
 		fileSize = info["fileSize"].(int64)
+		storageType = info["storageType"].(string)
 	} else if info["type"] == "folder" {
 		// 文件夹分享 - 需要指定 fileId
 		if fileIDStr == "" {
@@ -164,13 +168,56 @@ func (h *ShareHandler) GetShareFile(c *gin.Context) {
 		fileName = fileInfo["fileName"].(string)
 		contentType = fileInfo["contentType"].(string)
 		fileSize = fileInfo["fileSize"].(int64)
+		storageType = fileInfo["storageType"].(string)
 	} else {
 		response.BadRequest(c, "无效的分享类型")
 		return
 	}
 
-	// 下载文件
-	reader, err := storage.GetStorage().Download(c, objectKey)
+	// 根据存储类型获取对应的存储实例
+	st := storage.GetStorageByDriver(storageType)
+
+	// 设置通用响应头
+	c.Header("Accept-Ranges", "bytes")
+	c.Header("Content-Disposition", "inline; filename="+fileName)
+	c.Header("Cache-Control", "private, max-age=3600")
+
+	// 处理 Range 请求（用于视频流式播放）
+	rangeHeader := c.GetHeader("Range")
+	if rangeHeader != "" {
+		// 解析 Range: bytes=start-end
+		start, end := parseShareRange(rangeHeader, fileSize)
+		if start < 0 || start >= fileSize {
+			c.Status(http.StatusRequestedRangeNotSatisfiable)
+			return
+		}
+		if end < 0 || end >= fileSize {
+			end = fileSize - 1
+		}
+
+		length := end - start + 1
+
+		// 获取文件内容（带偏移）
+		reader, err := st.DownloadRange(c, objectKey, start, length)
+		if err != nil {
+			response.InternalError(c, "获取文件失败")
+			return
+		}
+		defer reader.Close()
+
+		c.Header("Content-Type", contentType)
+		c.Header("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, fileSize))
+		c.Header("Content-Length", strconv.FormatInt(length, 10))
+		c.Status(http.StatusPartialContent)
+
+		// 流式返回部分内容
+		buf := make([]byte, 32*1024) // 32KB buffer
+		io.CopyBuffer(c.Writer, reader, buf)
+		return
+	}
+
+	// 非 Range 请求，返回完整文件
+	reader, err := st.Download(c, objectKey)
 	if err != nil {
 		response.InternalError(c, "获取文件失败")
 		return
@@ -178,8 +225,61 @@ func (h *ShareHandler) GetShareFile(c *gin.Context) {
 	defer reader.Close()
 
 	c.Header("Content-Type", contentType)
-	c.Header("Content-Disposition", "inline; filename="+fileName)
-	c.DataFromReader(200, fileSize, contentType, reader, nil)
+	c.Header("Content-Length", strconv.FormatInt(fileSize, 10))
+
+	// 流式返回文件内容
+	buf := make([]byte, 32*1024) // 32KB buffer
+	io.CopyBuffer(c.Writer, reader, buf)
+}
+
+// parseShareRange 解析 Range 头
+func parseShareRange(rangeHeader string, fileSize int64) (start, end int64) {
+	// Range: bytes=start-end
+	if len(rangeHeader) < 7 || rangeHeader[:6] != "bytes=" {
+		return -1, -1
+	}
+	rangeHeader = rangeHeader[6:]
+
+	// 处理 bytes=-suffix (最后 N 个字节)
+	if rangeHeader[0] == '-' {
+		length, err := strconv.ParseInt(rangeHeader[1:], 10, 64)
+		if err != nil {
+			return -1, -1
+		}
+		return fileSize - length, fileSize - 1
+	}
+
+	// 处理 bytes=start-end
+	parts := splitRange(rangeHeader)
+	if len(parts) == 0 {
+		return -1, -1
+	}
+
+	start, err := strconv.ParseInt(parts[0], 10, 64)
+	if err != nil {
+		return -1, -1
+	}
+
+	if len(parts) == 1 {
+		return start, fileSize - 1
+	}
+
+	end, err = strconv.ParseInt(parts[1], 10, 64)
+	if err != nil {
+		return -1, -1
+	}
+
+	return start, end
+}
+
+// splitRange 分割 Range 值
+func splitRange(s string) []string {
+	for i := 0; i < len(s); i++ {
+		if s[i] == '-' {
+			return []string{s[:i], s[i+1:]}
+		}
+	}
+	return []string{s}
 }
 
 // GetMyShares 获取我的分享列表

@@ -143,6 +143,9 @@ func (s *ShareService) GetShareInfo(code string) (map[string]interface{}, error)
 		result["fileId"] = entry.ID
 		if asset != nil {
 			result["objectKey"] = asset.ObjectKey
+			result["storageType"] = asset.StorageType
+		} else {
+			result["storageType"] = "local"
 		}
 	}
 
@@ -211,6 +214,9 @@ func (s *ShareService) GetFileInFolder(folderID uint, fileID uint) (map[string]i
 	}
 	if asset != nil {
 		result["objectKey"] = asset.ObjectKey
+		result["storageType"] = asset.StorageType
+	} else {
+		result["storageType"] = "local"
 	}
 
 	return result, nil
