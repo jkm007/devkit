@@ -7,7 +7,7 @@ type FileShare struct {
 	ID           uint       `gorm:"primaryKey;autoIncrement" json:"id"`
 	FileID       uint       `gorm:"index;comment:文件ID" json:"fileId"`
 	FolderID     uint       `gorm:"index;comment:文件夹ID" json:"folderId"`
-	ShareCode    string     `gorm:"uniqueIndex;size:16;comment:分享码" json:"shareCode"`
+	ShareCode    string     `gorm:"uniqueIndex;size:64;comment:分享码" json:"shareCode"`
 	UserID       uint       `gorm:"comment:分享者" json:"userId"`
 	ExpireAt     *time.Time `gorm:"comment:过期时间(可选)" json:"expireAt"`
 	AccessCount  int        `gorm:"default:0;comment:访问次数" json:"accessCount"`
