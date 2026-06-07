@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/md5"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -94,8 +95,10 @@ func (s *UploadService) InitUpload(userID uint, fileName string, fileSize int64,
 		time.Now().UnixNano(),
 		ext)
 
-	// 生成唯一 uploadID（UUID 格式）
-	uploadID := fmt.Sprintf("%d-%s", time.Now().UnixNano(), fileHash[:16])
+	// 生成唯一 uploadID（只使用ASCII十六进制字符，避免中文编码问题）
+	hashInput := fmt.Sprintf("%s-%d", fileHash, time.Now().UnixNano())
+	hashBytes := md5.Sum([]byte(hashInput))
+	uploadID := fmt.Sprintf("%d-%x", time.Now().UnixNano(), hashBytes[:8])
 
 	// 初始化分片上传（通知存储层）
 	_, err := uploader.InitiateUpload(context.Background(), objectKey, contentType)
