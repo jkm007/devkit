@@ -88,6 +88,20 @@ func (s *MinIOStorage) Download(ctx context.Context, objectKey string) (io.ReadC
 	return object, nil
 }
 
+// DownloadRange 下载文件的指定范围
+func (s *MinIOStorage) DownloadRange(ctx context.Context, objectKey string, offset int64, length int64) (io.ReadCloser, error) {
+	opts := minio.GetObjectOptions{}
+	// 设置 Range: bytes=start-end
+	end := offset + length - 1
+	opts.SetRange(offset, end)
+
+	object, err := s.client.GetObject(ctx, s.bucket, objectKey, opts)
+	if err != nil {
+		return nil, fmt.Errorf("从 MinIO 下载文件失败: %w", err)
+	}
+	return object, nil
+}
+
 // Delete 删除文件
 func (s *MinIOStorage) Delete(ctx context.Context, objectKey string) error {
 	return s.client.RemoveObject(ctx, s.bucket, objectKey, minio.RemoveObjectOptions{})

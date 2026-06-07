@@ -59,6 +59,19 @@ func (s *COStorage) Download(ctx context.Context, objectKey string) (io.ReadClos
 	return resp.Body, nil
 }
 
+// DownloadRange 下载文件的指定范围
+func (s *COStorage) DownloadRange(ctx context.Context, objectKey string, offset int64, length int64) (io.ReadCloser, error) {
+	end := offset + length - 1
+	opt := &cos.ObjectGetOptions{
+		Range: fmt.Sprintf("bytes=%d-%d", offset, end),
+	}
+	resp, err := s.client.Object.Get(ctx, objectKey, opt)
+	if err != nil {
+		return nil, fmt.Errorf("COS 下载失败: %w", err)
+	}
+	return resp.Body, nil
+}
+
 // Delete 删除文件
 func (s *COStorage) Delete(ctx context.Context, objectKey string) error {
 	_, err := s.client.Object.Delete(ctx, objectKey)

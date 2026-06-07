@@ -90,6 +90,8 @@ const shareExpireHours = ref(0);
 const previewVisible = ref(false);
 const previewUrl = ref('');
 const previewName = ref('');
+const previewType = ref(''); // 'image' | 'video' | 'pdf'
+const previewToken = ref('');
 
 // 批量操作
 const batchMoveModalVisible = ref(false);
@@ -399,23 +401,49 @@ async function handleDownload(file: FileApi.FileEntry) {
 async function handlePreview(file: FileApi.FileEntry) {
   previewName.value = file.name;
   previewUrl.value = '';
-
-  // 构建预览 URL（带认证）
-  const token = accessStore.accessToken;
-  const viewUrl = `/api/files/${file.id}/view`;
+  previewType.value = '';
 
   // 支持预览的类型
-  const isPreviewable = file.contentType?.startsWith('image/') ||
-    file.contentType?.startsWith('video/') ||
-    file.contentType?.includes('pdf');
+  const isImage = file.contentType?.startsWith('image/');
+  const isVideo = file.contentType?.startsWith('video/');
+  const isPdf = file.contentType?.includes('pdf');
 
-  if (!isPreviewable) {
+  if (!isImage && !isVideo && !isPdf) {
     // 其他类型 - 直接下载
     handleDownload(file);
     return;
   }
 
-  // 先获取文件内容，成功后再显示 Modal
+  const token = accessStore.accessToken;
+  const viewUrl = `/api/files/${file.id}/view`;
+
+  // 先显示 Modal 和加载状态
+  previewVisible.value = true;
+
+  // 视频使用流式播放（Range 请求）
+  if (isVideo) {
+    previewType.value = 'video';
+    // 视频需要通过 fetch + blob URL（因为需要认证头）
+    // 使用 ReadableStream 实现渐进式加载
+    try {
+      const response = await fetch(viewUrl, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const blob = await response.blob();
+        previewUrl.value = URL.createObjectURL(blob);
+      } else {
+        message.error('获取预览失败');
+        previewVisible.value = false;
+      }
+    } catch {
+      message.error('获取预览失败');
+      previewVisible.value = false;
+    }
+    return;
+  }
+
+  // 图片和 PDF 需要先下载
   try {
     const response = await fetch(viewUrl, {
       headers: { 'Authorization': `Bearer ${token}` },
@@ -423,12 +451,14 @@ async function handlePreview(file: FileApi.FileEntry) {
     if (response.ok) {
       const blob = await response.blob();
       previewUrl.value = URL.createObjectURL(blob);
-      previewVisible.value = true;
+      previewType.value = isImage ? 'image' : 'pdf';
     } else {
       message.error('获取预览失败');
+      previewVisible.value = false;
     }
   } catch {
     message.error('获取预览失败');
+    previewVisible.value = false;
   }
 }
 
@@ -716,11 +746,13 @@ const folderSelectData = computed(() => {
     <Modal v-model:open="previewVisible" :title="previewName" :footer="null" :width="800">
       <div class="text-center">
         <!-- 图片预览 -->
-        <Image v-if="previewUrl && previewName.match(/\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i)" :src="previewUrl" class="max-w-full" style="max-height: 500px" />
+        <Image v-if="previewType === 'image' && previewUrl" :src="previewUrl" class="max-w-full" style="max-height: 500px" />
         <!-- PDF 预览 -->
-        <iframe v-else-if="previewUrl && previewName.toLowerCase().endsWith('.pdf')" :src="previewUrl" sandbox="allow-scripts allow-same-origin" referrerpolicy="no-referrer" style="width: 100%; height: 500px" frameborder="0" />
+        <iframe v-else-if="previewType === 'pdf' && previewUrl" :src="previewUrl" sandbox="allow-scripts allow-same-origin" referrerpolicy="no-referrer" style="width: 100%; height: 500px" frameborder="0" />
         <!-- 视频预览 -->
-        <video v-else-if="previewUrl && previewName.match(/\.(mp4|webm|ogg|mov)$/i)" :src="previewUrl" controls style="max-width: 100%; max-height: 500px" />
+        <video v-else-if="previewType === 'video' && previewUrl" :src="previewUrl" controls style="max-width: 100%; max-height: 500px" />
+        <!-- 加载中 -->
+        <div v-else-if="previewVisible" class="py-8 text-gray-500">加载中...</div>
         <!-- 无预览 -->
         <div v-else class="py-8 text-gray-500">该文件类型不支持预览</div>
       </div>

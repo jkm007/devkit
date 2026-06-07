@@ -1,7 +1,11 @@
 package handler
 
 import (
+	"fmt"
+	"io"
+	"net/http"
 	"strconv"
+	"strings"
 
 	"backend-server/internal/middleware"
 	"backend-server/internal/service"
@@ -161,9 +165,9 @@ func (h *MediaHandler) DownloadFile(c *gin.Context) {
 	c.DataFromReader(200, asset.FileSize, asset.ContentType, reader, nil)
 }
 
-// ViewFile 文件查看（带认证，用于预览）
+// ViewFile 文件查看（带认证，用于预览，支持 Range 请求）
 // @Summary      查看文件
-// @Description  返回文件内容用于预览（需认证，inline 显示）
+// @Description  返回文件内容用于预览（需认证，inline 显示，支持 Range 请求用于视频流式播放）
 // @Tags         媒体文件
 // @Produce      octet-stream
 // @Param        id  path  int  true  "文件ID"
@@ -196,7 +200,49 @@ func (h *MediaHandler) ViewFile(c *gin.Context) {
 	// 根据存储类型获取对应的存储实例
 	st := storage.GetStorageByDriver(asset.StorageType)
 
-	// 下载文件内容
+	fileSize := asset.FileSize
+	contentType := asset.ContentType
+
+	// 设置通用响应头
+	c.Header("Accept-Ranges", "bytes")
+	c.Header("Content-Disposition", "inline; filename="+entry.Name)
+	c.Header("Cache-Control", "private, max-age=3600")
+
+	// 处理 Range 请求（用于视频流式播放和大文件分块下载）
+	rangeHeader := c.GetHeader("Range")
+	if rangeHeader != "" {
+		// 解析 Range: bytes=start-end
+		start, end := parseRange(rangeHeader, fileSize)
+		if start < 0 || start >= fileSize {
+			c.Status(http.StatusRequestedRangeNotSatisfiable)
+			return
+		}
+		if end < 0 || end >= fileSize {
+			end = fileSize - 1
+		}
+
+		length := end - start + 1
+
+		// 获取文件内容（带偏移）
+		reader, err := st.DownloadRange(c, asset.ObjectKey, start, length)
+		if err != nil {
+			response.InternalError(c, "获取文件失败")
+			return
+		}
+		defer reader.Close()
+
+		c.Header("Content-Type", contentType)
+		c.Header("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, fileSize))
+		c.Header("Content-Length", strconv.FormatInt(length, 10))
+		c.Status(http.StatusPartialContent)
+
+		// 流式返回部分内容
+		buf := make([]byte, 32*1024) // 32KB buffer
+		io.CopyBuffer(c.Writer, reader, buf)
+		return
+	}
+
+	// 非 Range 请求，返回完整文件
 	reader, err := st.Download(c, asset.ObjectKey)
 	if err != nil {
 		response.InternalError(c, "获取文件失败")
@@ -204,11 +250,49 @@ func (h *MediaHandler) ViewFile(c *gin.Context) {
 	}
 	defer reader.Close()
 
-	// 设置预览响应头（inline 显示而非下载）
-	c.Header("Content-Type", asset.ContentType)
-	c.Header("Content-Disposition", "inline; filename="+entry.Name)
-	c.Header("Cache-Control", "private, max-age=3600")
+	c.Header("Content-Type", contentType)
+	c.Header("Content-Length", strconv.FormatInt(fileSize, 10))
 
 	// 流式返回文件内容
-	c.DataFromReader(200, asset.FileSize, asset.ContentType, reader, nil)
+	buf := make([]byte, 32*1024) // 32KB buffer
+	io.CopyBuffer(c.Writer, reader, buf)
+}
+
+// parseRange 解析 Range 头，返回 start 和 end
+func parseRange(rangeHeader string, fileSize int64) (start, end int64) {
+	// 格式: bytes=start-end 或 bytes=start-
+	if !strings.HasPrefix(rangeHeader, "bytes=") {
+		return -1, -1
+	}
+	rangeSpec := strings.TrimPrefix(rangeHeader, "bytes=")
+	parts := strings.SplitN(rangeSpec, "-", 2)
+	if len(parts) != 2 {
+		return -1, -1
+	}
+
+	if parts[0] == "" {
+		// bytes=-N (从末尾算)
+		n, err := strconv.ParseInt(parts[1], 10, 64)
+		if err != nil {
+			return -1, -1
+		}
+		return fileSize - n, fileSize - 1
+	}
+
+	start, err := strconv.ParseInt(parts[0], 10, 64)
+	if err != nil {
+		return -1, -1
+	}
+
+	if parts[1] == "" {
+		// bytes=start-
+		return start, fileSize - 1
+	}
+
+	end, err = strconv.ParseInt(parts[1], 10, 64)
+	if err != nil {
+		return -1, -1
+	}
+
+	return start, end
 }

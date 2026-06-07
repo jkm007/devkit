@@ -55,6 +55,16 @@ func (s *OSSStorage) Download(ctx context.Context, objectKey string) (io.ReadClo
 	return body, nil
 }
 
+// DownloadRange 下载文件的指定范围
+func (s *OSSStorage) DownloadRange(ctx context.Context, objectKey string, offset int64, length int64) (io.ReadCloser, error) {
+	end := offset + length - 1
+	body, err := s.bucket.GetObject(objectKey, oss.Range(offset, end))
+	if err != nil {
+		return nil, fmt.Errorf("OSS 下载失败: %w", err)
+	}
+	return body, nil
+}
+
 // Delete 删除文件
 func (s *OSSStorage) Delete(ctx context.Context, objectKey string) error {
 	if err := s.bucket.DeleteObject(objectKey); err != nil {

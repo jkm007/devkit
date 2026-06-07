@@ -16,6 +16,9 @@ type Storage interface {
 	// Download 下载文件，返回文件内容读取器
 	Download(ctx context.Context, objectKey string) (io.ReadCloser, error)
 
+	// DownloadRange 下载文件的指定范围（用于 Range 请求）
+	DownloadRange(ctx context.Context, objectKey string, offset int64, length int64) (io.ReadCloser, error)
+
 	// Delete 删除文件
 	Delete(ctx context.Context, objectKey string) error
 

@@ -93,6 +93,50 @@ func (s *LocalStorage) Download(ctx context.Context, objectKey string) (io.ReadC
 	return file, nil
 }
 
+// DownloadRange 下载文件的指定范围
+func (s *LocalStorage) DownloadRange(ctx context.Context, objectKey string, offset int64, length int64) (io.ReadCloser, error) {
+	fullPath, err := s.fullPath(objectKey)
+	if err != nil {
+		return nil, err
+	}
+
+	file, err := os.Open(fullPath)
+	if err != nil {
+		return nil, fmt.Errorf("打开文件失败: %w", err)
+	}
+
+	// 定位到指定偏移
+	if _, err := file.Seek(offset, io.SeekStart); err != nil {
+		file.Close()
+		return nil, fmt.Errorf("定位文件失败: %w", err)
+	}
+
+	// 返回限制长度的读取器
+	return &limitedReadCloser{file: file, remaining: length}, nil
+}
+
+// limitedReadCloser 限制读取长度的 ReadCloser
+type limitedReadCloser struct {
+	file      *os.File
+	remaining int64
+}
+
+func (l *limitedReadCloser) Read(p []byte) (n int, err error) {
+	if l.remaining <= 0 {
+		return 0, io.EOF
+	}
+	if int64(len(p)) > l.remaining {
+		p = p[:l.remaining]
+	}
+	n, err = l.file.Read(p)
+	l.remaining -= int64(n)
+	return n, err
+}
+
+func (l *limitedReadCloser) Close() error {
+	return l.file.Close()
+}
+
 // Delete 删除文件
 func (s *LocalStorage) Delete(ctx context.Context, objectKey string) error {
 	fullPath, err := s.fullPath(objectKey)
