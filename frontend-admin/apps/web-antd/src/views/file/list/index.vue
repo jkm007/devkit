@@ -5,17 +5,20 @@ import { Page } from '@vben/common-ui';
 
 import {
   Button,
-  Dropdown,
+  Card,
+  Descriptions,
+  DescriptionsItem,
   Empty,
   Form,
   FormItem,
+  Image,
   Input,
-  Menu,
-  MenuItem,
+  InputNumber,
   message,
   Modal,
-  Popconfirm,
+  Progress,
   Space,
+  Spin,
   Table,
   Tree,
   TreeSelect,
@@ -25,15 +28,20 @@ import type { TreeProps } from 'ant-design-vue';
 
 import {
   createFolder,
+  createFileShare,
+  createFolderShare,
   deleteFile,
+  batchDeleteFiles,
+  batchMoveFiles,
   deleteFolder,
+  downloadFile,
   getFolderTree,
   listFiles,
   moveFile,
   renameFolder,
   simpleUpload,
 } from '#/api/file';
-import type { FileApi } from '#/api/file';
+import type { FileApi, UploadProgressCallback } from '#/api/file';
 import { $t } from '#/locales';
 
 defineOptions({ name: 'FileList' });
@@ -46,6 +54,7 @@ const currentFolderId = ref<number | null>(null);
 const fileList = ref<FileApi.FileEntry[]>([]);
 const totalFiles = ref(0);
 const pagination = ref({ current: 1, pageSize: 20 });
+const selectedRowKeys = ref<number[]>([]);
 
 // 新建文件夹
 const newFolderModalVisible = ref(false);
@@ -57,40 +66,58 @@ const renameFolderModalVisible = ref(false);
 const renameFolderId = ref<number | null>(null);
 const renameFolderName = ref('');
 
+// 删除文件夹
+const deleteFolderModalVisible = ref(false);
+const deleteFolderId = ref<number | null>(null);
+const deleteFolderName = ref('');
+
 // 移动文件
 const moveFileModalVisible = ref(false);
 const moveFileId = ref<number | null>(null);
 const moveTargetFolderId = ref<number | null>(null);
 
-// 上传状态
-const uploadingFiles = ref<Map<string, { progress: number; status: string }>>(new Map());
+// 分享
+const shareModalVisible = ref(false);
+const shareFileId = ref<number | null>(null);
+const shareResult = ref<{ shareCode: string; shareUrl: string } | null>(null);
+const shareExpireHours = ref(0);
 
 // 预览
 const previewVisible = ref(false);
-const previewFile = ref<FileApi.FileEntry | null>(null);
 const previewUrl = ref('');
+const previewName = ref('');
+
+// 批量操作
+const batchMoveModalVisible = ref(false);
+const batchTargetFolderId = ref<number | null>(null);
+
+// 上传进度
+const uploading = ref(false);
+const uploadProgress = ref(0);
+const uploadFileName = ref('');
 
 // ==================== 文件类型图标 ====================
 
 function getFileIcon(type: string) {
-  if (type.startsWith('image/')) return 'i-ant-design:file-image-outlined';
-  if (type.startsWith('video/')) return 'i-ant-design:file-video-outlined';
-  if (type.startsWith('audio/')) return 'i-ant-design:sound-outlined';
-  if (type.includes('pdf')) return 'i-ant-design:file-pdf-outlined';
-  if (type.includes('word') || type.includes('document')) return 'i-ant-design:file-word-outlined';
-  if (type.includes('excel') || type.includes('spreadsheet')) return 'i-ant-design:file-excel-outlined';
-  if (type.includes('zip') || type.includes('rar') || type.includes('archive')) return 'i-ant-design:file-zip-outlined';
+  if (type?.startsWith('image/')) return 'i-ant-design:file-image-outlined';
+  if (type?.startsWith('video/')) return 'i-ant-design:file-video-outlined';
+  if (type?.startsWith('audio/')) return 'i-ant-design:sound-outlined';
+  if (type?.includes('pdf')) return 'i-ant-design:file-pdf-outlined';
+  if (type?.includes('word') || type?.includes('document')) return 'i-ant-design:file-word-outlined';
+  if (type?.includes('excel') || type?.includes('spreadsheet')) return 'i-ant-design:file-excel-outlined';
+  if (type?.includes('zip') || type?.includes('rar')) return 'i-ant-design:file-zip-outlined';
   return 'i-ant-design:file-outlined';
 }
 
-function formatFileSize(size: number) {
+function formatFileSize(size: number | undefined | null) {
+  if (size === undefined || size === null || isNaN(size)) return '-';
   if (size < 1024) return `${size} B`;
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
   if (size < 1024 * 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)} MB`;
   return `${(size / 1024 / 1024 / 1024).toFixed(1)} GB`;
 }
 
-// ==================== 加载文件夹树 ====================
+// ==================== 加载 ====================
 
 async function loadFolderTree() {
   try {
@@ -101,8 +128,6 @@ async function loadFolderTree() {
   }
 }
 
-// ==================== 加载文件列表 ====================
-
 async function loadFileList() {
   loading.value = true;
   try {
@@ -111,8 +136,11 @@ async function loadFileList() {
       page: pagination.value.current,
       pageSize: pagination.value.pageSize,
     });
-    fileList.value = result?.items || [];
+    const items = result?.items || [];
+    items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    fileList.value = items;
     totalFiles.value = result?.total || 0;
+    selectedRowKeys.value = [];
   } catch {
     message.error('加载文件列表失败');
   } finally {
@@ -120,12 +148,84 @@ async function loadFileList() {
   }
 }
 
-// ==================== 文件夹操作 ====================
-
-function handleFolderSelect(selectedKeys: (string | number)[]) {
-  currentFolderId.value = selectedKeys[0] as number | null;
+function handleFolderSelect(keys: (string | number)[]) {
+  currentFolderId.value = keys[0] as number | null;
   pagination.value.current = 1;
   loadFileList();
+}
+
+// ==================== 文件夹操作 ====================
+
+// 文件夹操作菜单
+const folderMenuVisible = ref(false);
+const folderMenuId = ref<number | null>(null);
+const folderMenuName = ref('');
+
+function showFolderMenu(node: any) {
+  folderMenuId.value = node.key as number;
+  folderMenuName.value = node.title as string;
+  folderMenuVisible.value = true;
+}
+
+function folderMenuAction(action: string) {
+  folderMenuVisible.value = false;
+  if (action === 'new') {
+    openNewFolderModal(folderMenuId.value!);
+  } else if (action === 'rename') {
+    openRenameFolderModal(folderMenuId.value!, folderMenuName.value);
+  } else if (action === 'delete') {
+    openDeleteFolderModal(folderMenuId.value!, folderMenuName.value);
+  } else if (action === 'share') {
+    openFolderShareModal(folderMenuId.value!, folderMenuName.value);
+  }
+}
+
+// 文件夹分享
+const folderShareModalVisible = ref(false);
+const folderShareId = ref<number | null>(null);
+const folderShareName = ref('');
+const folderShareResult = ref<{ shareCode: string; shareUrl: string } | null>(null);
+const folderShareExpireHours = ref(0);
+
+function openFolderShareModal(id: number, name: string) {
+  folderShareId.value = id;
+  folderShareName.value = name;
+  folderShareExpireHours.value = 0;
+  folderShareResult.value = null;
+  folderShareModalVisible.value = true;
+}
+
+async function confirmFolderShare() {
+  try {
+    const result = await createFolderShare(folderShareId.value!, {
+      expireHours: folderShareExpireHours.value || undefined,
+    });
+    folderShareResult.value = result;
+    message.success('分享链接已生成');
+  } catch {
+    message.error('分享失败');
+  }
+}
+
+function copyFolderShareUrl() {
+  const url = `http://123.57.201.44/share/${folderShareResult.value?.shareCode}`;
+  navigator.clipboard.writeText(url).then(() => {
+    message.success('链接已复制到剪贴板');
+  }).catch(() => {
+    const input = document.createElement('input');
+    input.value = url;
+    document.body.appendChild(input);
+    input.select();
+    document.execCommand('copy');
+    document.body.removeChild(input);
+    message.success('链接已复制');
+  });
+}
+
+function openNewFolderModal(parentId?: number) {
+  newFolderParentId.value = parentId ?? currentFolderId.value;
+  newFolderName.value = '';
+  newFolderModalVisible.value = true;
 }
 
 async function handleCreateFolder() {
@@ -140,27 +240,23 @@ async function handleCreateFolder() {
     });
     message.success('创建成功');
     newFolderModalVisible.value = false;
-    newFolderName.value = '';
     loadFolderTree();
   } catch {
     message.error('创建失败');
   }
 }
 
-function openNewFolderModal(parentId?: number) {
-  newFolderParentId.value = parentId ?? currentFolderId.value;
-  newFolderName.value = '';
-  newFolderModalVisible.value = true;
+function openRenameFolderModal(id: number, name: string) {
+  renameFolderId.value = id;
+  renameFolderName.value = name;
+  renameFolderModalVisible.value = true;
 }
 
 async function handleRenameFolder() {
-  if (!renameFolderName.value.trim() || !renameFolderId.value) {
-    message.warning('请输入文件夹名称');
-    return;
-  }
+  if (!renameFolderName.value.trim()) return;
   try {
-    await renameFolder(renameFolderId.value, { name: renameFolderName.value.trim() });
-    message.success($t('file.list.renameSuccess'));
+    await renameFolder(renameFolderId.value!, { name: renameFolderName.value.trim() });
+    message.success('重命名成功');
     renameFolderModalVisible.value = false;
     loadFolderTree();
   } catch {
@@ -168,21 +264,22 @@ async function handleRenameFolder() {
   }
 }
 
-function openRenameFolderModal(folder: { id: number; name: string }) {
-  renameFolderId.value = folder.id;
-  renameFolderName.value = folder.name;
-  renameFolderModalVisible.value = true;
+function openDeleteFolderModal(id: number, name: string) {
+  deleteFolderId.value = id;
+  deleteFolderName.value = name;
+  deleteFolderModalVisible.value = true;
 }
 
-async function handleDeleteFolder(folder: { id: number; name: string }) {
+async function handleDeleteFolder() {
   try {
-    await deleteFolder(folder.id);
-    message.success($t('file.list.deleteSuccess'));
-    loadFolderTree();
-    if (currentFolderId.value === folder.id) {
+    await deleteFolder(deleteFolderId.value!);
+    message.success('删除成功');
+    deleteFolderModalVisible.value = false;
+    if (currentFolderId.value === deleteFolderId.value) {
       currentFolderId.value = null;
-      loadFileList();
     }
+    loadFolderTree();
+    loadFileList();
   } catch {
     message.error('删除失败');
   }
@@ -190,14 +287,19 @@ async function handleDeleteFolder(folder: { id: number; name: string }) {
 
 // ==================== 文件操作 ====================
 
+function openMoveFileModal(id: number) {
+  moveFileId.value = id;
+  moveTargetFolderId.value = currentFolderId.value;
+  moveFileModalVisible.value = true;
+}
+
 async function handleMoveFile() {
-  if (!moveFileId.value) return;
   try {
     await moveFile({
-      fileId: moveFileId.value,
+      fileId: moveFileId.value!,
       targetFolderId: moveTargetFolderId.value || undefined,
     });
-    message.success($t('file.list.moveSuccess'));
+    message.success('移动成功');
     moveFileModalVisible.value = false;
     loadFileList();
   } catch {
@@ -205,64 +307,180 @@ async function handleMoveFile() {
   }
 }
 
-function openMoveFileModal(file: any) {
-  moveFileId.value = file.id;
-  moveTargetFolderId.value = currentFolderId.value;
-  moveFileModalVisible.value = true;
-}
-
-async function handleDeleteFile(file: any) {
+async function handleDeleteFile(id: number, name: string) {
   try {
-    await deleteFile(file.id);
-    message.success($t('file.list.deleteSuccess'));
+    await deleteFile(id);
+    message.success(`已删除 ${name}`);
     loadFileList();
   } catch {
     message.error('删除失败');
   }
 }
 
-// ==================== 上传 ====================
-
-async function handleUpload(file: File) {
-  const uploadId = `${file.name}-${Date.now()}`;
-  uploadingFiles.value.set(uploadId, { progress: 0, status: 'uploading' });
+// 批量删除
+async function handleBatchDelete() {
+  if (selectedRowKeys.value.length === 0) {
+    message.warning('请先选择文件');
+    return;
+  }
 
   try {
-    const result = await simpleUpload(file);
-    uploadingFiles.value.set(uploadId, { progress: 100, status: 'done' });
-    message.success($t('file.list.uploadSuccess'));
+    const result = await batchDeleteFiles(selectedRowKeys.value);
+    if (result.errors?.length > 0) {
+      message.warning(`已删除 ${result.deleted} 个文件，${result.errors.length} 个失败`);
+    } else {
+      message.success(`已删除 ${result.deleted} 个文件`);
+    }
+    selectedRowKeys.value = [];
     loadFileList();
-    return result;
-  } catch (error) {
-    uploadingFiles.value.set(uploadId, { progress: 0, status: 'error' });
-    message.error($t('file.list.uploadError'));
-    throw error;
-  } finally {
-    setTimeout(() => {
-      uploadingFiles.value.delete(uploadId);
-    }, 1000);
+  } catch {
+    message.error('批量删除失败');
   }
 }
 
-// ==================== 预览 ====================
-
-async function handlePreview(file: any) {
-  previewFile.value = file;
-
-  // 图片直接预览
-  if (file.contentType.startsWith('image/')) {
-    previewUrl.value = file.previewUrl || file.thumbnailUrl || '';
-    previewVisible.value = true;
+// 打开批量移动弹窗
+function openBatchMoveModal() {
+  if (selectedRowKeys.value.length === 0) {
+    message.warning('请先选择文件');
     return;
   }
+  batchTargetFolderId.value = currentFolderId.value;
+  batchMoveModalVisible.value = true;
+}
 
-  // 视频调用 stream API
-  if (file.contentType.startsWith('video/')) {
-    message.info('视频播放功能正在开发中');
-    return;
+// 执行批量移动
+async function handleBatchMove() {
+  try {
+    const result = await batchMoveFiles(selectedRowKeys.value, batchTargetFolderId.value || undefined);
+    if (result.errors?.length > 0) {
+      message.warning(`已移动 ${result.moved} 个文件，${result.errors.length} 个失败`);
+    } else {
+      message.success(`已移动 ${result.moved} 个文件`);
+    }
+    batchMoveModalVisible.value = false;
+    selectedRowKeys.value = [];
+    loadFileList();
+  } catch {
+    message.error('批量移动失败');
   }
+}
 
-  message.info($t('file.list.noPreview'));
+async function handleDownload(file: FileApi.FileEntry) {
+  try {
+    const res = await downloadFile(file.id);
+    if (res?.url) {
+      const link = document.createElement('a');
+      link.href = res.url;
+      link.download = file.name;
+      link.target = '_blank';
+      link.click();
+    }
+  } catch {
+    message.error('下载失败');
+  }
+}
+
+async function handlePreview(file: FileApi.FileEntry) {
+  previewName.value = file.name;
+  previewVisible.value = true;
+
+  // 图片类型 - 使用下载 API 获取 presigned URL
+  if (file.contentType?.startsWith('image/')) {
+    try {
+      const res = await downloadFile(file.id);
+      if (res?.url) {
+        previewUrl.value = res.url;
+      } else {
+        previewUrl.value = '';
+        message.error('获取预览链接失败');
+      }
+    } catch {
+      previewUrl.value = '';
+      message.error('获取预览链接失败');
+    }
+  } else if (file.contentType?.startsWith('video/')) {
+    // 视频类型 - 使用流地址
+    previewUrl.value = `/api/files/${file.id}/stream`;
+  } else {
+    // PDF 和其他类型 - 直接打开下载链接
+    previewUrl.value = '';
+    try {
+      const res = await downloadFile(file.id);
+      if (res?.url) {
+        // PDF 可以在浏览器中直接显示
+        if (file.contentType?.includes('pdf')) {
+          previewUrl.value = res.url;
+        } else {
+          // 其他类型打开新窗口下载
+          window.open(res.url, '_blank');
+          previewVisible.value = false;
+        }
+      }
+    } catch {
+      message.error('无法预览');
+      previewVisible.value = false;
+    }
+  }
+}
+
+async function handleShare(file: FileApi.FileEntry) {
+  shareFileId.value = file.id;
+  shareExpireHours.value = 0;
+  shareResult.value = null;
+  shareModalVisible.value = true;
+}
+
+async function confirmShare() {
+  try {
+    const result = await createFileShare(shareFileId.value!, {
+      expireHours: shareExpireHours.value || undefined,
+    });
+    shareResult.value = result;
+    message.success('分享链接已生成');
+  } catch {
+    message.error('分享失败');
+  }
+}
+
+function copyShareUrl() {
+  const url = `http://123.57.201.44/share/${shareResult.value?.shareCode}`;
+  navigator.clipboard.writeText(url).then(() => {
+    message.success('链接已复制到剪贴板');
+  }).catch(() => {
+    // 备用方案
+    const input = document.createElement('input');
+    input.value = url;
+    document.body.appendChild(input);
+    input.select();
+    document.execCommand('copy');
+    document.body.removeChild(input);
+    message.success('链接已复制');
+  });
+}
+
+// ==================== 上传 ====================
+
+async function handleUpload(file: File) {
+  uploading.value = true;
+  uploadProgress.value = 0;
+  uploadFileName.value = file.name;
+
+  const onProgress: UploadProgressCallback = (event) => {
+    uploadProgress.value = event.percent;
+  };
+
+  try {
+    await simpleUpload(file, onProgress);
+    message.success(`${file.name} 上传成功`);
+    loadFileList();
+  } catch (err) {
+    message.error(`上传失败: ${err}`);
+  } finally {
+    uploading.value = false;
+    uploadProgress.value = 0;
+    uploadFileName.value = '';
+  }
+  return false;
 }
 
 // ==================== 初始化 ====================
@@ -274,147 +492,97 @@ onMounted(() => {
 
 // ==================== 表格列 ====================
 
-const columns: any[] = [
-  {
-    title: $t('file.list.name'),
-    dataIndex: 'name',
-    key: 'name',
-    ellipsis: true,
-  },
-  {
-    title: $t('file.list.size'),
-    dataIndex: 'fileSize',
-    key: 'size',
-    width: 120,
-    customRender: ({ text }: { text: number }) => formatFileSize(text),
-  },
-  {
-    title: $t('file.list.type'),
-    dataIndex: 'contentType',
-    key: 'type',
-    width: 150,
-  },
-  {
-    title: $t('file.list.createTime'),
-    dataIndex: 'createdAt',
-    key: 'createTime',
-    width: 180,
-  },
-  {
-    title: $t('file.list.operation'),
-    key: 'operation',
-    width: 200,
-    fixed: 'right',
-  },
+const columns = [
+  { title: '文件名', dataIndex: 'name', key: 'name', width: 200, ellipsis: true },
+  { title: '大小', dataIndex: 'size', key: 'size', width: 80, customRender: ({ text }) => formatFileSize(text) },
+  { title: '上传者', key: 'uploader', width: 80 },
+  { title: '时间', dataIndex: 'createdAt', key: 'createdAt', width: 120 },
+  { title: '操作', key: 'operation', width: 180, fixed: 'right' },
 ];
 
-// 文件夹树数据转换
 const treeData = computed<TreeProps['treeData']>(() => {
-  const convertTree = (folders: FileApi.Folder[]): TreeProps['treeData'] => {
-    return folders.map((folder) => ({
-      key: folder.id,
-      title: folder.name,
-      children: folder.children ? convertTree(folder.children) : undefined,
+  const convert = (folders: FileApi.Folder[]): TreeProps['treeData'] =>
+    folders.map((f) => ({
+      key: f.id,
+      title: f.name,
+      type: f.type,
+      children: f.children ? convert(f.children) : undefined,
     }));
-  };
-  return convertTree(folderTree.value);
+  return convert(folderTree.value);
 });
 
-// 文件夹选择器数据（用于移动）
 const folderSelectData = computed(() => {
-  const convertTree = (folders: FileApi.Folder[]): any[] => {
-    return folders.map((folder) => ({
-      value: folder.id,
-      label: folder.name,
-      children: folder.children ? convertTree(folder.children) : undefined,
+  const convert = (folders: FileApi.Folder[]): any[] =>
+    folders.map((f) => ({
+      value: f.id,
+      label: f.name,
+      children: f.children ? convert(f.children) : undefined,
     }));
-  };
-  return [{ value: null, label: $t('file.list.rootFolder') }, ...convertTree(folderTree.value)];
+  return [{ value: null, label: '根目录' }, ...convert(folderTree.value)];
 });
-
-// 分页改变
-function handleTableChange(pag: any) {
-  pagination.value = pag;
-  loadFileList();
-}
 </script>
 
 <template>
   <Page title="">
-    <div class="file-manager flex gap-4">
+    <div class="flex gap-4">
       <!-- 左侧文件夹树 -->
-      <div class="folder-tree w-64 shrink-0 border rounded-lg p-4 bg-background">
-        <div class="flex items-center justify-between mb-4">
-          <span class="font-medium">{{ $t('file.list.folder') }}</span>
-          <Button type="link" size="small" @click="openNewFolderModal()">
-            <span class="i-ant-design:folder-add-outlined" />
-            {{ $t('file.list.newFolder') }}
-          </Button>
+      <div class="w-56 shrink-0 border rounded-lg p-3">
+        <div class="flex items-center justify-between mb-3">
+          <span class="font-medium">文件夹</span>
+          <Button type="link" size="small" @click="openNewFolderModal()">+新建</Button>
         </div>
 
         <Tree
           :tree-data="treeData"
           :selected-keys="currentFolderId ? [currentFolderId] : []"
-          :show-icon="true"
           default-expand-all
           @select="handleFolderSelect"
         >
-          <template #title="{ title, key }">
-            <div class="flex items-center gap-1 group">
-              <span>{{ title }}</span>
-              <Dropdown class="opacity-0 group-hover:opacity-100">
-                <span class="i-ant-design:more-outlined cursor-pointer" />
-                <template #overlay>
-                  <Menu>
-                    <MenuItem @click="openNewFolderModal(key as number)">
-                      <span class="i-ant-design:folder-add-outlined mr-1" />
-                      {{ $t('file.list.newFolder') }}
-                    </MenuItem>
-                    <MenuItem @click="openRenameFolderModal({ id: key as number, name: title as string })">
-                      <span class="i-ant-design:edit-outlined mr-1" />
-                      {{ $t('file.list.rename') }}
-                    </MenuItem>
-                    <MenuItem>
-                      <Popconfirm
-                        :title="$t('file.list.deleteConfirm', { name: title })"
-                        @confirm="handleDeleteFolder({ id: key as number, name: title as string })"
-                      >
-                        <span class="i-ant-design:delete-outlined mr-1 text-red-500" />
-                        {{ $t('file.list.delete') }}
-                      </Popconfirm>
-                    </MenuItem>
-                  </Menu>
-                </template>
-              </Dropdown>
+          <template #title="node">
+            <div class="flex items-center gap-1 py-1 group">
+              <span :class="node.type === 'avatar' ? 'i-ant-design:user-outlined' : 'i-ant-design:folder-outlined'" />
+              <span class="flex-1 truncate">{{ node.title as string }}</span>
+              <button
+                type="button"
+                class="opacity-0 group-hover:opacity-100 ml-1 px-1 py-0.5 text-xs rounded hover:bg-gray-200"
+                @click.stop
+                @click="showFolderMenu(node)"
+              >
+                ⋯
+              </button>
             </div>
           </template>
         </Tree>
       </div>
 
       <!-- 右侧文件列表 -->
-      <div class="file-list flex-1 border rounded-lg p-4 bg-background">
+      <div class="flex-1 border rounded-lg p-3">
         <!-- 工具栏 -->
-        <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center justify-between mb-3">
           <Space>
-            <Upload
-              :show-upload-list="false"
-              :before-upload="(file) => { handleUpload(file); return false; }"
-              :multiple="true"
-            >
-              <Button type="primary">
-                <span class="i-ant-design:upload-outlined mr-1" />
-                {{ $t('file.list.upload') }}
-              </Button>
+            <Upload :show-upload-list="false" :before-upload="handleUpload" :multiple="true" :disabled="uploading">
+              <Button type="primary" :loading="uploading">上传文件</Button>
             </Upload>
-            <Button @click="openNewFolderModal()">
-              <span class="i-ant-design:folder-add-outlined mr-1" />
-              {{ $t('file.list.newFolder') }}
+            <Button v-if="selectedRowKeys.length > 0" danger @click="handleBatchDelete">
+              批量删除 ({{ selectedRowKeys.length }})
+            </Button>
+            <Button v-if="selectedRowKeys.length > 0" @click="openBatchMoveModal">
+              批量移动 ({{ selectedRowKeys.length }})
             </Button>
           </Space>
+          <span class="text-sm text-gray-500">共 {{ totalFiles }} 个文件</span>
+        </div>
 
-          <span class="text-muted-foreground text-sm">
-            {{ $t('file.list.fileCount', { count: totalFiles }) }}
-          </span>
+        <!-- 上传进度条 -->
+        <div v-if="uploading" class="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm text-blue-700">
+              <span class="i-ant-design:loading-outlined animate-spin mr-1" />
+              正在上传: {{ uploadFileName }}
+            </span>
+            <span class="text-sm font-medium text-blue-700">{{ uploadProgress }}%</span>
+          </div>
+          <Progress :percent="uploadProgress" :show-info="false" status="active" :stroke-color="{ from: '#108ee9', to: '#87d068' }" />
         </div>
 
         <!-- 文件表格 -->
@@ -422,132 +590,148 @@ function handleTableChange(pag: any) {
           :columns="columns"
           :data-source="fileList"
           :loading="loading"
-          :pagination="{
-            current: pagination.current,
-            pageSize: pagination.pageSize,
-            total: totalFiles,
-            showSizeChanger: true,
-            showTotal: (total: number) => $t('file.list.fileCount', { count: total }),
-          }"
-          :scroll="{ x: 800 }"
+          :pagination="{ current: pagination.current, pageSize: pagination.pageSize, total: totalFiles, showSizeChanger: true }"
+          :scroll="{ x: 600 }"
+          :row-selection="{ selectedRowKeys, onChange: (keys) => selectedRowKeys = keys }"
           row-key="id"
-          @change="handleTableChange"
+          @change="(pag) => { pagination = pag; loadFileList(); }"
         >
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'name'">
-              <div class="flex items-center gap-2">
-                <span :class="getFileIcon(record.contentType)" class="text-lg" />
-                <span>{{ record.name }}</span>
-              </div>
+              <span :class="getFileIcon(record.contentType)" class="mr-1" />
+              {{ record.name }}
+            </template>
+            <template v-if="column.key === 'uploader'">
+              <span class="text-sm">{{ record.uploaderName || '-' }}</span>
             </template>
             <template v-if="column.key === 'operation'">
-              <Space>
-                <Button type="link" size="small" @click="handlePreview(record)">
-                  <span class="i-ant-design:eye-outlined" />
-                </Button>
-                <Button type="link" size="small" @click="openMoveFileModal(record)">
-                  <span class="i-ant-design:folder-outlined" />
-                </Button>
-                <Popconfirm
-                  :title="$t('file.list.deleteConfirm', { name: record.name })"
-                  @confirm="handleDeleteFile(record)"
-                >
-                  <Button type="link" size="small" danger>
-                    <span class="i-ant-design:delete-outlined" />
-                  </Button>
-                </Popconfirm>
+              <Space size="small">
+                <Button type="link" size="small" @click="handlePreview(record)">预览</Button>
+                <Button type="link" size="small" @click="handleDownload(record)">下载</Button>
+                <Button type="link" size="small" @click="handleShare(record)">分享</Button>
+                <Button type="link" size="small" danger @click="handleDeleteFile(record.id, record.name)">删除</Button>
               </Space>
             </template>
           </template>
         </Table>
 
-        <!-- 空状态 -->
-        <Empty v-if="!loading && fileList.length === 0" :description="$t('file.list.noFiles')" />
+        <Empty v-if="!loading && fileList.length === 0" description="暂无文件" />
       </div>
     </div>
 
-    <!-- 新建文件夹 Modal -->
-    <Modal
-      v-model:open="newFolderModalVisible"
-      :title="$t('file.list.newFolder')"
-      @ok="handleCreateFolder"
-    >
+    <!-- 新建文件夹 -->
+    <Modal v-model:open="newFolderModalVisible" title="新建文件夹" @ok="handleCreateFolder">
       <Form layout="vertical">
-        <FormItem :label="$t('file.list.folderName')">
-          <Input
-            v-model:value="newFolderName"
-            :placeholder="$t('file.list.folderNamePlaceholder')"
-          />
-        </FormItem>
-        <FormItem :label="$t('file.list.targetFolder')">
-          <TreeSelect
-            v-model:value="newFolderParentId"
-            :tree-data="folderSelectData"
-            :placeholder="`${$t('file.list.rootFolder')}`"
-            allow-clear
-          />
+        <FormItem label="名称">
+          <Input v-model:value="newFolderName" placeholder="输入文件夹名称" />
         </FormItem>
       </Form>
     </Modal>
 
-    <!-- 重命名文件夹 Modal -->
-    <Modal
-      v-model:open="renameFolderModalVisible"
-      :title="$t('file.list.rename')"
-      @ok="handleRenameFolder"
-    >
+    <!-- 重命名文件夹 -->
+    <Modal v-model:open="renameFolderModalVisible" title="重命名文件夹" @ok="handleRenameFolder">
       <Form layout="vertical">
-        <FormItem :label="$t('file.list.folderName')">
-          <Input
-            v-model:value="renameFolderName"
-            :placeholder="$t('file.list.folderNamePlaceholder')"
-          />
+        <FormItem label="新名称">
+          <Input v-model:value="renameFolderName" placeholder="输入新名称" />
         </FormItem>
       </Form>
     </Modal>
 
-    <!-- 移动文件 Modal -->
-    <Modal
-      v-model:open="moveFileModalVisible"
-      :title="$t('file.list.move')"
-      @ok="handleMoveFile"
-    >
+    <!-- 删除文件夹 -->
+    <Modal v-model:open="deleteFolderModalVisible" title="删除文件夹" @ok="handleDeleteFolder">
+      <p>确定删除文件夹 "{{ deleteFolderName }}" 吗？</p>
+      <p class="text-red-500">文件夹内的所有文件也将被删除！</p>
+    </Modal>
+
+    <!-- 移动文件 -->
+    <Modal v-model:open="moveFileModalVisible" title="移动文件" @ok="handleMoveFile">
       <Form layout="vertical">
-        <FormItem :label="$t('file.list.targetFolder')">
-          <TreeSelect
-            v-model:value="moveTargetFolderId"
-            :tree-data="folderSelectData"
-            :placeholder="`${$t('file.list.rootFolder')}`"
-            allow-clear
-          />
+        <FormItem label="目标文件夹">
+          <TreeSelect v-model:value="moveTargetFolderId" :tree-data="folderSelectData" placeholder="选择文件夹" allow-clear />
         </FormItem>
       </Form>
     </Modal>
 
-    <!-- 图片预览 Modal -->
-    <Modal
-      v-model:open="previewVisible"
-      :title="$t('file.list.previewImage')"
-      :footer="null"
-      :width="800"
-    >
-      <img v-if="previewUrl" :src="previewUrl" class="w-full" alt="preview" />
+    <!-- 批量移动文件 -->
+    <Modal v-model:open="batchMoveModalVisible" title="批量移动" @ok="handleBatchMove">
+      <p class="mb-2">将移动 {{ selectedRowKeys.length }} 个文件</p>
+      <Form layout="vertical">
+        <FormItem label="目标文件夹">
+          <TreeSelect v-model:value="batchTargetFolderId" :tree-data="folderSelectData" placeholder="选择文件夹" allow-clear />
+        </FormItem>
+      </Form>
+    </Modal>
+
+    <!-- 分享 -->
+    <Modal v-model:open="shareModalVisible" title="创建分享链接" @ok="confirmShare">
+      <Form layout="vertical">
+        <FormItem label="过期时间">
+          <Space>
+            <InputNumber v-model:value="shareExpireHours" :min="0" style="width: 100px" />
+            <span>小时（0表示永久有效）</span>
+          </Space>
+        </FormItem>
+      </Form>
+      <div v-if="shareResult" class="mt-4 p-3 bg-gray-50 rounded">
+        <p class="mb-2 font-medium">分享链接：</p>
+        <Input.Group compact>
+          <Input :value="shareResult ? `http://123.57.201.44${shareResult.shareUrl}` : ''" style="width: 280px" readonly />
+          <Button type="primary" @click="copyShareUrl">复制</Button>
+        </Input.Group>
+      </div>
+    </Modal>
+
+    <!-- 预览 -->
+    <Modal v-model:open="previewVisible" :title="previewName" :footer="null" :width="800">
+      <div class="text-center">
+        <!-- PDF 预览 - 优先判断 -->
+        <iframe v-if="previewUrl && (previewUrl.includes('.pdf') || (previewName.toLowerCase().endsWith('.pdf') && previewUrl))" :src="previewUrl" style="width: 100%; height: 500px" frameborder="0" />
+        <!-- 图片预览 -->
+        <Image v-else-if="previewUrl && previewUrl.includes('uploads')" :src="previewUrl" class="max-w-full" style="max-height: 500px" />
+        <!-- 视频预览 -->
+        <video v-else-if="previewUrl && previewUrl.includes('stream')" :src="previewUrl" controls style="max-width: 100%; max-height: 500px" />
+        <!-- 无预览 -->
+        <div v-else class="py-8 text-gray-500">该文件类型不支持预览</div>
+      </div>
+    </Modal>
+
+    <!-- 文件夹操作菜单 -->
+    <Modal v-model:open="folderMenuVisible" title="文件夹操作" :footer="null">
+      <div class="flex flex-col gap-2">
+        <Button block @click="folderMenuAction('new')">新建子文件夹</Button>
+        <Button block @click="folderMenuAction('rename')">重命名</Button>
+        <Button block type="primary" @click="folderMenuAction('share')">分享文件夹</Button>
+        <Button block danger @click="folderMenuAction('delete')">删除文件夹</Button>
+      </div>
+    </Modal>
+
+    <!-- 文件夹分享 -->
+    <Modal v-model:open="folderShareModalVisible" title="创建文件夹分享链接" @ok="confirmFolderShare">
+      <Form layout="vertical">
+        <FormItem label="文件夹">
+          <Input :value="folderShareName" readonly />
+        </FormItem>
+        <FormItem label="过期时间">
+          <Space>
+            <InputNumber v-model:value="folderShareExpireHours" :min="0" style="width: 100px" />
+            <span>小时（0表示永久有效）</span>
+          </Space>
+        </FormItem>
+      </Form>
+      <div v-if="folderShareResult" class="mt-4 p-3 bg-gray-50 rounded">
+        <p class="mb-2 font-medium">分享链接：</p>
+        <Input.Group compact>
+          <Input :value="folderShareResult ? `http://123.57.201.44${folderShareResult.shareUrl}` : ''" style="width: 280px" readonly />
+          <Button type="primary" @click="copyFolderShareUrl">复制</Button>
+        </Input.Group>
+      </div>
     </Modal>
   </Page>
 </template>
 
 <style scoped>
-.file-manager {
-  height: calc(100vh - 200px);
-}
-
-.folder-tree {
-  max-height: calc(100vh - 240px);
-  overflow-y: auto;
-}
-
-.file-list {
-  max-height: calc(100vh - 240px);
+.w-56 {
+  max-height: calc(100vh - 200px);
   overflow-y: auto;
 }
 </style>

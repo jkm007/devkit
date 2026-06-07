@@ -28,5 +28,6 @@ func Run(db *gorm.DB) error {
 		&model.FileFolder{},
 		&model.FileEntry{},
 		&model.MediaAsset{},
+		&model.FileShare{},
 	)
 }

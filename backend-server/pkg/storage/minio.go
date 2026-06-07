@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/minio/minio-go/v7"
@@ -21,12 +23,41 @@ type MinIOStorage struct {
 
 // NewMinIOStorage 创建 MinIO 存储实例
 func NewMinIOStorage(cfg config.MinIOConfig) (*MinIOStorage, error) {
-	client, err := minio.New(cfg.Endpoint, &minio.Options{
+	// 清理 endpoint 格式：移除 http:// 或 https:// 前缀
+	endpoint := cfg.Endpoint
+	endpoint = strings.TrimPrefix(endpoint, "http://")
+	endpoint = strings.TrimPrefix(endpoint, "https://")
+	endpoint = strings.TrimSpace(endpoint)
+
+	// 移除可能的 JSON 引号
+	endpoint = strings.Trim(endpoint, "\"")
+
+	log.Printf("[DEBUG] MinIO Endpoint 原始值: %q, 清理后: %q", cfg.Endpoint, endpoint)
+
+	if endpoint == "" {
+		return nil, fmt.Errorf("MinIO endpoint 不能为空")
+	}
+
+	client, err := minio.New(endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(cfg.AccessKey, cfg.SecretKey, ""),
 		Secure: cfg.UseSSL,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("连接 MinIO 失败: %w", err)
+		return nil, fmt.Errorf("连接 MinIO 失败 (endpoint=%s, useSSL=%v): %w", endpoint, cfg.UseSSL, err)
+	}
+
+	// 检查并创建 bucket
+	ctx := context.Background()
+	exists, err := client.BucketExists(ctx, cfg.Bucket)
+	if err != nil {
+		return nil, fmt.Errorf("检查 bucket 失败: %w", err)
+	}
+	if !exists {
+		err = client.MakeBucket(ctx, cfg.Bucket, minio.MakeBucketOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("创建 bucket %s 失败: %w", cfg.Bucket, err)
+		}
+		log.Printf("[INFO] MinIO bucket %s 已创建", cfg.Bucket)
 	}
 
 	return &MinIOStorage{
@@ -95,8 +126,11 @@ func (s *MinIOStorage) InitiateUpload(ctx context.Context, objectKey string, con
 // UploadPart 上传单个分片为临时对象
 func (s *MinIOStorage) UploadPart(ctx context.Context, objectKey string, uploadID string, partNumber int, reader io.Reader, size int64) (string, error) {
 	key := chunkKey(uploadID, partNumber)
+	log.Printf("[DEBUG] MinIO UploadPart: bucket=%s, key=%s, size=%d", s.bucket, key, size)
+
 	_, err := s.client.PutObject(ctx, s.bucket, key, reader, size, minio.PutObjectOptions{})
 	if err != nil {
+		log.Printf("[ERROR] MinIO UploadPart 失败: %v", err)
 		return "", fmt.Errorf("上传分片 %d 失败: %w", partNumber, err)
 	}
 	return key, nil // 返回临时对象路径作为 ETag

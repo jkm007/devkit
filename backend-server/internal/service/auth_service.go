@@ -850,6 +850,13 @@ func (s *AuthService) Register(req *RegisterRequest, ip, userAgent string) (uint
 		s.userRepo.SyncUserRoles(user.ID, []uint{defaultRole.ID})
 	}
 
+
+		// 为用户创建头像文件夹
+		fileService := NewFileService()
+		_, err = fileService.CreateAvatarFolder(user.ID)
+		if err != nil {
+			logger.Warn(fmt.Sprintf("创建头像文件夹失败: %v", err))
+		}
 	// 记录安全日志
 	s.RecordSecurityLog(user.ID, "register", fmt.Sprintf("新用户注册成功: %s", req.Username), ip, userAgent, 1)
 

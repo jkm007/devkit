@@ -1,4 +1,13 @@
 import { requestClient } from '#/api/request';
+import { useAccessStore } from '@vben/stores';
+
+export interface UploadProgressEvent {
+  loaded: number;
+  total: number;
+  percent: number;
+}
+
+export type UploadProgressCallback = (event: UploadProgressEvent) => void;
 
 // ==================== 类型定义 ====================
 
@@ -8,6 +17,7 @@ export namespace FileApi {
     id: number;
     name: string;
     parentId: number | null;
+    type?: string;
     createdAt: string;
     children?: Folder[];
   }
@@ -17,13 +27,13 @@ export namespace FileApi {
     id: number;
     name: string;
     folderId: number | null;
-    fileType: string;
-    fileSize: number;
+    size: number;
     contentType: string;
     createdAt: string;
     updatedAt: string;
-    thumbnailUrl?: string;
     previewUrl?: string;
+    uploaderName?: string;
+    uploaderAvatar?: string;
   }
 
   /** 文件资产 */
@@ -144,20 +154,90 @@ export function initUpload(data: {
   return requestClient.post<FileApi.InitUploadResult>('/files/upload/init', data);
 }
 
-/** 上传分片 */
-export function uploadPart(data: {
+/** 上传分片 - 使用原生 fetch 确保 FormData 正确发送 */
+export async function uploadPart(data: {
   uploadId: string;
   partNumber: number;
   file: Blob | File;
-}) {
+  onProgress?: UploadProgressCallback;
+}): Promise<FileApi.UploadPartResult> {
   const formData = new FormData();
   formData.append('uploadId', data.uploadId);
   formData.append('partNumber', String(data.partNumber));
   formData.append('file', data.file);
 
-  return requestClient.post<FileApi.UploadPartResult>('/files/upload/part', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
+  const accessStore = useAccessStore();
+  const token = accessStore.accessToken || '';
+
+  // 如果有进度回调，使用 XMLHttpRequest
+  if (data.onProgress) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+
+      xhr.upload.addEventListener('progress', (event) => {
+        if (event.lengthComputable) {
+          data.onProgress!({
+            loaded: event.loaded,
+            total: event.total,
+            percent: Math.round((event.loaded / event.total) * 100),
+          });
+        }
+      });
+
+      xhr.addEventListener('load', () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const result = JSON.parse(xhr.responseText);
+            if (result.code !== 0) {
+              reject(new Error(result.message || result.error || '上传分片失败'));
+            } else {
+              resolve(result.data);
+            }
+          } catch {
+            reject(new Error('解析响应失败'));
+          }
+        } else {
+          reject(new Error(`上传失败: ${xhr.status}`));
+        }
+      });
+
+      xhr.addEventListener('error', () => reject(new Error('上传失败')));
+      xhr.addEventListener('abort', () => reject(new Error('上传已取消')));
+
+      xhr.open('POST', '/api/files/upload/part');
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      xhr.send(formData);
+    });
+  }
+
+  const response = await fetch('/api/files/upload/part', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+    body: formData,
   });
+
+  // 检查响应状态
+  if (!response.ok) {
+    const text = await response.text();
+    // 如果返回 HTML 说明请求未正确到达后端
+    if (text.startsWith('<') || text.startsWith('<!')) {
+      throw new Error('请求未到达服务器，请检查网络或刷新页面重试');
+    }
+    try {
+      const json = JSON.parse(text);
+      throw new Error(json.message || json.error || `上传失败: ${response.status}`);
+    } catch {
+      throw new Error(`上传失败: ${response.status}`);
+    }
+  }
+
+  const result = await response.json();
+  if (result.code !== 0) {
+    throw new Error(result.message || result.error || '上传分片失败');
+  }
+  return result.data;
 }
 
 /** 完成上传 */
@@ -214,6 +294,16 @@ export function deleteFile(id: number) {
   return requestClient.delete(`/files/${id}`);
 }
 
+/** 批量删除文件 */
+export function batchDeleteFiles(fileIds: number[]) {
+  return requestClient.post<{ deleted: number; errors: string[] }>('/files/batch-delete', { fileIds });
+}
+
+/** 批量移动文件 */
+export function batchMoveFiles(fileIds: number[], targetFolderId?: number) {
+  return requestClient.post<{ moved: number; errors: string[] }>('/files/batch-move', { fileIds, targetFolderId });
+}
+
 // ==================== 媒体文件 ====================
 
 /** 获取媒体信息 */
@@ -229,6 +319,56 @@ export function getStream(id: number) {
 /** 下载文件 */
 export function downloadFile(id: number) {
   return requestClient.get<FileApi.DownloadResponse>(`/files/${id}/download`);
+}
+
+/** 查看文件（带认证） */
+export function viewFile(id: number) {
+  return requestClient.get(`/files/${id}/view`, { responseType: 'blob' });
+}
+
+// ==================== 分享 ====================
+
+export interface ShareInfo {
+  shareCode: string;
+  type: 'file' | 'folder';
+  fileName?: string;
+  folderName?: string;
+  fileSize?: number;
+  contentType?: string;
+  sharerName: string;
+  sharerAvatar: string;
+  createdAt: string;
+  expireAt?: string;
+}
+
+/** 创建文件分享 */
+export function createFileShare(id: number, data?: { expireHours?: number; maxAccess?: number }) {
+  return requestClient.post<{ shareCode: string; shareUrl: string }>(`/files/${id}/share`, data || {});
+}
+
+/** 创建文件夹分享 */
+export function createFolderShare(id: number, data?: { expireHours?: number; maxAccess?: number }) {
+  return requestClient.post<{ shareCode: string; shareUrl: string }>(`/folders/${id}/share`, data || {});
+}
+
+/** 获取分享信息（公开） */
+export function getShareInfo(code: string) {
+  return requestClient.get<ShareInfo>(`/share/${code}`);
+}
+
+/** 获取分享文件夹内的文件列表（公开） */
+export function getShareFolderFiles(code: string) {
+  return requestClient.get<any[]>(`/share/${code}/files`);
+}
+
+/** 获取我的分享列表 */
+export function getMyShares() {
+  return requestClient.get(`/my-shares`);
+}
+
+/** 删除分享 */
+export function deleteShare(id: number) {
+  return requestClient.delete(`/shares/${id}`);
 }
 
 // ==================== 简单文件上传（用于头像等小文件） ====================
@@ -251,13 +391,17 @@ async function calculateFileHash(file: File): Promise<string> {
 }
 
 /** 简单上传（不分片） */
-export async function simpleUpload(file: File): Promise<FileApi.CompleteUploadResult> {
+export async function simpleUpload(
+  file: File,
+  onProgress?: UploadProgressCallback,
+): Promise<FileApi.CompleteUploadResult> {
   // 计算文件 hash
   const fileHash = await calculateFileHash(file);
 
   // 先尝试秒传
   const checkResult = await checkUpload({ fileHash, fileSize: file.size });
   if (checkResult.exists && checkResult.fileId && checkResult.url) {
+    onProgress?.({ loaded: file.size, total: file.size, percent: 100 });
     return {
       fileId: checkResult.fileId,
       url: checkResult.url,
@@ -280,6 +424,7 @@ export async function simpleUpload(file: File): Promise<FileApi.CompleteUploadRe
     uploadId: initResult.uploadId,
     partNumber: 1,
     file,
+    onProgress,
   });
 
   return completeUpload({ uploadId: initResult.uploadId });

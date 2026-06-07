@@ -17,6 +17,7 @@
     "delete": "删除",
     "download": "下载",
     "preview": "预览",
+    "downloadSuccess": "下载已开始",
     "deleteConfirm": "确定要删除 {name} 吗？",
     "deleteSuccess": "删除成功",
     "renameSuccess": "重命名成功",

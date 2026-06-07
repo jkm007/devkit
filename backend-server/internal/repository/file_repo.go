@@ -130,3 +130,24 @@ func (r *FileRepo) DeleteEntriesByFolderRecursive(folderIDs []uint) error {
 	}
 	return r.db.Where("folder_id IN ?", folderIDs).Delete(&model.FileEntry{}).Error
 }
+
+// ListEntriesByFolder 获取文件夹内所有文件（不分页，用于分享）
+func (r *FileRepo) ListEntriesByFolder(folderID uint) ([]model.FileEntry, error) {
+	var entries []model.FileEntry
+	if err := r.db.Where("folder_id = ?", folderID).Order("created_at DESC").Find(&entries).Error; err != nil {
+		return nil, err
+	}
+	return entries, nil
+}
+
+// ListEntriesByFolders 获取多个文件夹内所有文件（用于文件夹分享递归）
+func (r *FileRepo) ListEntriesByFolders(folderIDs []uint) ([]model.FileEntry, error) {
+	if len(folderIDs) == 0 {
+		return []model.FileEntry{}, nil
+	}
+	var entries []model.FileEntry
+	if err := r.db.Where("folder_id IN ?", folderIDs).Order("created_at DESC").Find(&entries).Error; err != nil {
+		return nil, err
+	}
+	return entries, nil
+}

@@ -46,6 +46,7 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	uploadHandler := handler.NewUploadHandler()
 	fileHandler := handler.NewFileHandler()
 	mediaHandler := handler.NewMediaHandler()
+	shareHandler := handler.NewShareHandler()
 
 	// 健康检查
 	// @Summary      健康检查
@@ -65,6 +66,12 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 
 	// 公开接口（无需认证）
 	r.GET("/system/settings/public", systemSettingHandler.GetPublic)
+
+	// 分享访问（公开）
+	r.GET("/share/:code", shareHandler.GetShareInfo)
+	r.GET("/share/:code/files", shareHandler.GetShareFolderFiles)
+	r.GET("/share/:code/file", shareHandler.GetShareFile)
+	r.GET("/share/:code/file/:fileId", shareHandler.GetShareFile)
 
 	// 认证接口（无需认证）
 	captchaHandler := handler.NewCaptchaHandler()
@@ -166,12 +173,19 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		authorized.DELETE("/files/folder/:id", fileHandler.DeleteFolder)
 		authorized.GET("/files/list", fileHandler.ListFiles)
 		authorized.POST("/files/move", fileHandler.MoveFile)
+		authorized.POST("/files/batch-delete", fileHandler.BatchDeleteFiles)
+		authorized.POST("/files/batch-move", fileHandler.BatchMoveFiles)
 		authorized.DELETE("/files/:id", fileHandler.DeleteFile)
 
 		// 媒体文件
+			authorized.POST("/files/:id/share", shareHandler.CreateFileShare)
+			authorized.POST("/folders/:id/share", shareHandler.CreateFolderShare)
+			authorized.GET("/my-shares", shareHandler.GetMyShares)
+			authorized.DELETE("/shares/:id", shareHandler.DeleteShare)
 		authorized.GET("/files/:id/metadata", mediaHandler.GetMediaInfo)
 		authorized.GET("/files/:id/stream", mediaHandler.GetStream)
 		authorized.GET("/files/:id/download", mediaHandler.DownloadFile)
+			authorized.GET("/files/:id/view", mediaHandler.ViewFile)
 
 		// 系统管理
 		system := authorized.Group("/system")

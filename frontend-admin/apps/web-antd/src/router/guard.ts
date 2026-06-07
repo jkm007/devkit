@@ -5,7 +5,7 @@ import { preferences } from '@vben/preferences';
 import { useAccessStore, useUserStore } from '@vben/stores';
 import { startProgress, stopProgress } from '@vben/utils';
 
-import { accessRoutes, coreRouteNames } from '#/router/routes';
+import { accessRoutes, publicRouteNames } from '#/router/routes';
 import { useAuthStore } from '#/store';
 
 import { generateAccess } from './access';
@@ -50,8 +50,13 @@ function setupAccessGuard(router: Router) {
     const userStore = useUserStore();
     const authStore = useAuthStore();
 
-    // 基本路由，这些路由不需要进入权限拦截
-    if (coreRouteNames.includes(to.name as string)) {
+    // 优先检查 ignoreAccess meta（公开页面如分享页面）
+    if (to.meta.ignoreAccess) {
+      return true;
+    }
+
+    // 公开路由（基本路由+外部路由），这些路由不需要进入权限拦截
+    if (publicRouteNames.includes(to.name as string)) {
       if (to.path === LOGIN_PATH && accessStore.accessToken) {
         return decodeURIComponent(
           (to.query?.redirect as string) ||
@@ -64,11 +69,6 @@ function setupAccessGuard(router: Router) {
 
     // accessToken 检查
     if (!accessStore.accessToken) {
-      // 明确声明忽略权限访问权限，则可以访问
-      if (to.meta.ignoreAccess) {
-        return true;
-      }
-
       // 没有访问权限，跳转登录页面
       if (to.fullPath !== LOGIN_PATH) {
         return {

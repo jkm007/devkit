@@ -213,3 +213,62 @@ func (h *FileHandler) DeleteFile(c *gin.Context) {
 
 	response.Success(c, nil)
 }
+
+// batchDeleteRequest 批量删除请求
+type batchDeleteRequest struct {
+	FileIDs []uint `json:"fileIds" binding:"required,min=1"`
+}
+
+// BatchDeleteFiles 批量删除文件
+// @Summary      批量删除文件
+// @Tags         文件管理
+// @Accept       json
+// @Produce      json
+// @Param        body  body  batchDeleteRequest  true  "文件ID列表"
+// @Success      200   {object}  response.Response
+// @Router       /files/batch-delete [post]
+func (h *FileHandler) BatchDeleteFiles(c *gin.Context) {
+	var req batchDeleteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	userID := middleware.GetCurrentUserID(c)
+	deleted, errors := h.fileService.BatchDeleteFiles(userID, req.FileIDs)
+
+	response.Success(c, gin.H{
+		"deleted": deleted,
+		"errors":  errors,
+	})
+}
+
+// batchMoveRequest 批量移动请求
+type batchMoveRequest struct {
+	FileIDs        []uint `json:"fileIds" binding:"required,min=1"`
+	TargetFolderID uint   `json:"targetFolderId"`
+}
+
+// BatchMoveFiles 批量移动文件
+// @Summary      批量移动文件
+// @Tags         文件管理
+// @Accept       json
+// @Produce      json
+// @Param        body  body  batchMoveRequest  true  "批量移动参数"
+// @Success      200   {object}  response.Response
+// @Router       /files/batch-move [post]
+func (h *FileHandler) BatchMoveFiles(c *gin.Context) {
+	var req batchMoveRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	userID := middleware.GetCurrentUserID(c)
+	moved, errors := h.fileService.BatchMoveFiles(userID, req.FileIDs, req.TargetFolderID)
+
+	response.Success(c, gin.H{
+		"moved":  moved,
+		"errors": errors,
+	})
+}

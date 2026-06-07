@@ -5,7 +5,7 @@ import "time"
 // FileAsset 文件资产（秒传映射）
 type FileAsset struct {
 	ID          uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	FileHash    string    `gorm:"uniqueIndex;size:64;comment:文件SHA-256哈希" json:"fileHash"`
+	FileHash    string    `gorm:"uniqueIndex;size:255;comment:文件哈希" json:"fileHash"`
 	ObjectKey   string    `gorm:"size:500;comment:存储路径" json:"objectKey"`
 	FileName    string    `gorm:"size:255;comment:原始文件名" json:"fileName"`
 	FileSize    int64      `gorm:"comment:文件大小(字节)" json:"fileSize"`

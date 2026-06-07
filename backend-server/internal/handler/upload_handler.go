@@ -109,11 +109,11 @@ func (h *UploadHandler) UploadPart(c *gin.Context) {
 	partNumberStr := c.PostForm("partNumber")
 	partNumber, err := strconv.Atoi(partNumberStr)
 	if err != nil || partNumber < 1 {
-		response.BadRequest(c, "partNumber 无效")
+		response.BadRequest(c, "partNumber 无效: "+partNumberStr)
 		return
 	}
 
-	file, _, err := c.Request.FormFile("file")
+	file, header, err := c.Request.FormFile("file")
 	if err != nil {
 		response.BadRequest(c, "获取分片数据失败: "+err.Error())
 		return
@@ -121,12 +121,14 @@ func (h *UploadHandler) UploadPart(c *gin.Context) {
 	defer file.Close()
 
 	// 获取分片大小
-	c.Request.ParseMultipartForm(100 << 20) // 100MB max
-	size := c.Request.ContentLength
+	size := header.Size
+	if size <= 0 {
+		size = c.Request.ContentLength
+	}
 
 	result, err := h.uploadService.UploadPart(uploadID, partNumber, file, size)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		response.InternalError(c, "上传分片失败: "+err.Error())
 		return
 	}
 

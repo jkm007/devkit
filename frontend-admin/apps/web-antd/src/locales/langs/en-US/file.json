@@ -17,6 +17,7 @@
     "delete": "Delete",
     "download": "Download",
     "preview": "Preview",
+    "downloadSuccess": "Download started",
     "deleteConfirm": "Are you sure to delete {name}?",
     "deleteSuccess": "Deleted successfully",
     "renameSuccess": "Renamed successfully",

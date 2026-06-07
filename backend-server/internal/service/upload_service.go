@@ -82,15 +82,18 @@ func (s *UploadService) InitUpload(userID uint, fileName string, fileSize int64,
 		return nil, fmt.Errorf("当前存储驱动不支持分片上传")
 	}
 
-	// 生成最终 objectKey
+	// 生成唯一 objectKey（使用时间戳避免中文编码问题）
 	ext := filepath.Ext(fileName)
-	objectKey := fmt.Sprintf("files/%s/%s%s",
+	objectKey := fmt.Sprintf("files/%s/%d%s",
 		time.Now().Format("2006/01/02"),
-		fileHash[:16], // 取前16位作为路径
+		time.Now().UnixNano(),
 		ext)
 
-	// 初始化分片上传（由存储层生成 uploadID）
-	uploadID, err := uploader.InitiateUpload(context.Background(), objectKey, contentType)
+	// 生成唯一 uploadID（UUID 格式）
+	uploadID := fmt.Sprintf("%d-%s", time.Now().UnixNano(), fileHash[:16])
+
+	// 初始化分片上传（通知存储层）
+	_, err := uploader.InitiateUpload(context.Background(), objectKey, contentType)
 	if err != nil {
 		return nil, err
 	}
