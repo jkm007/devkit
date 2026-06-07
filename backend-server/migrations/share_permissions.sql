@@ -1,12 +1,12 @@
 -- 分享管理权限按钮菜单
 -- 添加到 sys_menus 表，pid=42 是 FileShare 菜单的 ID
--- 注意：按钮类型的菜单 path 字段必须为空，name 遵循父菜单名+动作的命名规范
+-- 注意：按钮类型的菜单 path 字段必须为空，meta 必须包含 title
 
-INSERT INTO sys_menus (name, path, pid, type, icon, auth_code, status, created_at, updated_at) VALUES
-('FileShareViewOwn', '', 42, 'button', '', 'share:view:own', 1, NOW(), NOW()),
-('FileShareViewAll', '', 42, 'button', '', 'share:view:all', 1, NOW(), NOW()),
-('FileShareDelete', '', 42, 'button', '', 'share:delete', 1, NOW(), NOW()),
-('FileShareManage', '', 42, 'button', '', 'share:manage', 1, NOW(), NOW());
+INSERT INTO sys_menus (name, path, pid, type, icon, auth_code, status, meta, created_at, updated_at) VALUES
+('FileShareViewOwn', '', 42, 'button', '', 'share:view:own', 1, '{"title":"查看自己的分享"}', NOW(), NOW()),
+('FileShareViewAll', '', 42, 'button', '', 'share:view:all', 1, '{"title":"查看所有分享"}', NOW(), NOW()),
+('FileShareDelete', '', 42, 'button', '', 'share:delete', 1, '{"title":"删除分享"}', NOW(), NOW()),
+('FileShareManage', '', 42, 'button', '', 'share:manage', 1, '{"title":"管理分享"}', NOW(), NOW());
 
 -- 给角色添加权限（使用 JSON_ARRAY_APPEND）
 -- super 角色 (id=1)
