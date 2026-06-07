@@ -256,17 +256,7 @@ function copyFolderShareUrl() {
     message.error('分享链接不存在');
     return;
   }
-  navigator.clipboard.writeText(url).then(() => {
-    message.success('链接已复制到剪贴板');
-  }).catch(() => {
-    const input = document.createElement('input');
-    input.value = url;
-    document.body.appendChild(input);
-    input.select();
-    document.execCommand('copy');
-    document.body.removeChild(input);
-    message.success('链接已复制');
-  });
+  fallbackCopy(url);
 }
 
 function openNewFolderModal(parentId?: number) {
@@ -540,16 +530,7 @@ function closeShareModal() {
 
 function copyShareUrl() {
   const url = shareFullUrl.value;
-  // 优先使用 Clipboard API（需要 HTTPS）
-  if (navigator.clipboard?.writeText) {
-    navigator.clipboard.writeText(url).then(() => {
-      message.success('链接已复制到剪贴板');
-    }).catch(() => {
-      fallbackCopy(url);
-    });
-  } else {
-    fallbackCopy(url);
-  }
+  fallbackCopy(url);
 }
 
 function fallbackCopy(text: string) {
