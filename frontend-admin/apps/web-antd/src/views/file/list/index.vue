@@ -745,24 +745,42 @@ const folderSelectData = computed(() => {
     </Modal>
 
     <!-- 预览 -->
-    <Modal v-model:open="previewVisible" :title="previewName" :footer="null" :width="previewType === 'video' ? 960 : 800">
-      <div :style="previewType === 'video' ? { padding: 0, textAlign: 'center' } : {}">
-        <!-- 图片预览 -->
-        <div v-if="previewType === 'image' && previewUrl" class="text-center">
-          <Image :src="previewUrl" class="max-w-full" style="max-height: 600px" />
-        </div>
-        <!-- PDF 预览 -->
-        <iframe v-else-if="previewType === 'pdf' && previewUrl" :src="previewUrl" style="width: 100%; height: 600px; border: none;" />
-        <!-- 视频预览 -->
-        <video v-else-if="previewType === 'video' && previewUrl" :src="previewUrl" controls autoplay style="width: 100%; max-height: 70vh; display: block;" />
-        <!-- 加载中 -->
-        <div v-else-if="previewVisible" class="py-12 text-center text-gray-500">
-          <Spin size="large" />
-          <p class="mt-4">加载中...</p>
-        </div>
-        <!-- 无预览 -->
-        <div v-else class="py-12 text-center text-gray-500">该文件类型不支持预览</div>
+    <Modal
+      v-model:open="previewVisible"
+      :title="previewName"
+      :footer="null"
+      :width="previewType === 'video' ? 960 : 800"
+      :maskClosable="true"
+      :keyboard="true"
+      :destroyOnClose="true"
+      class="preview-modal"
+    >
+      <!-- 图片预览 -->
+      <div v-if="previewType === 'image' && previewUrl" class="text-center p-6">
+        <Image :src="previewUrl" class="max-w-full" style="max-height: 600px" />
       </div>
+      <!-- PDF 预览 -->
+      <iframe v-else-if="previewType === 'pdf' && previewUrl" :src="previewUrl" style="width: 100%; height: 600px; border: none;" />
+      <!-- 视频预览 -->
+      <div v-else-if="previewType === 'video' && previewUrl" class="video-container">
+        <video
+          ref="videoPlayer"
+          :src="previewUrl"
+          controls
+          autoplay
+          preload="auto"
+          playsinline
+          webkit-playsinline
+          style="width: 100%; max-height: 70vh; display: block; background: #000;"
+        />
+      </div>
+      <!-- 加载中 -->
+      <div v-else-if="previewVisible" class="py-12 text-center text-gray-500">
+        <Spin size="large" />
+        <p class="mt-4">加载中...</p>
+      </div>
+      <!-- 无预览 -->
+      <div v-else class="py-12 text-center text-gray-500">该文件类型不支持预览</div>
     </Modal>
 
     <!-- 文件夹操作菜单 -->
@@ -803,5 +821,62 @@ const folderSelectData = computed(() => {
 .w-56 {
   max-height: calc(100vh - 200px);
   overflow-y: auto;
+}
+
+/* 视频预览容器 */
+.video-container {
+  position: relative;
+  width: 100%;
+  background: #000;
+  overflow: hidden;
+}
+
+.video-container video {
+  width: 100%;
+  max-height: 70vh;
+  display: block;
+}
+</style>
+
+<style>
+/* 全局样式 - 修复视频预览控件 */
+.preview-modal .ant-modal-body {
+  padding: 0 !important;
+}
+
+.preview-modal .ant-modal-close {
+  z-index: 10;
+  color: #fff;
+  top: 8px;
+  right: 8px;
+}
+
+.preview-modal .ant-modal-close:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* 确保视频控件可点击 */
+.preview-modal video::-webkit-media-controls {
+  pointer-events: auto !important;
+}
+
+.preview-modal video::-webkit-media-controls-panel {
+  pointer-events: auto !important;
+}
+
+.preview-modal video::-webkit-media-controls-play-button {
+  pointer-events: auto !important;
+}
+
+.preview-modal video::-webkit-media-controls-timeline {
+  pointer-events: auto !important;
+}
+
+.preview-modal video::-webkit-media-controls-volume-slider {
+  pointer-events: auto !important;
+}
+
+.preview-modal video::-webkit-media-controls-fullscreen-button {
+  pointer-events: auto !important;
 }
 </style>
