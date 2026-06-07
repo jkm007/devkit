@@ -474,8 +474,7 @@ async function handleShare(file: FileApi.FileEntry) {
 async function confirmShare() {
   if (shareResult.value) {
     // 已经生成过，直接关闭
-    shareModalVisible.value = false;
-    shareResult.value = null;
+    closeShareModal();
     return;
   }
 
@@ -490,6 +489,11 @@ async function confirmShare() {
     console.error('Share error:', err);
     message.error('分享失败');
   }
+}
+
+function closeShareModal() {
+  shareModalVisible.value = false;
+  shareResult.value = null;
 }
 
 function copyShareUrl() {
@@ -735,9 +739,13 @@ const folderSelectData = computed(() => {
     </Modal>
 
     <!-- 分享 -->
-    <Modal v-model:open="shareModalVisible" title="创建分享链接" :footer="shareResult ? null : undefined" @ok="confirmShare" @cancel="shareResult = null">
-      <Form layout="vertical">
-        <FormItem label="过期时间" v-if="!shareResult">
+    <Modal v-model:open="shareModalVisible" title="创建分享链接" @ok="confirmShare" @cancel="closeShareModal">
+      <template #footer>
+        <Button @click="closeShareModal">{{ shareResult ? '关闭' : '取消' }}</Button>
+        <Button v-if="!shareResult" type="primary" @click="confirmShare">确定</Button>
+      </template>
+      <Form layout="vertical" v-if="!shareResult">
+        <FormItem label="过期时间">
           <Space>
             <InputNumber v-model:value="shareExpireHours" :min="0" style="width: 100px" />
             <span>小时（0表示永久有效）</span>
@@ -746,10 +754,10 @@ const folderSelectData = computed(() => {
       </Form>
       <div v-if="shareResult" class="mt-4 p-3 bg-gray-50 rounded">
         <p class="mb-2 font-medium">分享链接：</p>
-        <Input.Group compact>
-          <Input :value="`${window.location.origin}${shareResult.shareUrl}`" style="width: 280px" readonly />
+        <div class="flex gap-2">
+          <Input :value="`${window.location.origin}${shareResult.shareUrl}`" readonly class="flex-1" />
           <Button type="primary" @click="copyShareUrl">复制</Button>
-        </Input.Group>
+        </div>
       </div>
     </Modal>
 
