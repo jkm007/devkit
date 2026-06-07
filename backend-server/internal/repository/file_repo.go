@@ -93,7 +93,7 @@ func (r *FileRepo) ListEntries(userID uint, folderID uint, page, pageSize int, f
 		query = query.Where("name LIKE ?", "%"+escapeLike(keyword)+"%")
 	}
 	if contentType, ok := filters["contentType"].(string); ok && contentType != "" {
-		query = query.Where("content_type LIKE ?", contentType+"%")
+		query = query.Where("content_type LIKE ?", escapeLike(contentType)+"%")
 	}
 
 	if err := query.Count(&total).Error; err != nil {

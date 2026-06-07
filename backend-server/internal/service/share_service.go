@@ -28,10 +28,13 @@ func NewShareService() *ShareService {
 	}
 }
 
-// generateShareCode 生成分享码
+// generateShareCode 生成分享码（128 位，32 字符 hex）
 func generateShareCode() string {
-	b := make([]byte, 8)
-	rand.Read(b)
+	b := make([]byte, 16) // 128 bits of entropy
+	if _, err := rand.Read(b); err != nil {
+		// 极小概率失败，fallback 到时间戳
+		return fmt.Sprintf("%x", time.Now().UnixNano())
+	}
 	return hex.EncodeToString(b)
 }
 
@@ -110,7 +113,10 @@ func (s *ShareService) GetShareInfo(code string) (map[string]interface{}, error)
 	}
 
 	// 获取分享者信息
-	user, _ := s.userRepo.GetByID(share.UserID)
+	user, err := s.userRepo.GetByID(share.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("分享者信息获取失败")
+	}
 
 	result := map[string]interface{}{
 		"shareCode":    share.ShareCode,
@@ -125,8 +131,8 @@ func (s *ShareService) GetShareInfo(code string) (map[string]interface{}, error)
 
 	// 文件分享
 	if share.FileID > 0 {
-		entry, _ := s.fileRepo.GetEntryByID(share.FileID)
-		if entry == nil {
+		entry, err := s.fileRepo.GetEntryByID(share.FileID)
+		if err != nil || entry == nil {
 			return nil, fmt.Errorf("文件不存在")
 		}
 		asset, _ := s.assetRepo.GetByID(entry.FileAssetID)
@@ -142,8 +148,8 @@ func (s *ShareService) GetShareInfo(code string) (map[string]interface{}, error)
 
 	// 文件夹分享
 	if share.FolderID > 0 {
-		folder, _ := s.fileRepo.GetFolderByID(share.FolderID)
-		if folder == nil {
+		folder, err := s.fileRepo.GetFolderByID(share.FolderID)
+		if err != nil || folder == nil {
 			return nil, fmt.Errorf("文件夹不存在")
 		}
 		result["type"] = "folder"

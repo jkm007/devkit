@@ -42,7 +42,7 @@ async function loadShareInfo() {
 function viewFile(file: any) {
   // 文件夹分享的文件访问 URL
   const url = `/api/share/${shareCode}/file/${file.fileId}`;
-  window.open(url, '_blank');
+  window.open(url, '_blank', 'noopener,noreferrer');
 }
 
 function downloadFile(file: any) {
@@ -50,7 +50,7 @@ function downloadFile(file: any) {
   const link = document.createElement('a');
   link.href = url;
   link.download = file.fileName;
-  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
   link.click();
 }
 
@@ -60,7 +60,7 @@ function downloadSharedFile() {
   const link = document.createElement('a');
   link.href = url;
   link.download = shareInfo.value?.fileName || 'download';
-  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
   link.click();
 }
 
@@ -109,6 +109,8 @@ onMounted(() => {
           <div v-else-if="shareInfo.contentType?.includes('pdf') || shareInfo.fileName?.toLowerCase().endsWith('.pdf')">
             <iframe
               :src="`/api/share/${shareCode}/file`"
+              sandbox="allow-scripts allow-same-origin"
+              referrerpolicy="no-referrer"
               style="width: 100%; height: 400px"
               frameborder="0"
             />

@@ -3,6 +3,8 @@ package service
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
+	"strings"
 
 	"backend-server/internal/model"
 	"backend-server/internal/repository"
@@ -135,8 +137,16 @@ func (s *FileService) RenameFolder(userID uint, folderID uint, newName string) e
 		return fmt.Errorf("无权操作")
 	}
 
+	// 过滤非法字符
+	newName = strings.ReplaceAll(newName, "/", "")
+	newName = strings.ReplaceAll(newName, "..", "")
+	newName = strings.TrimSpace(newName)
+	if newName == "" {
+		return fmt.Errorf("文件夹名称不能为空")
+	}
+
 	oldPath := folder.Path
-	newPath := folder.Path[:len(folder.Path)-len(folder.Name)] + newName
+	newPath := filepath.Dir(folder.Path) + "/" + newName
 
 	folder.Name = newName
 	folder.Path = newPath
@@ -151,11 +161,24 @@ func (s *FileService) RenameFolder(userID uint, folderID uint, newName string) e
 }
 
 func (s *FileService) updateChildPaths(parentID uint, oldPrefix, newPrefix string) {
-	children, _ := s.fileRepo.GetChildFolders(parentID)
-	for _, child := range children {
-		child.Path = newPrefix + child.Path[len(oldPrefix):]
-		s.fileRepo.UpdateFolder(&child)
-		s.updateChildPaths(child.ID, oldPrefix, newPrefix)
+	// 迭代替代递归，避免深层嵌套栈溢出
+	queue := []uint{parentID}
+	for len(queue) > 0 {
+		currentID := queue[0]
+		queue = queue[1:]
+
+		children, err := s.fileRepo.GetChildFolders(currentID)
+		if err != nil {
+			continue
+		}
+		for i := range children {
+			child := &children[i]
+			if len(child.Path) > len(oldPrefix) {
+				child.Path = newPrefix + child.Path[len(oldPrefix):]
+			}
+			s.fileRepo.UpdateFolder(child)
+			queue = append(queue, child.ID)
+		}
 	}
 }
 
@@ -237,10 +260,14 @@ func (s *FileService) ListFiles(userID uint, req *ListFilesRequest) ([]FileEntry
 		return nil, 0, err
 	}
 
-	// 收集所有用户ID
+	// 收集所有用户ID和资产ID
 	userIDs := make(map[uint]bool)
+	assetIDs := make([]uint, 0)
 	for _, entry := range entries {
 		userIDs[entry.UserID] = true
+		if entry.FileAssetID > 0 {
+			assetIDs = append(assetIDs, entry.FileAssetID)
+		}
 	}
 
 	// 批量查询用户信息
@@ -249,6 +276,18 @@ func (s *FileService) ListFiles(userID uint, req *ListFilesRequest) ([]FileEntry
 		user, err := s.userRepo.GetByID(uid)
 		if err == nil {
 			userMap[uid] = user
+		}
+	}
+
+	// 批量查询资产信息
+	assetMap := make(map[uint]*model.FileAsset)
+	if len(assetIDs) > 0 {
+		var assets []model.FileAsset
+		db := database.GetMySQL()
+		if err := db.Where("id IN ?", assetIDs).Find(&assets).Error; err == nil {
+			for i := range assets {
+				assetMap[assets[i].ID] = &assets[i]
+			}
 		}
 	}
 
@@ -273,14 +312,10 @@ func (s *FileService) ListFiles(userID uint, req *ListFilesRequest) ([]FileEntry
 		}
 
 		// 获取预览 URL 和存储类型
-		if entry.FileAssetID > 0 {
-			asset, err := s.assetRepo.GetByID(entry.FileAssetID)
-			if err == nil {
-				// 根据存储类型获取对应的存储实例
-				st := storage.GetStorageByDriver(asset.StorageType)
-				result[i].PreviewURL = st.GetURL(asset.ObjectKey)
-				result[i].StorageType = asset.StorageType
-			}
+		if asset, ok := assetMap[entry.FileAssetID]; ok {
+			st := storage.GetStorageByDriver(asset.StorageType)
+			result[i].PreviewURL = st.GetURL(asset.ObjectKey)
+			result[i].StorageType = asset.StorageType
 		}
 	}
 
@@ -329,18 +364,18 @@ func (s *FileService) DeleteFile(userID uint, fileID uint) error {
 // BatchDeleteFiles 批量删除文件
 func (s *FileService) BatchDeleteFiles(userID uint, fileIDs []uint) (int, []string) {
 	deleted := 0
-	errors := []string{}
+	errList := []string{}
 
 	for _, fileID := range fileIDs {
 		err := s.DeleteFile(userID, fileID)
 		if err != nil {
-			errors = append(errors, fmt.Sprintf("文件 %d: %s", fileID, err.Error()))
+			errList = append(errList, fmt.Sprintf("文件 %d: %s", fileID, err.Error()))
 		} else {
 			deleted++
 		}
 	}
 
-	return deleted, errors
+	return deleted, errList
 }
 
 // BatchMoveFiles 批量移动文件

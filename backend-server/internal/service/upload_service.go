@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"crypto/md5"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"backend-server/pkg/storage"
 
 	"github.com/redis/go-redis/v9"
+	"gorm.io/gorm"
 )
 
 // UploadService 文件上传服务
@@ -39,7 +41,11 @@ func (s *UploadService) getStorage() storage.Storage {
 
 // getUploader 获取分片上传器（如果支持）
 func (s *UploadService) getUploader() storage.MultipartUploader {
-	uploader, _ := s.getStorage().(storage.MultipartUploader)
+	st := s.getStorage()
+	if st == nil {
+		return nil
+	}
+	uploader, _ := st.(storage.MultipartUploader)
 	return uploader
 }
 
@@ -54,8 +60,11 @@ type CheckResult struct {
 func (s *UploadService) CheckUpload(fileHash string, fileSize int64) (*CheckResult, error) {
 	asset, err := s.assetRepo.GetByHash(fileHash)
 	if err != nil {
-		// 未找到，不是秒传
-		return &CheckResult{Exists: false}, nil
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// 未找到，不是秒传
+			return &CheckResult{Exists: false}, nil
+		}
+		return nil, fmt.Errorf("查询文件资产失败: %w", err)
 	}
 	// 大小校验
 	if asset.FileSize != fileSize {
@@ -225,31 +234,46 @@ func (s *UploadService) CompleteUpload(uploadID string) (*CompleteResult, error)
 		return nil, err
 	}
 
-	// 更新任务状态
-	s.uploadRepo.UpdateTaskStatus(uploadID, "completed")
+	// 事务：更新任务状态 + 创建文件资产 + 创建文件条目
+	db := database.GetMySQL()
+	err = db.Transaction(func(tx *gorm.DB) error {
+		// 更新任务状态
+		if err := tx.Model(&model.UploadTask{}).Where("upload_id = ?", uploadID).Update("status", "completed").Error; err != nil {
+			return fmt.Errorf("更新任务状态失败: %w", err)
+		}
 
-	// 创建文件资产（秒传映射）
-	asset := &model.FileAsset{
-		FileHash:    task.FileHash,
-		ObjectKey:   task.ObjectKey,
-		FileName:    task.FileName,
-		FileSize:    task.FileSize,
-		ContentType: task.ContentType,
-		StorageType: storage.GetStorageDriver(),
-		RefCount:    1,
-	}
-	s.assetRepo.Create(asset)
+		// 创建文件资产（秒传映射）
+		asset := &model.FileAsset{
+			FileHash:    task.FileHash,
+			ObjectKey:   task.ObjectKey,
+			FileName:    task.FileName,
+			FileSize:    task.FileSize,
+			ContentType: task.ContentType,
+			StorageType: storage.GetStorageDriver(),
+			RefCount:    1,
+		}
+		if err := tx.Create(asset).Error; err != nil {
+			return fmt.Errorf("创建文件资产失败: %w", err)
+		}
 
-	// 创建文件条目（用于文件列表显示）
-	entry := &model.FileEntry{
-		FolderID:     0, // 根目录
-		FileAssetID:  asset.ID,
-		Name:         task.FileName,
-		Size:         task.FileSize,
-		ContentType:  task.ContentType,
-		UserID:       task.UserID,
+		// 创建文件条目（用于文件列表显示）
+		entry := &model.FileEntry{
+			FolderID:     0, // 根目录
+			FileAssetID:  asset.ID,
+			Name:         task.FileName,
+			Size:         task.FileSize,
+			ContentType:  task.ContentType,
+			UserID:       task.UserID,
+		}
+		if err := tx.Create(entry).Error; err != nil {
+			return fmt.Errorf("创建文件条目失败: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
-	s.fileRepo.CreateEntry(entry)
 
 	// 清理 Redis
 	rdb := database.GetRedis()

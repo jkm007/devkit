@@ -81,7 +81,9 @@ func JWTAuth() gin.HandlerFunc {
 // GetCurrentUserID 从上下文获取当前用户 ID
 func GetCurrentUserID(c *gin.Context) uint {
 	if uid, exists := c.Get("user_id"); exists {
-		return uid.(uint)
+		if id, ok := uid.(uint); ok {
+			return id
+		}
 	}
 	return 0
 }
@@ -89,7 +91,9 @@ func GetCurrentUserID(c *gin.Context) uint {
 // GetCurrentRoles 从上下文获取当前用户角色列表
 func GetCurrentRoles(c *gin.Context) []string {
 	if roles, exists := c.Get("roles"); exists {
-		return roles.([]string)
+		if r, ok := roles.([]string); ok {
+			return r
+		}
 	}
 	return nil
 }

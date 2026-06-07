@@ -11,6 +11,27 @@ import { useAuthStore } from '#/store';
 import { generateAccess } from './access';
 
 /**
+ * 验证重定向 URL 是否安全（防止开放重定向攻击）
+ * 只允许同源路径，拒绝外部 URL 和协议级重定向
+ */
+function isValidRedirect(url: string): string {
+  if (!url) return '';
+  // 拒绝外部协议（http://, https://, javascript:, data: 等）
+  if (/^(https?:|javascript:|data:|vbscript:)/i.test(url)) {
+    return '';
+  }
+  // 拒绝协议相对路径（//evil.com）
+  if (url.startsWith('//')) {
+    return '';
+  }
+  // 只允许 / 开头的同源路径
+  if (url.startsWith('/')) {
+    return url;
+  }
+  return '';
+}
+
+/**
  * 通用守卫配置
  * @param router
  */
@@ -58,11 +79,14 @@ function setupAccessGuard(router: Router) {
     // 公开路由（基本路由+外部路由），这些路由不需要进入权限拦截
     if (publicRouteNames.includes(to.name as string)) {
       if (to.path === LOGIN_PATH && accessStore.accessToken) {
-        return decodeURIComponent(
-          (to.query?.redirect as string) ||
-            userStore.userInfo?.homePath ||
-            preferences.app.defaultHomePath,
+        const redirectUrl = isValidRedirect(
+          decodeURIComponent(
+            (to.query?.redirect as string) ||
+              userStore.userInfo?.homePath ||
+              preferences.app.defaultHomePath,
+          ),
         );
+        return redirectUrl || userStore.userInfo?.homePath || preferences.app.defaultHomePath;
       }
       return true;
     }

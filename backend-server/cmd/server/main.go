@@ -32,6 +32,9 @@ func main() {
 		log.Fatalf("加载配置失败: %v", err)
 	}
 
+	// 1.5 校验敏感密钥配置（必须通过环境变量设置）
+	validateSecrets(cfg)
+
 	// 2. 初始化日志
 	if err := logger.Init(cfg.Log); err != nil {
 		log.Fatalf("初始化日志失败: %v", err)
@@ -173,5 +176,26 @@ func initOAuthProviders(cfg *config.Config) {
 			RedirectURL:  cfg.OAuth.WeChat.RedirectURL,
 		}))
 		logger.Info("OAuth 提供商已注册: wechat")
+	}
+}
+
+// validateSecrets 启动时校验敏感密钥，拒绝使用默认占位符值
+func validateSecrets(cfg *config.Config) {
+	const defaultPrefix = "changeme"
+
+	var missing []string
+
+	if cfg.JWT.Secret == "" || len(cfg.JWT.Secret) >= len(defaultPrefix) && cfg.JWT.Secret[:len(defaultPrefix)] == defaultPrefix {
+		missing = append(missing, "JWT_SECRET")
+	}
+	if cfg.Crypto.AESKey == "" || len(cfg.Crypto.AESKey) >= len(defaultPrefix) && cfg.Crypto.AESKey[:len(defaultPrefix)] == defaultPrefix {
+		missing = append(missing, "AES_KEY")
+	}
+	if cfg.Captcha.Secret == "" || len(cfg.Captcha.Secret) >= len(defaultPrefix) && cfg.Captcha.Secret[:len(defaultPrefix)] == defaultPrefix {
+		missing = append(missing, "CAPTCHA_SECRET")
+	}
+
+	if len(missing) > 0 {
+		log.Fatalf("安全校验失败：以下密钥仍为默认占位符，请通过环境变量设置真实密钥: %v", missing)
 	}
 }

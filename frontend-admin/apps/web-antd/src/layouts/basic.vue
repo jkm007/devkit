@@ -165,7 +165,7 @@ function navigateTo(
 ) {
   if (link.startsWith('http://') || link.startsWith('https://')) {
     // 外部链接，在新标签页打开
-    window.open(link, '_blank');
+    window.open(link, '_blank', 'noopener,noreferrer');
   } else {
     // 内部路由链接，支持 query 参数和 state
     router.push({

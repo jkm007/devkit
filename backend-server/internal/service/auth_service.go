@@ -20,6 +20,7 @@ import (
 	"backend-server/pkg/jwt"
 	"backend-server/pkg/logger"
 
+	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -176,7 +177,8 @@ func (s *AuthService) Login(req *LoginRequest, clientIP string) (*LoginResponse,
 			s.recordLoginFail(clientIP)
 			return nil, errors.New("Username or password is incorrect.")
 		}
-		return nil, err
+		logger.Error("登录时数据库查询失败", zap.Error(err))
+		return nil, errors.New("Username or password is incorrect.")
 	}
 
 	// 验证密码
@@ -893,6 +895,15 @@ func (s *AuthService) ResetPassword(req *ResetPasswordRequest, ip, userAgent str
 	user, err := s.userRepo.GetByEmail(req.Email)
 	if err != nil || user == nil || user.ID == 0 {
 		return errors.New("该邮箱未注册")
+	}
+
+	// 检查密码历史（防止重复使用旧密码）
+	phs := NewPasswordHistoryService()
+	isRepeated, err := phs.CheckRepeated(user.ID, req.NewPassword)
+	if err != nil {
+		logger.Error("密码历史检查失败", zap.Error(err))
+	} else if isRepeated {
+		return errors.New("新密码不能与最近5次使用的密码相同")
 	}
 
 	// 加密新密码

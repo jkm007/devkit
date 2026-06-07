@@ -718,7 +718,7 @@ const folderSelectData = computed(() => {
         <!-- 图片预览 -->
         <Image v-if="previewUrl && previewName.match(/\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i)" :src="previewUrl" class="max-w-full" style="max-height: 500px" />
         <!-- PDF 预览 -->
-        <iframe v-else-if="previewUrl && previewName.toLowerCase().endsWith('.pdf')" :src="previewUrl" style="width: 100%; height: 500px" frameborder="0" />
+        <iframe v-else-if="previewUrl && previewName.toLowerCase().endsWith('.pdf')" :src="previewUrl" sandbox="allow-scripts allow-same-origin" referrerpolicy="no-referrer" style="width: 100%; height: 500px" frameborder="0" />
         <!-- 视频预览 -->
         <video v-else-if="previewUrl && previewName.match(/\.(mp4|webm|ogg|mov)$/i)" :src="previewUrl" controls style="max-width: 100%; max-height: 500px" />
         <!-- 无预览 -->
