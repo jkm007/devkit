@@ -254,9 +254,38 @@ export async function uploadPart(data: {
   return result.data;
 }
 
-/** 完成上传 */
-export function completeUpload(data: { uploadId: string }) {
-  return requestClient.post<FileApi.CompleteUploadResult>('/files/upload/complete', data);
+/** 完成上传 - 使用原生 fetch 避免超时问题（大文件合并需要较长时间） */
+export async function completeUpload(data: { uploadId: string }): Promise<FileApi.CompleteUploadResult> {
+  const accessStore = useAccessStore();
+  const token = accessStore.accessToken || '';
+
+  const response = await fetch('/api/files/upload/complete', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    if (text.startsWith('<') || text.startsWith('<!')) {
+      throw new Error('请求未到达服务器，请检查网络或刷新页面重试');
+    }
+    try {
+      const json = JSON.parse(text);
+      throw new Error(json.message || json.error || `完成上传失败: ${response.status}`);
+    } catch {
+      throw new Error(`完成上传失败: ${response.status}`);
+    }
+  }
+
+  const result = await response.json();
+  if (result.code !== 0) {
+    throw new Error(result.message || result.error || '完成上传失败');
+  }
+  return result.data;
 }
 
 /** 取消上传 */
