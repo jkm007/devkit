@@ -399,68 +399,36 @@ async function handleDownload(file: FileApi.FileEntry) {
 async function handlePreview(file: FileApi.FileEntry) {
   previewName.value = file.name;
   previewUrl.value = '';
-  previewVisible.value = true;
 
   // 构建预览 URL（带认证）
   const token = accessStore.accessToken;
   const viewUrl = `/api/files/${file.id}/view`;
 
-  // 图片类型
-  if (file.contentType?.startsWith('image/')) {
-    try {
-      // 使用 fetch 获取图片 blob
-      const response = await fetch(viewUrl, {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-      if (response.ok) {
-        const blob = await response.blob();
-        previewUrl.value = URL.createObjectURL(blob);
-      } else {
-        message.error('获取预览失败');
-        previewVisible.value = false;
-      }
-    } catch {
-      message.error('获取预览失败');
-      previewVisible.value = false;
-    }
-  } else if (file.contentType?.startsWith('video/')) {
-    // 视频类型 - 使用带认证的 view 接口
-    try {
-      const response = await fetch(viewUrl, {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-      if (response.ok) {
-        const blob = await response.blob();
-        previewUrl.value = URL.createObjectURL(blob);
-      } else {
-        message.error('获取预览失败');
-        previewVisible.value = false;
-      }
-    } catch {
-      message.error('获取预览失败');
-      previewVisible.value = false;
-    }
-  } else if (file.contentType?.includes('pdf')) {
-    // PDF 类型
-    try {
-      const response = await fetch(viewUrl, {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-      if (response.ok) {
-        const blob = await response.blob();
-        previewUrl.value = URL.createObjectURL(blob);
-      } else {
-        message.error('获取预览失败');
-        previewVisible.value = false;
-      }
-    } catch {
-      message.error('获取预览失败');
-      previewVisible.value = false;
-    }
-  } else {
+  // 支持预览的类型
+  const isPreviewable = file.contentType?.startsWith('image/') ||
+    file.contentType?.startsWith('video/') ||
+    file.contentType?.includes('pdf');
+
+  if (!isPreviewable) {
     // 其他类型 - 直接下载
-    previewVisible.value = false;
     handleDownload(file);
+    return;
+  }
+
+  // 先获取文件内容，成功后再显示 Modal
+  try {
+    const response = await fetch(viewUrl, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (response.ok) {
+      const blob = await response.blob();
+      previewUrl.value = URL.createObjectURL(blob);
+      previewVisible.value = true;
+    } else {
+      message.error('获取预览失败');
+    }
+  } catch {
+    message.error('获取预览失败');
   }
 }
 
