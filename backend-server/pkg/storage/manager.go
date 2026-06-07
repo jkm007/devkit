@@ -44,7 +44,9 @@ func InitStorage(cfg config.StorageConfig) {
 	storageCache[cfg.Driver] = s
 	// 本地存储始终可用
 	if cfg.Driver != "local" {
-		storageCache["local"] = NewLocalStorage(cfg.Local)
+		localStorage := NewLocalStorage(cfg.Local)
+		storageCache["local"] = localStorage
+		log.Printf("[INFO] 本地存储已初始化: path=%s", cfg.Local.Path)
 	}
 }
 
