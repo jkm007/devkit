@@ -1,7 +1,8 @@
 <script lang="ts" setup>
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
+import { useAccessStore } from '@vben/stores';
 
 import {
   Button,
@@ -28,6 +29,16 @@ import {
 import type { ShareListItem } from '#/api/file';
 
 defineOptions({ name: 'ShareList' });
+
+const accessStore = useAccessStore();
+
+// ==================== 权限检查 ====================
+
+const permissions = computed(() => accessStore.accessCodes || []);
+const hasViewAllPermission = computed(() => permissions.value.includes('file:view:all'));
+const hasSharePermission = computed(() => permissions.value.includes('file:share'));
+const hasDeletePermission = computed(() => permissions.value.includes('file:delete'));
+const hasManagePermission = computed(() => permissions.value.includes('file:manage'));
 
 // ==================== 状态 ====================
 
@@ -73,16 +84,8 @@ async function loadShareList() {
 
 // 复制分享链接
 function copyShareUrl(share: ShareListItem) {
-  const url = `${window.location.origin}${share.shareUrl}`;
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(url).then(() => {
-      message.success('链接已复制到剪贴板');
-    }).catch(() => {
-      fallbackCopy(url);
-    });
-  } else {
-    fallbackCopy(url);
-  }
+  const url = `${window.location.origin}/share/${share.shareCode}`;
+  fallbackCopy(url);
 }
 
 function fallbackCopy(text: string) {
@@ -371,18 +374,18 @@ onMounted(() => {
       <div class="mb-4 flex items-center justify-between">
         <div class="flex items-center gap-4">
           <span class="text-gray-500">共 {{ totalShares }} 个分享</span>
-          <Space v-if="selectedRowKeys.length > 0">
+          <Space v-if="selectedRowKeys.length > 0 && (hasDeletePermission || hasManagePermission)">
             <span class="text-blue-500">已选 {{ selectedRowKeys.length }} 项</span>
-            <Button size="small" danger @click="handleBatchDelete">
+            <Button v-if="hasDeletePermission" size="small" danger @click="handleBatchDelete">
               批量删除
             </Button>
-            <Button size="small" @click="openBatchStatusModal(3)">
+            <Button v-if="hasManagePermission" size="small" @click="openBatchStatusModal(3)">
               批量禁用
             </Button>
-            <Button size="small" @click="openBatchStatusModal(1)">
+            <Button v-if="hasManagePermission" size="small" @click="openBatchStatusModal(1)">
               批量启用
             </Button>
-            <Button size="small" @click="openBatchStatusModal(2)">
+            <Button v-if="hasManagePermission" size="small" @click="openBatchStatusModal(2)">
               批量过期
             </Button>
           </Space>
@@ -401,7 +404,7 @@ onMounted(() => {
           showSizeChanger: true,
         }"
         :scroll="{ x: 1200 }"
-        :row-selection="{ selectedRowKeys, onChange: (keys) => selectedRowKeys = keys }"
+        :row-selection="(hasDeletePermission || hasManagePermission) ? { selectedRowKeys, onChange: (keys) => selectedRowKeys = keys } : undefined"
         row-key="id"
         @change="(pag) => { pagination = pag; loadShareList(); }"
       >
@@ -467,7 +470,7 @@ onMounted(() => {
               </Button>
 
               <!-- 有效状态的操作 -->
-              <template v-if="record.status === 1">
+              <template v-if="record.status === 1 && hasManagePermission">
                 <Button type="link" size="small" @click="openRenewModal(record.id)">
                   续签
                 </Button>
@@ -493,7 +496,7 @@ onMounted(() => {
               </template>
 
               <!-- 过期/禁用状态的操作 -->
-              <template v-if="record.status === 2 || record.status === 3">
+              <template v-if="(record.status === 2 || record.status === 3) && hasManagePermission">
                 <Button type="link" size="small" @click="openRenewModal(record.id)">
                   续签
                 </Button>
@@ -513,6 +516,7 @@ onMounted(() => {
 
               <!-- 删除 -->
               <Popconfirm
+                v-if="hasDeletePermission"
                 title="确定要删除此分享吗？删除后无法恢复。"
                 @confirm="handleDelete(record.id)"
               >

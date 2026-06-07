@@ -190,7 +190,9 @@ async function loadFileList() {
 }
 
 function handleFolderSelect(keys: (string | number)[]) {
-  currentFolderId.value = keys[0] as number | null;
+  const key = keys[0];
+  // 点击"全部文件"或取消选择时，显示全部文件
+  currentFolderId.value = key === '__all__' || key === undefined ? null : (key as number);
   pagination.value.current = 1;
   loadFileList();
 }
@@ -647,7 +649,10 @@ const treeData = computed<TreeProps['treeData']>(() => {
       type: f.type,
       children: f.children ? convert(f.children) : undefined,
     }));
-  return convert(folderTree.value);
+  return [
+    { key: '__all__', title: '全部文件', type: 'all' },
+    ...convert(folderTree.value),
+  ];
 });
 
 const folderSelectData = computed(() => {
@@ -673,15 +678,17 @@ const folderSelectData = computed(() => {
 
         <Tree
           :tree-data="treeData"
-          :selected-keys="currentFolderId ? [currentFolderId] : []"
+          :selected-keys="currentFolderId ? [currentFolderId] : ['__all__']"
           default-expand-all
+          :style="{ '--ant-tree-node-selected-bg': '#e6f4ff' }"
           @select="handleFolderSelect"
         >
           <template #title="node">
             <div class="flex items-center gap-1 py-1 group">
-              <span :class="node.type === 'avatar' ? 'i-ant-design:user-outlined' : 'i-ant-design:folder-outlined'" />
+              <span :class="node.type === 'all' ? 'i-ant-design:home-outlined' : node.type === 'avatar' ? 'i-ant-design:user-outlined' : 'i-ant-design:folder-outlined'" />
               <span class="flex-1 truncate">{{ node.title as string }}</span>
               <button
+                v-if="node.type !== 'all'"
                 type="button"
                 class="opacity-0 group-hover:opacity-100 ml-1 px-1 py-0.5 text-xs rounded hover:bg-gray-200"
                 @click.stop
@@ -994,6 +1001,16 @@ const folderSelectData = computed(() => {
 .w-56 {
   max-height: calc(100vh - 200px);
   overflow-y: auto;
+}
+
+/* 目录树选中高亮 */
+.w-56 :deep(.ant-tree .ant-tree-node-selected) {
+  background-color: #e6f4ff !important;
+  border-radius: 4px;
+}
+
+.w-56 :deep(.ant-tree .ant-tree-node-content-wrapper:hover) {
+  background-color: #f0f5ff;
 }
 
 /* 视频预览容器 */
