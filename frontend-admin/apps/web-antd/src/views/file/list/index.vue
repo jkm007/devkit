@@ -235,7 +235,9 @@ async function confirmFolderShare() {
     const result = await createFolderShare(folderShareId.value!, {
       expireHours: folderShareExpireHours.value || undefined,
     });
-    folderShareResult.value = result;
+    // 处理响应格式：可能是 { data: {...} } 或直接是 {...}
+    const shareData = result?.data || result;
+    folderShareResult.value = shareData;
     message.success('分享链接已生成');
   } catch {
     message.error('分享失败');
@@ -509,12 +511,9 @@ async function confirmShare() {
     const result = await createFileShare(shareFileId.value!, {
       expireHours: shareExpireHours.value || undefined,
     });
-    console.log('Share result:', result);
-    console.log('Share URL:', result?.shareUrl);
-    console.log('Share Code:', result?.shareCode);
-    shareResult.value = { ...result };
-    await nextTick();
-    console.log('shareResult after update:', shareResult.value);
+    // 处理响应格式：可能是 { data: {...} } 或直接是 {...}
+    const shareData = result?.data || result;
+    shareResult.value = { ...shareData };
     message.success('分享链接已生成');
   } catch (err) {
     console.error('Share error:', err);
