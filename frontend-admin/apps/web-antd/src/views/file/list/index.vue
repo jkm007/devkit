@@ -483,9 +483,11 @@ async function confirmShare() {
     const result = await createFileShare(shareFileId.value!, {
       expireHours: shareExpireHours.value || undefined,
     });
+    console.log('Share result:', result);
     shareResult.value = result;
     message.success('分享链接已生成');
-  } catch {
+  } catch (err) {
+    console.error('Share error:', err);
     message.error('分享失败');
   }
 }
