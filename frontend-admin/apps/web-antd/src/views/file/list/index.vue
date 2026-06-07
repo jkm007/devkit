@@ -429,18 +429,16 @@ async function handlePreview(file: FileApi.FileEntry) {
   // 先显示 Modal 和加载状态
   previewVisible.value = true;
 
-  // 视频使用预签名 URL（支持流式播放，不需要下载整个文件）
-  if (isVideo) {
-    previewType.value = 'video';
+  // 视频和 PDF 使用预签名 URL（支持流式加载，不需要下载整个文件）
+  if (isVideo || isPdf) {
+    previewType.value = isVideo ? 'video' : 'pdf';
     try {
-      // 获取预签名 URL
       const response = await fetch(`/api/files/${file.id}/preview-url`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       if (response.ok) {
         const result = await response.json();
         if (result.code === 0) {
-          // 使用预签名 URL，浏览器可以直接请求（支持 Range 请求）
           previewUrl.value = `/api${result.data.url}`;
           return;
         }
@@ -454,7 +452,7 @@ async function handlePreview(file: FileApi.FileEntry) {
     return;
   }
 
-  // 图片和 PDF 需要先下载
+  // 图片需要先下载（通常较小，blob URL 即可）
   const viewUrl = `/api/files/${file.id}/view`;
   try {
     const response = await fetch(viewUrl, {
@@ -463,7 +461,7 @@ async function handlePreview(file: FileApi.FileEntry) {
     if (response.ok) {
       const blob = await response.blob();
       previewUrl.value = URL.createObjectURL(blob);
-      previewType.value = isImage ? 'image' : 'pdf';
+      previewType.value = 'image';
     } else {
       message.error('获取预览失败');
       previewVisible.value = false;
