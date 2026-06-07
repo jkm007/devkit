@@ -743,22 +743,24 @@ const folderSelectData = computed(() => {
     </Modal>
 
     <!-- 预览 -->
-    <Modal v-model:open="previewVisible" :title="previewName" :footer="null" :width="previewType === 'video' ? 960 : 800" :bodyStyle="{ padding: previewType === 'video' ? '0' : '24px', textAlign: previewType === 'video' ? 'center' : 'left' }">
-      <!-- 图片预览 -->
-      <div v-if="previewType === 'image' && previewUrl" class="text-center">
-        <Image :src="previewUrl" class="max-w-full" style="max-height: 600px" />
+    <Modal v-model:open="previewVisible" :title="previewName" :footer="null" :width="previewType === 'video' ? 960 : 800">
+      <div :style="previewType === 'video' ? { padding: 0, textAlign: 'center' } : {}">
+        <!-- 图片预览 -->
+        <div v-if="previewType === 'image' && previewUrl" class="text-center">
+          <Image :src="previewUrl" class="max-w-full" style="max-height: 600px" />
+        </div>
+        <!-- PDF 预览 -->
+        <iframe v-else-if="previewType === 'pdf' && previewUrl" :src="previewUrl" style="width: 100%; height: 600px; border: none;" />
+        <!-- 视频预览 -->
+        <video v-else-if="previewType === 'video' && previewUrl" :src="previewUrl" controls autoplay style="width: 100%; max-height: 70vh; display: block;" />
+        <!-- 加载中 -->
+        <div v-else-if="previewVisible" class="py-12 text-center text-gray-500">
+          <Spin size="large" />
+          <p class="mt-4">加载中...</p>
+        </div>
+        <!-- 无预览 -->
+        <div v-else class="py-12 text-center text-gray-500">该文件类型不支持预览</div>
       </div>
-      <!-- PDF 预览 -->
-      <iframe v-else-if="previewType === 'pdf' && previewUrl" :src="previewUrl" sandbox="allow-scripts allow-same-origin" referrerpolicy="no-referrer" style="width: 100%; height: 600px; border: none;" frameborder="0" />
-      <!-- 视频预览 -->
-      <video v-else-if="previewType === 'video' && previewUrl" :src="previewUrl" controls autoplay style="width: 100%; max-height: 80vh; display: block;" />
-      <!-- 加载中 -->
-      <div v-else-if="previewVisible" class="py-12 text-center text-gray-500">
-        <Spin size="large" />
-        <p class="mt-4">加载中...</p>
-      </div>
-      <!-- 无预览 -->
-      <div v-else class="py-12 text-center text-gray-500">该文件类型不支持预览</div>
     </Modal>
 
     <!-- 文件夹操作菜单 -->
