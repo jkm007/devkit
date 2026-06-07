@@ -391,7 +391,10 @@ async function calculateFileHash(file: File): Promise<string> {
   return `${file.name}_${file.size}_${Date.now()}`;
 }
 
-/** 简单上传（不分片） */
+/** 分片大小：5MB */
+const CHUNK_SIZE = 5 * 1024 * 1024;
+
+/** 简单上传（小文件，不分片） */
 export async function simpleUpload(
   file: File,
   onProgress?: UploadProgressCallback,
@@ -412,21 +415,89 @@ export async function simpleUpload(
     };
   }
 
-  // 小文件单分片上传
+  // 判断是否需要分片
+  if (file.size <= CHUNK_SIZE) {
+    // 小文件单分片上传
+    const initResult = await initUpload({
+      fileName: file.name,
+      fileSize: file.size,
+      fileHash,
+      contentType: file.type,
+      totalParts: 1,
+    });
+
+    await uploadPart({
+      uploadId: initResult.uploadId,
+      partNumber: 1,
+      file,
+      onProgress,
+    });
+
+    return completeUpload({ uploadId: initResult.uploadId });
+  }
+
+  // 大文件分片上传
+  return chunkedUpload(file, fileHash, onProgress);
+}
+
+/** 大文件分片上传 */
+async function chunkedUpload(
+  file: File,
+  fileHash: string,
+  onProgress?: UploadProgressCallback,
+): Promise<FileApi.CompleteUploadResult> {
+  // 计算分片数量
+  const totalParts = Math.ceil(file.size / CHUNK_SIZE);
+
+  // 初始化上传
   const initResult = await initUpload({
     fileName: file.name,
     fileSize: file.size,
     fileHash,
     contentType: file.type,
-    totalParts: 1,
+    totalParts,
   });
 
-  await uploadPart({
-    uploadId: initResult.uploadId,
-    partNumber: 1,
-    file,
-    onProgress,
-  });
+  // 已上传的分片
+  const uploadedParts = new Set(initResult.uploadedParts || []);
+  let uploadedSize = uploadedParts.size * CHUNK_SIZE;
 
+  // 逐个上传分片
+  for (let partNumber = 1; partNumber <= totalParts; partNumber++) {
+    // 跳过已上传的分片
+    if (uploadedParts.has(partNumber)) {
+      continue;
+    }
+
+    // 计算分片范围
+    const start = (partNumber - 1) * CHUNK_SIZE;
+    const end = Math.min(start + CHUNK_SIZE, file.size);
+    const chunk = file.slice(start, end);
+
+    // 上传分片
+    await uploadPart({
+      uploadId: initResult.uploadId,
+      partNumber,
+      file: chunk,
+      onProgress: (event) => {
+        // 计算总体进度
+        const currentChunkSize = end - start;
+        const chunkLoaded = event.loaded;
+        const totalLoaded = uploadedSize + chunkLoaded;
+        const percent = Math.round((totalLoaded / file.size) * 100);
+        onProgress?.({
+          loaded: totalLoaded,
+          total: file.size,
+          percent: Math.min(percent, 99), // 最多显示99%，完成后再显示100%
+        });
+      },
+    });
+
+    // 更新已上传大小
+    uploadedSize += end - start;
+  }
+
+  // 完成上传
+  onProgress?.({ loaded: file.size, total: file.size, percent: 100 });
   return completeUpload({ uploadId: initResult.uploadId });
 }

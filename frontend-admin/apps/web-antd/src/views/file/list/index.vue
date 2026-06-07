@@ -398,44 +398,69 @@ async function handleDownload(file: FileApi.FileEntry) {
 
 async function handlePreview(file: FileApi.FileEntry) {
   previewName.value = file.name;
+  previewUrl.value = '';
   previewVisible.value = true;
 
-  // 图片类型 - 使用下载 API 获取 presigned URL
+  // 构建预览 URL（带认证）
+  const token = accessStore.accessToken;
+  const viewUrl = `/api/files/${file.id}/view`;
+
+  // 图片类型
   if (file.contentType?.startsWith('image/')) {
     try {
-      const res = await downloadFile(file.id);
-      if (res?.url) {
-        previewUrl.value = res.url;
+      // 使用 fetch 获取图片 blob
+      const response = await fetch(viewUrl, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const blob = await response.blob();
+        previewUrl.value = URL.createObjectURL(blob);
       } else {
-        previewUrl.value = '';
-        message.error('获取预览链接失败');
+        message.error('获取预览失败');
+        previewVisible.value = false;
       }
     } catch {
-      previewUrl.value = '';
-      message.error('获取预览链接失败');
-    }
-  } else if (file.contentType?.startsWith('video/')) {
-    // 视频类型 - 使用流地址
-    previewUrl.value = `/api/files/${file.id}/stream`;
-  } else {
-    // PDF 和其他类型 - 直接打开下载链接
-    previewUrl.value = '';
-    try {
-      const res = await downloadFile(file.id);
-      if (res?.url) {
-        // PDF 可以在浏览器中直接显示
-        if (file.contentType?.includes('pdf')) {
-          previewUrl.value = res.url;
-        } else {
-          // 其他类型打开新窗口下载
-          window.open(res.url, '_blank');
-          previewVisible.value = false;
-        }
-      }
-    } catch {
-      message.error('无法预览');
+      message.error('获取预览失败');
       previewVisible.value = false;
     }
+  } else if (file.contentType?.startsWith('video/')) {
+    // 视频类型 - 使用带认证的 view 接口
+    try {
+      const response = await fetch(viewUrl, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const blob = await response.blob();
+        previewUrl.value = URL.createObjectURL(blob);
+      } else {
+        message.error('获取预览失败');
+        previewVisible.value = false;
+      }
+    } catch {
+      message.error('获取预览失败');
+      previewVisible.value = false;
+    }
+  } else if (file.contentType?.includes('pdf')) {
+    // PDF 类型
+    try {
+      const response = await fetch(viewUrl, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const blob = await response.blob();
+        previewUrl.value = URL.createObjectURL(blob);
+      } else {
+        message.error('获取预览失败');
+        previewVisible.value = false;
+      }
+    } catch {
+      message.error('获取预览失败');
+      previewVisible.value = false;
+    }
+  } else {
+    // 其他类型 - 直接下载
+    previewVisible.value = false;
+    handleDownload(file);
   }
 }
 
@@ -722,12 +747,12 @@ const folderSelectData = computed(() => {
     <!-- 预览 -->
     <Modal v-model:open="previewVisible" :title="previewName" :footer="null" :width="800">
       <div class="text-center">
-        <!-- PDF 预览 - 优先判断 -->
-        <iframe v-if="previewUrl && (previewUrl.includes('.pdf') || (previewName.toLowerCase().endsWith('.pdf') && previewUrl))" :src="previewUrl" style="width: 100%; height: 500px" frameborder="0" />
         <!-- 图片预览 -->
-        <Image v-else-if="previewUrl && previewUrl.includes('uploads')" :src="previewUrl" class="max-w-full" style="max-height: 500px" />
+        <Image v-if="previewUrl && previewName.match(/\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i)" :src="previewUrl" class="max-w-full" style="max-height: 500px" />
+        <!-- PDF 预览 -->
+        <iframe v-else-if="previewUrl && previewName.toLowerCase().endsWith('.pdf')" :src="previewUrl" style="width: 100%; height: 500px" frameborder="0" />
         <!-- 视频预览 -->
-        <video v-else-if="previewUrl && previewUrl.includes('stream')" :src="previewUrl" controls style="max-width: 100%; max-height: 500px" />
+        <video v-else-if="previewUrl && previewName.match(/\.(mp4|webm|ogg|mov)$/i)" :src="previewUrl" controls style="max-width: 100%; max-height: 500px" />
         <!-- 无预览 -->
         <div v-else class="py-8 text-gray-500">该文件类型不支持预览</div>
       </div>
