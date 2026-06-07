@@ -241,7 +241,11 @@ func parseShareRange(rangeHeader string, fileSize int64) (start, end int64) {
 	rangeHeader = rangeHeader[6:]
 
 	// 处理 bytes=-suffix (最后 N 个字节)
-	if rangeHeader[0] == '-' {
+	if len(rangeHeader) > 0 && rangeHeader[0] == '-' {
+		if len(rangeHeader) == 1 {
+			// bytes=- 表示整个文件
+			return 0, fileSize - 1
+		}
 		length, err := strconv.ParseInt(rangeHeader[1:], 10, 64)
 		if err != nil {
 			return -1, -1
@@ -249,37 +253,42 @@ func parseShareRange(rangeHeader string, fileSize int64) (start, end int64) {
 		return fileSize - length, fileSize - 1
 	}
 
-	// 处理 bytes=start-end
-	parts := splitRange(rangeHeader)
-	if len(parts) == 0 {
+	// 处理 bytes=start-end 或 bytes=start-
+	dashIndex := -1
+	for i := 0; i < len(rangeHeader); i++ {
+		if rangeHeader[i] == '-' {
+			dashIndex = i
+			break
+		}
+	}
+
+	if dashIndex < 0 {
 		return -1, -1
 	}
 
-	start, err := strconv.ParseInt(parts[0], 10, 64)
+	// 解析 start
+	startStr := rangeHeader[:dashIndex]
+	if startStr == "" {
+		return -1, -1
+	}
+	start, err := strconv.ParseInt(startStr, 10, 64)
 	if err != nil {
 		return -1, -1
 	}
 
-	if len(parts) == 1 {
+	// 解析 end（可选）
+	endStr := rangeHeader[dashIndex+1:]
+	if endStr == "" {
+		// bytes=start- 表示从 start 到文件末尾
 		return start, fileSize - 1
 	}
 
-	end, err = strconv.ParseInt(parts[1], 10, 64)
+	end, err = strconv.ParseInt(endStr, 10, 64)
 	if err != nil {
 		return -1, -1
 	}
 
 	return start, end
-}
-
-// splitRange 分割 Range 值
-func splitRange(s string) []string {
-	for i := 0; i < len(s); i++ {
-		if s[i] == '-' {
-			return []string{s[:i], s[i+1:]}
-		}
-	}
-	return []string{s}
 }
 
 // GetMyShares 获取我的分享列表
