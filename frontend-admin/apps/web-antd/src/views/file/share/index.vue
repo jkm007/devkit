@@ -35,6 +35,7 @@ const loading = ref(false);
 const shareList = ref<ShareListItem[]>([]);
 const totalShares = ref(0);
 const pagination = ref({ current: 1, pageSize: 20 });
+const selectedRowKeys = ref<number[]>([]);
 
 // 续签弹窗
 const renewModalVisible = ref(false);
@@ -45,6 +46,10 @@ const renewExpireHours = ref(24);
 const expiryModalVisible = ref(false);
 const expiryShareId = ref<number | null>(null);
 const expiryDate = ref<string>('');
+
+// 批量修改状态弹窗
+const batchStatusModalVisible = ref(false);
+const batchStatusValue = ref<number>(3); // 3=禁用
 
 // ==================== 加载 ====================
 
@@ -180,6 +185,89 @@ async function handleDelete(id: number) {
   }
 }
 
+// 批量删除
+async function handleBatchDelete() {
+  if (selectedRowKeys.value.length === 0) {
+    message.warning('请先选择要删除的分享');
+    return;
+  }
+
+  try {
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const id of selectedRowKeys.value) {
+      try {
+        await deleteShare(id);
+        successCount++;
+      } catch {
+        failCount++;
+      }
+    }
+
+    if (failCount > 0) {
+      message.warning(`已删除 ${successCount} 个，${failCount} 个失败`);
+    } else {
+      message.success(`已删除 ${successCount} 个分享`);
+    }
+
+    selectedRowKeys.value = [];
+    loadShareList();
+  } catch (err: any) {
+    message.error(err.message || '批量删除失败');
+  }
+}
+
+// 批量修改状态
+async function handleBatchStatus() {
+  if (selectedRowKeys.value.length === 0) {
+    message.warning('请先选择要操作的分享');
+    return;
+  }
+
+  try {
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const id of selectedRowKeys.value) {
+      try {
+        if (batchStatusValue.value === 2) {
+          await expireShare(id);
+        } else if (batchStatusValue.value === 3) {
+          await disableShare(id);
+        } else if (batchStatusValue.value === 1) {
+          await enableShare(id);
+        }
+        successCount++;
+      } catch {
+        failCount++;
+      }
+    }
+
+    if (failCount > 0) {
+      message.warning(`已处理 ${successCount} 个，${failCount} 个失败`);
+    } else {
+      message.success(`已处理 ${successCount} 个分享`);
+    }
+
+    selectedRowKeys.value = [];
+    batchStatusModalVisible.value = false;
+    loadShareList();
+  } catch (err: any) {
+    message.error(err.message || '批量操作失败');
+  }
+}
+
+// 打开批量状态弹窗
+function openBatchStatusModal(status: number) {
+  if (selectedRowKeys.value.length === 0) {
+    message.warning('请先选择要操作的分享');
+    return;
+  }
+  batchStatusValue.value = status;
+  batchStatusModalVisible.value = true;
+}
+
 // ==================== 工具函数 ====================
 
 function formatFileSize(size: number | undefined | null) {
@@ -279,9 +367,26 @@ onMounted(() => {
 <template>
   <Page title="分享管理">
     <Card>
-      <!-- 统计信息 -->
+      <!-- 统计信息和批量操作 -->
       <div class="mb-4 flex items-center justify-between">
-        <span class="text-gray-500">共 {{ totalShares }} 个分享</span>
+        <div class="flex items-center gap-4">
+          <span class="text-gray-500">共 {{ totalShares }} 个分享</span>
+          <Space v-if="selectedRowKeys.length > 0">
+            <span class="text-blue-500">已选 {{ selectedRowKeys.length }} 项</span>
+            <Button size="small" danger @click="handleBatchDelete">
+              批量删除
+            </Button>
+            <Button size="small" @click="openBatchStatusModal(3)">
+              批量禁用
+            </Button>
+            <Button size="small" @click="openBatchStatusModal(1)">
+              批量启用
+            </Button>
+            <Button size="small" @click="openBatchStatusModal(2)">
+              批量过期
+            </Button>
+          </Space>
+        </div>
       </div>
 
       <!-- 分享列表表格 -->
@@ -296,6 +401,7 @@ onMounted(() => {
           showSizeChanger: true,
         }"
         :scroll="{ x: 1200 }"
+        :row-selection="{ selectedRowKeys, onChange: (keys) => selectedRowKeys = keys }"
         row-key="id"
         @change="(pag) => { pagination = pag; loadShareList(); }"
       >
@@ -460,6 +566,23 @@ onMounted(() => {
         </div>
         <div class="text-gray-500 text-sm">
           设置为永久有效请留空。
+        </div>
+      </div>
+    </Modal>
+
+    <!-- 批量修改状态弹窗 -->
+    <Modal
+      v-model:open="batchStatusModalVisible"
+      title="批量修改状态"
+      @ok="handleBatchStatus"
+    >
+      <div class="py-4">
+        <p class="mb-4">确定要将选中的 {{ selectedRowKeys.length }} 个分享修改为以下状态吗？</p>
+        <div class="flex items-center gap-4">
+          <span>目标状态：</span>
+          <Tag :color="batchStatusValue === 1 ? 'green' : batchStatusValue === 2 ? 'orange' : 'red'">
+            {{ batchStatusValue === 1 ? '启用' : batchStatusValue === 2 ? '过期' : '禁用' }}
+          </Tag>
         </div>
       </div>
     </Modal>

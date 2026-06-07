@@ -42,16 +42,16 @@ import {
   listFiles,
   moveFile,
   renameFolder,
-  simpleUpload,
-  getUploadTasks,
-  getUploadTaskById,
 } from '#/api/file';
-import type { FileApi, UploadProgressCallback, UploadTaskStatus } from '#/api/file';
+import type { FileApi } from '#/api/file';
 import { $t } from '#/locales';
+import { useUploadStore } from '#/store/upload';
+import type { UploadPartDetail, UploadTaskItem } from '#/store/upload';
 
 defineOptions({ name: 'FileList' });
 
 const accessStore = useAccessStore();
+const uploadStore = useUploadStore();
 
 // ==================== 权限检查 ====================
 
@@ -122,41 +122,13 @@ const previewToken = ref('');
 const batchMoveModalVisible = ref(false);
 const batchTargetFolderId = ref<number | null>(null);
 
-// 上传任务管理
-interface UploadPartDetail {
-  partNumber: number;
-  status: 'pending' | 'uploading' | 'completed';
-  startTime?: number;
-  endTime?: number;
-  duration?: number; // 毫秒
-}
-
-interface UploadTaskItem {
-  id: number;
-  uploadId: string;
-  fileName: string;
-  fileSize: number;
-  contentType: string;
-  progress: number;
-  status: 'uploading' | 'processing' | 'completed' | 'failed' | 'aborted';
-  errorMessage?: string;
-  timer?: ReturnType<typeof setInterval>;
-  totalParts: number;
-  uploadedParts: number;
-  partDetails: UploadPartDetail[];
-  startTime: number;
-  endTime?: number;
-  totalDuration?: number; // 毫秒
-}
-
-const uploadTasks = ref<UploadTaskItem[]>([]);
-const uploading = ref(false);
-const uploadProgress = ref(0);
-const uploadFileName = ref('');
-
 // 上传详情弹窗
 const uploadDetailVisible = ref(false);
 const uploadDetailTask = ref<UploadTaskItem | null>(null);
+
+// 计算属性：上传任务列表
+const uploadTasks = computed(() => uploadStore.tasks);
+const uploading = computed(() => uploadStore.uploadingCount > 0);
 
 // ==================== 文件类型图标 ====================
 
@@ -589,186 +561,13 @@ function fallbackCopy(text: string) {
 
 // ==================== 上传 ====================
 
-const uploadSaving = ref(false);
-
-// 添加上传任务到列表
-function addUploadTask(task: UploadTaskItem) {
-  uploadTasks.value.unshift(task);
-  // 限制显示数量
-  if (uploadTasks.value.length > 5) {
-    uploadTasks.value.pop();
-  }
-}
-
-// 更新上传任务状态
-function updateUploadTask(uploadId: string, updates: Partial<UploadTaskItem>) {
-  const task = uploadTasks.value.find(t => t.uploadId === uploadId);
-  if (task) {
-    Object.assign(task, updates);
-  }
-}
-
-// 移除上传任务
-function removeUploadTask(uploadId: string) {
-  const index = uploadTasks.value.findIndex(t => t.uploadId === uploadId);
-  if (index !== -1) {
-    const task = uploadTasks.value[index];
-    if (task.timer) {
-      clearInterval(task.timer);
-    }
-    uploadTasks.value.splice(index, 1);
-  }
-}
-
-// 轮询上传任务状态
-function startPollingTaskStatus(taskId: number, uploadId: string) {
-  const timer = setInterval(async () => {
-    try {
-      const task = await getUploadTaskById(taskId);
-      if (task) {
-        updateUploadTask(uploadId, {
-          progress: task.progress,
-          status: task.status,
-          errorMessage: task.errorMessage,
-        });
-
-        // 如果任务完成或失败，停止轮询
-        if (task.status === 'completed' || task.status === 'failed' || task.status === 'aborted') {
-          const taskItem = uploadTasks.value.find(t => t.uploadId === uploadId);
-          if (taskItem?.timer) {
-            clearInterval(taskItem.timer);
-          }
-
-          if (task.status === 'completed') {
-            message.success(`${task.fileName} 上传成功`);
-            loadFileList();
-          } else if (task.status === 'failed') {
-            message.error(`${task.fileName} 上传失败: ${task.errorMessage || '未知错误'}`);
-          }
-        }
-      }
-    } catch {
-      // 忽略轮询错误
-    }
-  }, 2000);
-
-  return timer;
-}
-
 async function handleUpload(file: File) {
-  uploading.value = true;
-  uploadProgress.value = 0;
-  uploadFileName.value = file.name;
-  uploadSaving.value = false;
-
-  // 创建临时任务ID用于显示
-  const tempId = Date.now();
-  const startTime = Date.now();
-
-  // 计算分片数量
-  const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
-  const totalParts = Math.ceil(file.size / CHUNK_SIZE);
-
-  // 初始化分片详情
-  const partDetails: UploadPartDetail[] = Array.from({ length: totalParts }, (_, i) => ({
-    partNumber: i + 1,
-    status: 'pending' as const,
-  }));
-
-  const onProgress: UploadProgressCallback = (event) => {
-    uploadProgress.value = event.percent;
-    // 当进度达到100%时，显示"正在保存到服务器..."
-    if (event.percent >= 100) {
-      uploadSaving.value = true;
-    }
-    // 更新任务进度
-    updateUploadTask(`temp-${tempId}`, {
-      progress: event.percent,
-      status: event.percent >= 100 ? 'processing' : 'uploading',
-    });
-  };
-
-  // 分片进度回调
-  const onPartProgress: PartProgressCallback = (event) => {
-    const partIndex = event.partNumber - 1;
-    if (partIndex >= 0 && partIndex < partDetails.length) {
-      if (event.status === 'start') {
-        partDetails[partIndex].status = 'uploading';
-        partDetails[partIndex].startTime = event.startTime;
-      } else if (event.status === 'completed') {
-        partDetails[partIndex].status = 'completed';
-        partDetails[partIndex].endTime = event.endTime;
-        partDetails[partIndex].duration = event.duration;
-      }
-    }
-    // 更新已上传分片数
-    const uploadedCount = partDetails.filter(p => p.status === 'completed').length;
-    updateUploadTask(`temp-${tempId}`, {
-      uploadedParts: uploadedCount,
-      partDetails: [...partDetails],
-    });
-  };
-
-  // 添加上传任务到表格
-  addUploadTask({
-    id: tempId,
-    uploadId: `temp-${tempId}`,
-    fileName: file.name,
-    fileSize: file.size,
-    contentType: file.type,
-    progress: 0,
-    status: 'uploading',
-    totalParts,
-    uploadedParts: 0,
-    partDetails,
-    startTime,
-  });
-
   try {
-    console.log('开始上传文件:', file.name, '大小:', file.size, '类型:', file.type);
-    const result = await simpleUpload(file, onProgress, onPartProgress);
-    console.log('上传成功:', result);
-
-    const endTime = Date.now();
-    // 更新任务状态为完成
-    updateUploadTask(`temp-${tempId}`, {
-      progress: 100,
-      status: 'completed',
-      endTime,
-      totalDuration: endTime - startTime,
-      uploadedParts: totalParts,
-    });
-
+    await uploadStore.uploadFile(file);
     message.success(`${file.name} 上传成功`);
     loadFileList();
-
-    // 5秒后移除完成的任务（让文件列表中的记录显示）
-    setTimeout(() => {
-      removeUploadTask(`temp-${tempId}`);
-    }, 5000);
   } catch (err) {
-    console.error('上传失败:', err);
-
-    const endTime = Date.now();
-    // 更新任务状态为失败
-    updateUploadTask(`temp-${tempId}`, {
-      status: 'failed',
-      errorMessage: String(err),
-      endTime,
-      totalDuration: endTime - startTime,
-    });
-
     message.error(`上传失败: ${err}`);
-
-    // 10秒后移除失败的任务
-    setTimeout(() => {
-      removeUploadTask(`temp-${tempId}`);
-    }, 10000);
-  } finally {
-    uploading.value = false;
-    uploadProgress.value = 0;
-    uploadFileName.value = '';
-    uploadSaving.value = false;
   }
   return false;
 }
