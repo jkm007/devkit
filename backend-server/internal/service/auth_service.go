@@ -1176,5 +1176,47 @@ func (s *AuthService) initDefaultMenus() error {
 		}
 	}
 
+	// --- 文件管理 ---
+	fileMgmt := &model.Menu{PID: 0, Name: "FileMgmt", Path: "/file", Type: "catalog", Status: 1, Icon: "lucide:folder", Meta: `{"order":4,"title":"文件管理"}`}
+	if err := create(fileMgmt); err != nil {
+		return err
+	}
+
+	fileMenus := []model.Menu{
+		{PID: fileMgmt.ID, Name: "FileList", Path: "/file/list", Component: "/file/list/index", Type: "menu", Status: 1, Icon: "lucide:files", AuthCode: "file:list", Meta: `{"order":1,"title":"文件列表"}`},
+		{PID: fileMgmt.ID, Name: "FileShare", Path: "/file/share", Component: "/file/share/index", Type: "menu", Status: 1, Icon: "lucide:share-2", AuthCode: "file:list", Meta: `{"order":2,"title":"分享管理"}`},
+	}
+	for i := range fileMenus {
+		if err := create(&fileMenus[i]); err != nil {
+			return err
+		}
+	}
+
+	// 文件管理按钮权限
+	fileButtonGroups := []struct {
+		parent *model.Menu
+		items  []model.Menu
+	}{
+		{&fileMenus[0], []model.Menu{
+			{Name: "FileListView", AuthCode: "file:view:own", Meta: `{"title":"查看自己的文件"}`},
+			{Name: "FileListViewAll", AuthCode: "file:view:all", Meta: `{"title":"查看所有文件"}`},
+			{Name: "FileUpload", AuthCode: "file:upload", Meta: `{"title":"上传文件"}`},
+			{Name: "FileDownload", AuthCode: "file:download", Meta: `{"title":"下载文件"}`},
+			{Name: "FileDelete", AuthCode: "file:delete", Meta: `{"title":"删除文件"}`},
+			{Name: "FileShareCreate", AuthCode: "file:share", Meta: `{"title":"创建分享"}`},
+			{Name: "FileManage", AuthCode: "file:manage", Meta: `{"title":"文件管理（移动、重命名）"}`},
+		}},
+	}
+	for _, bg := range fileButtonGroups {
+		for i := range bg.items {
+			bg.items[i].PID = bg.parent.ID
+			bg.items[i].Type = "button"
+			bg.items[i].Status = 1
+			if err := create(&bg.items[i]); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }

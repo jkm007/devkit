@@ -152,6 +152,20 @@ func (h *FileHandler) ListFiles(c *gin.Context) {
 		return
 	}
 
+	// 检查是否有查看所有文件的权限
+	scope := c.DefaultQuery("scope", "own")
+	if scope == "all" {
+		// 验证权限
+		authService := service.NewAuthService()
+		permissions, err := authService.GetPermissionCodes(userID)
+		if err != nil || !containsPermission(permissions, "file:view:all") {
+			response.Forbidden(c, "无权查看所有文件")
+			return
+		}
+		// 传入 0 表示查看所有文件
+		userID = 0
+	}
+
 	files, total, err := h.fileService.ListFiles(userID, &req)
 	if err != nil {
 		response.InternalError(c, err.Error())
@@ -159,6 +173,16 @@ func (h *FileHandler) ListFiles(c *gin.Context) {
 	}
 
 	response.SuccessPage(c, files, total)
+}
+
+// containsPermission 检查权限列表中是否包含指定权限
+func containsPermission(permissions []string, target string) bool {
+	for _, p := range permissions {
+		if p == target {
+			return true
+		}
+	}
+	return false
 }
 
 // moveRequest 移动文件请求

@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"time"
+
 	"backend-server/internal/model"
 
 	"gorm.io/gorm"
@@ -32,6 +34,57 @@ func (r *UploadRepo) GetTaskByUploadID(uploadID string) (*model.UploadTask, erro
 // UpdateTaskStatus 更新任务状态
 func (r *UploadRepo) UpdateTaskStatus(uploadID string, status string) error {
 	return r.db.Model(&model.UploadTask{}).Where("upload_id = ?", uploadID).Update("status", status).Error
+}
+
+// UpdateTaskProgress 更新任务进度
+func (r *UploadRepo) UpdateTaskProgress(uploadID string, uploadedParts int, progress int) error {
+	return r.db.Model(&model.UploadTask{}).Where("upload_id = ?", uploadID).
+		Updates(map[string]interface{}{
+			"uploaded_parts": uploadedParts,
+			"progress":       progress,
+		}).Error
+}
+
+// UpdateTaskFailed 更新任务失败状态
+func (r *UploadRepo) UpdateTaskFailed(uploadID string, errorMessage string) error {
+	return r.db.Model(&model.UploadTask{}).Where("upload_id = ?", uploadID).
+		Updates(map[string]interface{}{
+			"status":        "failed",
+			"error_message": errorMessage,
+		}).Error
+}
+
+// UpdateTaskCompleted 更新任务完成状态
+func (r *UploadRepo) UpdateTaskCompleted(uploadID string) error {
+	now := time.Now()
+	return r.db.Model(&model.UploadTask{}).Where("upload_id = ?", uploadID).
+		Updates(map[string]interface{}{
+			"status":       "completed",
+			"progress":     100,
+			"completed_at": now,
+		}).Error
+}
+
+// GetUserTasks 获取用户的上传任务列表
+func (r *UploadRepo) GetUserTasks(userID uint, limit int) ([]model.UploadTask, error) {
+	var tasks []model.UploadTask
+	query := r.db.Where("user_id = ?", userID).Order("created_at DESC")
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+	if err := query.Find(&tasks).Error; err != nil {
+		return nil, err
+	}
+	return tasks, nil
+}
+
+// GetTaskByID 根据ID获取任务
+func (r *UploadRepo) GetTaskByID(id uint) (*model.UploadTask, error) {
+	var task model.UploadTask
+	if err := r.db.First(&task, id).Error; err != nil {
+		return nil, err
+	}
+	return &task, nil
 }
 
 // CreatePart 记录已上传分片

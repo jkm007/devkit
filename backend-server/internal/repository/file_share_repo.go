@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"time"
+
 	"backend-server/internal/model"
 
 	"gorm.io/gorm"
@@ -43,9 +45,66 @@ func (r *FileShareRepo) GetByUserID(userID uint) ([]model.FileShare, error) {
 }
 
 func (r *FileShareRepo) IncrementAccessCount(code string) error {
-	return r.db.Model(&model.FileShare{}).Where("share_code = ?", code).UpdateColumn("access_count", gorm.Expr("access_count + 1")).Error
+	now := time.Now()
+	return r.db.Model(&model.FileShare{}).Where("share_code = ?", code).
+		Updates(map[string]interface{}{
+			"access_count": gorm.Expr("access_count + 1"),
+			"accessed_at":  now,
+		}).Error
 }
 
 func (r *FileShareRepo) Delete(id uint) error {
 	return r.db.Delete(&model.FileShare{}, id).Error
+}
+
+// UpdateStatus 更新分享状态
+func (r *FileShareRepo) UpdateStatus(id uint, status int) error {
+	return r.db.Model(&model.FileShare{}).Where("id = ?", id).Update("status", status).Error
+}
+
+// UpdateExpireAt 更新过期时间
+func (r *FileShareRepo) UpdateExpireAt(id uint, expireAt *time.Time) error {
+	return r.db.Model(&model.FileShare{}).Where("id = ?", id).
+		Updates(map[string]interface{}{
+			"expire_at": expireAt,
+			"status":    1, // 重置为有效状态
+		}).Error
+}
+
+// GetUserSharesWithFile 获取用户的分享列表（包含文件信息）
+func (r *FileShareRepo) GetUserSharesWithFile(userID uint, page, pageSize int) ([]model.FileShare, int64, error) {
+	var shares []model.FileShare
+	var total int64
+
+	query := r.db.Where("user_id = ?", userID)
+
+	// 统计总数
+	if err := query.Model(&model.FileShare{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 分页查询
+	offset := (page - 1) * pageSize
+	if err := query.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&shares).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return shares, total, nil
+}
+
+// GetActiveShares 获取有效的分享（未过期、未禁用）
+func (r *FileShareRepo) GetActiveShares(userID uint) ([]model.FileShare, error) {
+	var shares []model.FileShare
+	now := time.Now()
+	err := r.db.Where("user_id = ? AND status = 1 AND (expire_at IS NULL OR expire_at > ?)", userID, now).
+		Order("created_at desc").Find(&shares).Error
+	return shares, err
+}
+
+// CheckExpiredShares 检查并更新过期的分享
+func (r *FileShareRepo) CheckExpiredShares() error {
+	now := time.Now()
+	return r.db.Model(&model.FileShare{}).
+		Where("status = 1 AND expire_at IS NOT NULL AND expire_at <= ?", now).
+		Update("status", 2).Error
 }

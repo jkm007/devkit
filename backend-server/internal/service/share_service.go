@@ -275,3 +275,193 @@ func (s *ShareService) DeleteShare(userID, shareID uint) error {
 	}
 	return s.shareRepo.Delete(shareID)
 }
+
+// ShareListItem 分享列表项
+type ShareListItem struct {
+	ID          uint       `json:"id"`
+	ShareCode   string     `json:"shareCode"`
+	ShareUrl    string     `json:"shareUrl"`
+	Type        string     `json:"type"` // file or folder
+	FileID      uint       `json:"fileId,omitempty"`
+	FolderID    uint       `json:"folderId,omitempty"`
+	FileName    string     `json:"fileName,omitempty"`
+	FolderName  string     `json:"folderName,omitempty"`
+	FileSize    int64      `json:"fileSize,omitempty"`
+	ContentType string     `json:"contentType,omitempty"`
+	Status      int        `json:"status"`
+	ExpireAt    *time.Time `json:"expireAt,omitempty"`
+	AccessCount int        `json:"accessCount"`
+	MaxAccess   int        `json:"maxAccess"`
+	AccessedAt  *time.Time `json:"accessedAt,omitempty"`
+	CreatedAt   time.Time  `json:"createdAt"`
+	// 分享人信息
+	UserID     uint   `json:"userId"`
+	UserName   string `json:"userName,omitempty"`
+	UserAvatar string `json:"userAvatar,omitempty"`
+}
+
+// GetUserShares 获取用户的分享列表（带文件信息）
+func (s *ShareService) GetUserShares(userID uint, page, pageSize int) ([]ShareListItem, int64, error) {
+	shares, total, err := s.shareRepo.GetUserSharesWithFile(userID, page, pageSize)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// 检查并更新过期状态
+	s.shareRepo.CheckExpiredShares()
+
+	// 收集所有需要查询的用户ID
+	userIDs := make(map[uint]bool)
+	for _, share := range shares {
+		userIDs[share.UserID] = true
+	}
+
+	// 批量查询用户信息
+	userMap := make(map[uint]*model.User)
+	for uid := range userIDs {
+		user, err := s.userRepo.GetByID(uid)
+		if err == nil && user != nil {
+			userMap[uid] = user
+		}
+	}
+
+	items := make([]ShareListItem, 0, len(shares))
+	for _, share := range shares {
+		item := ShareListItem{
+			ID:          share.ID,
+			ShareCode:   share.ShareCode,
+			ShareUrl:    fmt.Sprintf("/share/%s", share.ShareCode),
+			Status:      share.Status,
+			ExpireAt:    share.ExpireAt,
+			AccessCount: share.AccessCount,
+			MaxAccess:   share.MaxAccess,
+			AccessedAt:  share.AccessedAt,
+			CreatedAt:   share.CreatedAt,
+			UserID:      share.UserID,
+		}
+
+		// 添加分享人信息
+		if user, ok := userMap[share.UserID]; ok {
+			item.UserName = user.Name
+			item.UserAvatar = user.Avatar
+		}
+
+		// 获取文件信息
+		if share.FileID > 0 {
+			entry, err := s.fileRepo.GetEntryByID(share.FileID)
+			if err == nil && entry != nil {
+				item.Type = "file"
+				item.FileID = share.FileID
+				item.FileName = entry.Name
+				item.FileSize = entry.Size
+				item.ContentType = entry.ContentType
+			}
+		}
+
+		// 获取文件夹信息
+		if share.FolderID > 0 {
+			folder, err := s.fileRepo.GetFolderByID(share.FolderID)
+			if err == nil && folder != nil {
+				item.Type = "folder"
+				item.FolderID = share.FolderID
+				item.FolderName = folder.Name
+			}
+		}
+
+		items = append(items, item)
+	}
+
+	return items, total, nil
+}
+
+// RenewShare 续签分享（延长过期时间）
+func (s *ShareService) RenewShare(userID, shareID uint, expireHours int) error {
+	share, err := s.shareRepo.GetByID(shareID)
+	if err != nil {
+		return fmt.Errorf("分享不存在")
+	}
+	if share.UserID != userID {
+		return fmt.Errorf("无权操作")
+	}
+
+	var expireAt *time.Time
+	if expireHours > 0 {
+		t := time.Now().Add(time.Duration(expireHours) * time.Hour)
+		expireAt = &t
+	}
+
+	return s.shareRepo.UpdateExpireAt(shareID, expireAt)
+}
+
+// ExpireShare 立即过期分享
+func (s *ShareService) ExpireShare(userID, shareID uint) error {
+	share, err := s.shareRepo.GetByID(shareID)
+	if err != nil {
+		return fmt.Errorf("分享不存在")
+	}
+	if share.UserID != userID {
+		return fmt.Errorf("无权操作")
+	}
+
+	return s.shareRepo.UpdateStatus(shareID, 2) // 2 = 已过期
+}
+
+// DisableShare 禁用分享
+func (s *ShareService) DisableShare(userID, shareID uint) error {
+	share, err := s.shareRepo.GetByID(shareID)
+	if err != nil {
+		return fmt.Errorf("分享不存在")
+	}
+	if share.UserID != userID {
+		return fmt.Errorf("无权操作")
+	}
+
+	return s.shareRepo.UpdateStatus(shareID, 3) // 3 = 已禁用
+}
+
+// EnableShare 启用分享
+func (s *ShareService) EnableShare(userID, shareID uint) error {
+	share, err := s.shareRepo.GetByID(shareID)
+	if err != nil {
+		return fmt.Errorf("分享不存在")
+	}
+	if share.UserID != userID {
+		return fmt.Errorf("无权操作")
+	}
+
+	// 检查是否已过期
+	if share.ExpireAt != nil && time.Now().After(*share.ExpireAt) {
+		return fmt.Errorf("分享已过期，请先续签")
+	}
+
+	return s.shareRepo.UpdateStatus(shareID, 1) // 1 = 有效
+}
+
+// UpdateShareExpiry 修改分享到期时间
+func (s *ShareService) UpdateShareExpiry(userID, shareID uint, expireAt *time.Time) error {
+	share, err := s.shareRepo.GetByID(shareID)
+	if err != nil {
+		return fmt.Errorf("分享不存在")
+	}
+	if share.UserID != userID {
+		return fmt.Errorf("无权操作")
+	}
+
+	// 如果新时间在未来，自动启用
+	status := share.Status
+	if expireAt != nil && expireAt.After(time.Now()) {
+		status = 1
+	}
+
+	// 更新过期时间和状态
+	err = s.shareRepo.UpdateExpireAt(shareID, expireAt)
+	if err != nil {
+		return err
+	}
+
+	if status != share.Status {
+		return s.shareRepo.UpdateStatus(shareID, status)
+	}
+
+	return nil
+}

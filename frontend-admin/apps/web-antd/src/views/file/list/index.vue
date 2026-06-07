@@ -18,6 +18,7 @@ import {
   message,
   Modal,
   Progress,
+  Radio,
   Space,
   Spin,
   Table,
@@ -42,13 +43,24 @@ import {
   moveFile,
   renameFolder,
   simpleUpload,
+  getUploadTasks,
+  getUploadTaskById,
 } from '#/api/file';
-import type { FileApi, UploadProgressCallback } from '#/api/file';
+import type { FileApi, UploadProgressCallback, UploadTaskStatus } from '#/api/file';
 import { $t } from '#/locales';
 
 defineOptions({ name: 'FileList' });
 
 const accessStore = useAccessStore();
+
+// ==================== 权限检查 ====================
+
+const permissions = computed(() => accessStore.accessCodes || []);
+const hasViewAllPermission = computed(() => permissions.value.includes('file:view:all'));
+const hasUploadPermission = computed(() => permissions.value.includes('file:upload'));
+const hasDeletePermission = computed(() => permissions.value.includes('file:delete'));
+const hasSharePermission = computed(() => permissions.value.includes('file:share'));
+const hasManagePermission = computed(() => permissions.value.includes('file:manage'));
 
 // ==================== 状态 ====================
 
@@ -59,6 +71,9 @@ const fileList = ref<FileApi.FileEntry[]>([]);
 const totalFiles = ref(0);
 const pagination = ref({ current: 1, pageSize: 20 });
 const selectedRowKeys = ref<number[]>([]);
+
+// 文件范围：own=自己的文件, all=所有文件
+const fileScope = ref<'own' | 'all'>('own');
 
 // 新建文件夹
 const newFolderModalVisible = ref(false);
@@ -107,10 +122,41 @@ const previewToken = ref('');
 const batchMoveModalVisible = ref(false);
 const batchTargetFolderId = ref<number | null>(null);
 
-// 上传进度
+// 上传任务管理
+interface UploadPartDetail {
+  partNumber: number;
+  status: 'pending' | 'uploading' | 'completed';
+  startTime?: number;
+  endTime?: number;
+  duration?: number; // 毫秒
+}
+
+interface UploadTaskItem {
+  id: number;
+  uploadId: string;
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+  progress: number;
+  status: 'uploading' | 'processing' | 'completed' | 'failed' | 'aborted';
+  errorMessage?: string;
+  timer?: ReturnType<typeof setInterval>;
+  totalParts: number;
+  uploadedParts: number;
+  partDetails: UploadPartDetail[];
+  startTime: number;
+  endTime?: number;
+  totalDuration?: number; // 毫秒
+}
+
+const uploadTasks = ref<UploadTaskItem[]>([]);
 const uploading = ref(false);
 const uploadProgress = ref(0);
 const uploadFileName = ref('');
+
+// 上传详情弹窗
+const uploadDetailVisible = ref(false);
+const uploadDetailTask = ref<UploadTaskItem | null>(null);
 
 // ==================== 文件类型图标 ====================
 
@@ -151,6 +197,7 @@ async function loadFileList() {
       folderId: currentFolderId.value ?? undefined,
       page: pagination.value.current,
       pageSize: pagination.value.pageSize,
+      scope: fileScope.value,
     });
     const items = result?.items || [];
     items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -544,11 +591,89 @@ function fallbackCopy(text: string) {
 
 const uploadSaving = ref(false);
 
+// 添加上传任务到列表
+function addUploadTask(task: UploadTaskItem) {
+  uploadTasks.value.unshift(task);
+  // 限制显示数量
+  if (uploadTasks.value.length > 5) {
+    uploadTasks.value.pop();
+  }
+}
+
+// 更新上传任务状态
+function updateUploadTask(uploadId: string, updates: Partial<UploadTaskItem>) {
+  const task = uploadTasks.value.find(t => t.uploadId === uploadId);
+  if (task) {
+    Object.assign(task, updates);
+  }
+}
+
+// 移除上传任务
+function removeUploadTask(uploadId: string) {
+  const index = uploadTasks.value.findIndex(t => t.uploadId === uploadId);
+  if (index !== -1) {
+    const task = uploadTasks.value[index];
+    if (task.timer) {
+      clearInterval(task.timer);
+    }
+    uploadTasks.value.splice(index, 1);
+  }
+}
+
+// 轮询上传任务状态
+function startPollingTaskStatus(taskId: number, uploadId: string) {
+  const timer = setInterval(async () => {
+    try {
+      const task = await getUploadTaskById(taskId);
+      if (task) {
+        updateUploadTask(uploadId, {
+          progress: task.progress,
+          status: task.status,
+          errorMessage: task.errorMessage,
+        });
+
+        // 如果任务完成或失败，停止轮询
+        if (task.status === 'completed' || task.status === 'failed' || task.status === 'aborted') {
+          const taskItem = uploadTasks.value.find(t => t.uploadId === uploadId);
+          if (taskItem?.timer) {
+            clearInterval(taskItem.timer);
+          }
+
+          if (task.status === 'completed') {
+            message.success(`${task.fileName} 上传成功`);
+            loadFileList();
+          } else if (task.status === 'failed') {
+            message.error(`${task.fileName} 上传失败: ${task.errorMessage || '未知错误'}`);
+          }
+        }
+      }
+    } catch {
+      // 忽略轮询错误
+    }
+  }, 2000);
+
+  return timer;
+}
+
 async function handleUpload(file: File) {
   uploading.value = true;
   uploadProgress.value = 0;
   uploadFileName.value = file.name;
   uploadSaving.value = false;
+
+  // 创建临时任务ID用于显示
+  const tempId = Date.now();
+  const startTime = Date.now();
+
+  // 计算分片数量
+  const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
+  const totalParts = Math.ceil(file.size / CHUNK_SIZE);
+
+  // 初始化分片详情
+  const partDetails: UploadPartDetail[] = Array.from({ length: totalParts }, (_, i) => ({
+    partNumber: i + 1,
+    status: 'pending' as const,
+  }));
 
   const onProgress: UploadProgressCallback = (event) => {
     uploadProgress.value = event.percent;
@@ -556,14 +681,89 @@ async function handleUpload(file: File) {
     if (event.percent >= 100) {
       uploadSaving.value = true;
     }
+    // 更新任务进度
+    updateUploadTask(`temp-${tempId}`, {
+      progress: event.percent,
+      status: event.percent >= 100 ? 'processing' : 'uploading',
+    });
   };
 
+  // 分片进度回调
+  const onPartProgress: PartProgressCallback = (event) => {
+    const partIndex = event.partNumber - 1;
+    if (partIndex >= 0 && partIndex < partDetails.length) {
+      if (event.status === 'start') {
+        partDetails[partIndex].status = 'uploading';
+        partDetails[partIndex].startTime = event.startTime;
+      } else if (event.status === 'completed') {
+        partDetails[partIndex].status = 'completed';
+        partDetails[partIndex].endTime = event.endTime;
+        partDetails[partIndex].duration = event.duration;
+      }
+    }
+    // 更新已上传分片数
+    const uploadedCount = partDetails.filter(p => p.status === 'completed').length;
+    updateUploadTask(`temp-${tempId}`, {
+      uploadedParts: uploadedCount,
+      partDetails: [...partDetails],
+    });
+  };
+
+  // 添加上传任务到表格
+  addUploadTask({
+    id: tempId,
+    uploadId: `temp-${tempId}`,
+    fileName: file.name,
+    fileSize: file.size,
+    contentType: file.type,
+    progress: 0,
+    status: 'uploading',
+    totalParts,
+    uploadedParts: 0,
+    partDetails,
+    startTime,
+  });
+
   try {
-    await simpleUpload(file, onProgress);
+    console.log('开始上传文件:', file.name, '大小:', file.size, '类型:', file.type);
+    const result = await simpleUpload(file, onProgress, onPartProgress);
+    console.log('上传成功:', result);
+
+    const endTime = Date.now();
+    // 更新任务状态为完成
+    updateUploadTask(`temp-${tempId}`, {
+      progress: 100,
+      status: 'completed',
+      endTime,
+      totalDuration: endTime - startTime,
+      uploadedParts: totalParts,
+    });
+
     message.success(`${file.name} 上传成功`);
     loadFileList();
+
+    // 5秒后移除完成的任务（让文件列表中的记录显示）
+    setTimeout(() => {
+      removeUploadTask(`temp-${tempId}`);
+    }, 5000);
   } catch (err) {
+    console.error('上传失败:', err);
+
+    const endTime = Date.now();
+    // 更新任务状态为失败
+    updateUploadTask(`temp-${tempId}`, {
+      status: 'failed',
+      errorMessage: String(err),
+      endTime,
+      totalDuration: endTime - startTime,
+    });
+
     message.error(`上传失败: ${err}`);
+
+    // 10秒后移除失败的任务
+    setTimeout(() => {
+      removeUploadTask(`temp-${tempId}`);
+    }, 10000);
   } finally {
     uploading.value = false;
     uploadProgress.value = 0;
@@ -571,6 +771,22 @@ async function handleUpload(file: File) {
     uploadSaving.value = false;
   }
   return false;
+}
+
+// 查看上传详情
+function showUploadDetail(task: UploadTaskItem) {
+  uploadDetailTask.value = task;
+  uploadDetailVisible.value = true;
+}
+
+// 格式化耗时
+function formatDuration(ms: number | undefined): string {
+  if (!ms) return '-';
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  const minutes = Math.floor(ms / 60000);
+  const seconds = Math.floor((ms % 60000) / 1000);
+  return `${minutes}m ${seconds}s`;
 }
 
 // ==================== 初始化 ====================
@@ -590,14 +806,49 @@ const storageTypeLabels: Record<string, { label: string; color: string }> = {
   cos: { label: 'COS', color: 'green' },
 };
 
-const columns = [
-  { title: '文件名', dataIndex: 'name', key: 'name', width: 200, ellipsis: true },
-  { title: '大小', dataIndex: 'size', key: 'size', width: 80, customRender: ({ text }) => formatFileSize(text) },
-  { title: '存储', key: 'storage', width: 80 },
-  { title: '上传者', key: 'uploader', width: 80 },
-  { title: '时间', dataIndex: 'createdAt', key: 'createdAt', width: 120 },
-  { title: '操作', key: 'operation', width: 180, fixed: 'right' },
-];
+const columns = computed(() => {
+  const cols = [
+    { title: '文件名', dataIndex: 'name', key: 'name', width: 200, ellipsis: true },
+    { title: '大小', dataIndex: 'size', key: 'size', width: 80, customRender: ({ text }: any) => formatFileSize(text) },
+    { title: '状态', key: 'status', width: 150 },
+    { title: '存储', key: 'storage', width: 80 },
+  ];
+
+  // 查看所有文件时显示上传者列
+  if (fileScope.value === 'all') {
+    cols.push({ title: '上传者', key: 'uploader', width: 100 });
+  }
+
+  cols.push(
+    { title: '时间', dataIndex: 'createdAt', key: 'createdAt', width: 120 },
+    { title: '操作', key: 'operation', width: 180, fixed: 'right' as const },
+  );
+
+  return cols;
+});
+
+// 合并上传任务和文件列表为表格数据
+const tableData = computed(() => {
+  const tasks = uploadTasks.value.map(task => ({
+    id: `task-${task.id}`,
+    name: task.fileName,
+    size: task.fileSize,
+    contentType: task.contentType,
+    storageType: 'uploading',
+    isUploadTask: true,
+    uploadTask: task,
+    createdAt: new Date(task.startTime).toISOString(),
+  }));
+
+  const files = fileList.value.map(file => ({
+    ...file,
+    isUploadTask: false,
+    uploadTask: null,
+  }));
+
+  // 上传中的任务放在最前面
+  return [...tasks, ...files];
+});
 
 const treeData = computed<TreeProps['treeData']>(() => {
   const convert = (folders: FileApi.Folder[]): TreeProps['treeData'] =>
@@ -659,37 +910,32 @@ const folderSelectData = computed(() => {
         <!-- 工具栏 -->
         <div class="flex items-center justify-between mb-3">
           <Space>
-            <Upload :show-upload-list="false" :before-upload="handleUpload" :multiple="true" :disabled="uploading">
+            <Upload v-if="hasUploadPermission" :show-upload-list="false" :before-upload="handleUpload" :multiple="true" :disabled="uploading">
               <Button type="primary" :loading="uploading">上传文件</Button>
             </Upload>
-            <Button v-if="selectedRowKeys.length > 0" danger @click="handleBatchDelete">
+            <Button v-if="selectedRowKeys.length > 0 && hasDeletePermission" danger @click="handleBatchDelete">
               批量删除 ({{ selectedRowKeys.length }})
             </Button>
-            <Button v-if="selectedRowKeys.length > 0" @click="openBatchMoveModal">
+            <Button v-if="selectedRowKeys.length > 0 && hasManagePermission" @click="openBatchMoveModal">
               批量移动 ({{ selectedRowKeys.length }})
             </Button>
+            <!-- 文件范围切换 -->
+            <div v-if="hasViewAllPermission" class="ml-4">
+              <Radio.Group v-model:value="fileScope" button-style="solid" @change="loadFileList">
+                <Radio.Button value="own">我的文件</Radio.Button>
+                <Radio.Button value="all">所有文件</Radio.Button>
+              </Radio.Group>
+            </div>
           </Space>
           <span class="text-sm text-gray-500">共 {{ totalFiles }} 个文件</span>
-        </div>
-
-        <!-- 上传进度条 -->
-        <div v-if="uploading" class="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-sm text-blue-700">
-              <span class="i-ant-design:loading-outlined animate-spin mr-1" />
-              {{ uploadSaving ? '正在保存到服务器...' : `正在上传: ${uploadFileName}` }}
-            </span>
-            <span class="text-sm font-medium text-blue-700">{{ uploadSaving ? '处理中...' : `${uploadProgress}%` }}</span>
-          </div>
-          <Progress :percent="uploadSaving ? 100 : uploadProgress" :show-info="false" status="active" :stroke-color="{ from: '#108ee9', to: '#87d068' }" />
         </div>
 
         <!-- 文件表格 -->
         <Table
           :columns="columns"
-          :data-source="fileList"
+          :data-source="tableData"
           :loading="loading"
-          :pagination="{ current: pagination.current, pageSize: pagination.pageSize, total: totalFiles, showSizeChanger: true }"
+          :pagination="{ current: pagination.current, pageSize: pagination.pageSize, total: totalFiles + uploadTasks.length, showSizeChanger: true }"
           :scroll="{ x: 600 }"
           :row-selection="{ selectedRowKeys, onChange: (keys) => selectedRowKeys = keys }"
           row-key="id"
@@ -699,6 +945,31 @@ const folderSelectData = computed(() => {
             <template v-if="column.key === 'name'">
               <span :class="getFileIcon(record.contentType)" class="mr-1" />
               {{ record.name }}
+            </template>
+            <template v-if="column.key === 'status'">
+              <!-- 上传任务状态 -->
+              <template v-if="record.isUploadTask && record.uploadTask">
+                <div class="cursor-pointer" @click="showUploadDetail(record.uploadTask)">
+                  <div v-if="record.uploadTask.status === 'uploading'" class="flex items-center gap-2">
+                    <Progress :percent="record.uploadTask.progress" :show-info="false" status="active" size="small" style="width: 80px; margin: 0;" />
+                    <span class="text-xs text-blue-600">{{ record.uploadTask.progress }}%</span>
+                  </div>
+                  <div v-else-if="record.uploadTask.status === 'processing'" class="flex items-center gap-1">
+                    <Spin size="small" />
+                    <span class="text-xs text-yellow-600">处理中...</span>
+                  </div>
+                  <div v-else-if="record.uploadTask.status === 'completed'" class="text-xs text-green-600">
+                    <span class="i-ant-design:check-circle-outlined mr-1" />上传成功
+                  </div>
+                  <div v-else-if="record.uploadTask.status === 'failed'" class="text-xs text-red-600">
+                    <span class="i-ant-design:close-circle-outlined mr-1" />上传失败
+                  </div>
+                </div>
+              </template>
+              <!-- 正常文件状态 -->
+              <template v-else>
+                <Tag color="green">正常</Tag>
+              </template>
             </template>
             <template v-if="column.key === 'storage'">
               <Tag :color="storageTypeLabels[record.storageType]?.color || 'default'">
@@ -710,10 +981,15 @@ const folderSelectData = computed(() => {
             </template>
             <template v-if="column.key === 'operation'">
               <Space size="small">
-                <Button type="link" size="small" @click="handlePreview(record)">预览</Button>
-                <Button type="link" size="small" @click="handleDownload(record)">下载</Button>
-                <Button type="link" size="small" @click="handleShare(record)">分享</Button>
-                <Button type="link" size="small" danger @click="handleDeleteFile(record.id, record.name)">删除</Button>
+                <template v-if="record.isUploadTask">
+                  <Button type="link" size="small" @click="showUploadDetail(record.uploadTask)">详情</Button>
+                </template>
+                <template v-else>
+                  <Button type="link" size="small" @click="handlePreview(record)">预览</Button>
+                  <Button type="link" size="small" @click="handleDownload(record)">下载</Button>
+                  <Button v-if="hasSharePermission" type="link" size="small" @click="handleShare(record)">分享</Button>
+                  <Button v-if="hasDeletePermission" type="link" size="small" danger @click="handleDeleteFile(record.id, record.name)">删除</Button>
+                </template>
               </Space>
             </template>
           </template>
@@ -859,6 +1135,67 @@ const folderSelectData = computed(() => {
           <Input :value="folderShareResult ? `${window.location.origin}${folderShareResult.shareUrl}` : ''" style="width: 280px" readonly />
           <Button type="primary" @click="copyFolderShareUrl">复制</Button>
         </Input.Group>
+      </div>
+    </Modal>
+
+    <!-- 上传详情弹窗 -->
+    <Modal
+      v-model:open="uploadDetailVisible"
+      title="上传详情"
+      :footer="null"
+      width="700px"
+    >
+      <div v-if="uploadDetailTask" class="space-y-4">
+        <!-- 基本信息 -->
+        <Descriptions bordered size="small">
+          <DescriptionsItem label="文件名">{{ uploadDetailTask.fileName }}</DescriptionsItem>
+          <DescriptionsItem label="文件大小">{{ formatFileSize(uploadDetailTask.fileSize) }}</DescriptionsItem>
+          <DescriptionsItem label="总分片数">{{ uploadDetailTask.totalParts }}</DescriptionsItem>
+          <DescriptionsItem label="已上传">{{ uploadDetailTask.uploadedParts }} / {{ uploadDetailTask.totalParts }}</DescriptionsItem>
+          <DescriptionsItem label="状态">
+            <Tag :color="uploadDetailTask.status === 'completed' ? 'green' : uploadDetailTask.status === 'failed' ? 'red' : 'blue'">
+              {{ uploadDetailTask.status === 'uploading' ? '上传中' : uploadDetailTask.status === 'processing' ? '处理中' : uploadDetailTask.status === 'completed' ? '已完成' : '失败' }}
+            </Tag>
+          </DescriptionsItem>
+          <DescriptionsItem label="进度">{{ uploadDetailTask.progress }}%</DescriptionsItem>
+          <DescriptionsItem label="开始时间">{{ new Date(uploadDetailTask.startTime).toLocaleString() }}</DescriptionsItem>
+          <DescriptionsItem v-if="uploadDetailTask.endTime" label="结束时间">{{ new Date(uploadDetailTask.endTime).toLocaleString() }}</DescriptionsItem>
+          <DescriptionsItem v-if="uploadDetailTask.totalDuration" label="总耗时">{{ formatDuration(uploadDetailTask.totalDuration) }}</DescriptionsItem>
+          <DescriptionsItem v-if="uploadDetailTask.errorMessage" label="错误信息" :span="2">
+            <span class="text-red-500">{{ uploadDetailTask.errorMessage }}</span>
+          </DescriptionsItem>
+        </Descriptions>
+
+        <!-- 分片详情表格 -->
+        <div v-if="uploadDetailTask.partDetails.length > 0">
+          <h4 class="mb-2 font-medium">分片详情</h4>
+          <Table
+            :columns="[
+              { title: '分片', dataIndex: 'partNumber', width: 80 },
+              { title: '状态', key: 'partStatus', width: 100 },
+              { title: '开始时间', key: 'partStart', width: 180 },
+              { title: '耗时', key: 'partDuration', width: 100 },
+            ]"
+            :data-source="uploadDetailTask.partDetails"
+            :pagination="false"
+            size="small"
+            :scroll="{ y: 300 }"
+          >
+            <template #bodyCell="{ column, record }">
+              <template v-if="column.key === 'partStatus'">
+                <Tag :color="record.status === 'completed' ? 'green' : record.status === 'uploading' ? 'blue' : 'default'">
+                  {{ record.status === 'completed' ? '已完成' : record.status === 'uploading' ? '上传中' : '待上传' }}
+                </Tag>
+              </template>
+              <template v-if="column.key === 'partStart'">
+                {{ record.startTime ? new Date(record.startTime).toLocaleTimeString() : '-' }}
+              </template>
+              <template v-if="column.key === 'partDuration'">
+                {{ formatDuration(record.duration) }}
+              </template>
+            </template>
+          </Table>
+        </div>
       </div>
     </Modal>
   </Page>

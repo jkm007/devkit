@@ -11,6 +11,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// 确保 service 包被使用
+var _ = service.TaskStatusResponse{}
+
 // UploadHandler 文件上传处理器
 type UploadHandler struct {
 	uploadService *service.UploadService
@@ -216,6 +219,70 @@ func (h *UploadHandler) GetUploadStatus(c *gin.Context) {
 	}
 
 	response.Success(c, result)
+}
+
+// GetUserUploadTasks 获取用户的上传任务列表
+// @Summary      获取用户的上传任务列表
+// @Description  获取当前用户的上传任务列表，用于显示上传进度
+// @Tags         文件上传
+// @Produce      json
+// @Param        limit  query  int  false  "返回数量限制（默认20）"
+// @Success      200   {object}  response.Response
+// @Router       /files/upload/tasks [get]
+func (h *UploadHandler) GetUserUploadTasks(c *gin.Context) {
+	userID := middleware.GetCurrentUserID(c)
+
+	limitStr := c.DefaultQuery("limit", "20")
+	limit := 20
+	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+		limit = l
+	}
+
+	tasks, err := h.uploadService.GetUserUploadTasks(userID, limit)
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	// 转换为响应格式
+	result := make([]*service.TaskStatusResponse, len(tasks))
+	for i, task := range tasks {
+		result[i] = h.uploadService.GetTaskStatusResponse(&task)
+	}
+
+	response.Success(c, result)
+}
+
+// GetUploadTaskByID 根据ID获取上传任务状态
+// @Summary      获取上传任务状态
+// @Description  根据任务ID获取上传任务的详细状态
+// @Tags         文件上传
+// @Produce      json
+// @Param        id  path  int  true  "任务ID"
+// @Success      200   {object}  response.Response
+// @Router       /files/upload/tasks/{id} [get]
+func (h *UploadHandler) GetUploadTaskByID(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		response.BadRequest(c, "无效的任务ID")
+		return
+	}
+
+	task, err := h.uploadService.GetUploadTaskByID(uint(id))
+	if err != nil {
+		response.NotFound(c, "任务不存在")
+		return
+	}
+
+	// 检查权限：只能查看自己的任务
+	userID := middleware.GetCurrentUserID(c)
+	if task.UserID != userID {
+		response.Forbidden(c, "无权查看此任务")
+		return
+	}
+
+	response.Success(c, h.uploadService.GetTaskStatusResponse(task))
 }
 
 // saveToLocal 将 io.Reader 保存到本地临时文件（用于转码等场景）

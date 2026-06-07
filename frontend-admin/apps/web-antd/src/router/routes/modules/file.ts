@@ -21,6 +21,15 @@ const routes: RouteRecordRaw[] = [
         },
         component: () => import('#/views/file/list/index.vue'),
       },
+      {
+        path: '/file/share',
+        name: 'FileShare',
+        meta: {
+          icon: 'lucide:share-2',
+          title: '分享管理',
+        },
+        component: () => import('#/views/file/share/index.vue'),
+      },
     ],
   },
 ];

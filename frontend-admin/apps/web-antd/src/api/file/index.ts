@@ -9,6 +9,18 @@ export interface UploadProgressEvent {
 
 export type UploadProgressCallback = (event: UploadProgressEvent) => void;
 
+/** 分片进度事件 */
+export interface PartProgressEvent {
+  partNumber: number;
+  totalParts: number;
+  status: 'start' | 'completed';
+  startTime: number;
+  endTime?: number;
+  duration?: number; // 毫秒
+}
+
+export type PartProgressCallback = (event: PartProgressEvent) => void;
+
 // ==================== 类型定义 ====================
 
 export namespace FileApi {
@@ -111,6 +123,7 @@ export namespace FileApi {
     pageSize?: number;
     keyword?: string;
     contentType?: string;
+    scope?: 'own' | 'all'; // own=自己的文件, all=所有文件（需要权限）
   }
 
   /** 文件列表响应 */
@@ -256,6 +269,34 @@ export function getUploadStatus(params: { uploadId: string }) {
   return requestClient.get<FileApi.UploadStatus>('/files/upload/status', { params });
 }
 
+/** 上传任务状态 */
+export interface UploadTaskStatus {
+  id: number;
+  uploadId: string;
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+  totalParts: number;
+  uploadedParts: number;
+  progress: number;
+  status: 'uploading' | 'processing' | 'completed' | 'failed' | 'aborted';
+  errorMessage?: string;
+  completedAt?: string;
+  createdAt: string;
+}
+
+/** 获取用户的上传任务列表 */
+export function getUploadTasks(limit?: number) {
+  return requestClient.get<UploadTaskStatus[]>('/files/upload/tasks', {
+    params: { limit: limit || 20 },
+  });
+}
+
+/** 获取单个上传任务状态 */
+export function getUploadTaskById(id: number) {
+  return requestClient.get<UploadTaskStatus>(`/files/upload/tasks/${id}`);
+}
+
 // ==================== 文件夹管理 ====================
 
 /** 创建文件夹 */
@@ -377,6 +418,66 @@ export function deleteShare(id: number) {
   return requestClient.delete(`/shares/${id}`);
 }
 
+/** 分享列表项 */
+export interface ShareListItem {
+  id: number;
+  shareCode: string;
+  shareUrl: string;
+  type: 'file' | 'folder';
+  fileId?: number;
+  folderId?: number;
+  fileName?: string;
+  folderName?: string;
+  fileSize?: number;
+  contentType?: string;
+  status: number; // 1=有效, 2=已过期, 3=已禁用
+  expireAt?: string;
+  accessCount: number;
+  maxAccess: number;
+  accessedAt?: string;
+  createdAt: string;
+  // 分享人信息
+  userId: number;
+  userName?: string;
+  userAvatar?: string;
+}
+
+/** 分享列表响应 */
+export interface ShareListResponse {
+  items: ShareListItem[];
+  total: number;
+}
+
+/** 获取用户分享列表（带分页） */
+export function getUserShares(params?: { page?: number; pageSize?: number }) {
+  return requestClient.get<ShareListResponse>('/files/shares', { params });
+}
+
+/** 续签分享 */
+export function renewShare(id: number, expireHours: number) {
+  return requestClient.put(`/files/shares/${id}/renew`, { expireHours });
+}
+
+/** 立即过期分享 */
+export function expireShare(id: number) {
+  return requestClient.put(`/files/shares/${id}/expire`);
+}
+
+/** 修改分享到期时间 */
+export function updateShareExpiry(id: number, expireAt?: string) {
+  return requestClient.put(`/files/shares/${id}/expiry`, { expireAt });
+}
+
+/** 禁用分享 */
+export function disableShare(id: number) {
+  return requestClient.put(`/files/shares/${id}/disable`);
+}
+
+/** 启用分享 */
+export function enableShare(id: number) {
+  return requestClient.put(`/files/shares/${id}/enable`);
+}
+
 // ==================== 简单文件上传（用于头像等小文件） ====================
 
 /** 计算文件 hash（兼容非 HTTPS 环境） */
@@ -403,6 +504,7 @@ const CHUNK_SIZE = 5 * 1024 * 1024;
 export async function simpleUpload(
   file: File,
   onProgress?: UploadProgressCallback,
+  onPartProgress?: PartProgressCallback,
 ): Promise<FileApi.CompleteUploadResult> {
   // 计算文件 hash
   const fileHash = await calculateFileHash(file);
@@ -431,6 +533,14 @@ export async function simpleUpload(
       totalParts: 1,
     });
 
+    const partStartTime = Date.now();
+    onPartProgress?.({
+      partNumber: 1,
+      totalParts: 1,
+      status: 'start',
+      startTime: partStartTime,
+    });
+
     await uploadPart({
       uploadId: initResult.uploadId,
       partNumber: 1,
@@ -438,11 +548,21 @@ export async function simpleUpload(
       onProgress,
     });
 
+    const partEndTime = Date.now();
+    onPartProgress?.({
+      partNumber: 1,
+      totalParts: 1,
+      status: 'completed',
+      startTime: partStartTime,
+      endTime: partEndTime,
+      duration: partEndTime - partStartTime,
+    });
+
     return completeUpload({ uploadId: initResult.uploadId });
   }
 
   // 大文件分片上传
-  return chunkedUpload(file, fileHash, onProgress);
+  return chunkedUpload(file, fileHash, onProgress, onPartProgress);
 }
 
 /** 大文件分片上传 */
@@ -450,6 +570,7 @@ async function chunkedUpload(
   file: File,
   fileHash: string,
   onProgress?: UploadProgressCallback,
+  onPartProgress?: PartProgressCallback,
 ): Promise<FileApi.CompleteUploadResult> {
   // 计算分片数量
   const totalParts = Math.ceil(file.size / CHUNK_SIZE);
@@ -479,6 +600,15 @@ async function chunkedUpload(
     const end = Math.min(start + CHUNK_SIZE, file.size);
     const chunk = file.slice(start, end);
 
+    // 分片开始上传
+    const partStartTime = Date.now();
+    onPartProgress?.({
+      partNumber,
+      totalParts,
+      status: 'start',
+      startTime: partStartTime,
+    });
+
     // 上传分片
     await uploadPart({
       uploadId: initResult.uploadId,
@@ -496,6 +626,17 @@ async function chunkedUpload(
           percent: Math.min(percent, 99), // 最多显示99%，完成后再显示100%
         });
       },
+    });
+
+    // 分片上传完成
+    const partEndTime = Date.now();
+    onPartProgress?.({
+      partNumber,
+      totalParts,
+      status: 'completed',
+      startTime: partStartTime,
+      endTime: partEndTime,
+      duration: partEndTime - partStartTime,
     });
 
     // 更新已上传大小

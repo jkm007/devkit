@@ -175,6 +175,8 @@ func (s *UploadService) UploadPart(uploadID string, partNumber int, reader inter
 	}
 	etag, err := uploader.UploadPart(context.Background(), task.ObjectKey, uploadID, partNumber, rdr, size)
 	if err != nil {
+		// 更新任务失败状态
+		s.uploadRepo.UpdateTaskFailed(uploadID, fmt.Sprintf("上传分片 %d 失败: %v", partNumber, err))
 		return nil, err
 	}
 
@@ -186,6 +188,11 @@ func (s *UploadService) UploadPart(uploadID string, partNumber int, reader inter
 		Size:         size,
 	}
 	s.uploadRepo.CreatePart(part)
+
+	// 更新进度
+	uploadedParts := partNumber
+	progress := int(float64(uploadedParts) / float64(task.TotalParts) * 100)
+	s.uploadRepo.UpdateTaskProgress(uploadID, uploadedParts, progress)
 
 	// Redis 缓存
 	rdb := database.GetRedis()
@@ -213,9 +220,13 @@ func (s *UploadService) CompleteUpload(uploadID string) (*CompleteResult, error)
 		return nil, fmt.Errorf("上传任务不存在")
 	}
 
+	// 更新状态为处理中
+	s.uploadRepo.UpdateTaskStatus(uploadID, "processing")
+
 	// 获取所有已上传分片
 	parts, err := s.uploadRepo.GetParts(task.ID)
 	if err != nil || len(parts) == 0 {
+		s.uploadRepo.UpdateTaskFailed(uploadID, "没有已上传的分片")
 		return nil, fmt.Errorf("没有已上传的分片")
 	}
 
@@ -231,14 +242,21 @@ func (s *UploadService) CompleteUpload(uploadID string) (*CompleteResult, error)
 	// 合并
 	url, err := uploader.CompleteUpload(context.Background(), task.ObjectKey, uploadID, completedParts)
 	if err != nil {
+		s.uploadRepo.UpdateTaskFailed(uploadID, fmt.Sprintf("合并分片失败: %v", err))
 		return nil, err
 	}
 
 	// 事务：更新任务状态 + 创建文件资产 + 创建文件条目
 	db := database.GetMySQL()
 	err = db.Transaction(func(tx *gorm.DB) error {
-		// 更新任务状态
-		if err := tx.Model(&model.UploadTask{}).Where("upload_id = ?", uploadID).Update("status", "completed").Error; err != nil {
+		// 更新任务完成状态
+		now := time.Now()
+		if err := tx.Model(&model.UploadTask{}).Where("upload_id = ?", uploadID).
+			Updates(map[string]interface{}{
+				"status":       "completed",
+				"progress":     100,
+				"completed_at": now,
+			}).Error; err != nil {
 			return fmt.Errorf("更新任务状态失败: %w", err)
 		}
 
@@ -358,6 +376,50 @@ func (s *UploadService) CleanupStaleUploads(olderThan time.Duration) error {
 // GetAssetByHash 根据哈希获取文件资产
 func (s *UploadService) GetAssetByHash(hash string) (*model.FileAsset, error) {
 	return s.assetRepo.GetByHash(hash)
+}
+
+// GetUserUploadTasks 获取用户的上传任务列表
+func (s *UploadService) GetUserUploadTasks(userID uint, limit int) ([]model.UploadTask, error) {
+	return s.uploadRepo.GetUserTasks(userID, limit)
+}
+
+// GetUploadTaskByID 根据ID获取上传任务
+func (s *UploadService) GetUploadTaskByID(id uint) (*model.UploadTask, error) {
+	return s.uploadRepo.GetTaskByID(id)
+}
+
+// TaskStatusResponse 任务状态响应
+type TaskStatusResponse struct {
+	ID            uint       `json:"id"`
+	UploadID      string     `json:"uploadId"`
+	FileName      string     `json:"fileName"`
+	FileSize      int64      `json:"fileSize"`
+	ContentType   string     `json:"contentType"`
+	TotalParts    int        `json:"totalParts"`
+	UploadedParts int        `json:"uploadedParts"`
+	Progress      int        `json:"progress"`
+	Status        string     `json:"status"`
+	ErrorMessage  string     `json:"errorMessage,omitempty"`
+	CompletedAt   *time.Time `json:"completedAt,omitempty"`
+	CreatedAt     time.Time  `json:"createdAt"`
+}
+
+// GetTaskStatusResponse 获取任务状态响应
+func (s *UploadService) GetTaskStatusResponse(task *model.UploadTask) *TaskStatusResponse {
+	return &TaskStatusResponse{
+		ID:            task.ID,
+		UploadID:      task.UploadID,
+		FileName:      task.FileName,
+		FileSize:      task.FileSize,
+		ContentType:   task.ContentType,
+		TotalParts:    task.TotalParts,
+		UploadedParts: task.UploadedParts,
+		Progress:      task.Progress,
+		Status:        task.Status,
+		ErrorMessage:  task.ErrorMessage,
+		CompletedAt:   task.CompletedAt,
+		CreatedAt:     task.CreatedAt,
+	}
 }
 
 // generateObjectKey 生成存储路径

@@ -165,6 +165,8 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		authorized.POST("/files/upload/complete", uploadHandler.CompleteUpload)
 		authorized.POST("/files/upload/abort", uploadHandler.AbortUpload)
 		authorized.GET("/files/upload/status", uploadHandler.GetUploadStatus)
+		authorized.GET("/files/upload/tasks", uploadHandler.GetUserUploadTasks)
+		authorized.GET("/files/upload/tasks/:id", uploadHandler.GetUploadTaskByID)
 
 		// 文件管理
 		authorized.POST("/files/folder", fileHandler.CreateFolder)
@@ -182,6 +184,15 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 			authorized.POST("/folders/:id/share", shareHandler.CreateFolderShare)
 			authorized.GET("/my-shares", shareHandler.GetMyShares)
 			authorized.DELETE("/shares/:id", shareHandler.DeleteShare)
+
+			// 分享管理
+			authorized.GET("/files/shares", shareHandler.GetUserShares)
+			authorized.PUT("/files/shares/:id/renew", shareHandler.RenewShare)
+			authorized.PUT("/files/shares/:id/expire", shareHandler.ExpireShare)
+			authorized.PUT("/files/shares/:id/expiry", shareHandler.UpdateShareExpiry)
+			authorized.PUT("/files/shares/:id/disable", shareHandler.DisableShare)
+			authorized.PUT("/files/shares/:id/enable", shareHandler.EnableShare)
+
 		authorized.GET("/files/:id/metadata", mediaHandler.GetMediaInfo)
 		authorized.GET("/files/:id/stream", mediaHandler.GetStream)
 		authorized.GET("/files/:id/download", mediaHandler.DownloadFile)

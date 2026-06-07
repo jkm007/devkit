@@ -5,15 +5,15 @@
 server:
   port: 8080
   mode: debug          # debug | release | test
-  read_timeout: 10s
-  write_timeout: 10s
+  read_timeout: 30s
+  write_timeout: 120s  # 大文件上传到 MinIO 需要较长时间
 
 # MySQL 配置
 mysql:
-  host: 127.0.0.1
+  host: 114.215.190.52
   port: 3306
   user: root
-  password: "${MYSQL_PASSWORD:changeme}"
+  password: "root123456"
   database: backend_db
   max_open_conns: 100
   max_idle_conns: 10
@@ -22,9 +22,9 @@ mysql:
 
 # Redis 配置
 redis:
-  host: 127.0.0.1
+  host: 114.215.190.52
   port: 6379
-  password: "${REDIS_PASSWORD:changeme}"
+  password: "redis123456"
   db: 0
   pool_size: 100
 

@@ -81,11 +81,15 @@ func (r *FileRepo) GetEntryByID(id uint) (*model.FileEntry, error) {
 }
 
 // ListEntries 文件列表（分页+搜索）
+// userID 为 0 时查看所有文件
 func (r *FileRepo) ListEntries(userID uint, folderID uint, page, pageSize int, filters map[string]interface{}) ([]model.FileEntry, int64, error) {
 	var entries []model.FileEntry
 	var total int64
 
-	query := r.db.Model(&model.FileEntry{}).Where("user_id = ?", userID)
+	query := r.db.Model(&model.FileEntry{})
+	if userID > 0 {
+		query = query.Where("user_id = ?", userID)
+	}
 	if folderID > 0 {
 		query = query.Where("folder_id = ?", folderID)
 	}
