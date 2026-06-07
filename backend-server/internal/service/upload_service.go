@@ -101,9 +101,14 @@ func (s *UploadService) InitUpload(userID uint, fileName string, fileSize int64,
 	uploadID := fmt.Sprintf("%d-%x", time.Now().UnixNano(), hashBytes[:8])
 
 	// 初始化分片上传（通知存储层）
-	_, err := uploader.InitiateUpload(context.Background(), objectKey, contentType)
+	// 注意：本地存储会返回自己的 uploadID，MinIO 返回空字符串
+	storageUploadID, err := uploader.InitiateUpload(context.Background(), objectKey, contentType)
 	if err != nil {
 		return nil, err
+	}
+	// 如果存储层返回了 uploadID（本地存储），使用它
+	if storageUploadID != "" {
+		uploadID = storageUploadID
 	}
 
 	// 创建上传任务记录
