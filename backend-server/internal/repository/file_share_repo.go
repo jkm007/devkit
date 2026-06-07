@@ -72,11 +72,15 @@ func (r *FileShareRepo) UpdateExpireAt(id uint, expireAt *time.Time) error {
 }
 
 // GetUserSharesWithFile 获取用户的分享列表（包含文件信息）
-func (r *FileShareRepo) GetUserSharesWithFile(userID uint, page, pageSize int) ([]model.FileShare, int64, error) {
+// viewAll=true 时查看所有分享，否则只查看自己的
+func (r *FileShareRepo) GetUserSharesWithFile(userID uint, page, pageSize int, viewAll bool) ([]model.FileShare, int64, error) {
 	var shares []model.FileShare
 	var total int64
 
-	query := r.db.Where("user_id = ?", userID)
+	query := r.db
+	if !viewAll {
+		query = query.Where("user_id = ?", userID)
+	}
 
 	// 统计总数
 	if err := query.Model(&model.FileShare{}).Count(&total).Error; err != nil {

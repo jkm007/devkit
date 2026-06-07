@@ -327,6 +327,7 @@ func (h *ShareHandler) GetUserShares(c *gin.Context) {
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
+	scope := c.DefaultQuery("scope", "own")
 
 	if page < 1 {
 		page = 1
@@ -335,7 +336,23 @@ func (h *ShareHandler) GetUserShares(c *gin.Context) {
 		pageSize = 20
 	}
 
-	items, total, err := h.shareService.GetUserShares(userID, page, pageSize)
+	// 检查权限：如果有 share:view:all 或 file:view:all 权限且 scope=all，则查看所有分享
+	viewAll := false
+	if scope == "all" {
+		// 通过 Service 层获取用户权限码
+		authService := service.NewAuthService()
+		codes, err := authService.GetPermissionCodes(userID)
+		if err == nil {
+			for _, code := range codes {
+				if code == "share:view:all" || code == "file:view:all" {
+					viewAll = true
+					break
+				}
+			}
+		}
+	}
+
+	items, total, err := h.shareService.GetUserShares(userID, page, pageSize, viewAll)
 	if err != nil {
 		response.InternalError(c, err.Error())
 		return

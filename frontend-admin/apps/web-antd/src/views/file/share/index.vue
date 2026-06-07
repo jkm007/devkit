@@ -12,6 +12,7 @@ import {
   message,
   Modal,
   Popconfirm,
+  Radio,
   Space,
   Table,
   Tag,
@@ -48,6 +49,9 @@ const totalShares = ref(0);
 const pagination = ref({ current: 1, pageSize: 20 });
 const selectedRowKeys = ref<number[]>([]);
 
+// 分享范围：own=自己的分享, all=所有分享
+const shareScope = ref<'all' | 'own'>('own');
+
 // 续签弹窗
 const renewModalVisible = ref(false);
 const renewShareId = ref<number | null>(null);
@@ -70,6 +74,7 @@ async function loadShareList() {
     const result = await getUserShares({
       page: pagination.value.current,
       pageSize: pagination.value.pageSize,
+      scope: shareScope.value,
     });
     shareList.value = result?.items || [];
     totalShares.value = result?.total || 0;
@@ -373,6 +378,13 @@ onMounted(() => {
       <!-- 统计信息和批量操作 -->
       <div class="mb-4 flex items-center justify-between">
         <div class="flex items-center gap-4">
+          <!-- 分享范围切换 -->
+          <div v-if="hasViewAllPermission">
+            <Radio.Group v-model:value="shareScope" button-style="solid" @change="loadShareList">
+              <Radio.Button value="own">我的分享</Radio.Button>
+              <Radio.Button value="all">所有分享</Radio.Button>
+            </Radio.Group>
+          </div>
           <span class="text-gray-500">共 {{ totalShares }} 个分享</span>
           <Space v-if="selectedRowKeys.length > 0 && (hasDeletePermission || hasManagePermission)">
             <span class="text-blue-500">已选 {{ selectedRowKeys.length }} 项</span>

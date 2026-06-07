@@ -478,7 +478,7 @@ export interface ShareListResponse {
 }
 
 /** 获取用户分享列表（带分页） */
-export function getUserShares(params?: { page?: number; pageSize?: number }) {
+export function getUserShares(params?: { page?: number; pageSize?: number; scope?: 'all' | 'own' }) {
   return requestClient.get<ShareListResponse>('/files/shares', { params });
 }
 

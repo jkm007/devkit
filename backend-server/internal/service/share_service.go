@@ -307,8 +307,8 @@ type ShareListItem struct {
 }
 
 // GetUserShares 获取用户的分享列表（带文件信息）
-func (s *ShareService) GetUserShares(userID uint, page, pageSize int) ([]ShareListItem, int64, error) {
-	shares, total, err := s.shareRepo.GetUserSharesWithFile(userID, page, pageSize)
+func (s *ShareService) GetUserShares(userID uint, page, pageSize int, viewAll bool) ([]ShareListItem, int64, error) {
+	shares, total, err := s.shareRepo.GetUserSharesWithFile(userID, page, pageSize, viewAll)
 	if err != nil {
 		return nil, 0, err
 	}
