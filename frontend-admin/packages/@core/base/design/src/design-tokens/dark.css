@@ -73,7 +73,7 @@
   --heavy-foreground: var(--accent-foreground);
 
   /* Default border color */
-  --border: 240 3.7% 22%;
+  --border: 240 3.7% 18%;
 
   /* Border color for inputs such as <Input />, <Select />, <Textarea /> */
   --input: 0deg 0% 100% / 10%;
