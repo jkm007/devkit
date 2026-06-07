@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 import { useAccessStore } from '@vben/stores';
@@ -86,6 +86,9 @@ const shareFileId = ref<number | null>(null);
 const shareResult = ref<{ shareCode: string; shareUrl: string } | null>(null);
 const shareExpireHours = ref(0);
 const shareLoading = ref(false);
+
+// 计算属性：是否有分享结果
+const hasShareResult = computed(() => !!shareResult.value?.shareCode);
 
 // 预览
 const previewVisible = ref(false);
@@ -484,7 +487,11 @@ async function confirmShare() {
       expireHours: shareExpireHours.value || undefined,
     });
     console.log('Share result:', result);
-    shareResult.value = result;
+    console.log('Share URL:', result?.shareUrl);
+    console.log('Share Code:', result?.shareCode);
+    shareResult.value = { ...result };
+    await nextTick();
+    console.log('shareResult after update:', shareResult.value);
     message.success('分享链接已生成');
   } catch (err) {
     console.error('Share error:', err);
@@ -744,10 +751,10 @@ const folderSelectData = computed(() => {
     <!-- 分享 -->
     <Modal v-model:open="shareModalVisible" title="创建分享链接" :closable="true" :maskClosable="false">
       <template #footer>
-        <Button @click="closeShareModal">{{ shareResult ? '关闭' : '取消' }}</Button>
-        <Button v-if="!shareResult" type="primary" :loading="shareLoading" @click="confirmShare">确定</Button>
+        <Button @click="closeShareModal">{{ hasShareResult ? '关闭' : '取消' }}</Button>
+        <Button v-if="!hasShareResult" type="primary" :loading="shareLoading" @click="confirmShare">确定</Button>
       </template>
-      <div v-if="!shareResult">
+      <div v-if="!hasShareResult">
         <Form layout="vertical">
           <FormItem label="过期时间">
             <Space>
@@ -760,7 +767,7 @@ const folderSelectData = computed(() => {
       <div v-else class="p-3 bg-gray-50 rounded">
         <p class="mb-2 font-medium">分享链接：</p>
         <div class="flex gap-2">
-          <Input :value="`${window.location.origin}${shareResult.shareUrl}`" readonly class="flex-1" />
+          <Input :value="`${window.location.origin}${shareResult?.shareUrl}`" readonly class="flex-1" />
           <Button type="primary" @click="copyShareUrl">复制</Button>
         </div>
       </div>
