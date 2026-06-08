@@ -1,8 +1,11 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"strings"
+	"time"
 
 	"backend-server/config"
 	"backend-server/internal/model"
@@ -47,17 +50,17 @@ func (s *StorageConfigService) Create(config *model.StorageConfig) error {
 		return fmt.Errorf("创建存储配置失败: %w", err)
 	}
 
-	// 如果设为默认，清除其他默认
+	// 如果设为默认，使用事务方法设置（repo.SetDefault 内部已包含清除旧默认+设置新默认）
 	if config.IsDefault {
-		if err := s.repo.ClearDefault(config.Driver); err != nil {
-			log.Printf("[WARN] 清除默认标记失败: %v", err)
+		if err := s.repo.SetDefault(config.ID, config.Driver); err != nil {
+			return fmt.Errorf("设置默认失败: %w", err)
 		}
-		// 重新设置自己为默认
-		s.repo.SetDefault(config.ID, config.Driver)
 	}
 
 	// 刷新存储管理器
-	storage.RefreshStorage()
+	if err := storage.RefreshStorage(); err != nil {
+		log.Printf("[WARN] 刷新存储管理器失败: %v", err)
+	}
 	return nil
 }
 
@@ -73,11 +76,11 @@ func (s *StorageConfigService) Update(config *model.StorageConfig) error {
 		return fmt.Errorf("本地存储不允许修改驱动类型")
 	}
 
-	// 敏感字段处理：如果传入的是 ******，保留原值
-	if config.AccessKey == "******" {
+	// 敏感字段处理：如果传入的是 ****** 或空字符串，保留原值
+	if config.AccessKey == "******" || config.AccessKey == "" {
 		config.AccessKey = existing.AccessKey
 	}
-	if config.SecretKey == "******" {
+	if config.SecretKey == "******" || config.SecretKey == "" {
 		config.SecretKey = existing.SecretKey
 	}
 
@@ -85,16 +88,17 @@ func (s *StorageConfigService) Update(config *model.StorageConfig) error {
 		return fmt.Errorf("更新存储配置失败: %w", err)
 	}
 
-	// 如果设为默认，清除其他默认
+	// 如果设为默认，使用事务方法设置
 	if config.IsDefault {
-		if err := s.repo.ClearDefault(config.Driver); err != nil {
-			log.Printf("[WARN] 清除默认标记失败: %v", err)
+		if err := s.repo.SetDefault(config.ID, config.Driver); err != nil {
+			return fmt.Errorf("设置默认失败: %w", err)
 		}
-		s.repo.SetDefault(config.ID, config.Driver)
 	}
 
 	// 刷新存储管理器
-	storage.RefreshStorage()
+	if err := storage.RefreshStorage(); err != nil {
+		log.Printf("[WARN] 刷新存储管理器失败: %v", err)
+	}
 	return nil
 }
 
@@ -115,7 +119,9 @@ func (s *StorageConfigService) Delete(id int64) error {
 	}
 
 	// 刷新存储管理器
-	storage.RefreshStorage()
+	if err := storage.RefreshStorage(); err != nil {
+		log.Printf("[WARN] 刷新存储管理器失败: %v", err)
+	}
 	return nil
 }
 
@@ -135,7 +141,9 @@ func (s *StorageConfigService) SetDefault(id int64) error {
 	}
 
 	// 刷新存储管理器
-	storage.RefreshStorage()
+	if err := storage.RefreshStorage(); err != nil {
+		log.Printf("[WARN] 刷新存储管理器失败: %v", err)
+	}
 	return nil
 }
 
@@ -162,16 +170,36 @@ func (s *StorageConfigService) TestConnectionByData(driver, endpoint, accessKey,
 	return s.testByConfig(config)
 }
 
-// testByConfig 根据配置测试连接
+// testByConfig 根据配置测试实际连接（上传+删除测试文件）
 func (s *StorageConfigService) testByConfig(config *model.StorageConfig) error {
+	if config.Driver == "local" {
+		return nil
+	}
+
+	if config.Bucket == "" {
+		return fmt.Errorf("Bucket 名称不能为空")
+	}
+
 	cfg := configModelToConfig(config)
 	st, err := storage.New(cfg)
 	if err != nil {
 		return fmt.Errorf("连接失败: %w", err)
 	}
 
-	// 尝试获取 URL 来验证连接
-	_ = st.GetURL("test-connection-check")
+	// 实际测试：上传一个小文件再删除
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	testKey := fmt.Sprintf(".connection-test/%d", time.Now().UnixNano())
+	testContent := strings.NewReader("devkit-connection-test")
+
+	_, err = st.Upload(ctx, testKey, testContent, "text/plain")
+	if err != nil {
+		return fmt.Errorf("上传测试失败: %w", err)
+	}
+
+	// 清理测试文件
+	_ = st.Delete(ctx, testKey)
 	return nil
 }
 
@@ -204,14 +232,17 @@ func configModelToConfig(m *model.StorageConfig) config.StorageConfig {
 	return cfg
 }
 
-// GetEnabledDrivers 获取已启用的驱动列表
+// driverOrder 驱动固定排序顺序
+var driverOrder = []string{"local", "minio", "oss", "cos"}
+
+// GetEnabledDrivers 获取已启用的驱动列表（固定顺序）
 func (s *StorageConfigService) GetEnabledDrivers() ([]map[string]interface{}, error) {
 	configs, err := s.repo.GetEnabled()
 	if err != nil {
 		return nil, err
 	}
 
-	// 去重并构建结果
+	// 去重
 	driverMap := make(map[string]bool)
 	for _, c := range configs {
 		driverMap[c.Driver] = true
@@ -231,7 +262,7 @@ func (s *StorageConfigService) GetEnabledDrivers() ([]map[string]interface{}, er
 	}
 
 	var result []map[string]interface{}
-	for driver := range driverLabels {
+	for _, driver := range driverOrder {
 		result = append(result, map[string]interface{}{
 			"value":   driver,
 			"label":   driverLabels[driver],

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"strconv"
+	"strings"
 
 	"backend-server/internal/model"
 	"backend-server/internal/service"
@@ -92,7 +93,12 @@ func (h *StorageConfigHandler) Create(c *gin.Context) {
 	}
 
 	if err := h.service.Create(config); err != nil {
-		response.InternalError(c, err.Error())
+		// 区分业务错误和系统错误
+		if isBusinessError(err) {
+			response.BadRequest(c, err.Error())
+		} else {
+			response.InternalError(c, err.Error())
+		}
 		return
 	}
 	response.Success(c, config)
@@ -128,9 +134,18 @@ func (h *StorageConfigHandler) Update(c *gin.Context) {
 		return
 	}
 
-	status := int8(1)
+	// Status 为 nil 时保留原值（不默认为启用）
+	var status int8
 	if req.Status != nil {
 		status = *req.Status
+	} else {
+		// 获取现有配置的 status
+		existing, err := h.service.GetByID(id)
+		if err != nil {
+			response.NotFound(c, "存储配置不存在")
+			return
+		}
+		status = existing.Status
 	}
 
 	config := &model.StorageConfig{
@@ -150,7 +165,11 @@ func (h *StorageConfigHandler) Update(c *gin.Context) {
 	}
 
 	if err := h.service.Update(config); err != nil {
-		response.InternalError(c, err.Error())
+		if isBusinessError(err) {
+			response.BadRequest(c, err.Error())
+		} else {
+			response.InternalError(c, err.Error())
+		}
 		return
 	}
 	response.Success(c, config)
@@ -165,7 +184,11 @@ func (h *StorageConfigHandler) Delete(c *gin.Context) {
 	}
 
 	if err := h.service.Delete(id); err != nil {
-		response.InternalError(c, err.Error())
+		if isBusinessError(err) {
+			response.BadRequest(c, err.Error())
+		} else {
+			response.InternalError(c, err.Error())
+		}
 		return
 	}
 	response.Success(c, nil)
@@ -180,15 +203,14 @@ func (h *StorageConfigHandler) SetDefault(c *gin.Context) {
 	}
 
 	if err := h.service.SetDefault(id); err != nil {
-		response.InternalError(c, err.Error())
+		if isBusinessError(err) {
+			response.BadRequest(c, err.Error())
+		} else {
+			response.InternalError(c, err.Error())
+		}
 		return
 	}
 	response.Success(c, nil)
-}
-
-// testConnectionByIDRequest 按ID测试连接
-type testConnectionByIDRequest struct {
-	ID int64 `json:"id" binding:"required"`
 }
 
 // TestConnection 测试已有配置的连接
@@ -240,4 +262,19 @@ func (h *StorageConfigHandler) GetEnabledDrivers(c *gin.Context) {
 		return
 	}
 	response.Success(c, drivers)
+}
+
+// isBusinessError 判断是否为业务逻辑错误（应返回 400 而非 500）
+func isBusinessError(err error) bool {
+	msg := err.Error()
+	businessKeywords := []string{
+		"已存在", "不存在", "不允许", "不能", "禁用",
+		"缺少", "不能为空", "无效",
+	}
+	for _, kw := range businessKeywords {
+		if strings.Contains(msg, kw) {
+			return true
+		}
+	}
+	return false
 }

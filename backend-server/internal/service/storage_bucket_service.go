@@ -567,7 +567,7 @@ func GetEnabledDrivers() []map[string]interface{} {
 	}
 
 	drivers := []map[string]interface{}{
-		{"value": "local", "label": "本地存储", "icon": "🖥️", "enabled": true},
+		{"value": "local", "label": "本地存储", "icon": "💻", "enabled": true},
 	}
 
 	// 从 sys_storage_config 获取已启用的驱动
@@ -576,9 +576,9 @@ func GetEnabledDrivers() []map[string]interface{} {
 		label string
 		icon  string
 	}{
-		{"minio", "MinIO", "🪣"},
+		{"minio", "MinIO", "📦"},
 		{"oss", "阿里云 OSS", "☁️"},
-		{"cos", "腾讯云 COS", "🌐"},
+		{"cos", "腾讯云 COS", "🌊"},
 	}
 
 	for _, d := range externalDrivers {

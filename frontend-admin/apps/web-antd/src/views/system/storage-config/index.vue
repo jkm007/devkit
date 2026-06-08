@@ -177,6 +177,7 @@ const resetForm = () => {
     isDefault: false,
     status: 1,
     description: '',
+    _editId: undefined,
   });
 };
 
