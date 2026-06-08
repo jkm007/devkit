@@ -1,12 +1,14 @@
 package handler
 
 import (
+	"errors"
 	"strconv"
 
 	"backend-server/internal/service"
 	"backend-server/pkg/response"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // UserHandler 用户处理器
@@ -115,7 +117,11 @@ func (h *UserHandler) Update(c *gin.Context) {
 	}
 
 	if err := h.userService.Update(uint(id), &req); err != nil {
-		response.InternalError(c, err.Error())
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			response.NotFound(c, "用户不存在")
+		} else {
+			response.InternalError(c, err.Error())
+		}
 		return
 	}
 

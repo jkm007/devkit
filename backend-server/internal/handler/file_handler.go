@@ -249,7 +249,11 @@ func (h *FileHandler) DeleteFile(c *gin.Context) {
 	hasPermission := h.hasFilePermission(userID, "file:delete") || h.hasFilePermission(userID, "file:manage")
 
 	if err := h.fileService.DeleteFile(userID, uint(id), hasPermission); err != nil {
-		response.InternalError(c, err.Error())
+		if err.Error() == "文件不存在" {
+			response.NotFound(c, "文件不存在")
+		} else {
+			response.InternalError(c, err.Error())
+		}
 		return
 	}
 
