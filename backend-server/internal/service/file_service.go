@@ -16,17 +16,21 @@ import (
 
 // FileService 文件管理服务
 type FileService struct {
-	fileRepo  *repository.FileRepo
-	assetRepo *repository.FileAssetRepo
-	userRepo  *repository.UserRepo
+	fileRepo    *repository.FileRepo
+	assetRepo   *repository.FileAssetRepo
+	userRepo    *repository.UserRepo
+	tagRepo     *repository.TagRepo
+	fileTagRepo *repository.FileTagRepo
 }
 
 func NewFileService() *FileService {
 	db := database.GetMySQL()
 	return &FileService{
-		fileRepo:  repository.NewFileRepo(db),
-		assetRepo: repository.NewFileAssetRepo(db),
-		userRepo:  repository.NewUserRepo(db),
+		fileRepo:    repository.NewFileRepo(db),
+		assetRepo:   repository.NewFileAssetRepo(db),
+		userRepo:    repository.NewUserRepo(db),
+		tagRepo:     repository.NewTagRepo(db),
+		fileTagRepo: repository.NewFileTagRepo(db),
 	}
 }
 
@@ -258,20 +262,31 @@ func (s *FileService) collectChildFolderIDs(parentID uint, ids *[]uint) error {
 
 // --- 文件条目 ---
 
+// TagInfo 标签信息
+type TagInfo struct {
+	ID    int64  `json:"id"`
+	Key   string `json:"key"`
+	Value string `json:"value"`
+	Name  string `json:"name"`
+	Icon  string `json:"icon"`
+	Color string `json:"color"`
+}
+
 // FileEntryWithURL 文件条目带预览URL
 type FileEntryWithURL struct {
-	ID             uint   `json:"id"`
-	FolderID       uint   `json:"folderId"`
-	Name           string `json:"name"`
-	Size           int64  `json:"size"`
-	ContentType    string `json:"contentType"`
-	StorageType    string `json:"storageType"`
-	UserID         uint   `json:"userId"`
-	CreatedAt      string `json:"createdAt"`
-	UpdatedAt      string `json:"updatedAt"`
-	PreviewURL     string `json:"previewUrl,omitempty"`
-	UploaderName   string `json:"uploaderName"`
-	UploaderAvatar string `json:"uploaderAvatar"`
+	ID             uint      `json:"id"`
+	FolderID       uint      `json:"folderId"`
+	Name           string    `json:"name"`
+	Size           int64     `json:"size"`
+	ContentType    string    `json:"contentType"`
+	StorageType    string    `json:"storageType"`
+	UserID         uint      `json:"userId"`
+	CreatedAt      string    `json:"createdAt"`
+	UpdatedAt      string    `json:"updatedAt"`
+	PreviewURL     string    `json:"previewUrl,omitempty"`
+	UploaderName   string    `json:"uploaderName"`
+	UploaderAvatar string    `json:"uploaderAvatar"`
+	Tags           []TagInfo `json:"tags,omitempty"`
 }
 
 // ListFiles 文件列表
@@ -332,6 +347,13 @@ func (s *FileService) ListFiles(userID uint, req *ListFilesRequest) ([]FileEntry
 		}
 	}
 
+	// 批量查询文件标签
+	fileIDs := make([]uint, 0, len(entries))
+	for _, entry := range entries {
+		fileIDs = append(fileIDs, entry.ID)
+	}
+	fileTagsMap, _ := s.fileTagRepo.GetByFileIDs(fileIDs)
+
 	// 转换为带 URL 的结构
 	result := make([]FileEntryWithURL, len(entries))
 	for i, entry := range entries {
@@ -357,6 +379,24 @@ func (s *FileService) ListFiles(userID uint, req *ListFilesRequest) ([]FileEntry
 			st := storage.GetStorageByDriver(asset.StorageType)
 			result[i].PreviewURL = st.GetURL(asset.ObjectKey)
 			result[i].StorageType = asset.StorageType
+		}
+
+		// 获取标签
+		if fileTags, ok := fileTagsMap[entry.ID]; ok {
+			tags := make([]TagInfo, 0, len(fileTags))
+			for _, ft := range fileTags {
+				if ft.Tag != nil {
+					tags = append(tags, TagInfo{
+						ID:    ft.Tag.ID,
+						Key:   ft.Tag.TagKey,
+						Value: ft.Tag.TagValue,
+						Name:  ft.Tag.TagName,
+						Icon:  ft.Tag.Icon,
+						Color: ft.Tag.Color,
+					})
+				}
+			}
+			result[i].Tags = tags
 		}
 	}
 
@@ -502,4 +542,88 @@ func (s *FileService) GetFileEntry(userID uint, fileID uint) (*model.FileEntry, 
 // GetAssetByID 获取文件资产
 func (s *FileService) GetAssetByID(assetID uint) (*model.FileAsset, error) {
 	return s.assetRepo.GetByID(assetID)
+}
+
+// GetFileTags 获取文件的标签
+func (s *FileService) GetFileTags(fileID uint) ([]TagInfo, error) {
+	fileTags, err := s.fileTagRepo.GetByFileID(fileID)
+	if err != nil {
+		return nil, err
+	}
+
+	tags := make([]TagInfo, 0, len(fileTags))
+	for _, ft := range fileTags {
+		if ft.Tag != nil {
+			tags = append(tags, TagInfo{
+				ID:    ft.Tag.ID,
+				Key:   ft.Tag.TagKey,
+				Value: ft.Tag.TagValue,
+				Name:  ft.Tag.TagName,
+				Icon:  ft.Tag.Icon,
+				Color: ft.Tag.Color,
+			})
+		}
+	}
+	return tags, nil
+}
+
+// AddFileTag 添加文件标签
+func (s *FileService) AddFileTag(fileID uint, userID uint, tagID int64) error {
+	// 验证文件归属
+	entry, err := s.fileRepo.GetEntryByID(fileID)
+	if err != nil {
+		return fmt.Errorf("文件不存在")
+	}
+	if entry.UserID != userID {
+		return fmt.Errorf("无权操作")
+	}
+
+	// 验证标签存在
+	_, err = s.tagRepo.GetByID(tagID)
+	if err != nil {
+		return fmt.Errorf("标签不存在")
+	}
+
+	fileTag := &model.FileTag{
+		FileID: fileID,
+		TagID:  tagID,
+		Source: "manual",
+	}
+	return s.fileTagRepo.Create(fileTag)
+}
+
+// RemoveFileTag 移除文件标签
+func (s *FileService) RemoveFileTag(fileID uint, userID uint, tagID int64) error {
+	// 验证文件归属
+	entry, err := s.fileRepo.GetEntryByID(fileID)
+	if err != nil {
+		return fmt.Errorf("文件不存在")
+	}
+	if entry.UserID != userID {
+		return fmt.Errorf("无权操作")
+	}
+
+	return s.fileTagRepo.Delete(fileID, tagID)
+}
+
+// ReplaceFileTags 替换文件的标签
+func (s *FileService) ReplaceFileTags(fileID uint, userID uint, tagIDs []int64) error {
+	// 验证文件归属
+	entry, err := s.fileRepo.GetEntryByID(fileID)
+	if err != nil {
+		return fmt.Errorf("文件不存在")
+	}
+	if entry.UserID != userID {
+		return fmt.Errorf("无权操作")
+	}
+
+	fileTags := make([]model.FileTag, 0, len(tagIDs))
+	for _, tagID := range tagIDs {
+		fileTags = append(fileTags, model.FileTag{
+			FileID: fileID,
+			TagID:  tagID,
+			Source: "manual",
+		})
+	}
+	return s.fileTagRepo.ReplaceFileTags(fileID, fileTags)
 }

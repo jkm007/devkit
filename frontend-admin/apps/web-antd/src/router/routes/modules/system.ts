@@ -84,6 +84,15 @@ const routes: RouteRecordRaw[] = [
         },
         component: () => import('#/views/system/risk/index.vue'),
       },
+      {
+        path: '/system/tag',
+        name: 'SystemTag',
+        meta: {
+          icon: 'mdi:tag-multiple',
+          title: '标签路由',
+        },
+        component: () => import('#/views/system/tag/index.vue'),
+      },
     ],
   },
 ];

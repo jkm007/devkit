@@ -109,6 +109,11 @@ func main() {
 	// 9. 初始化存储（优先从 DB 加载配置）
 	storage.InitStorage(cfg.Storage)
 
+	// 9.1 初始化路由引擎
+	if err := storage.InitRoutingEngine(); err != nil {
+		logger.Error("初始化路由引擎失败，使用默认路由", zap.Error(err))
+	}
+
 	// 10. 初始化路由
 	r := router.Setup(cfg, hub)
 

@@ -4,7 +4,10 @@ import (
 	"backend-server/config"
 	"backend-server/internal/handler"
 	"backend-server/internal/middleware"
+	"backend-server/internal/repository"
+	"backend-server/internal/service"
 	"backend-server/internal/ws"
+	"backend-server/pkg/database"
 
 	_ "backend-server/docs" // swagger docs
 
@@ -47,6 +50,8 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	fileHandler := handler.NewFileHandler()
 	mediaHandler := handler.NewMediaHandler()
 	shareHandler := handler.NewShareHandler()
+	tagHandler := handler.NewTagHandler(service.NewTagService(repository.NewTagRepo(database.GetMySQL()), repository.NewFileTagRepo(database.GetMySQL())))
+	routingHandler := handler.NewRoutingHandler(service.NewRoutingService(repository.NewTagRoutingRepo(database.GetMySQL())))
 
 	// 健康检查
 	// @Summary      健康检查
@@ -187,6 +192,12 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		authorized.POST("/files/batch-move", fileHandler.BatchMoveFiles)
 		authorized.DELETE("/files/:id", fileHandler.DeleteFile)
 
+		// 文件标签管理
+		authorized.GET("/files/:id/tags", tagHandler.GetFileTags)
+		authorized.POST("/files/:id/tags", tagHandler.AddFileTag)
+		authorized.DELETE("/files/:id/tags/:tagId", tagHandler.RemoveFileTag)
+		authorized.PUT("/files/:id/tags", tagHandler.BatchUpdateFileTags)
+
 		// 媒体文件
 			authorized.POST("/files/:id/share", shareHandler.CreateFileShare)
 			authorized.POST("/folders/:id/share", shareHandler.CreateFolderShare)
@@ -270,6 +281,28 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 			system.GET("/risk/score", middleware.Permission("system:setting:list"), riskScoreHandler.GetRiskScoreByIP)
 			system.GET("/risk/stats", middleware.Permission("system:setting:list"), riskScoreHandler.GetRiskScoreStats)
 			system.POST("/risk/clear", middleware.Permission("system:setting:edit"), riskScoreHandler.ClearRiskScore)
+
+			// 标签管理
+			system.GET("/tags", middleware.Permission("system:setting:list"), tagHandler.GetAllTags)
+			system.GET("/tags/grouped", middleware.Permission("system:setting:list"), tagHandler.GetGroupedTags)
+			system.GET("/tags/stats", middleware.Permission("system:setting:list"), tagHandler.GetUsageStats)
+			system.GET("/tags/key/:key", middleware.Permission("system:setting:list"), tagHandler.GetTagsByKey)
+			system.GET("/tags/:id", middleware.Permission("system:setting:list"), tagHandler.GetTagByID)
+			system.POST("/tags", middleware.Permission("system:setting:edit"), tagHandler.CreateTag)
+			system.PUT("/tags/:id", middleware.Permission("system:setting:edit"), tagHandler.UpdateTag)
+			system.DELETE("/tags/:id", middleware.Permission("system:setting:edit"), tagHandler.DeleteTag)
+
+			// 路由规则管理
+			system.GET("/routing-rules", middleware.Permission("system:setting:list"), routingHandler.GetAllRules)
+			system.GET("/routing-rules/:id", middleware.Permission("system:setting:list"), routingHandler.GetRuleByID)
+			system.POST("/routing-rules", middleware.Permission("system:setting:edit"), routingHandler.CreateRule)
+			system.PUT("/routing-rules/:id", middleware.Permission("system:setting:edit"), routingHandler.UpdateRule)
+			system.DELETE("/routing-rules/:id", middleware.Permission("system:setting:edit"), routingHandler.DeleteRule)
+			system.PUT("/routing-rules/:id/status", middleware.Permission("system:setting:edit"), routingHandler.UpdateStatus)
+			system.PUT("/routing-rules/:id/priority", middleware.Permission("system:setting:edit"), routingHandler.UpdatePriority)
+			system.POST("/routing-rules/batch-priority", middleware.Permission("system:setting:edit"), routingHandler.BatchUpdatePriority)
+			system.POST("/routing-rules/:id/test", middleware.Permission("system:setting:list"), routingHandler.TestRule)
+			system.POST("/routing-rules/test-route", middleware.Permission("system:setting:list"), routingHandler.TestRoute)
 		}
 	}
 

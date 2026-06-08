@@ -20,17 +20,21 @@ import (
 
 // UploadService 文件上传服务
 type UploadService struct {
-	uploadRepo *repository.UploadRepo
-	assetRepo  *repository.FileAssetRepo
-	fileRepo   *repository.FileRepo
+	uploadRepo  *repository.UploadRepo
+	assetRepo   *repository.FileAssetRepo
+	fileRepo    *repository.FileRepo
+	tagRepo     *repository.TagRepo
+	fileTagRepo *repository.FileTagRepo
 }
 
 func NewUploadService() *UploadService {
 	db := database.GetMySQL()
 	return &UploadService{
-		uploadRepo: repository.NewUploadRepo(db),
-		assetRepo:  repository.NewFileAssetRepo(db),
-		fileRepo:   repository.NewFileRepo(db),
+		uploadRepo:  repository.NewUploadRepo(db),
+		assetRepo:   repository.NewFileAssetRepo(db),
+		fileRepo:    repository.NewFileRepo(db),
+		tagRepo:     repository.NewTagRepo(db),
+		fileTagRepo: repository.NewFileTagRepo(db),
 	}
 }
 
@@ -97,12 +101,30 @@ func (s *UploadService) InitUpload(userID uint, fileName string, fileSize int64,
 		return nil, fmt.Errorf("当前存储驱动不支持分片上传")
 	}
 
-	// 生成唯一 objectKey（使用时间戳避免中文编码问题）
-	ext := filepath.Ext(fileName)
-	objectKey := fmt.Sprintf("files/%s/%d%s",
-		time.Now().Format("2006/01/02"),
-		time.Now().UnixNano(),
-		ext)
+	// 使用路由引擎生成 objectKey
+	routingResult, _, err := storage.Route(fileName, contentType, "user")
+	if err != nil {
+		// 路由失败，使用默认路径
+		ext := filepath.Ext(fileName)
+		routingResult = &storage.RoutingResult{
+			Driver:     "local",
+			PathPrefix: "files/",
+		}
+		_ = ext // 避免未使用警告
+	}
+
+	// 生成唯一 objectKey
+	tagger := storage.GetAutoTagger()
+	var objectKey string
+	if tagger != nil {
+		objectKey = tagger.GenerateObjectKey(routingResult.PathPrefix, fileName)
+	} else {
+		ext := filepath.Ext(fileName)
+		objectKey = fmt.Sprintf("files/%s/%d%s",
+			time.Now().Format("2006/01/02"),
+			time.Now().UnixNano(),
+			ext)
+	}
 
 	// 生成唯一 uploadID（只使用ASCII十六进制字符，避免中文编码问题）
 	hashInput := fmt.Sprintf("%s-%d", fileHash, time.Now().UnixNano())
@@ -246,7 +268,7 @@ func (s *UploadService) CompleteUpload(uploadID string) (*CompleteResult, error)
 		return nil, err
 	}
 
-	// 事务：更新任务状态 + 创建文件资产 + 创建文件条目
+	// 事务：更新任务状态 + 创建文件资产 + 创建文件条目 + 创建标签
 	db := database.GetMySQL()
 	err = db.Transaction(func(tx *gorm.DB) error {
 		// 更新任务完成状态
@@ -260,6 +282,14 @@ func (s *UploadService) CompleteUpload(uploadID string) (*CompleteResult, error)
 			return fmt.Errorf("更新任务状态失败: %w", err)
 		}
 
+		// 获取路由结果
+		routingResult, tags, routeErr := storage.Route(task.FileName, task.ContentType, "user")
+		if routeErr != nil {
+			routingResult = &storage.RoutingResult{
+				Driver: "local",
+			}
+		}
+
 		// 创建文件资产（秒传映射）
 		asset := &model.FileAsset{
 			FileHash:    task.FileHash,
@@ -267,7 +297,7 @@ func (s *UploadService) CompleteUpload(uploadID string) (*CompleteResult, error)
 			FileName:    task.FileName,
 			FileSize:    task.FileSize,
 			ContentType: task.ContentType,
-			StorageType: storage.GetStorageDriver(),
+			StorageType: routingResult.Driver,
 			RefCount:    1,
 		}
 		if err := tx.Create(asset).Error; err != nil {
@@ -285,6 +315,24 @@ func (s *UploadService) CompleteUpload(uploadID string) (*CompleteResult, error)
 		}
 		if err := tx.Create(entry).Error; err != nil {
 			return fmt.Errorf("创建文件条目失败: %w", err)
+		}
+
+		// 自动打标签
+		if len(tags) > 0 {
+			for _, tag := range tags {
+				// 查找标签
+				tagModel, err := s.tagRepo.GetByKeyValue(tag.Key, tag.Value)
+				if err != nil {
+					continue // 标签不存在，跳过
+				}
+				// 创建文件标签关联
+				fileTag := &model.FileTag{
+					FileID: entry.ID,
+					TagID:  tagModel.ID,
+					Source: "auto",
+				}
+				tx.Create(fileTag)
+			}
 		}
 
 		return nil

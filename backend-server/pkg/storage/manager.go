@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"backend-server/config"
+	"backend-server/internal/model"
 	"backend-server/pkg/database"
 )
 
@@ -16,6 +17,10 @@ var (
 	storageMutex   sync.RWMutex
 	// storageCache 缓存不同驱动的存储实例，用于访问历史文件
 	storageCache = make(map[string]Storage)
+
+	// 路由引擎相关
+	routingEngine *RoutingEngine
+	autoTagger    *AutoTagger
 )
 
 // InitStorage 初始化存储（启动时调用）
@@ -219,6 +224,156 @@ func RefreshStorage() error {
 	storageCache[activeDriver] = s
 	log.Printf("[INFO] 存储配置已热重载: driver=%s", activeDriver)
 	return nil
+}
+
+// InitRoutingEngine 初始化路由引擎
+func InitRoutingEngine() error {
+	storageMutex.Lock()
+	defer storageMutex.Unlock()
+
+	rules, err := loadRoutingRulesFromDB()
+	if err != nil {
+		return fmt.Errorf("加载路由规则失败: %w", err)
+	}
+
+	routingEngine = NewRoutingEngine(rules)
+	autoTagger = NewAutoTagger()
+	log.Printf("[INFO] 路由引擎已初始化，共 %d 条规则", len(rules))
+	return nil
+}
+
+// RefreshRoutingEngine 刷新路由引擎（路由规则变更时调用）
+func RefreshRoutingEngine() error {
+	storageMutex.Lock()
+	defer storageMutex.Unlock()
+
+	rules, err := loadRoutingRulesFromDB()
+	if err != nil {
+		return fmt.Errorf("加载路由规则失败: %w", err)
+	}
+
+	routingEngine = NewRoutingEngine(rules)
+	log.Printf("[INFO] 路由引擎已刷新，共 %d 条规则", len(rules))
+	return nil
+}
+
+// GetRoutingEngine 获取路由引擎实例
+func GetRoutingEngine() *RoutingEngine {
+	storageMutex.RLock()
+	defer storageMutex.RUnlock()
+	return routingEngine
+}
+
+// GetAutoTagger 获取自动打标签器实例
+func GetAutoTagger() *AutoTagger {
+	storageMutex.RLock()
+	defer storageMutex.RUnlock()
+	return autoTagger
+}
+
+// Route 根据文件信息路由到目标存储
+func Route(filename, contentType, source string) (*RoutingResult, []RoutingTag, error) {
+	storageMutex.RLock()
+	defer storageMutex.RUnlock()
+
+	if routingEngine == nil || autoTagger == nil {
+		return nil, nil, fmt.Errorf("路由引擎未初始化")
+	}
+
+	// 1. 自动生成标签
+	tags := autoTagger.GenerateTags(filename, contentType, source)
+
+	// 2. 匹配路由规则
+	result := routingEngine.Match(tags)
+	if result == nil {
+		return nil, nil, fmt.Errorf("no matching routing rule")
+	}
+
+	return result, tags, nil
+}
+
+// RouteWithPurpose 根据文件信息和用途路由到目标存储
+func RouteWithPurpose(filename, contentType, source, purpose string) (*RoutingResult, []RoutingTag, error) {
+	storageMutex.RLock()
+	defer storageMutex.RUnlock()
+
+	if routingEngine == nil || autoTagger == nil {
+		return nil, nil, fmt.Errorf("路由引擎未初始化")
+	}
+
+	// 1. 自动生成标签（包含用途）
+	tags := autoTagger.GenerateTagsWithPurpose(filename, contentType, source, purpose)
+
+	// 2. 匹配路由规则
+	result := routingEngine.Match(tags)
+	if result == nil {
+		return nil, nil, fmt.Errorf("no matching routing rule")
+	}
+
+	return result, tags, nil
+}
+
+// RouteWithTags 根据已有标签路由
+func RouteWithTags(tags []RoutingTag) (*RoutingResult, error) {
+	storageMutex.RLock()
+	defer storageMutex.RUnlock()
+
+	if routingEngine == nil {
+		return nil, fmt.Errorf("路由引擎未初始化")
+	}
+
+	result := routingEngine.Match(tags)
+	if result == nil {
+		return nil, fmt.Errorf("no matching routing rule")
+	}
+	return result, nil
+}
+
+// GetStorageByRouting 根据路由结果获取存储实例
+func GetStorageByRouting(result *RoutingResult) Storage {
+	storageMutex.RLock()
+	defer storageMutex.RUnlock()
+
+	switch result.Driver {
+	case "local":
+		if s, ok := storageCache["local"]; ok {
+			return s
+		}
+		return currentStorage
+	case "minio":
+		// 对于 MinIO，可能需要根据 bucket 创建不同的实例
+		// 暂时返回缓存的实例
+		if s, ok := storageCache["minio"]; ok {
+			return s
+		}
+		return currentStorage
+	case "oss":
+		if s, ok := storageCache["oss"]; ok {
+			return s
+		}
+		return currentStorage
+	case "cos":
+		if s, ok := storageCache["cos"]; ok {
+			return s
+		}
+		return currentStorage
+	default:
+		return currentStorage
+	}
+}
+
+// loadRoutingRulesFromDB 从数据库加载路由规则
+func loadRoutingRulesFromDB() ([]model.TagRouting, error) {
+	db := database.GetMySQL()
+	if db == nil {
+		return nil, fmt.Errorf("数据库未初始化")
+	}
+
+	var rules []model.TagRouting
+	if err := db.Where("status = ?", 1).Order("priority DESC, id ASC").Find(&rules).Error; err != nil {
+		return nil, err
+	}
+	return rules, nil
 }
 
 // loadStorageConfigFromDB 从 sys_system_settings 表加载存储配置
