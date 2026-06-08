@@ -79,7 +79,7 @@ const fileScope = ref<'own' | 'all'>('own');
 
 // 标签筛选
 const selectedTagKeys = ref<string[]>([]);
-const availableTags = ref<{ key: string; value: string; name: string; icon: string; color: string }[]>([]);
+const availableTags = ref<{ id: number; key: string; value: string; name: string; icon: string; color: string }[]>([]);
 
 // 新建文件夹
 const newFolderModalVisible = ref(false);
@@ -141,6 +141,13 @@ watch(previewVisible, (newVal) => {
 // 批量操作
 const batchMoveModalVisible = ref(false);
 const batchTargetFolderId = ref<number | null>(null);
+
+// 文件标签编辑
+const tagEditModalVisible = ref(false);
+const tagEditFileId = ref<number | null>(null);
+const tagEditFileName = ref('');
+const tagEditSelectedTags = ref<number[]>([]);
+const fileTags = ref<FileApi.TagInfo[]>([]);
 
 // 上传详情弹窗
 const uploadDetailVisible = ref(false);
@@ -207,21 +214,16 @@ async function loadFileList() {
 // 加载可用标签
 async function loadAvailableTags() {
   try {
-    const { getGroupedTags } = await import('#/api/system/tag');
-    const grouped = await getGroupedTags();
-    const tags: typeof availableTags.value = [];
-    for (const [key, tagList] of Object.entries(grouped)) {
-      for (const tag of tagList) {
-        tags.push({
-          key: tag.tagKey,
-          value: tag.tagValue,
-          name: tag.tagName,
-          icon: tag.icon,
-          color: tag.color,
-        });
-      }
-    }
-    availableTags.value = tags;
+    const { getAllTags } = await import('#/api/system/tag');
+    const tags = await getAllTags();
+    availableTags.value = tags.map(tag => ({
+      id: tag.id,
+      key: tag.tagKey,
+      value: tag.tagValue,
+      name: tag.tagName,
+      icon: tag.icon,
+      color: tag.color,
+    }));
   } catch {
     // 静默失败
   }
@@ -390,6 +392,38 @@ async function handleDeleteFile(id: number, name: string) {
   } catch {
     message.error('删除失败');
   }
+}
+
+// ==================== 文件标签编辑 ====================
+
+async function openTagEditModal(file: FileApi.FileEntry) {
+  tagEditFileId.value = file.id;
+  tagEditFileName.value = file.name;
+  tagEditSelectedTags.value = file.tags?.map(t => t.id) || [];
+  tagEditModalVisible.value = true;
+
+  // 加载文件当前标签
+  try {
+    const { getFileTags } = await import('#/api/file');
+    fileTags.value = await getFileTags(file.id);
+  } catch {
+    fileTags.value = [];
+  }
+}
+
+async function handleTagEditSubmit() {
+  if (!tagEditFileId.value) return;
+
+  try {
+    const { batchUpdateFileTags } = await import('#/api/file');
+    await batchUpdateFileTags(tagEditFileId.value, tagEditSelectedTags.value);
+    message.success('标签更新成功');
+    tagEditModalVisible.value = false;
+    loadFileList();
+  } catch (error: any) {
+    message.error(error.message || '更新失败');
+  }
+}
 }
 
 // 获取有效的文件 ID（排除上传任务）
@@ -853,6 +887,7 @@ const folderSelectData = computed(() => {
                 <template v-else>
                   <Button type="link" size="small" @click="handlePreview(record)">预览</Button>
                   <Button type="link" size="small" @click="handleDownload(record)">下载</Button>
+                  <Button type="link" size="small" @click="openTagEditModal(record)">标签</Button>
                   <Button v-if="hasSharePermission" type="link" size="small" @click="handleShare(record)">分享</Button>
                   <Button v-if="hasDeletePermission" type="link" size="small" danger @click="handleDeleteFile(record.id, record.name)">删除</Button>
                 </template>
@@ -979,6 +1014,42 @@ const folderSelectData = computed(() => {
         <Button block @click="folderMenuAction('rename')">重命名</Button>
         <Button block type="primary" @click="folderMenuAction('share')">分享文件夹</Button>
         <Button block danger @click="folderMenuAction('delete')">删除文件夹</Button>
+      </div>
+    </Modal>
+
+    <!-- 文件标签编辑 -->
+    <Modal
+      v-model:open="tagEditModalVisible"
+      :title="`编辑标签 - ${tagEditFileName}`"
+      @ok="handleTagEditSubmit"
+      width="500px"
+    >
+      <div class="mb-4">
+        <p class="text-gray-500 mb-2">当前标签：</p>
+        <div v-if="fileTags.length > 0" class="flex flex-wrap gap-2">
+          <Tag
+            v-for="tag in fileTags"
+            :key="tag.id"
+            :color="tag.color"
+          >
+            {{ tag.icon }} {{ tag.name }}
+          </Tag>
+        </div>
+        <span v-else class="text-gray-400">暂无标签</span>
+      </div>
+
+      <div>
+        <p class="text-gray-500 mb-2">选择标签：</p>
+        <Select
+          v-model:value="tagEditSelectedTags"
+          mode="multiple"
+          placeholder="选择标签"
+          style="width: 100%"
+          :options="availableTags.map(t => ({
+            label: `${t.icon} ${t.name}`,
+            value: t.id,
+          }))"
+        />
       </div>
     </Modal>
 
