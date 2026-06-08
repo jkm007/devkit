@@ -147,7 +147,7 @@ func (h *TagHandler) GetUsageStats(c *gin.Context) {
 
 // GetFileTags 获取文件的标签
 func (h *TagHandler) GetFileTags(c *gin.Context) {
-	fileIDStr := c.Param("fileId")
+	fileIDStr := c.Param("id")
 	fileID, err := strconv.ParseUint(fileIDStr, 10, 64)
 	if err != nil {
 		response.BadRequest(c, "无效的文件ID")
@@ -164,7 +164,7 @@ func (h *TagHandler) GetFileTags(c *gin.Context) {
 
 // AddFileTag 添加文件标签
 func (h *TagHandler) AddFileTag(c *gin.Context) {
-	fileIDStr := c.Param("fileId")
+	fileIDStr := c.Param("id")
 	fileID, err := strconv.ParseUint(fileIDStr, 10, 64)
 	if err != nil {
 		response.BadRequest(c, "无效的文件ID")
@@ -189,7 +189,7 @@ func (h *TagHandler) AddFileTag(c *gin.Context) {
 
 // RemoveFileTag 移除文件标签
 func (h *TagHandler) RemoveFileTag(c *gin.Context) {
-	fileIDStr := c.Param("fileId")
+	fileIDStr := c.Param("id")
 	fileID, err := strconv.ParseUint(fileIDStr, 10, 64)
 	if err != nil {
 		response.BadRequest(c, "无效的文件ID")
@@ -213,7 +213,7 @@ func (h *TagHandler) RemoveFileTag(c *gin.Context) {
 
 // BatchUpdateFileTags 批量更新文件标签
 func (h *TagHandler) BatchUpdateFileTags(c *gin.Context) {
-	fileIDStr := c.Param("fileId")
+	fileIDStr := c.Param("id")
 	fileID, err := strconv.ParseUint(fileIDStr, 10, 64)
 	if err != nil {
 		response.BadRequest(c, "无效的文件ID")
