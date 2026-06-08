@@ -13,6 +13,14 @@ export interface UploadPartDetail {
   duration?: number; // 毫秒
 }
 
+/** 路由信息 */
+export interface RoutingInfo {
+  driver: string;
+  bucket?: string;
+  pathPrefix?: string;
+  ruleName?: string;
+}
+
 /** 上传任务 */
 export interface UploadTaskItem {
   id: number;
@@ -31,6 +39,8 @@ export interface UploadTaskItem {
   totalDuration?: number; // 毫秒
   // 文件对象（用于继续上传）
   file?: File;
+  // 路由信息（上传完成后显示）
+  routing?: RoutingInfo;
 }
 
 export const useUploadStore = defineStore('upload', () => {
@@ -136,6 +146,7 @@ export const useUploadStore = defineStore('upload', () => {
         totalDuration: endTime - startTime,
         uploadedParts: totalParts,
         file: undefined, // 清除文件引用
+        routing: result.routing, // 保存路由信息
       });
 
       // 5秒后移除完成的任务

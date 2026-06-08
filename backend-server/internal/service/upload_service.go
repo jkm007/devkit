@@ -224,10 +224,19 @@ func (s *UploadService) UploadPart(uploadID string, partNumber int, reader inter
 	return &UploadPartResult{ETag: etag}, nil
 }
 
+// RoutingInfo 路由信息
+type RoutingInfo struct {
+	Driver     string `json:"driver"`
+	Bucket     string `json:"bucket,omitempty"`
+	PathPrefix string `json:"pathPrefix,omitempty"`
+	RuleName   string `json:"ruleName,omitempty"`
+}
+
 // CompleteResult 合并结果
 type CompleteResult struct {
-	ObjectKey string `json:"objectKey"`
-	URL       string `json:"url"`
+	ObjectKey string       `json:"objectKey"`
+	URL       string       `json:"url"`
+	Routing   *RoutingInfo `json:"routing,omitempty"`
 }
 
 // CompleteUpload 合并分片
@@ -345,9 +354,22 @@ func (s *UploadService) CompleteUpload(uploadID string) (*CompleteResult, error)
 	rdb := database.GetRedis()
 	rdb.Del(context.Background(), "upload:"+uploadID)
 
+	// 获取路由信息
+	routingResult, _, _ := storage.Route(task.FileName, task.ContentType, "user")
+	var routingInfo *RoutingInfo
+	if routingResult != nil {
+		routingInfo = &RoutingInfo{
+			Driver:     routingResult.Driver,
+			Bucket:     routingResult.Bucket,
+			PathPrefix: routingResult.PathPrefix,
+			RuleName:   routingResult.RuleName,
+		}
+	}
+
 	return &CompleteResult{
 		ObjectKey: task.ObjectKey,
 		URL:       url,
+		Routing:   routingInfo,
 	}, nil
 }
 

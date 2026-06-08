@@ -106,6 +106,14 @@ export namespace FileApi {
     uploaded: boolean;
   }
 
+  /** 路由信息 */
+  export interface RoutingInfo {
+    driver: string;
+    bucket?: string;
+    pathPrefix?: string;
+    ruleName?: string;
+  }
+
   /** 完成上传结果 */
   export interface CompleteUploadResult {
     fileId: number;
@@ -113,6 +121,7 @@ export namespace FileApi {
     name: string;
     size: number;
     contentType: string;
+    routing?: RoutingInfo;
   }
 
   /** 上传状态 */

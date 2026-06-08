@@ -844,6 +844,12 @@ const folderSelectData = computed(() => {
                   </div>
                   <div v-else-if="record.uploadTask.status === 'completed'" class="text-xs text-green-600">
                     <span class="i-ant-design:check-circle-outlined mr-1" />上传成功
+                    <div v-if="record.uploadTask.routing" class="text-xs text-gray-500 mt-1">
+                      <Tag size="small" :color="storageTypeLabels[record.uploadTask.routing.driver]?.color || 'default'">
+                        {{ storageTypeLabels[record.uploadTask.routing.driver]?.label || record.uploadTask.routing.driver }}
+                      </Tag>
+                      <span v-if="record.uploadTask.routing.ruleName">{{ record.uploadTask.routing.ruleName }}</span>
+                    </div>
                   </div>
                   <div v-else-if="record.uploadTask.status === 'failed'" class="text-xs text-red-600">
                     <span class="i-ant-design:close-circle-outlined mr-1" />上传失败
