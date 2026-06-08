@@ -10,7 +10,7 @@ server:
 
 # MySQL 配置
 mysql:
-  host: 114.215.190.52
+  host: 10.0.50.108
   port: 3306
   user: root
   password: "root123456"
@@ -22,7 +22,7 @@ mysql:
 
 # Redis 配置
 redis:
-  host: 114.215.190.52
+  host: 10.0.50.108
   port: 6379
   password: "redis123456"
   db: 0
@@ -72,35 +72,14 @@ ratelimit:
   rate: 100            # 每秒请求数
   burst: 200           # 突发容量
 
-# 文件存储配置（MinIO/OSS/COS 的密钥已迁移到数据库 system_settings 表，通过管理后台配置）
+# 文件存储配置
+# 注意: MinIO/OSS/COS 的配置已迁移到数据库 system_settings 表，通过管理后台配置
+# 此处仅保留本地存储配置和默认驱动设置
 storage:
-  driver: minio        # local | minio | oss | cos
+  driver: local        # 默认驱动: local | minio | oss | cos
   local:
     path: ./uploads
     url_prefix: /uploads
-  minio:
-    endpoint: ""
-    access_key: ""
-    secret_key: ""
-    bucket: ""
-    use_ssl: false
-  oss:
-    endpoint: ""
-    access_key_id: ""
-    access_key_secret: ""
-    bucket: ""
-    cdn_domain: ""
-  cos:
-    region: ""
-    secret_id: ""
-    secret_key: ""
-    bucket: ""
-    cdn_domain: ""
-
-# CDN 配置
-cdn:
-  domain: cdn.example.com
-  image_style_separator: "x"
 
 # ClamAV 病毒扫描
 clamav:
