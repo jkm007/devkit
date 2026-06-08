@@ -93,6 +93,15 @@ const routes: RouteRecordRaw[] = [
         },
         component: () => import('#/views/system/tag/index.vue'),
       },
+      {
+        path: '/system/storage-bucket',
+        name: 'SystemStorageBucket',
+        meta: {
+          icon: 'mdi:database',
+          title: '存储桶管理',
+        },
+        component: () => import('#/views/system/storage-bucket/index.vue'),
+      },
     ],
   },
 ];
