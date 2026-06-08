@@ -2,12 +2,14 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"strconv"
 
 	"backend-server/internal/service"
 	"backend-server/pkg/response"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // RoleHandler 角色处理器
@@ -80,6 +82,10 @@ func (h *RoleHandler) GetDetail(c *gin.Context) {
 
 	role, err := h.roleService.GetByID(uint(id))
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			response.NotFound(c, "角色不存在")
+			return
+		}
 		response.InternalError(c, err.Error())
 		return
 	}

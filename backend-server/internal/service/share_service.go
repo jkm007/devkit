@@ -160,9 +160,6 @@ func (s *ShareService) GetShareInfo(code string) (map[string]interface{}, error)
 		result["folderId"] = folder.ID
 	}
 
-	// 增加访问次数
-	s.shareRepo.IncrementAccessCount(code)
-
 	return result, nil
 }
 
@@ -247,11 +244,22 @@ func (s *ShareService) isFileInFolder(entry *model.FileEntry, folderID uint) boo
 	return false
 }
 
-// isFolderInFolder 递归检查文件夹是否是目标文件夹的子文件夹
+// isFolderInFolder 递归检查文件夹是否是目标文件夹的子文件夹（带循环引用保护）
 func (s *ShareService) isFolderInFolder(folder *model.FileFolder, targetFolderID uint) bool {
+	visited := make(map[uint]bool)
+	return s.isFolderInFolderHelper(folder, targetFolderID, visited)
+}
+
+func (s *ShareService) isFolderInFolderHelper(folder *model.FileFolder, targetFolderID uint, visited map[uint]bool) bool {
 	if folder.ID == targetFolderID {
 		return true
 	}
+
+	// 防止循环引用导致无限递归
+	if visited[folder.ID] {
+		return false
+	}
+	visited[folder.ID] = true
 
 	// 递归检查父文件夹
 	if folder.ParentID != nil {
@@ -259,10 +267,15 @@ func (s *ShareService) isFolderInFolder(folder *model.FileFolder, targetFolderID
 		if err != nil {
 			return false
 		}
-		return s.isFolderInFolder(parent, targetFolderID)
+		return s.isFolderInFolderHelper(parent, targetFolderID, visited)
 	}
 
 	return false
+}
+
+// IncrementAccessCount 增加分享访问次数
+func (s *ShareService) IncrementAccessCount(code string) {
+	s.shareRepo.IncrementAccessCount(code)
 }
 
 // GetMyShares 获取我的分享列表
@@ -317,20 +330,29 @@ func (s *ShareService) GetUserShares(userID uint, page, pageSize int, viewAll bo
 	// 检查并更新过期状态
 	s.shareRepo.CheckExpiredShares()
 
-	// 收集所有需要查询的用户ID
-	userIDs := make(map[uint]bool)
+	// 收集所有需要查询的 ID（N+1 优化：批量查询）
+	userIDSet := make(map[uint]bool)
+	fileIDs := make([]uint, 0)
+	folderIDs := make([]uint, 0)
 	for _, share := range shares {
-		userIDs[share.UserID] = true
-	}
-
-	// 批量查询用户信息
-	userMap := make(map[uint]*model.User)
-	for uid := range userIDs {
-		user, err := s.userRepo.GetByID(uid)
-		if err == nil && user != nil {
-			userMap[uid] = user
+		userIDSet[share.UserID] = true
+		if share.FileID > 0 {
+			fileIDs = append(fileIDs, share.FileID)
+		}
+		if share.FolderID > 0 {
+			folderIDs = append(folderIDs, share.FolderID)
 		}
 	}
+
+	uidList := make([]uint, 0, len(userIDSet))
+	for uid := range userIDSet {
+		uidList = append(uidList, uid)
+	}
+
+	// 批量查询用户、文件、文件夹信息
+	userMap, _ := s.userRepo.GetByIDs(uidList)
+	entryMap, _ := s.fileRepo.GetEntriesByIDs(fileIDs)
+	folderMap, _ := s.fileRepo.GetFoldersByIDs(folderIDs)
 
 	items := make([]ShareListItem, 0, len(shares))
 	for _, share := range shares {
@@ -348,15 +370,16 @@ func (s *ShareService) GetUserShares(userID uint, page, pageSize int, viewAll bo
 		}
 
 		// 添加分享人信息
-		if user, ok := userMap[share.UserID]; ok {
-			item.UserName = user.Name
-			item.UserAvatar = user.Avatar
+		if userMap != nil {
+			if user, ok := userMap[share.UserID]; ok {
+				item.UserName = user.Name
+				item.UserAvatar = user.Avatar
+			}
 		}
 
-		// 获取文件信息
-		if share.FileID > 0 {
-			entry, err := s.fileRepo.GetEntryByID(share.FileID)
-			if err == nil && entry != nil {
+		// 获取文件信息（从批量查询结果）
+		if share.FileID > 0 && entryMap != nil {
+			if entry, ok := entryMap[share.FileID]; ok {
 				item.Type = "file"
 				item.FileID = share.FileID
 				item.FileName = entry.Name
@@ -365,10 +388,9 @@ func (s *ShareService) GetUserShares(userID uint, page, pageSize int, viewAll bo
 			}
 		}
 
-		// 获取文件夹信息
-		if share.FolderID > 0 {
-			folder, err := s.fileRepo.GetFolderByID(share.FolderID)
-			if err == nil && folder != nil {
+		// 获取文件夹信息（从批量查询结果）
+		if share.FolderID > 0 && folderMap != nil {
+			if folder, ok := folderMap[share.FolderID]; ok {
 				item.Type = "folder"
 				item.FolderID = share.FolderID
 				item.FolderName = folder.Name

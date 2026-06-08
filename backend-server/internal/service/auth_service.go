@@ -209,7 +209,14 @@ func (s *AuthService) LoginByEmail(email, code, clientIP string) (*LoginResponse
 
 	// 根据邮箱查找用户
 	user, err := s.userRepo.GetByEmail(email)
-	if err != nil || user == nil || user.ID == 0 {
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("该邮箱未注册")
+		}
+		logger.Error("邮箱登录时数据库查询失败", zap.Error(err))
+		return nil, errors.New("系统错误，请稍后重试")
+	}
+	if user == nil || user.ID == 0 {
 		return nil, errors.New("该邮箱未注册")
 	}
 
@@ -235,7 +242,14 @@ func (s *AuthService) LoginByPhone(phone, code, clientIP string) (*LoginResponse
 
 	// 根据手机号查找用户
 	user, err := s.userRepo.GetByPhone(phone)
-	if err != nil || user == nil || user.ID == 0 {
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("该手机号未注册")
+		}
+		logger.Error("手机登录时数据库查询失败", zap.Error(err))
+		return nil, errors.New("系统错误，请稍后重试")
+	}
+	if user == nil || user.ID == 0 {
 		return nil, errors.New("该手机号未注册")
 	}
 
@@ -266,7 +280,10 @@ func (s *AuthService) generateLoginResponse(user *model.User, clientIP string) (
 
 	// 存储 RefreshToken 哈希到 Redis
 	rdb := database.GetRedis()
-	rdb.Set(context.Background(), fmt.Sprintf("refresh_token:%d", user.ID), hashToken(tokenPair.RefreshToken), 30*24*time.Hour)
+	if err := rdb.Set(context.Background(), fmt.Sprintf("refresh_token:%d", user.ID), hashToken(tokenPair.RefreshToken), 30*24*time.Hour).Err(); err != nil {
+		logger.Error("存储 RefreshToken 失败", zap.Error(err))
+		return nil, errors.New("系统错误，请稍后重试")
+	}
 
 	// 更新用户最后登录信息
 	now := time.Now()
@@ -334,7 +351,10 @@ func (s *AuthService) RefreshToken(userID uint, refreshToken string) (*TokenRefr
 	}
 
 	// 4. 用新 RefreshToken 哈希覆盖旧的（旧的自动失效）
-	database.GetRedis().Set(ctx, cacheKey, hashToken(tokenPair.RefreshToken), 30*24*time.Hour)
+	if err := database.GetRedis().Set(ctx, cacheKey, hashToken(tokenPair.RefreshToken), 30*24*time.Hour).Err(); err != nil {
+		logger.Error("更新 RefreshToken 失败", zap.Error(err))
+		return nil, errors.New("系统错误，请稍后重试")
+	}
 
 	return &TokenRefreshResponse{
 		AccessToken:  tokenPair.AccessToken,
@@ -832,7 +852,7 @@ func (s *AuthService) Register(req *RegisterRequest, ip, userAgent string) (uint
 		return 0, fmt.Errorf("密码加密失败: %w", err)
 	}
 
-	// 创建用户
+	// 创建用户（事务保护：用户创建 + 角色分配必须原子）
 	user := &model.User{
 		Name:     req.Username,
 		Email:    req.Email,
@@ -840,25 +860,42 @@ func (s *AuthService) Register(req *RegisterRequest, ip, userAgent string) (uint
 		Status:   1,
 		Nickname: req.Username,
 	}
-	if err := s.userRepo.Create(user); err != nil {
-		return 0, fmt.Errorf("创建用户失败: %w", err)
-	}
 
-	// 分配默认角色（必须存在 "user" 角色）
-	defaultRole, err := s.roleRepo.GetByName("user")
-	if err != nil || defaultRole == nil {
-		logger.Warn("默认角色 'user' 不存在，新用户将无角色，无法登录")
-	} else {
-		s.userRepo.SyncUserRoles(user.ID, []uint{defaultRole.ID})
-	}
-
-
-		// 为用户创建头像文件夹
-		fileService := NewFileService()
-		_, err = fileService.CreateAvatarFolder(user.ID)
-		if err != nil {
-			logger.Warn(fmt.Sprintf("创建头像文件夹失败: %v", err))
+	db := database.GetMySQL()
+	err = db.Transaction(func(tx *gorm.DB) error {
+		// 创建用户
+		if err := tx.Create(user).Error; err != nil {
+			return fmt.Errorf("创建用户失败: %w", err)
 		}
+
+		// 分配默认角色（必须存在 "user" 角色）
+		var defaultRole model.Role
+		if err := tx.Where("name = ?", "user").First(&defaultRole).Error; err != nil {
+			logger.Warn("默认角色 'user' 不存在，新用户将无角色，无法登录")
+		} else {
+			// 直接在事务中创建用户-角色关联
+			userRole := &model.UserRole{
+				UserID: user.ID,
+				RoleID: defaultRole.ID,
+			}
+			if err := tx.Create(userRole).Error; err != nil {
+				return fmt.Errorf("分配默认角色失败: %w", err)
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	// 为用户创建头像文件夹（非核心操作，失败不回滚）
+	fileService := NewFileService()
+	_, err = fileService.CreateAvatarFolder(user.ID)
+	if err != nil {
+		logger.Warn(fmt.Sprintf("创建头像文件夹失败: %v", err))
+	}
+
 	// 记录安全日志
 	s.RecordSecurityLog(user.ID, "register", fmt.Sprintf("新用户注册成功: %s", req.Username), ip, userAgent, 1)
 

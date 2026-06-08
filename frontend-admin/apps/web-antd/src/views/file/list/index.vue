@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, nextTick, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 
 import { Page } from '@vben/common-ui';
 import { useAccessStore } from '@vben/stores';
@@ -124,6 +124,14 @@ const previewName = ref('');
 const previewType = ref(''); // 'image' | 'video' | 'pdf'
 const previewToken = ref('');
 
+// 监听预览 Modal 关闭，释放 Blob URL 防止内存泄漏
+watch(previewVisible, (newVal) => {
+  if (!newVal && previewUrl.value && previewUrl.value.startsWith('blob:')) {
+    URL.revokeObjectURL(previewUrl.value);
+    previewUrl.value = '';
+  }
+});
+
 // 批量操作
 const batchMoveModalVisible = ref(false);
 const batchTargetFolderId = ref<number | null>(null);
@@ -192,7 +200,7 @@ async function loadFileList() {
 function handleFolderSelect(keys: (string | number)[]) {
   const key = keys[0];
   // 点击"全部文件"或取消选择时，显示全部文件
-  currentFolderId.value = key === '__all__' || key === undefined ? null : (key as number);
+  currentFolderId.value = key === '__all__' || key === undefined ? null : Number(key);
   pagination.value.current = 1;
   loadFileList();
 }
@@ -243,9 +251,7 @@ async function confirmFolderShare() {
     const result = await createFolderShare(folderShareId.value!, {
       expireHours: folderShareExpireHours.value || undefined,
     });
-    // 处理响应格式：可能是 { data: {...} } 或直接是 {...}
-    const shareData = result?.data || result;
-    folderShareResult.value = shareData;
+    folderShareResult.value = result;
     message.success('分享链接已生成');
   } catch {
     message.error('分享失败');
@@ -356,15 +362,20 @@ async function handleDeleteFile(id: number, name: string) {
   }
 }
 
+// 获取有效的文件 ID（排除上传任务）
+const validFileIds = computed(() => {
+  return selectedRowKeys.value.filter((key) => typeof key === 'number') as number[];
+});
+
 // 批量删除
 async function handleBatchDelete() {
-  if (selectedRowKeys.value.length === 0) {
+  if (validFileIds.value.length === 0) {
     message.warning('请先选择文件');
     return;
   }
 
   try {
-    const result = await batchDeleteFiles(selectedRowKeys.value);
+    const result = await batchDeleteFiles(validFileIds.value);
     if (result.errors?.length > 0) {
       message.warning(`已删除 ${result.deleted} 个文件，${result.errors.length} 个失败`);
     } else {
@@ -379,7 +390,7 @@ async function handleBatchDelete() {
 
 // 打开批量移动弹窗
 function openBatchMoveModal() {
-  if (selectedRowKeys.value.length === 0) {
+  if (validFileIds.value.length === 0) {
     message.warning('请先选择文件');
     return;
   }
@@ -390,7 +401,7 @@ function openBatchMoveModal() {
 // 执行批量移动
 async function handleBatchMove() {
   try {
-    const result = await batchMoveFiles(selectedRowKeys.value, batchTargetFolderId.value || undefined);
+    const result = await batchMoveFiles(validFileIds.value, batchTargetFolderId.value || undefined);
     if (result.errors?.length > 0) {
       message.warning(`已移动 ${result.moved} 个文件，${result.errors.length} 个失败`);
     } else {
@@ -513,9 +524,7 @@ async function confirmShare() {
     const result = await createFileShare(shareFileId.value!, {
       expireHours: shareExpireHours.value || undefined,
     });
-    // 处理响应格式：可能是 { data: {...} } 或直接是 {...}
-    const shareData = result?.data || result;
-    shareResult.value = { ...shareData };
+    shareResult.value = { ...result };
     message.success('分享链接已生成');
   } catch (err) {
     console.error('Share error:', err);
@@ -691,8 +700,7 @@ const folderSelectData = computed(() => {
                 v-if="node.type !== 'all'"
                 type="button"
                 class="opacity-0 group-hover:opacity-100 ml-1 px-1 py-0.5 text-xs rounded hover:bg-gray-200"
-                @click.stop
-                @click="showFolderMenu(node)"
+                @click.stop="showFolderMenu(node)"
               >
                 ⋯
               </button>
@@ -709,11 +717,11 @@ const folderSelectData = computed(() => {
             <Upload v-if="hasUploadPermission" :show-upload-list="false" :before-upload="handleUpload" :multiple="true" :disabled="uploading">
               <Button type="primary" :loading="uploading">上传文件</Button>
             </Upload>
-            <Button v-if="selectedRowKeys.length > 0 && hasDeletePermission" danger @click="handleBatchDelete">
-              批量删除 ({{ selectedRowKeys.length }})
+            <Button v-if="validFileIds.length > 0 && hasDeletePermission" danger @click="handleBatchDelete">
+              批量删除 ({{ validFileIds.length }})
             </Button>
-            <Button v-if="selectedRowKeys.length > 0 && hasManagePermission" @click="openBatchMoveModal">
-              批量移动 ({{ selectedRowKeys.length }})
+            <Button v-if="validFileIds.length > 0 && hasManagePermission" @click="openBatchMoveModal">
+              批量移动 ({{ validFileIds.length }})
             </Button>
             <!-- 文件范围切换 -->
             <div v-if="hasViewAllPermission" class="ml-4">
@@ -830,7 +838,7 @@ const folderSelectData = computed(() => {
 
     <!-- 批量移动文件 -->
     <Modal v-model:open="batchMoveModalVisible" title="批量移动" @ok="handleBatchMove">
-      <p class="mb-2">将移动 {{ selectedRowKeys.length }} 个文件</p>
+      <p class="mb-2">将移动 {{ validFileIds.length }} 个文件</p>
       <Form layout="vertical">
         <FormItem label="目标文件夹">
           <TreeSelect v-model:value="batchTargetFolderId" :tree-data="folderSelectData" placeholder="选择文件夹" allow-clear />

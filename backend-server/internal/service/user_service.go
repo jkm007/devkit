@@ -13,6 +13,7 @@ import (
 	"backend-server/pkg/database"
 
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 var (
@@ -122,10 +123,20 @@ func (s *UserService) List(req *ListRequest) ([]UserResponse, int64, error) {
 		return nil, 0, err
 	}
 
+	// 批量获取用户角色ID（N+1 优化）
+	userIDs := make([]uint, len(users))
+	for i, user := range users {
+		userIDs[i] = user.ID
+	}
+	roleIDsMap, _ := s.userRepo.GetUserRoleIDsByUserIDs(userIDs)
+
 	// 转换为响应格式，包含角色ID
 	var userResponses []UserResponse
 	for _, user := range users {
-		roleIDs, _ := s.userRepo.GetUserRoleIDs(user.ID)
+		roleIDs := roleIDsMap[user.ID]
+		if roleIDs == nil {
+			roleIDs = []uint{}
+		}
 		userResponses = append(userResponses, UserResponse{
 			User:    user,
 			RoleIDs: roleIDs,
@@ -178,16 +189,28 @@ func (s *UserService) Create(req *CreateUserRequest) error {
 		Remark:   req.Remark,
 	}
 
-	if err := s.userRepo.Create(user); err != nil {
-		return err
-	}
+	// 使用事务确保用户创建和角色分配原子性
+	db := database.GetMySQL()
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(user).Error; err != nil {
+			return err
+		}
 
-	// 同步用户角色
-	if len(req.RoleIDs) > 0 {
-		return s.userRepo.SyncUserRoles(user.ID, req.RoleIDs)
-	}
+		// 同步用户角色
+		if len(req.RoleIDs) > 0 {
+			for _, roleID := range req.RoleIDs {
+				userRole := &model.UserRole{
+					UserID: user.ID,
+					RoleID: roleID,
+				}
+				if err := tx.Create(userRole).Error; err != nil {
+					return err
+				}
+			}
+		}
 
-	return nil
+		return nil
+	})
 }
 
 // Update 更新用户
@@ -237,15 +260,35 @@ func (s *UserService) Update(id uint, req *UpdateUserRequest) error {
 		user.Remark = req.Remark
 	}
 
-	if err := s.userRepo.Update(user); err != nil {
-		return err
-	}
-
-	// 同步用户角色
-	if req.RoleIDs != nil {
-		if err := s.userRepo.SyncUserRoles(user.ID, req.RoleIDs); err != nil {
+	// 使用事务确保用户更新和角色同步原子性
+	db := database.GetMySQL()
+	err = db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Save(user).Error; err != nil {
 			return err
 		}
+
+		// 同步用户角色
+		if req.RoleIDs != nil {
+			// 先删除旧的关联
+			if err := tx.Where("user_id = ?", user.ID).Delete(&model.UserRole{}).Error; err != nil {
+				return err
+			}
+			// 创建新的关联
+			for _, roleID := range req.RoleIDs {
+				userRole := &model.UserRole{
+					UserID: user.ID,
+					RoleID: roleID,
+				}
+				if err := tx.Create(userRole).Error; err != nil {
+					return err
+				}
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
 	// 角色或分组变更后，清除权限缓存

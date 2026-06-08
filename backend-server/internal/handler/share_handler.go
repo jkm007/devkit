@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -45,14 +46,21 @@ func (h *ShareHandler) hasSharePermission(userID uint, permission string) bool {
 // CreateFileShare 创建文件分享
 // @Router /files/:id/share [post]
 func (h *ShareHandler) CreateFileShare(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 32)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.BadRequest(c, "无效的ID")
+		return
+	}
 	userID := middleware.GetCurrentUserID(c)
 
 	var req struct {
 		ExpireHours int `json:"expireHours"`
 		MaxAccess   int `json:"maxAccess"`
 	}
-	c.ShouldBindJSON(&req)
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "请求参数错误")
+		return
+	}
 
 	share, err := h.shareService.CreateFileShare(userID, uint(id), req.ExpireHours, req.MaxAccess)
 	if err != nil {
@@ -70,14 +78,21 @@ func (h *ShareHandler) CreateFileShare(c *gin.Context) {
 // CreateFolderShare 创建文件夹分享
 // @Router /folders/:id/share [post]
 func (h *ShareHandler) CreateFolderShare(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 32)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.BadRequest(c, "无效的ID")
+		return
+	}
 	userID := middleware.GetCurrentUserID(c)
 
 	var req struct {
 		ExpireHours int `json:"expireHours"`
 		MaxAccess   int `json:"maxAccess"`
 	}
-	c.ShouldBindJSON(&req)
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "请求参数错误")
+		return
+	}
 
 	share, err := h.shareService.CreateFolderShare(userID, uint(id), req.ExpireHours, req.MaxAccess)
 	if err != nil {
@@ -122,7 +137,12 @@ func (h *ShareHandler) GetShareFolderFiles(c *gin.Context) {
 		return
 	}
 
-	folderID := uint(info["folderId"].(uint))
+	folderIDVal, ok := info["folderId"]
+	if !ok {
+		response.InternalError(c, "分享数据异常")
+		return
+	}
+	folderID := uint(folderIDVal.(uint))
 
 	// 获取文件夹内的文件列表
 	files, err := h.shareService.GetShareFolderFiles(folderID)
@@ -154,11 +174,11 @@ func (h *ShareHandler) GetShareFile(c *gin.Context) {
 
 	if info["type"] == "file" {
 		// 文件分享
-		objectKey = info["objectKey"].(string)
-		fileName = info["fileName"].(string)
-		contentType = info["contentType"].(string)
-		fileSize = info["fileSize"].(int64)
-		storageType = info["storageType"].(string)
+		objectKey, _ = info["objectKey"].(string)
+		fileName, _ = info["fileName"].(string)
+		contentType, _ = info["contentType"].(string)
+		fileSize, _ = info["fileSize"].(int64)
+		storageType, _ = info["storageType"].(string)
 	} else if info["type"] == "folder" {
 		// 文件夹分享 - 需要指定 fileId
 		if fileIDStr == "" {
@@ -172,18 +192,23 @@ func (h *ShareHandler) GetShareFile(c *gin.Context) {
 		}
 
 		// 验证文件属于分享的文件夹
-		folderID := uint(info["folderId"].(uint))
+		folderIDVal, ok := info["folderId"]
+		if !ok {
+			response.InternalError(c, "分享数据异常")
+			return
+		}
+		folderID := uint(folderIDVal.(uint))
 		fileInfo, err := h.shareService.GetFileInFolder(folderID, uint(fileID))
 		if err != nil {
 			response.NotFound(c, err.Error())
 			return
 		}
 
-		objectKey = fileInfo["objectKey"].(string)
-		fileName = fileInfo["fileName"].(string)
-		contentType = fileInfo["contentType"].(string)
-		fileSize = fileInfo["fileSize"].(int64)
-		storageType = fileInfo["storageType"].(string)
+		objectKey, _ = fileInfo["objectKey"].(string)
+		fileName, _ = fileInfo["fileName"].(string)
+		contentType, _ = fileInfo["contentType"].(string)
+		fileSize, _ = fileInfo["fileSize"].(int64)
+		storageType, _ = fileInfo["storageType"].(string)
 	} else {
 		response.BadRequest(c, "无效的分享类型")
 		return
@@ -192,9 +217,13 @@ func (h *ShareHandler) GetShareFile(c *gin.Context) {
 	// 根据存储类型获取对应的存储实例
 	st := storage.GetStorageByDriver(storageType)
 
+	// 增加访问次数（仅在实际下载文件时计数）
+	h.shareService.IncrementAccessCount(code)
+
 	// 设置通用响应头
 	c.Header("Accept-Ranges", "bytes")
-	c.Header("Content-Disposition", "inline; filename="+fileName)
+	escapedName := url.PathEscape(fileName)
+	c.Header("Content-Disposition", fmt.Sprintf(`inline; filename="%s"; filename*=UTF-8''%s`, fileName, escapedName))
 	c.Header("Cache-Control", "private, max-age=3600")
 
 	// 处理 Range 请求（用于视频流式播放）
@@ -323,13 +352,17 @@ func (h *ShareHandler) GetMyShares(c *gin.Context) {
 // DeleteShare 删除分享
 // @Router /shares/:id [delete]
 func (h *ShareHandler) DeleteShare(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 32)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.BadRequest(c, "无效的ID")
+		return
+	}
 	userID := middleware.GetCurrentUserID(c)
 
 	// 检查是否有删除权限
 	hasPermission := h.hasSharePermission(userID, "share:delete") || h.hasSharePermission(userID, "share:manage")
 
-	err := h.shareService.DeleteShare(userID, uint(id), hasPermission)
+	err = h.shareService.DeleteShare(userID, uint(id), hasPermission)
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -385,7 +418,11 @@ func (h *ShareHandler) GetUserShares(c *gin.Context) {
 // RenewShare 续签分享
 // @Router /files/shares/:id/renew [put]
 func (h *ShareHandler) RenewShare(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 32)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.BadRequest(c, "无效的ID")
+		return
+	}
 	userID := middleware.GetCurrentUserID(c)
 
 	var req struct {
@@ -399,7 +436,7 @@ func (h *ShareHandler) RenewShare(c *gin.Context) {
 	// 检查是否有管理权限
 	hasPermission := h.hasSharePermission(userID, "share:manage")
 
-	err := h.shareService.RenewShare(userID, uint(id), req.ExpireHours, hasPermission)
+	err = h.shareService.RenewShare(userID, uint(id), req.ExpireHours, hasPermission)
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -411,13 +448,17 @@ func (h *ShareHandler) RenewShare(c *gin.Context) {
 // ExpireShare 立即过期分享
 // @Router /files/shares/:id/expire [put]
 func (h *ShareHandler) ExpireShare(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 32)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.BadRequest(c, "无效的ID")
+		return
+	}
 	userID := middleware.GetCurrentUserID(c)
 
 	// 检查是否有管理权限
 	hasPermission := h.hasSharePermission(userID, "share:manage")
 
-	err := h.shareService.ExpireShare(userID, uint(id), hasPermission)
+	err = h.shareService.ExpireShare(userID, uint(id), hasPermission)
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -429,7 +470,11 @@ func (h *ShareHandler) ExpireShare(c *gin.Context) {
 // UpdateShareExpiry 修改分享到期时间
 // @Router /files/shares/:id/expiry [put]
 func (h *ShareHandler) UpdateShareExpiry(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 32)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.BadRequest(c, "无效的ID")
+		return
+	}
 	userID := middleware.GetCurrentUserID(c)
 
 	var req struct {
@@ -453,7 +498,7 @@ func (h *ShareHandler) UpdateShareExpiry(c *gin.Context) {
 	// 检查是否有管理权限
 	hasPermission := h.hasSharePermission(userID, "share:manage")
 
-	err := h.shareService.UpdateShareExpiry(userID, uint(id), expireAt, hasPermission)
+	err = h.shareService.UpdateShareExpiry(userID, uint(id), expireAt, hasPermission)
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -465,13 +510,17 @@ func (h *ShareHandler) UpdateShareExpiry(c *gin.Context) {
 // DisableShare 禁用分享
 // @Router /files/shares/:id/disable [put]
 func (h *ShareHandler) DisableShare(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 32)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.BadRequest(c, "无效的ID")
+		return
+	}
 	userID := middleware.GetCurrentUserID(c)
 
 	// 检查是否有管理权限
 	hasPermission := h.hasSharePermission(userID, "share:manage")
 
-	err := h.shareService.DisableShare(userID, uint(id), hasPermission)
+	err = h.shareService.DisableShare(userID, uint(id), hasPermission)
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -483,13 +532,17 @@ func (h *ShareHandler) DisableShare(c *gin.Context) {
 // EnableShare 启用分享
 // @Router /files/shares/:id/enable [put]
 func (h *ShareHandler) EnableShare(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 32)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.BadRequest(c, "无效的ID")
+		return
+	}
 	userID := middleware.GetCurrentUserID(c)
 
 	// 检查是否有管理权限
 	hasPermission := h.hasSharePermission(userID, "share:manage")
 
-	err := h.shareService.EnableShare(userID, uint(id), hasPermission)
+	err = h.shareService.EnableShare(userID, uint(id), hasPermission)
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return

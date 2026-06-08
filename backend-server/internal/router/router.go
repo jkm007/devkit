@@ -67,11 +67,14 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	// 公开接口（无需认证）
 	r.GET("/system/settings/public", systemSettingHandler.GetPublic)
 
-	// 分享访问（公开）
-	r.GET("/share/:code", shareHandler.GetShareInfo)
-	r.GET("/share/:code/files", shareHandler.GetShareFolderFiles)
-	r.GET("/share/:code/file", shareHandler.GetShareFile)
-	r.GET("/share/:code/file/:fileId", shareHandler.GetShareFile)
+	// 分享访问（公开，独立限流：每秒 10 个，突发 20）
+	sharePublic := r.Group("/share", middleware.NewIPRateLimiter(10, 20))
+	{
+		sharePublic.GET("/:code", shareHandler.GetShareInfo)
+		sharePublic.GET("/:code/files", shareHandler.GetShareFolderFiles)
+		sharePublic.GET("/:code/file", shareHandler.GetShareFile)
+		sharePublic.GET("/:code/file/:fileId", shareHandler.GetShareFile)
+	}
 
 	// 认证接口（无需认证）
 	captchaHandler := handler.NewCaptchaHandler()
@@ -246,8 +249,8 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 			system.PUT("/role-applications/:id/reject", middleware.Permission("system:roleapp:review"), roleApplicationHandler.Reject)
 
 			// 验证码测试（管理员）
-			system.GET("/captcha/test", captchaHandler.TestCaptcha)
-			system.POST("/captcha/verify", captchaHandler.VerifyCaptcha)
+			system.GET("/captcha/test", middleware.Permission("system:captcha:test"), captchaHandler.TestCaptcha)
+			system.POST("/captcha/verify", middleware.Permission("system:captcha:test"), captchaHandler.VerifyCaptcha)
 
 			// 系统设置（固定路径必须在 :group 参数路由之前）
 			system.GET("/settings", middleware.Permission("system:setting:list"), systemSettingHandler.GetAll)

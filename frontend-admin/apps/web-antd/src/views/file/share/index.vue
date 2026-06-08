@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref } from 'vue';
+import dayjs from 'dayjs';
 
 import { Page } from '@vben/common-ui';
 import { useAccessStore } from '@vben/stores';
@@ -60,7 +61,7 @@ const renewExpireHours = ref(24);
 // 修改到期时间弹窗
 const expiryModalVisible = ref(false);
 const expiryShareId = ref<number | null>(null);
-const expiryDate = ref<string>('');
+const expiryDate = ref<any>(null);
 
 // 批量修改状态弹窗
 const batchStatusModalVisible = ref(false);
@@ -143,7 +144,7 @@ async function handleExpire(id: number) {
 // 打开修改到期时间弹窗
 function openExpiryModal(share: ShareListItem) {
   expiryShareId.value = share.id;
-  expiryDate.value = share.expireAt || '';
+  expiryDate.value = share.expireAt ? dayjs(share.expireAt) : null;
   expiryModalVisible.value = true;
 }
 
@@ -151,7 +152,8 @@ function openExpiryModal(share: ShareListItem) {
 async function confirmExpiry() {
   if (!expiryShareId.value) return;
   try {
-    await updateShareExpiry(expiryShareId.value, expiryDate.value || undefined);
+    const expireAtStr = expiryDate.value ? expiryDate.value.toISOString() : undefined;
+    await updateShareExpiry(expiryShareId.value, expireAtStr);
     message.success('到期时间已更新');
     expiryModalVisible.value = false;
     loadShareList();
@@ -279,7 +281,7 @@ function openBatchStatusModal(status: number) {
 // ==================== 工具函数 ====================
 
 function formatFileSize(size: number | undefined | null) {
-  if (!size) return '-';
+  if (size === undefined || size === null || isNaN(size)) return '-';
   if (size < 1024) return `${size} B`;
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
   if (size < 1024 * 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)} MB`;

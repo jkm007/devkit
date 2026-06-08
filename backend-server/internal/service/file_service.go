@@ -59,6 +59,14 @@ func (s *FileService) CreateAvatarFolder(userID uint) (*model.FileFolder, error)
 
 // CreateFolder 创建文件夹
 func (s *FileService) CreateFolder(userID uint, name string, parentID *uint) (*model.FileFolder, error) {
+	// 过滤非法字符（防止路径遍历）
+	name = strings.ReplaceAll(name, "/", "")
+	name = strings.ReplaceAll(name, "..", "")
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, fmt.Errorf("文件夹名称不能为空")
+	}
+
 	path := "/" + name
 	if parentID != nil {
 		parent, err := s.fileRepo.GetFolderByID(*parentID)
@@ -155,12 +163,14 @@ func (s *FileService) RenameFolder(userID uint, folderID uint, newName string) e
 	}
 
 	// 更新子文件夹路径
-	s.updateChildPaths(folderID, oldPath, newPath)
+	if err := s.updateChildPaths(folderID, oldPath, newPath); err != nil {
+		return fmt.Errorf("更新子文件夹路径失败: %w", err)
+	}
 
 	return nil
 }
 
-func (s *FileService) updateChildPaths(parentID uint, oldPrefix, newPrefix string) {
+func (s *FileService) updateChildPaths(parentID uint, oldPrefix, newPrefix string) error {
 	// 迭代替代递归，避免深层嵌套栈溢出
 	queue := []uint{parentID}
 	for len(queue) > 0 {
@@ -169,17 +179,20 @@ func (s *FileService) updateChildPaths(parentID uint, oldPrefix, newPrefix strin
 
 		children, err := s.fileRepo.GetChildFolders(currentID)
 		if err != nil {
-			continue
+			return err
 		}
 		for i := range children {
 			child := &children[i]
 			if len(child.Path) > len(oldPrefix) {
 				child.Path = newPrefix + child.Path[len(oldPrefix):]
 			}
-			s.fileRepo.UpdateFolder(child)
+			if err := s.fileRepo.UpdateFolder(child); err != nil {
+				return err
+			}
 			queue = append(queue, child.ID)
 		}
 	}
+	return nil
 }
 
 // DeleteFolder 删除文件夹（递归）
@@ -194,25 +207,53 @@ func (s *FileService) DeleteFolder(userID uint, folderID uint) error {
 
 	// 收集所有子文件夹ID
 	allIDs := []uint{folderID}
-	s.collectChildFolderIDs(folderID, &allIDs)
+	if err := s.collectChildFolderIDs(folderID, &allIDs); err != nil {
+		return fmt.Errorf("获取子文件夹失败: %w", err)
+	}
+
+	// 先获取所有待删除文件条目的 FileAssetID，用于递减引用计数
+	entries, err := s.fileRepo.ListEntriesByFolders(allIDs)
+	if err != nil {
+		return fmt.Errorf("获取文件列表失败: %w", err)
+	}
+
+	// 递减文件资产引用计数
+	for _, entry := range entries {
+		if entry.FileAssetID > 0 {
+			if err := s.assetRepo.DecrementRefCount(entry.FileAssetID); err != nil {
+				// 记录错误但继续处理，避免部分删除导致数据不一致
+				fmt.Printf("递减引用计数失败: fileAssetID=%d, err=%v\n", entry.FileAssetID, err)
+			}
+		}
+	}
 
 	// 删除所有文件条目
-	s.fileRepo.DeleteEntriesByFolderRecursive(allIDs)
+	if err := s.fileRepo.DeleteEntriesByFolderRecursive(allIDs); err != nil {
+		return fmt.Errorf("删除文件条目失败: %w", err)
+	}
 
 	// 删除所有文件夹
 	for _, id := range allIDs {
-		s.fileRepo.DeleteFolder(id)
+		if err := s.fileRepo.DeleteFolder(id); err != nil {
+			return fmt.Errorf("删除文件夹失败: %w", err)
+		}
 	}
 
 	return nil
 }
 
-func (s *FileService) collectChildFolderIDs(parentID uint, ids *[]uint) {
-	children, _ := s.fileRepo.GetChildFolders(parentID)
+func (s *FileService) collectChildFolderIDs(parentID uint, ids *[]uint) error {
+	children, err := s.fileRepo.GetChildFolders(parentID)
+	if err != nil {
+		return err
+	}
 	for _, child := range children {
 		*ids = append(*ids, child.ID)
-		s.collectChildFolderIDs(child.ID, ids)
+		if err := s.collectChildFolderIDs(child.ID, ids); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // --- 文件条目 ---

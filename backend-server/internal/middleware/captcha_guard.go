@@ -23,6 +23,10 @@ func CaptchaGuard() gin.HandlerFunc {
 			return
 		}
 		cfg := getRiskCfg()
+		if cfg == nil {
+			c.Next()
+			return
+		}
 
 		if !cfg.Enabled {
 			c.Next()
@@ -171,37 +175,23 @@ func calculateRiskScore(ip, path string, headers map[string]string, cfg *RiskCon
 	return score
 }
 
-// accumulateRiskScore 累加风险分到 Redis
+// accumulateRiskScore 累加风险分到 Redis（原子操作）
 func accumulateRiskScore(ip string, addScore int, cfg *RiskConfigGetter) int {
 	rdb := database.GetRedis()
 	ctx := context.Background()
 	key := riskScoreKeyPrefix + ip
 
-	// 获取当前分数
-	current, _ := rdb.Get(ctx, key).Int()
-
-	// 衰减：如果距离上次更新超过 decayMinutes，按比例衰减
-	if cfg.DecayMinutes > 0 && cfg.DecayRate > 0 {
-		ttl := rdb.TTL(ctx, key).Val()
-		if ttl > 0 {
-			totalTTL := time.Duration(cfg.DecayMinutes) * time.Minute
-			elapsed := totalTTL - ttl
-			decayPeriods := int(elapsed.Minutes()) / cfg.DecayMinutes
-			if decayPeriods > 0 {
-				for i := 0; i < decayPeriods; i++ {
-					current = int(float64(current) * (1 - cfg.DecayRate))
-				}
-			}
-		}
+	// 使用 INCRBY 原子累加，避免竞态条件
+	total, err := rdb.IncrBy(ctx, key, int64(addScore)).Result()
+	if err != nil {
+		// 降级：直接返回 addScore
+		return addScore
 	}
 
-	// 累加
-	total := current + addScore
+	// 重置 TTL
+	rdb.Expire(ctx, key, time.Duration(cfg.DecayMinutes)*time.Minute)
 
-	// 存入 Redis，重置 TTL
-	rdb.Set(ctx, key, total, time.Duration(cfg.DecayMinutes)*time.Minute)
-
-	return total
+	return int(total)
 }
 
 // clearRiskScore 清零风险分

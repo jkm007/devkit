@@ -115,6 +115,13 @@ func (r *GroupRepo) SyncGroupRoles(groupID uint, roleIDs []uint) error {
 	})
 }
 
+// GetGroupIDsByRoleID 获取关联了指定角色的所有分组 ID
+func (r *GroupRepo) GetGroupIDsByRoleID(roleID uint) ([]uint, error) {
+	var groupIDs []uint
+	err := r.db.Model(&model.GroupRole{}).Where("role_id = ?", roleID).Pluck("group_id", &groupIDs).Error
+	return groupIDs, err
+}
+
 // GetGroupRoleIDsRecursive 递归获取分组及其父分组的角色 ID 列表
 func (r *GroupRepo) GetGroupRoleIDsRecursive(groupID uint) ([]uint, error) {
 	var allRoleIDs []uint

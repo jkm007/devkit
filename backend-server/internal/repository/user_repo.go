@@ -4,6 +4,7 @@ import (
 	"backend-server/internal/model"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // UserRepo 用户仓库
@@ -67,6 +68,22 @@ func (r *UserRepo) GetByID(id uint) (*model.User, error) {
 		return nil, err
 	}
 	return &user, nil
+}
+
+// GetByIDs 批量获取用户（N+1 优化）
+func (r *UserRepo) GetByIDs(ids []uint) (map[uint]*model.User, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	var users []model.User
+	if err := r.db.Where("id IN ?", ids).Find(&users).Error; err != nil {
+		return nil, err
+	}
+	result := make(map[uint]*model.User, len(users))
+	for i := range users {
+		result[users[i].ID] = &users[i]
+	}
+	return result, nil
 }
 
 // GetByName 根据用户名获取用户
@@ -151,6 +168,27 @@ func (r *UserRepo) DeleteWithCleanup(id uint) error {
 		if err := tx.Where("user_id = ?", id).Delete(&model.RoleApplication{}).Error; err != nil {
 			return err
 		}
+		// 清理文件分享
+		if err := tx.Where("user_id = ?", id).Delete(&model.FileShare{}).Error; err != nil {
+			return err
+		}
+		// 递减文件资产引用计数（先查询再删除）
+		var fileEntries []model.FileEntry
+		if err := tx.Where("user_id = ?", id).Find(&fileEntries).Error; err == nil {
+			for _, entry := range fileEntries {
+				if entry.FileAssetID > 0 {
+					tx.Model(&model.FileAsset{}).Where("id = ?", entry.FileAssetID).Update("ref_count", gorm.Expr("GREATEST(ref_count - 1, 0)"))
+				}
+			}
+		}
+		// 清理文件条目
+		if err := tx.Where("user_id = ?", id).Delete(&model.FileEntry{}).Error; err != nil {
+			return err
+		}
+		// 清理文件夹
+		if err := tx.Where("user_id = ?", id).Delete(&model.FileFolder{}).Error; err != nil {
+			return err
+		}
 		return nil
 	})
 }
@@ -171,6 +209,24 @@ func (r *UserRepo) GetUserRoleIDs(userID uint) ([]uint, error) {
 	var roleIDs []uint
 	err := r.db.Model(&model.UserRole{}).Where("user_id = ?", userID).Pluck("role_id", &roleIDs).Error
 	return roleIDs, err
+}
+
+// GetUserRoleIDsByUserIDs 批量获取多个用户的角色 ID 列表（N+1 优化）
+func (r *UserRepo) GetUserRoleIDsByUserIDs(userIDs []uint) (map[uint][]uint, error) {
+	if len(userIDs) == 0 {
+		return nil, nil
+	}
+
+	var userRoles []model.UserRole
+	if err := r.db.Where("user_id IN ?", userIDs).Find(&userRoles).Error; err != nil {
+		return nil, err
+	}
+
+	result := make(map[uint][]uint, len(userIDs))
+	for _, ur := range userRoles {
+		result[ur.UserID] = append(result[ur.UserID], ur.RoleID)
+	}
+	return result, nil
 }
 
 // SyncUserRoles 同步用户角色（替换所有，事务保护）
@@ -196,19 +252,9 @@ func (r *UserRepo) SyncUserRoles(userID uint, roleIDs []uint) error {
 	})
 }
 
-// AddUserRole 添加单个用户角色（不删除已有角色）
+// AddUserRole 添加单个用户角色（不删除已有角色，使用 ON CONFLICT 避免竞态）
 func (r *UserRepo) AddUserRole(userID, roleID uint) error {
-	// 检查是否已存在
-	var count int64
-	err := r.db.Model(&model.UserRole{}).Where("user_id = ? AND role_id = ?", userID, roleID).Count(&count).Error
-	if err != nil {
-		return err
-	}
-	if count > 0 {
-		return nil // 已存在，跳过
-	}
-
-	return r.db.Create(&model.UserRole{UserID: userID, RoleID: roleID}).Error
+	return r.db.Clauses(clause.OnConflict{DoNothing: true}).Create(&model.UserRole{UserID: userID, RoleID: roleID}).Error
 }
 
 // GetUserIDsByRoleID 获取拥有指定角色的所有用户 ID

@@ -2,17 +2,17 @@ package handler
 
 import (
 	"net/http"
+	"sync"
 
 	"backend-server/config"
 	"backend-server/internal/middleware"
 	"backend-server/internal/ws"
 	"backend-server/pkg/logger"
+	"backend-server/pkg/response"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
-
-	_ "backend-server/pkg/response" // swagger 类型引用
 )
 
 var upgrader = websocket.Upgrader{
@@ -21,7 +21,8 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		origin := r.Header.Get("Origin")
 		if origin == "" {
-			return false
+			// 允许空 Origin（某些客户端如移动应用不发送 Origin）
+			return true
 		}
 		// 从配置中获取允许的来源
 		cfg := config.Get()
@@ -56,7 +57,7 @@ func NewWSHandler(hub *ws.Hub) *WSHandler {
 func (h *WSHandler) Handle(c *gin.Context) {
 	userID := middleware.GetCurrentUserID(c)
 	if userID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		response.Unauthorized(c, "Unauthorized")
 		return
 	}
 
@@ -82,10 +83,14 @@ func (h *WSHandler) Handle(c *gin.Context) {
 
 // readPump 读取客户端消息
 func (h *WSHandler) readPump(client *ws.Client) {
-	defer func() {
-		h.hub.Unregister <- client
-		client.Conn.Close()
-	}()
+	var closeOnce sync.Once
+	close := func() {
+		closeOnce.Do(func() {
+			h.hub.Unregister <- client
+			client.Conn.Close()
+		})
+	}
+	defer close()
 
 	for {
 		_, _, err := client.Conn.ReadMessage()
@@ -97,7 +102,13 @@ func (h *WSHandler) readPump(client *ws.Client) {
 
 // writePump 向客户端写入消息
 func (h *WSHandler) writePump(client *ws.Client) {
-	defer client.Conn.Close()
+	var closeOnce sync.Once
+	close := func() {
+		closeOnce.Do(func() {
+			client.Conn.Close()
+		})
+	}
+	defer close()
 
 	for msg := range client.Send {
 		if err := client.Conn.WriteMessage(websocket.TextMessage, msg); err != nil {

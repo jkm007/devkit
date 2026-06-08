@@ -31,6 +31,22 @@ func (r *FileRepo) GetFolderByID(id uint) (*model.FileFolder, error) {
 	return &folder, nil
 }
 
+// GetFoldersByIDs 批量获取文件夹（N+1 优化）
+func (r *FileRepo) GetFoldersByIDs(ids []uint) (map[uint]*model.FileFolder, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	var folders []model.FileFolder
+	if err := r.db.Where("id IN ?", ids).Find(&folders).Error; err != nil {
+		return nil, err
+	}
+	result := make(map[uint]*model.FileFolder, len(folders))
+	for i := range folders {
+		result[folders[i].ID] = &folders[i]
+	}
+	return result, nil
+}
+
 // GetFolderTree 获取用户的目录树
 func (r *FileRepo) GetFolderTree(userID uint) ([]model.FileFolder, error) {
 	var folders []model.FileFolder
@@ -78,6 +94,22 @@ func (r *FileRepo) GetEntryByID(id uint) (*model.FileEntry, error) {
 		return nil, err
 	}
 	return &entry, nil
+}
+
+// GetEntriesByIDs 批量获取文件条目（N+1 优化）
+func (r *FileRepo) GetEntriesByIDs(ids []uint) (map[uint]*model.FileEntry, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	var entries []model.FileEntry
+	if err := r.db.Where("id IN ?", ids).Find(&entries).Error; err != nil {
+		return nil, err
+	}
+	result := make(map[uint]*model.FileEntry, len(entries))
+	for i := range entries {
+		result[entries[i].ID] = &entries[i]
+	}
+	return result, nil
 }
 
 // ListEntries 文件列表（分页+搜索）

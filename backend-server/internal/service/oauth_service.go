@@ -203,8 +203,7 @@ func (s *OAuthService) HandleCallback(providerName, code, state, clientIP, userA
 		return s.oauthBuildLoginResponse(user, clientIP)
 	}
 
-	// 5. 未绑定，自动注册新用户
-	// 生成规范化用户名：provider_随机8位字符
+	// 5. 未绑定，自动注册新用户（事务保护：用户+角色+OAuth绑定必须原子）
 	randomSuffix, _ := generateRandomSuffix(8)
 	username := providerName + "_" + randomSuffix
 	newUser := &model.User{
@@ -219,33 +218,48 @@ func (s *OAuthService) HandleCallback(providerName, code, state, clientIP, userA
 		newUser.Nickname = newUser.Name
 	}
 
-	if err := s.userRepo.Create(newUser); err != nil {
-		return nil, fmt.Errorf("创建用户失败: %w", err)
-	}
+	db := database.GetMySQL()
+	err = db.Transaction(func(tx *gorm.DB) error {
+		// 创建用户
+		if err := tx.Create(newUser).Error; err != nil {
+			return fmt.Errorf("创建用户失败: %w", err)
+		}
 
-	// 分配默认角色
-	defaultRole, err := s.roleRepo.GetByName("user")
-	if err == nil && defaultRole != nil {
-		s.userRepo.SyncUserRoles(newUser.ID, []uint{defaultRole.ID})
-	}
+		// 分配默认角色
+		var defaultRole model.Role
+		if err := tx.Where("name = ?", "user").First(&defaultRole).Error; err == nil {
+			userRole := &model.UserRole{
+				UserID: newUser.ID,
+				RoleID: defaultRole.ID,
+			}
+			if err := tx.Create(userRole).Error; err != nil {
+				logger.Warn(fmt.Sprintf("分配默认角色失败: %v", err))
+			}
+		}
 
-	// 创建 OAuth 绑定
-	oauthUser := &model.OAuthUser{
-		UserID:           newUser.ID,
-		Provider:         providerName,
-		ProviderType:     providerName,
-		ProviderUserID:   userInfo.ProviderUserID,
-		ProviderUsername: userInfo.Username,
-		ProviderAvatar:   userInfo.Avatar,
-		AccessToken:      token.AccessToken,
-		RefreshToken:     token.RefreshToken,
-	}
-	if token.ExpiresIn > 0 {
-		exp := time.Now().Add(time.Duration(token.ExpiresIn) * time.Second)
-		oauthUser.ExpiresAt = &exp
-	}
-	if err := s.repo.Create(oauthUser); err != nil {
-		logger.Error("创建 OAuth 绑定失败")
+		// 创建 OAuth 绑定
+		oauthUser := &model.OAuthUser{
+			UserID:           newUser.ID,
+			Provider:         providerName,
+			ProviderType:     providerName,
+			ProviderUserID:   userInfo.ProviderUserID,
+			ProviderUsername: userInfo.Username,
+			ProviderAvatar:   userInfo.Avatar,
+			AccessToken:      token.AccessToken,
+			RefreshToken:     token.RefreshToken,
+		}
+		if token.ExpiresIn > 0 {
+			exp := time.Now().Add(time.Duration(token.ExpiresIn) * time.Second)
+			oauthUser.ExpiresAt = &exp
+		}
+		if err := tx.Create(oauthUser).Error; err != nil {
+			return fmt.Errorf("创建 OAuth 绑定失败: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	logger.Info(fmt.Sprintf("OAuth 自动注册: %s (%s)", newUser.Name, providerName))

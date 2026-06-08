@@ -1,5 +1,6 @@
 import type { Recordable, UserInfo } from '@vben/types';
 
+import type { AuthApi } from '#/api/core/auth';
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -14,6 +15,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+// sanitizeContentDisposition 生成安全的 Content-Disposition 头
+func sanitizeContentDisposition(disposition, fileName string) string {
+	// 对文件名进行 RFC 5987 编码，防止 HTTP 响应头注入
+	escaped := url.PathEscape(fileName)
+	return fmt.Sprintf(`%s; filename="%s"; filename*=UTF-8''%s`, disposition, fileName, escaped)
+}
 
 // MediaHandler 媒体文件处理器
 type MediaHandler struct {
@@ -158,7 +166,7 @@ func (h *MediaHandler) DownloadFile(c *gin.Context) {
 
 	// 设置下载响应头
 	c.Header("Content-Type", asset.ContentType)
-	c.Header("Content-Disposition", "attachment; filename="+entry.Name)
+	c.Header("Content-Disposition", sanitizeContentDisposition("attachment", entry.Name))
 	c.Header("Cache-Control", "private, max-age=3600")
 
 	// 流式返回文件内容
@@ -205,7 +213,7 @@ func (h *MediaHandler) ViewFile(c *gin.Context) {
 
 	// 设置通用响应头
 	c.Header("Accept-Ranges", "bytes")
-	c.Header("Content-Disposition", "inline; filename="+entry.Name)
+	c.Header("Content-Disposition", sanitizeContentDisposition("inline", entry.Name))
 	c.Header("Cache-Control", "private, max-age=3600")
 
 	// 处理 Range 请求（用于视频流式播放和大文件分块下载）
@@ -350,7 +358,7 @@ func (h *MediaHandler) PreviewFile(c *gin.Context) {
 
 	// 设置通用响应头
 	c.Header("Accept-Ranges", "bytes")
-	c.Header("Content-Disposition", "inline; filename="+entry.Name)
+	c.Header("Content-Disposition", sanitizeContentDisposition("inline", entry.Name))
 	c.Header("Cache-Control", "private, max-age=3600")
 
 	// 处理 Range 请求

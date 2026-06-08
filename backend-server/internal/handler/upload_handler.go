@@ -235,6 +235,9 @@ func (h *UploadHandler) GetUserUploadTasks(c *gin.Context) {
 	limitStr := c.DefaultQuery("limit", "20")
 	limit := 20
 	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+		if l > 100 {
+			l = 100
+		}
 		limit = l
 	}
 

@@ -522,8 +522,8 @@ async function calculateFileHash(file: File): Promise<string> {
       // fallback
     }
   }
-  // 非 HTTPS 环境：使用文件名+大小+时间戳生成简单标识
-  return `${file.name}_${file.size}_${Date.now()}`;
+  // 非 HTTPS 环境：使用文件名+大小+最后修改时间生成确定性标识
+  return `${file.name}_${file.size}_${file.lastModified}`;
 }
 
 /** 分片大小：5MB */

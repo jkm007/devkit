@@ -13,16 +13,18 @@ import (
 
 // RoleService 角色服务
 type RoleService struct {
-	roleRepo *repository.RoleRepo
-	userRepo *repository.UserRepo
+	roleRepo  *repository.RoleRepo
+	userRepo  *repository.UserRepo
+	groupRepo *repository.GroupRepo
 }
 
 // NewRoleService 创建角色服务
 func NewRoleService() *RoleService {
 	db := database.GetMySQL()
 	return &RoleService{
-		roleRepo: repository.NewRoleRepo(db),
-		userRepo: repository.NewUserRepo(db),
+		roleRepo:  repository.NewRoleRepo(db),
+		userRepo:  repository.NewUserRepo(db),
+		groupRepo: repository.NewGroupRepo(db),
 	}
 }
 
@@ -175,20 +177,43 @@ func (s *RoleService) Update(id uint, req *UpdateRoleRequest) error {
 	return nil
 }
 
-// invalidateCacheForRole 清除拥有指定角色的所有用户的权限缓存
+// invalidateCacheForRole 清除拥有指定角色的所有用户的权限缓存（包括通过分组继承的用户）
 func (s *RoleService) invalidateCacheForRole(roleID uint) {
-	userIDs, err := s.userRepo.GetUserIDsByRoleID(roleID)
-	if err != nil || len(userIDs) == 0 {
-		return
-	}
 	ctx := context.Background()
-	for _, uid := range userIDs {
-		_ = cache.Delete(ctx, fmt.Sprintf("permission_codes:%d", uid))
+
+	// 清除直接关联该角色的用户的缓存
+	userIDs, err := s.userRepo.GetUserIDsByRoleID(roleID)
+	if err == nil {
+		for _, uid := range userIDs {
+			_ = cache.Delete(ctx, fmt.Sprintf("permission_codes:%d", uid))
+		}
+	}
+
+	// 清除通过分组继承该角色的用户的缓存
+	groupIDs, err := s.groupRepo.GetGroupIDsByRoleID(roleID)
+	if err == nil {
+		for _, groupID := range groupIDs {
+			groupUserIDs, err := s.userRepo.GetUserIDsByGroupID(groupID)
+			if err == nil {
+				for _, uid := range groupUserIDs {
+					_ = cache.Delete(ctx, fmt.Sprintf("permission_codes:%d", uid))
+				}
+			}
+		}
 	}
 }
 
 // Delete 删除角色（同时清理关联数据和权限缓存）
 func (s *RoleService) Delete(id uint) error {
+	// 检查是否有用户正在使用该角色
+	userIDs, err := s.userRepo.GetUserIDsByRoleID(id)
+	if err != nil {
+		return err
+	}
+	if len(userIDs) > 0 {
+		return fmt.Errorf("该角色下还有 %d 个用户，请先移除用户的角色关联", len(userIDs))
+	}
+
 	// 先清除拥有该角色的所有用户的权限缓存
 	s.invalidateCacheForRole(id)
 
@@ -197,10 +222,15 @@ func (s *RoleService) Delete(id uint) error {
 		return err
 	}
 
-	// 清理用户-角色关联
+	// 清理用户-角色关联（忽略错误，角色已删除）
 	db := database.GetMySQL()
-	db.Where("role_id = ?", id).Delete(&model.UserRole{})
-	db.Where("role_id = ?", id).Delete(&model.GroupRole{})
+	if err := db.Where("role_id = ?", id).Delete(&model.UserRole{}).Error; err != nil {
+		// 记录日志但不影响返回（角色已删除）
+		fmt.Printf("清理 UserRole 关联失败: role_id=%d, err=%v\n", id, err)
+	}
+	if err := db.Where("role_id = ?", id).Delete(&model.GroupRole{}).Error; err != nil {
+		fmt.Printf("清理 GroupRole 关联失败: role_id=%d, err=%v\n", id, err)
+	}
 
 	return nil
 }
