@@ -15,8 +15,9 @@ type StorageConfig struct {
 	Region      string    `json:"region" gorm:"size:100"`
 	UseSSL      bool      `json:"useSsl" gorm:"default:false"`
 	CDNDomain   string    `json:"cdnDomain" gorm:"size:500"`
-	IsDefault   bool      `json:"isDefault" gorm:"default:false"`
-	Status      int8      `json:"status" gorm:"default:1;index:idx_status"`
+	IsDefault           bool      `json:"isDefault" gorm:"default:false"`
+	PresignedURLExpiry  int       `json:"presignedUrlExpiry" gorm:"not null;default:3600"`
+	Status              int8      `json:"status" gorm:"default:1;index:idx_status"`
 	Description string    `json:"description" gorm:"size:500"`
 	CreatedAt   time.Time `json:"createdAt" gorm:"autoCreateTime"`
 	UpdatedAt   time.Time `json:"updatedAt" gorm:"autoUpdateTime"`

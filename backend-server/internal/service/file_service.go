@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 	"backend-server/internal/model"
 	"backend-server/internal/repository"
 	"backend-server/pkg/database"
+	"backend-server/pkg/storage"
 
 	"gorm.io/gorm"
 )
@@ -681,4 +683,40 @@ func (s *FileService) ReplaceFileTags(fileID uint, userID uint, tagIDs []int64) 
 		})
 	}
 	return s.fileTagRepo.ReplaceFileTags(fileID, fileTags)
+}
+
+// GetPresignedURL 获取预签名 URL
+// 如果 expires <= 0，使用存储配置的默认过期时间
+func (s *FileService) GetPresignedURL(fileID uint, expires int64) (string, error) {
+	entry, err := s.fileRepo.GetEntryByID(fileID)
+	if err != nil {
+		return "", fmt.Errorf("文件不存在")
+	}
+
+	asset, err := s.assetRepo.GetByID(entry.FileAssetID)
+	if err != nil {
+		return "", fmt.Errorf("文件资产不存在")
+	}
+
+	if asset.StorageType == "local" {
+		return "", fmt.Errorf("本地存储不支持预签名 URL")
+	}
+
+	// 如果未指定过期时间，使用存储配置的默认值
+	if expires <= 0 {
+		var config model.StorageConfig
+		db := database.GetMySQL()
+		if db != nil {
+			if err := db.Where("driver = ? AND is_default = 1 AND status = 1", asset.StorageType).First(&config).Error; err == nil && config.PresignedURLExpiry > 0 {
+				expires = int64(config.PresignedURLExpiry)
+			} else {
+				expires = 3600
+			}
+		} else {
+			expires = 3600
+		}
+	}
+
+	st := storage.GetStorageByDriver(asset.StorageType)
+	return st.GetPresignedURL(context.Background(), asset.ObjectKey, expires)
 }

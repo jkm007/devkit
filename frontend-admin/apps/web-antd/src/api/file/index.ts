@@ -419,8 +419,17 @@ export function viewFile(id: number) {
 }
 
 /** 获取预签名 URL（用于视频流式播放） */
-export function getPreviewURL(id: number) {
-  return requestClient.get<{ url: string; contentType: string; name: string }>(`/files/${id}/preview-url`);
+export function getPreviewURL(id: number, expires?: number) {
+  return requestClient.get<{ url: string; contentType: string; name: string }>(`/files/${id}/preview-url`, {
+    params: expires ? { expires } : undefined,
+  });
+}
+
+/** 获取文件直链（presigned URL） */
+export function getDirectUrl(id: number, expires?: number) {
+  return requestClient.get<{ url: string; strategy: string; expiresIn?: number; contentType: string; name: string }>(`/files/${id}/direct-url`, {
+    params: expires ? { expires } : undefined,
+  });
 }
 
 // ==================== 分享 ====================

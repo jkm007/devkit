@@ -63,6 +63,7 @@ const currentConfig = reactive<StorageConfigApi.CreateStorageConfig & { _editId?
   useSsl: false,
   cdnDomain: '',
   isDefault: false,
+  presignedUrlExpiry: 3600,
   status: 1,
   description: '',
 });
@@ -122,6 +123,7 @@ const columns = [
   { title: '存储驱动', key: 'driver', width: 130 },
   { title: '连接信息', key: 'connection', width: 250 },
   { title: 'Bucket', dataIndex: 'bucket', width: 150 },
+  { title: 'URL过期(秒)', dataIndex: 'presignedUrlExpiry', width: 120, align: 'center' as const },
   { title: '状态', key: 'status', width: 100 },
   { title: '默认', key: 'isDefault', width: 100 },
   { title: '描述', dataIndex: 'description', ellipsis: true },
@@ -175,6 +177,7 @@ const resetForm = () => {
     useSsl: false,
     cdnDomain: '',
     isDefault: false,
+    presignedUrlExpiry: 3600,
     status: 1,
     description: '',
     _editId: undefined,
@@ -204,6 +207,7 @@ const handleEdit = (record: StorageConfigApi.StorageConfig) => {
     useSsl: record.useSsl,
     cdnDomain: record.cdnDomain,
     isDefault: record.isDefault,
+    presignedUrlExpiry: record.presignedUrlExpiry || 3600,
     status: record.status,
     description: record.description,
   });
@@ -500,6 +504,11 @@ const isCOS = computed(() => currentConfig.driver === 'cos');
           <Col :span="8">
             <Form.Item label="状态">
               <Switch v-model:checked="currentConfig.status" :checked-value="1" :un-checked-value="0" />
+            </Form.Item>
+          </Col>
+          <Col :span="8">
+            <Form.Item label="URL过期(秒)" tooltip="预签名URL默认过期时间，预览=300s，头像=604800s">
+              <InputNumber v-model:value="currentConfig.presignedUrlExpiry" :min="60" :max="604800" style="width: 100%" />
             </Form.Item>
           </Col>
         </Row>

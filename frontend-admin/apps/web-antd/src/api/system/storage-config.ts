@@ -13,6 +13,7 @@ export namespace StorageConfigApi {
     useSsl: boolean;
     cdnDomain: string;
     isDefault: boolean;
+    presignedUrlExpiry: number;
     status: number;
     description: string;
     createdAt: string;
@@ -30,6 +31,7 @@ export namespace StorageConfigApi {
     useSsl?: boolean;
     cdnDomain?: string;
     isDefault?: boolean;
+    presignedUrlExpiry?: number;
     status?: number;
     description?: string;
   }

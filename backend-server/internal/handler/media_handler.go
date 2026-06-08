@@ -9,7 +9,9 @@ import (
 	"strings"
 
 	"backend-server/internal/middleware"
+	"backend-server/internal/model"
 	"backend-server/internal/service"
+	"backend-server/pkg/database"
 	"backend-server/pkg/response"
 	"backend-server/pkg/storage"
 
@@ -21,6 +23,30 @@ func sanitizeContentDisposition(disposition, fileName string) string {
 	// 对文件名进行 RFC 5987 编码，防止 HTTP 响应头注入
 	escaped := url.PathEscape(fileName)
 	return fmt.Sprintf(`%s; filename="%s"; filename*=UTF-8''%s`, disposition, fileName, escaped)
+}
+
+// resolveExpiry 解析 expires 参数，返回实际过期时间（秒）
+// 如果 expires > 0 则使用用户传入的值，否则使用存储配置的默认值
+func resolveExpiry(c *gin.Context, storageType string) int64 {
+	// 解析用户传入的 expires 参数
+	if expiresStr := c.Query("expires"); expiresStr != "" {
+		if expires, err := strconv.ParseInt(expiresStr, 10, 64); err == nil && expires > 0 {
+			return expires
+		}
+	}
+
+	// 使用存储配置的默认值
+	if storageType != "local" && storageType != "" {
+		var config model.StorageConfig
+		db := database.GetMySQL()
+		if db != nil {
+			if err := db.Where("driver = ? AND is_default = 1 AND status = 1", storageType).First(&config).Error; err == nil && config.PresignedURLExpiry > 0 {
+				return int64(config.PresignedURLExpiry)
+			}
+		}
+	}
+
+	return 3600 // fallback 默认1小时
 }
 
 // MediaHandler 媒体文件处理器
@@ -108,7 +134,8 @@ func (h *MediaHandler) GetStream(c *gin.Context) {
 		} else {
 			// 云存储：返回 presigned URL
 			st := storage.GetStorageByDriver(asset.StorageType)
-			url, err := st.GetPresignedURL(c, media.HLSPath, 3600)
+			expires := resolveExpiry(c, asset.StorageType)
+			url, err := st.GetPresignedURL(c, media.HLSPath, expires)
 			if err != nil {
 				response.InternalError(c, err.Error())
 				return
@@ -219,7 +246,8 @@ func (h *MediaHandler) ViewFile(c *gin.Context) {
 
 	// presigned 模式：云存储 302 重定向，节省服务器带宽
 	if c.Query("presigned") == "true" && asset.StorageType != "local" {
-		presignedURL, err := st.GetPresignedURL(c, asset.ObjectKey, 3600)
+		expires := resolveExpiry(c, asset.StorageType)
+		presignedURL, err := st.GetPresignedURL(c, asset.ObjectKey, expires)
 		if err != nil {
 			// presigned 失败，回退到代理模式
 		} else {
@@ -321,6 +349,7 @@ func (h *MediaHandler) GetDirectURL(c *gin.Context) {
 
 	// 根据存储类型决定 URL 策略
 	st := storage.GetStorageByDriver(asset.StorageType)
+	expires := resolveExpiry(c, asset.StorageType)
 
 	if asset.StorageType == "local" {
 		// 本地存储：返回代理 URL
@@ -332,7 +361,7 @@ func (h *MediaHandler) GetDirectURL(c *gin.Context) {
 		})
 	} else {
 		// 云存储：返回 presigned URL
-		presignedURL, err := st.GetPresignedURL(c, asset.ObjectKey, 3600)
+		presignedURL, err := st.GetPresignedURL(c, asset.ObjectKey, expires)
 		if err != nil {
 			// presigned 失败，回退到代理 URL
 			response.Success(c, gin.H{
@@ -345,7 +374,7 @@ func (h *MediaHandler) GetDirectURL(c *gin.Context) {
 			response.Success(c, gin.H{
 				"url":         presignedURL,
 				"strategy":    "presigned",
-				"expiresIn":   3600,
+				"expiresIn":   expires,
 				"contentType": entry.ContentType,
 				"name":        entry.Name,
 			})
@@ -389,12 +418,13 @@ func (h *MediaHandler) GetPreviewURL(c *gin.Context) {
 	// 云存储：直接返回 presigned URL（前端直接访问云存储，零带宽）
 	if asset.StorageType != "local" {
 		st := storage.GetStorageByDriver(asset.StorageType)
-		presignedURL, err := st.GetPresignedURL(c, asset.ObjectKey, 3600)
+		expires := resolveExpiry(c, asset.StorageType)
+		presignedURL, err := st.GetPresignedURL(c, asset.ObjectKey, expires)
 		if err == nil {
 			response.Success(c, gin.H{
 				"url":         presignedURL,
 				"strategy":    "presigned",
-				"expiresIn":   3600,
+				"expiresIn":   expires,
 				"contentType": entry.ContentType,
 				"name":        entry.Name,
 			})
@@ -467,7 +497,8 @@ func (h *MediaHandler) PreviewFile(c *gin.Context) {
 
 	// 云存储：302 重定向到 presigned URL，节省服务器带宽
 	if asset.StorageType != "local" {
-		presignedURL, err := st.GetPresignedURL(c, asset.ObjectKey, 3600)
+		expires := resolveExpiry(c, asset.StorageType)
+		presignedURL, err := st.GetPresignedURL(c, asset.ObjectKey, expires)
 		if err == nil {
 			c.Redirect(http.StatusFound, presignedURL)
 			return

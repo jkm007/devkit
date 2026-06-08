@@ -50,18 +50,19 @@ func (h *StorageConfigHandler) GetByID(c *gin.Context) {
 
 // createStorageConfigRequest 创建请求
 type createStorageConfigRequest struct {
-	Name        string `json:"name" binding:"required,max=100"`
-	Driver      string `json:"driver" binding:"required,oneof=local minio oss cos"`
-	Endpoint    string `json:"endpoint"`
-	AccessKey   string `json:"accessKey"`
-	SecretKey   string `json:"secretKey"`
-	Bucket      string `json:"bucket"`
-	Region      string `json:"region"`
-	UseSSL      bool   `json:"useSsl"`
-	CDNDomain   string `json:"cdnDomain"`
-	IsDefault   bool   `json:"isDefault"`
-	Status      *int8  `json:"status"`
-	Description string `json:"description"`
+	Name               string `json:"name" binding:"required,max=100"`
+	Driver             string `json:"driver" binding:"required,oneof=local minio oss cos"`
+	Endpoint           string `json:"endpoint"`
+	AccessKey          string `json:"accessKey"`
+	SecretKey          string `json:"secretKey"`
+	Bucket             string `json:"bucket"`
+	Region             string `json:"region"`
+	UseSSL             bool   `json:"useSsl"`
+	CDNDomain          string `json:"cdnDomain"`
+	IsDefault          bool   `json:"isDefault"`
+	PresignedURLExpiry *int   `json:"presignedUrlExpiry"`
+	Status             *int8  `json:"status"`
+	Description        string `json:"description"`
 }
 
 // Create 创建存储配置
@@ -77,19 +78,25 @@ func (h *StorageConfigHandler) Create(c *gin.Context) {
 		status = *req.Status
 	}
 
+	presignedURLExpiry := 3600
+	if req.PresignedURLExpiry != nil && *req.PresignedURLExpiry > 0 {
+		presignedURLExpiry = *req.PresignedURLExpiry
+	}
+
 	config := &model.StorageConfig{
-		Name:        req.Name,
-		Driver:      req.Driver,
-		Endpoint:    req.Endpoint,
-		AccessKey:   req.AccessKey,
-		SecretKey:   req.SecretKey,
-		Bucket:      req.Bucket,
-		Region:      req.Region,
-		UseSSL:      req.UseSSL,
-		CDNDomain:   req.CDNDomain,
-		IsDefault:   req.IsDefault,
-		Status:      status,
-		Description: req.Description,
+		Name:               req.Name,
+		Driver:             req.Driver,
+		Endpoint:           req.Endpoint,
+		AccessKey:          req.AccessKey,
+		SecretKey:          req.SecretKey,
+		Bucket:             req.Bucket,
+		Region:             req.Region,
+		UseSSL:             req.UseSSL,
+		CDNDomain:          req.CDNDomain,
+		IsDefault:          req.IsDefault,
+		PresignedURLExpiry: presignedURLExpiry,
+		Status:             status,
+		Description:        req.Description,
 	}
 
 	if err := h.service.Create(config); err != nil {
@@ -106,18 +113,19 @@ func (h *StorageConfigHandler) Create(c *gin.Context) {
 
 // updateStorageConfigRequest 更新请求
 type updateStorageConfigRequest struct {
-	Name        string `json:"name" binding:"required,max=100"`
-	Driver      string `json:"driver" binding:"required,oneof=local minio oss cos"`
-	Endpoint    string `json:"endpoint"`
-	AccessKey   string `json:"accessKey"`
-	SecretKey   string `json:"secretKey"`
-	Bucket      string `json:"bucket"`
-	Region      string `json:"region"`
-	UseSSL      bool   `json:"useSsl"`
-	CDNDomain   string `json:"cdnDomain"`
-	IsDefault   bool   `json:"isDefault"`
-	Status      *int8  `json:"status"`
-	Description string `json:"description"`
+	Name               string `json:"name" binding:"required,max=100"`
+	Driver             string `json:"driver" binding:"required,oneof=local minio oss cos"`
+	Endpoint           string `json:"endpoint"`
+	AccessKey          string `json:"accessKey"`
+	SecretKey          string `json:"secretKey"`
+	Bucket             string `json:"bucket"`
+	Region             string `json:"region"`
+	UseSSL             bool   `json:"useSsl"`
+	CDNDomain          string `json:"cdnDomain"`
+	IsDefault          bool   `json:"isDefault"`
+	PresignedURLExpiry *int   `json:"presignedUrlExpiry"`
+	Status             *int8  `json:"status"`
+	Description        string `json:"description"`
 }
 
 // Update 更新存储配置
@@ -148,20 +156,26 @@ func (h *StorageConfigHandler) Update(c *gin.Context) {
 		status = existing.Status
 	}
 
+	presignedURLExpiry := 3600
+	if req.PresignedURLExpiry != nil && *req.PresignedURLExpiry > 0 {
+		presignedURLExpiry = *req.PresignedURLExpiry
+	}
+
 	config := &model.StorageConfig{
-		ID:          id,
-		Name:        req.Name,
-		Driver:      req.Driver,
-		Endpoint:    req.Endpoint,
-		AccessKey:   req.AccessKey,
-		SecretKey:   req.SecretKey,
-		Bucket:      req.Bucket,
-		Region:      req.Region,
-		UseSSL:      req.UseSSL,
-		CDNDomain:   req.CDNDomain,
-		IsDefault:   req.IsDefault,
-		Status:      status,
-		Description: req.Description,
+		ID:                 id,
+		Name:               req.Name,
+		Driver:             req.Driver,
+		Endpoint:           req.Endpoint,
+		AccessKey:          req.AccessKey,
+		SecretKey:          req.SecretKey,
+		Bucket:             req.Bucket,
+		Region:             req.Region,
+		UseSSL:             req.UseSSL,
+		CDNDomain:          req.CDNDomain,
+		IsDefault:          req.IsDefault,
+		PresignedURLExpiry: presignedURLExpiry,
+		Status:             status,
+		Description:        req.Description,
 	}
 
 	if err := h.service.Update(config); err != nil {

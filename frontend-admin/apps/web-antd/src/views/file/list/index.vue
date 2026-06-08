@@ -637,11 +637,11 @@ async function handlePreview(row: any) {
   const token = accessStore.accessToken;
   previewVisible.value = true;
 
-  // 视频、PDF、音频使用预签名 URL
+  // 视频、PDF、音频使用预签名 URL（预览场景使用较短过期时间 300 秒）
   if (isVideo || isPdf || isAudio) {
     previewType.value = isVideo ? 'video' : isAudio ? 'audio' : 'pdf';
     try {
-      const response = await fetch(`/api/files/${row.id}/preview-url`, {
+      const response = await fetch(`/api/files/${row.id}/preview-url?expires=300`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       if (response.ok) {
