@@ -276,29 +276,29 @@ const handleTestRoute = async () => {
 };
 
 // 标签列定义
-const tagColumns = [
-  { title: '标签键', dataIndex: 'tagKey', width: 120 },
-  { title: '标签值', dataIndex: 'tagValue', width: 120 },
-  { title: '显示名称', dataIndex: 'tagName', width: 120 },
-  { title: '图标', dataIndex: 'icon', width: 80 },
-  { title: '颜色', dataIndex: 'color', width: 100 },
-  { title: '排序', dataIndex: 'sortOrder', width: 80 },
-  { title: '文件数', dataIndex: 'fileCount', width: 80 },
-  { title: '系统内置', dataIndex: 'isSystem', width: 100 },
-  { title: '操作', key: 'action', width: 150 },
-];
+const tagColumns = computed(() => [
+  { title: t('system.tag.tagKey'), dataIndex: 'tagKey', width: 120 },
+  { title: t('system.tag.tagValue'), dataIndex: 'tagValue', width: 120 },
+  { title: t('system.tag.tagName'), dataIndex: 'tagName', width: 120 },
+  { title: t('system.tag.icon'), dataIndex: 'icon', width: 80 },
+  { title: t('system.tag.color'), dataIndex: 'color', width: 100 },
+  { title: t('system.tag.sortOrder'), dataIndex: 'sortOrder', width: 80 },
+  { title: t('system.tag.fileCount'), dataIndex: 'fileCount', width: 80 },
+  { title: t('system.tag.isSystem'), dataIndex: 'isSystem', width: 100 },
+  { title: t('common.operation'), key: 'action', width: 150 },
+]);
 
 // 规则列定义
-const ruleColumns = [
-  { title: '规则名称', dataIndex: 'ruleName', width: 150 },
-  { title: '优先级', dataIndex: 'priority', width: 80 },
-  { title: '匹配类型', dataIndex: 'matchType', width: 100 },
-  { title: '目标存储', dataIndex: 'driver', width: 100 },
-  { title: '桶/路径', key: 'bucket', width: 150 },
-  { title: '默认规则', dataIndex: 'isDefault', width: 100 },
-  { title: '状态', dataIndex: 'status', width: 80 },
-  { title: '操作', key: 'action', width: 200 },
-];
+const ruleColumns = computed(() => [
+  { title: t('system.tag.ruleName'), dataIndex: 'ruleName', width: 150 },
+  { title: t('system.tag.priority'), dataIndex: 'priority', width: 80 },
+  { title: t('system.tag.matchType'), dataIndex: 'matchType', width: 100 },
+  { title: t('system.tag.targetStorage'), dataIndex: 'driver', width: 100 },
+  { title: t('system.tag.bucketPath'), key: 'bucket', width: 150 },
+  { title: t('system.tag.defaultRule'), dataIndex: 'isDefault', width: 100 },
+  { title: t('common.status'), dataIndex: 'status', width: 80 },
+  { title: t('common.operation'), key: 'action', width: 200 },
+]);
 
 // 获取文件数量
 const getFileCount = (tagId: number) => {
@@ -307,19 +307,19 @@ const getFileCount = (tagId: number) => {
 };
 
 // 存储驱动选项
-const driverOptions = [
-  { label: '本地存储', value: 'local' },
-  { label: 'MinIO', value: 'minio' },
-  { label: '阿里云 OSS', value: 'oss' },
-  { label: '腾讯云 COS', value: 'cos' },
-];
+const driverOptions = computed(() => [
+  { label: t('system.tag.storageLocal'), value: 'local' },
+  { label: t('system.tag.storageMinio'), value: 'minio' },
+  { label: t('system.tag.storageOss'), value: 'oss' },
+  { label: t('system.tag.storageCos'), value: 'cos' },
+]);
 
 // 匹配类型选项
-const matchTypeOptions = [
-  { label: '全部满足', value: 'all' },
-  { label: '任一满足', value: 'any' },
-  { label: '精确匹配', value: 'exact' },
-];
+const matchTypeOptions = computed(() => [
+  { label: t('system.tag.matchAll'), value: 'all' },
+  { label: t('system.tag.matchAny'), value: 'any' },
+  { label: t('system.tag.matchExact'), value: 'exact' },
+]);
 
 // 标签键选项（用于条件选择）
 const tagKeyOptions = computed(() => {
@@ -339,11 +339,11 @@ const getTagValueOptions = (key: string) => {
   <div class="p-4">
     <Card>
       <Tabs default-active-key="tags">
-        <TabPane key="tags" tab="标签管理">
+        <TabPane key="tags" :tab="t('system.tag.tagManagement')">
           <template #tab>
             <span>
               <TagsOutlined />
-              标签管理
+              {{ t('system.tag.tagManagement') }}
             </span>
           </template>
 
@@ -351,11 +351,11 @@ const getTagValueOptions = (key: string) => {
             <Space>
               <Button type="primary" @click="openTagModal()">
                 <PlusOutlined />
-                新增标签
+                {{ t('system.tag.addTag') }}
               </Button>
               <Button @click="loadTags">
                 <ReloadOutlined />
-                刷新
+                {{ t('common.refresh') }}
               </Button>
             </Space>
           </div>
@@ -379,22 +379,22 @@ const getTagValueOptions = (key: string) => {
               </template>
               <template v-if="column.dataIndex === 'isSystem'">
                 <Tag :color="record.isSystem ? 'blue' : 'default'">
-                  {{ record.isSystem ? '系统' : '自定义' }}
+                  {{ record.isSystem ? t('system.tag.systemTag') : t('system.tag.customTag') }}
                 </Tag>
               </template>
               <template v-if="column.key === 'action'">
                 <Space>
-                  <Tooltip title="编辑">
+                  <Tooltip :title="t('common.edit')">
                     <Button type="link" size="small" @click="openTagModal(record)" :disabled="record.isSystem">
                       <EditOutlined />
                     </Button>
                   </Tooltip>
                   <Popconfirm
-                    title="确定删除此标签?"
+                    :title="t('system.tag.deleteTagConfirm')"
                     @confirm="handleDeleteTag(record.id)"
                     :disabled="record.isSystem"
                   >
-                    <Tooltip title="删除">
+                    <Tooltip :title="t('common.delete')">
                       <Button type="link" size="small" danger :disabled="record.isSystem">
                         <DeleteOutlined />
                       </Button>
@@ -406,11 +406,11 @@ const getTagValueOptions = (key: string) => {
           </Table>
         </TabPane>
 
-        <TabPane key="rules" tab="路由规则">
+        <TabPane key="rules" :tab="t('system.tag.routingRules')">
           <template #tab>
             <span>
               <NodeIndexOutlined />
-              路由规则
+              {{ t('system.tag.routingRules') }}
             </span>
           </template>
 
@@ -418,14 +418,14 @@ const getTagValueOptions = (key: string) => {
             <Space>
               <Button type="primary" @click="openRuleModal()">
                 <PlusOutlined />
-                新增规则
+                {{ t('system.tag.addRule') }}
               </Button>
               <Button @click="loadRules">
                 <ReloadOutlined />
-                刷新
+                {{ t('common.refresh') }}
               </Button>
               <Button @click="openTestModal">
-                测试路由
+                {{ t('system.tag.testRoute') }}
               </Button>
             </Space>
           </div>
@@ -439,37 +439,37 @@ const getTagValueOptions = (key: string) => {
           >
             <template #bodyCell="{ column, record }">
               <template v-if="column.dataIndex === 'matchType'">
-                <Tag color="blue">{{ record.matchType === 'all' ? '全部满足' : record.matchType === 'any' ? '任一满足' : '精确匹配' }}</Tag>
+                <Tag color="blue">{{ record.matchType === 'all' ? t('system.tag.matchAll') : record.matchType === 'any' ? t('system.tag.matchAny') : t('system.tag.matchExact') }}</Tag>
               </template>
               <template v-if="column.key === 'bucket'">
                 {{ record.bucket || '-' }}{{ record.pathPrefix ? `/${record.pathPrefix}` : '' }}
               </template>
               <template v-if="column.dataIndex === 'isDefault'">
                 <Tag :color="record.isDefault ? 'green' : 'default'">
-                  {{ record.isDefault ? '是' : '否' }}
+                  {{ record.isDefault ? t('common.yes') : t('common.no') }}
                 </Tag>
               </template>
               <template v-if="column.dataIndex === 'status'">
                 <Switch
                   :checked="record.status === 1"
                   @change="() => handleToggleRuleStatus(record)"
-                  checked-children="启用"
-                  un-checked-children="禁用"
+                  :checked-children="t('common.enable')"
+                  :un-checked-children="t('common.disable')"
                 />
               </template>
               <template v-if="column.key === 'action'">
                 <Space>
-                  <Tooltip title="编辑">
+                  <Tooltip :title="t('common.edit')">
                     <Button type="link" size="small" @click="openRuleModal(record)">
                       <EditOutlined />
                     </Button>
                   </Tooltip>
                   <Popconfirm
-                    title="确定删除此规则?"
+                    :title="t('system.tag.deleteRuleConfirm')"
                     @confirm="handleDeleteRule(record.id)"
                     :disabled="record.isDefault"
                   >
-                    <Tooltip title="删除">
+                    <Tooltip :title="t('common.delete')">
                       <Button type="link" size="small" danger :disabled="record.isDefault">
                         <DeleteOutlined />
                       </Button>
@@ -486,30 +486,30 @@ const getTagValueOptions = (key: string) => {
     <!-- 标签编辑弹窗 -->
     <Modal
       v-model:open="tagModalVisible"
-      :title="tagEditing ? '编辑标签' : '新增标签'"
+      :title="tagEditing ? t('system.tag.editTag') : t('system.tag.addTag')"
       @ok="handleTagSubmit"
       width="500px"
     >
       <Form :model="tagForm" layout="vertical">
-        <Form.Item label="标签键" required>
-          <Input v-model:value="tagForm.tagKey" placeholder="如: type, source, sensitivity" />
+        <Form.Item :label="t('system.tag.tagKey')" required>
+          <Input v-model:value="tagForm.tagKey" :placeholder="t('system.tag.tagKeyPlaceholder')" />
         </Form.Item>
-        <Form.Item label="标签值" required>
-          <Input v-model:value="tagForm.tagValue" placeholder="如: image, video, user" />
+        <Form.Item :label="t('system.tag.tagValue')" required>
+          <Input v-model:value="tagForm.tagValue" :placeholder="t('system.tag.tagValuePlaceholder')" />
         </Form.Item>
-        <Form.Item label="显示名称" required>
-          <Input v-model:value="tagForm.tagName" placeholder="如: 图片, 视频, 用户上传" />
+        <Form.Item :label="t('system.tag.tagName')" required>
+          <Input v-model:value="tagForm.tagName" :placeholder="t('system.tag.tagNamePlaceholder')" />
         </Form.Item>
-        <Form.Item label="图标">
-          <Input v-model:value="tagForm.icon" placeholder="如: 🖼️, 🎬, 👤" />
+        <Form.Item :label="t('system.tag.icon')">
+          <Input v-model:value="tagForm.icon" :placeholder="t('system.tag.iconPlaceholder')" />
         </Form.Item>
-        <Form.Item label="颜色">
+        <Form.Item :label="t('system.tag.color')">
           <Input v-model:value="tagForm.color" placeholder="#1890ff" />
         </Form.Item>
-        <Form.Item label="描述">
+        <Form.Item :label="t('system.tag.description')">
           <Input.TextArea v-model:value="tagForm.description" />
         </Form.Item>
-        <Form.Item label="排序">
+        <Form.Item :label="t('system.tag.sortOrder')">
           <InputNumber v-model:value="tagForm.sortOrder" :min="0" />
         </Form.Item>
       </Form>
@@ -518,57 +518,57 @@ const getTagValueOptions = (key: string) => {
     <!-- 路由规则编辑弹窗 -->
     <Modal
       v-model:open="ruleModalVisible"
-      :title="ruleEditing ? '编辑规则' : '新增规则'"
+      :title="ruleEditing ? t('system.tag.editRule') : t('system.tag.addRule')"
       @ok="handleRuleSubmit"
       width="600px"
     >
       <Form :model="ruleForm" layout="vertical">
-        <Form.Item label="规则名称" required>
-          <Input v-model:value="ruleForm.ruleName" placeholder="如: 图片存储, 视频存储" />
+        <Form.Item :label="t('system.tag.ruleName')" required>
+          <Input v-model:value="ruleForm.ruleName" :placeholder="t('system.tag.ruleNamePlaceholder')" />
         </Form.Item>
-        <Form.Item label="描述">
+        <Form.Item :label="t('system.tag.description')">
           <Input.TextArea v-model:value="ruleForm.description" />
         </Form.Item>
-        <Form.Item label="优先级">
+        <Form.Item :label="t('system.tag.priority')">
           <InputNumber v-model:value="ruleForm.priority" :min="0" />
-          <span class="ml-2 text-gray-500">数值越大优先级越高</span>
+          <span class="ml-2 text-gray-500">{{ t('system.tag.priorityHelp') }}</span>
         </Form.Item>
-        <Form.Item label="匹配类型">
+        <Form.Item :label="t('system.tag.matchType')">
           <Select v-model:value="ruleForm.matchType" :options="matchTypeOptions" />
         </Form.Item>
-        <Form.Item label="匹配条件">
+        <Form.Item :label="t('system.tag.matchConditions')">
           <div v-for="(condition, index) in ruleForm.conditions" :key="index" class="mb-2 flex gap-2">
             <Select
               v-model:value="condition.key"
               :options="tagKeyOptions"
-              placeholder="标签键"
+              :placeholder="t('system.tag.tagKeyLabel')"
               style="width: 150px"
             />
             <Select
               v-model:value="condition.value"
               :options="getTagValueOptions(condition.key)"
-              placeholder="标签值"
+              :placeholder="t('system.tag.tagValueLabel')"
               style="width: 200px"
             />
-            <Button type="link" danger @click="removeCondition(index)">删除</Button>
+            <Button type="link" danger @click="removeCondition(index)">{{ t('common.delete') }}</Button>
           </div>
           <Button type="dashed" @click="addCondition" block>
             <PlusOutlined />
-            添加条件
+            {{ t('system.tag.addCondition') }}
           </Button>
         </Form.Item>
-        <Form.Item label="目标存储" required>
+        <Form.Item :label="t('system.tag.targetStorage')" required>
           <Select v-model:value="ruleForm.driver" :options="driverOptions" />
         </Form.Item>
-        <Form.Item label="桶名称" v-if="ruleForm.driver !== 'local'">
-          <Input v-model:value="ruleForm.bucket" placeholder="如: devkit-images" />
+        <Form.Item :label="t('system.tag.bucketName')" v-if="ruleForm.driver !== 'local'">
+          <Input v-model:value="ruleForm.bucket" :placeholder="t('system.tag.bucketNamePlaceholder')" />
         </Form.Item>
-        <Form.Item label="路径前缀">
-          <Input v-model:value="ruleForm.pathPrefix" placeholder="如: images/, videos/" />
+        <Form.Item :label="t('system.tag.pathPrefix')">
+          <Input v-model:value="ruleForm.pathPrefix" :placeholder="t('system.tag.pathPrefixPlaceholder')" />
         </Form.Item>
-        <Form.Item label="默认规则">
+        <Form.Item :label="t('system.tag.defaultRule')">
           <Switch v-model:checked="ruleForm.isDefault" />
-          <span class="ml-2 text-gray-500">设为兜底规则（只能有一个）</span>
+          <span class="ml-2 text-gray-500">{{ t('system.tag.setDefaultRuleHelp') }}</span>
         </Form.Item>
       </Form>
     </Modal>
@@ -576,42 +576,42 @@ const getTagValueOptions = (key: string) => {
     <!-- 测试路由弹窗 -->
     <Modal
       v-model:open="testModalVisible"
-      title="测试路由"
+      :title="t('system.tag.testRouteTitle')"
       @ok="handleTestRoute"
       width="500px"
     >
       <Form :model="testForm" layout="vertical">
-        <Form.Item label="文件名" required>
-          <Input v-model:value="testForm.fileName" placeholder="如: photo.jpg" />
+        <Form.Item :label="t('system.tag.fileName')" required>
+          <Input v-model:value="testForm.fileName" :placeholder="t('system.tag.fileNamePlaceholder')" />
         </Form.Item>
-        <Form.Item label="文件类型">
-          <Input v-model:value="testForm.contentType" placeholder="如: image/jpeg" />
+        <Form.Item :label="t('system.tag.fileType')">
+          <Input v-model:value="testForm.contentType" :placeholder="t('system.tag.fileTypePlaceholder')" />
         </Form.Item>
-        <Form.Item label="来源">
+        <Form.Item :label="t('system.tag.source')">
           <Select v-model:value="testForm.source">
-            <Select.Option value="user">用户上传</Select.Option>
-            <Select.Option value="system">系统生成</Select.Option>
-            <Select.Option value="import">批量导入</Select.Option>
+            <Select.Option value="user">{{ t('system.tag.sourceUser') }}</Select.Option>
+            <Select.Option value="system">{{ t('system.tag.sourceSystem') }}</Select.Option>
+            <Select.Option value="import">{{ t('system.tag.sourceImport') }}</Select.Option>
           </Select>
         </Form.Item>
       </Form>
 
       <div v-if="testResult" class="mt-4 p-4 bg-gray-50 rounded">
-        <h4 class="mb-2">匹配结果:</h4>
+        <h4 class="mb-2">{{ t('system.tag.testResult') }}:</h4>
         <div class="mb-2">
-          <strong>规则:</strong> {{ testResult.result?.ruleName || '无匹配' }}
+          <strong>{{ t('system.tag.matchedRule') }}:</strong> {{ testResult.result?.ruleName || t('system.tag.noMatch') }}
         </div>
         <div class="mb-2">
-          <strong>存储:</strong> {{ testResult.result?.driver }}
+          <strong>{{ t('system.tag.targetStorage') }}:</strong> {{ testResult.result?.driver }}
         </div>
         <div class="mb-2">
-          <strong>桶:</strong> {{ testResult.result?.bucket || '-' }}
+          <strong>{{ t('system.tag.bucketName') }}:</strong> {{ testResult.result?.bucket || '-' }}
         </div>
         <div class="mb-2">
-          <strong>路径前缀:</strong> {{ testResult.result?.pathPrefix || '-' }}
+          <strong>{{ t('system.tag.pathPrefix') }}:</strong> {{ testResult.result?.pathPrefix || '-' }}
         </div>
         <div>
-          <strong>自动生成标签:</strong>
+          <strong>{{ t('system.tag.autoTags') }}:</strong>
           <Tag v-for="tag in testResult.tags" :key="`${tag.key}-${tag.value}`" class="ml-1">
             {{ tag.key }}:{{ tag.value }}
           </Tag>
