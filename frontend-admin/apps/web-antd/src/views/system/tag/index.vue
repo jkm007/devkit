@@ -36,6 +36,8 @@ import {
   testRoute,
 } from '#/api/system/tag';
 import type { Tag as TagType, TagUsageStat, TagRouting } from '#/api/system/tag';
+import { getAllStorageBucketsApi } from '#/api/system/storage-bucket';
+import type { StorageBucketApi } from '#/api/system/storage-bucket';
 
 const t = $t;
 
@@ -55,6 +57,19 @@ const tagForm = reactive({
   sortOrder: 0,
 });
 
+// 存储桶相关
+const storageBuckets = ref<StorageBucketApi.StorageBucket[]>([]);
+const storageBucketOptions = computed(() =>
+  storageBuckets.value
+    .filter((b) => b.status === 1)
+    .map((b) => ({
+      value: b.id,
+      label: `${b.name} (${b.driver}${b.bucket ? '/' + b.bucket : ''})`,
+      driver: b.driver,
+      bucket: b.bucket || '',
+    }))
+);
+
 // 路由规则相关
 const rules = ref<TagRouting[]>([]);
 const ruleLoading = ref(false);
@@ -66,6 +81,7 @@ const ruleForm = reactive({
   priority: 0,
   matchType: 'all' as 'all' | 'any' | 'exact',
   conditions: [] as { key: string; value: string }[],
+  storageBucketId: null as number | null,
   driver: 'local',
   bucket: '',
   pathPrefix: '',
@@ -106,6 +122,15 @@ const loadTags = async () => {
   }
 };
 
+// 加载存储桶
+const loadStorageBuckets = async () => {
+  try {
+    storageBuckets.value = await getAllStorageBucketsApi();
+  } catch (error) {
+    message.error('加载存储桶失败');
+  }
+};
+
 // 加载路由规则
 const loadRules = async () => {
   ruleLoading.value = true;
@@ -122,6 +147,7 @@ const loadRules = async () => {
 onMounted(() => {
   loadTags();
   loadRules();
+  loadStorageBuckets();
 });
 
 // 标签操作
@@ -187,6 +213,11 @@ const openRuleModal = (rule?: TagRouting) => {
     ruleForm.bucket = rule.bucket || '';
     ruleForm.pathPrefix = rule.pathPrefix || '';
     ruleForm.isDefault = rule.isDefault;
+    // 根据 driver 和 bucket 找到匹配的存储桶
+    const matchedBucket = storageBuckets.value.find(
+      (b) => b.driver === rule.driver && (b.bucket || '') === (rule.bucket || '')
+    );
+    ruleForm.storageBucketId = matchedBucket ? matchedBucket.id : null;
   } else {
     ruleEditing.value = null;
     ruleForm.ruleName = '';
@@ -194,6 +225,7 @@ const openRuleModal = (rule?: TagRouting) => {
     ruleForm.priority = 0;
     ruleForm.matchType = 'all';
     ruleForm.conditions = [];
+    ruleForm.storageBucketId = null;
     ruleForm.driver = 'local';
     ruleForm.bucket = '';
     ruleForm.pathPrefix = '';
@@ -202,10 +234,43 @@ const openRuleModal = (rule?: TagRouting) => {
   ruleModalVisible.value = true;
 };
 
+// 选择存储桶时自动填充 driver 和 bucket
+const handleStorageBucketChange = (bucketId: number | null) => {
+  if (bucketId) {
+    const selected = storageBuckets.value.find((b) => b.id === bucketId);
+    if (selected) {
+      ruleForm.driver = selected.driver;
+      ruleForm.bucket = selected.bucket || '';
+    }
+  } else {
+    ruleForm.driver = 'local';
+    ruleForm.bucket = '';
+  }
+};
+
+// 获取存储桶显示标签
+const getStorageBucketLabel = (driver: string, bucket?: string) => {
+  const matched = storageBuckets.value.find(
+    (b) => b.driver === driver && (b.bucket || '') === (bucket || '')
+  );
+  if (matched) {
+    return matched.name;
+  }
+  // fallback to driver name
+  const driverLabels: Record<string, string> = {
+    local: t('system.tag.storageLocal'),
+    minio: t('system.tag.storageMinio'),
+    oss: t('system.tag.storageOss'),
+    cos: t('system.tag.storageCos'),
+  };
+  return driverLabels[driver] || driver;
+};
+
 const handleRuleSubmit = async () => {
   try {
+    const { storageBucketId, ...submitData } = ruleForm;
     const data = {
-      ...ruleForm,
+      ...submitData,
       conditions: { tags: ruleForm.conditions },
     };
     if (ruleEditing.value) {
@@ -286,7 +351,7 @@ const ruleColumns = computed(() => [
   { title: t('system.tag.ruleName'), dataIndex: 'ruleName', width: 150 },
   { title: t('system.tag.priority'), dataIndex: 'priority', width: 80 },
   { title: t('system.tag.matchType'), dataIndex: 'matchType', width: 100 },
-  { title: t('system.tag.targetStorage'), dataIndex: 'driver', width: 100 },
+  { title: t('system.tag.targetStorage'), key: 'storage', width: 150 },
   { title: t('system.tag.bucketPath'), key: 'bucket', width: 150 },
   { title: t('system.tag.defaultRule'), dataIndex: 'isDefault', width: 100 },
   { title: t('common.status'), dataIndex: 'status', width: 80 },
@@ -445,6 +510,9 @@ const getTagValueOptions = (key: string) => {
               <template v-if="column.dataIndex === 'matchType'">
                 <Tag color="blue">{{ record.matchType === 'all' ? t('system.tag.matchAll') : record.matchType === 'any' ? t('system.tag.matchAny') : t('system.tag.matchExact') }}</Tag>
               </template>
+              <template v-if="column.key === 'storage'">
+                {{ getStorageBucketLabel(record.driver, record.bucket) }}
+              </template>
               <template v-if="column.key === 'bucket'">
                 {{ record.bucket || '-' }}{{ record.pathPrefix ? `/${record.pathPrefix}` : '' }}
               </template>
@@ -562,10 +630,18 @@ const getTagValueOptions = (key: string) => {
           </Button>
         </Form.Item>
         <Form.Item :label="t('system.tag.targetStorage')" required>
-          <Select v-model:value="ruleForm.driver" :options="driverOptions" />
+          <Select
+            v-model:value="ruleForm.storageBucketId"
+            :options="storageBucketOptions"
+            :placeholder="t('system.tag.selectStorageBucket')"
+            allowClear
+            show-search
+            :filter-option="(input: string, option: any) => option.label.toLowerCase().includes(input.toLowerCase())"
+            @change="handleStorageBucketChange"
+          />
         </Form.Item>
-        <Form.Item :label="t('system.tag.bucketName')" v-if="ruleForm.driver !== 'local'">
-          <Input v-model:value="ruleForm.bucket" :placeholder="t('system.tag.bucketNamePlaceholder')" />
+        <Form.Item :label="t('system.tag.pathPrefix')">
+          <Input v-model:value="ruleForm.pathPrefix" :placeholder="t('system.tag.pathPrefixPlaceholder')" />
         </Form.Item>
         <Form.Item :label="t('system.tag.pathPrefix')">
           <Input v-model:value="ruleForm.pathPrefix" :placeholder="t('system.tag.pathPrefixPlaceholder')" />

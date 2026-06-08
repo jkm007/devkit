@@ -89,3 +89,35 @@ export function deleteStorageBucketApi(id: number) {
 export function setDefaultStorageBucketApi(id: number) {
   return requestClient.put(`/system/storage-buckets/${id}/default`);
 }
+
+/**
+ * 测试存储桶连接
+ */
+export function testStorageBucketConnectionApi(id: number) {
+  return requestClient.post<{ message: string }>(
+    `/system/storage-buckets/${id}/test`,
+  );
+}
+
+/**
+ * 获取已启用的存储驱动列表
+ */
+export function getEnabledDriversApi() {
+  return requestClient.get<
+    Array<{ value: string; label: string; icon: string; enabled: boolean }>
+  >('/system/storage-buckets/enabled-drivers');
+}
+
+/**
+ * 按驱动和桶名测试连接（无需先保存）
+ */
+export function testStorageBucketByDriverApi(data: {
+  driver: string;
+  bucketName: string;
+  region?: string;
+}) {
+  return requestClient.post<{ message: string }>(
+    '/system/storage-buckets/test-by-driver',
+    data,
+  );
+}

@@ -332,7 +332,7 @@ defineExpose({
       :class="
         cn('my-0.5 flex w-full items-center p-1', bordered ? 'border-b' : '')
       "
-      v-if="treeData.length > 0"
+      v-if="treeData.length > 0 && showToggleAll"
     >
       <div
         class="flex size-5 flex-1 cursor-pointer items-center"

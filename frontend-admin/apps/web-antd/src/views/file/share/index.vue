@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import dayjs from 'dayjs';
 
 import { Page } from '@vben/common-ui';
@@ -9,15 +9,19 @@ import {
   Button,
   Card,
   DatePicker,
+  Dropdown,
   InputNumber,
+  Menu,
+  MenuItem,
   message,
   Modal,
-  Popconfirm,
   Radio,
   Space,
   Table,
   Tag,
+  Tooltip,
 } from 'ant-design-vue';
+import InputSearch from 'ant-design-vue/es/input/Search';
 
 import {
   getUserShares,
@@ -53,6 +57,10 @@ const selectedRowKeys = ref<number[]>([]);
 // 分享范围：own=自己的分享, all=所有分享
 const shareScope = ref<'all' | 'own'>('own');
 
+// 筛选
+const statusFilter = ref<number | undefined>(undefined);
+const searchText = ref('');
+
 // 续签弹窗
 const renewModalVisible = ref(false);
 const renewShareId = ref<number | null>(null);
@@ -66,6 +74,36 @@ const expiryDate = ref<any>(null);
 // 批量修改状态弹窗
 const batchStatusModalVisible = ref(false);
 const batchStatusValue = ref<number>(3); // 3=禁用
+
+// ==================== 计算属性 ====================
+
+const hasBatchPermission = computed(() => hasDeletePermission.value || hasManagePermission.value);
+
+const filteredShareList = computed(() => {
+  let list = shareList.value;
+  if (statusFilter.value !== undefined) {
+    list = list.filter(item => item.status === statusFilter.value);
+  }
+  if (searchText.value) {
+    const keyword = searchText.value.toLowerCase();
+    list = list.filter(item =>
+      (item.fileName || '').toLowerCase().includes(keyword) ||
+      (item.folderName || '').toLowerCase().includes(keyword) ||
+      (item.shareCode || '').toLowerCase().includes(keyword)
+    );
+  }
+  return list;
+});
+
+const statusCounts = computed(() => {
+  const counts = { total: shareList.value.length, active: 0, expired: 0, disabled: 0 };
+  for (const item of shareList.value) {
+    if (item.status === 1) counts.active++;
+    else if (item.status === 2) counts.expired++;
+    else if (item.status === 3) counts.disabled++;
+  }
+  return counts;
+});
 
 // ==================== 加载 ====================
 
@@ -90,7 +128,7 @@ async function loadShareList() {
 
 // 复制分享链接
 function copyShareUrl(share: ShareListItem) {
-  const url = `${window.location.origin}/share/${share.shareCode}`;
+  const url = share.shareUrl || `${window.location.origin}/share/${share.shareCode}`;
   fallbackCopy(url);
 }
 
@@ -108,6 +146,30 @@ function fallbackCopy(text: string) {
     message.error('复制失败，请手动复制');
   }
   document.body.removeChild(textarea);
+}
+
+// 菜单操作处理
+function handleMenuAction(key: string, record: ShareListItem) {
+  switch (key) {
+    case 'renew':
+      openRenewModal(record.id);
+      break;
+    case 'expiry':
+      openExpiryModal(record);
+      break;
+    case 'expire':
+      handleExpire(record.id);
+      break;
+    case 'disable':
+      handleDisable(record.id);
+      break;
+    case 'enable':
+      handleEnable(record.id);
+      break;
+    case 'delete':
+      handleDelete(record.id);
+      break;
+  }
 }
 
 // 打开续签弹窗
@@ -312,42 +374,55 @@ function getFileIcon(type: string | undefined) {
   if (type.startsWith('video/')) return 'i-ant-design:file-video-outlined';
   if (type.startsWith('audio/')) return 'i-ant-design:sound-outlined';
   if (type.includes('pdf')) return 'i-ant-design:file-pdf-outlined';
+  if (type.includes('word') || type.includes('document')) return 'i-ant-design:file-word-outlined';
+  if (type.includes('excel') || type.includes('spreadsheet')) return 'i-ant-design:file-excel-outlined';
+  if (type.includes('zip') || type.includes('rar')) return 'i-ant-design:file-zip-outlined';
   return 'i-ant-design:file-outlined';
+}
+
+function getShareUrl(share: ShareListItem) {
+  return share.shareUrl || `${window.location.origin}/share/${share.shareCode}`;
+}
+
+function isExpiringSoon(date: string | undefined) {
+  if (!date) return false;
+  const expireTime = new Date(date).getTime();
+  const now = Date.now();
+  const oneDay = 24 * 60 * 60 * 1000;
+  return expireTime > now && expireTime - now < oneDay;
 }
 
 // ==================== 表格列 ====================
 
 const columns = [
   {
-    title: '文件/文件夹',
+    title: '分享内容',
     key: 'name',
-    width: 200,
+    width: 220,
   },
   {
     title: '类型',
     key: 'type',
     width: 80,
+    align: 'center' as const,
   },
   {
     title: '大小',
     key: 'size',
     width: 100,
-  },
-  {
-    title: '分享人',
-    key: 'sharer',
-    width: 120,
+    align: 'center' as const,
   },
   {
     title: '状态',
     key: 'status',
-    width: 80,
+    width: 90,
+    align: 'center' as const,
   },
   {
-    title: '访问次数',
-    dataIndex: 'accessCount',
-    key: 'accessCount',
-    width: 100,
+    title: '访问统计',
+    key: 'access',
+    width: 120,
+    align: 'center' as const,
   },
   {
     title: '过期时间',
@@ -362,8 +437,9 @@ const columns = [
   {
     title: '操作',
     key: 'operation',
-    width: 250,
+    width: 150,
     fixed: 'right' as const,
+    align: 'center' as const,
   },
 ];
 
@@ -377,103 +453,158 @@ onMounted(() => {
 <template>
   <Page title="分享管理">
     <Card>
-      <!-- 统计信息和批量操作 -->
-      <div class="mb-4 flex items-center justify-between">
-        <div class="flex items-center gap-4">
-          <!-- 分享范围切换 -->
-          <div v-if="hasViewAllPermission">
-            <Radio.Group v-model:value="shareScope" button-style="solid" @change="loadShareList">
-              <Radio.Button value="own">我的分享</Radio.Button>
-              <Radio.Button value="all">所有分享</Radio.Button>
-            </Radio.Group>
-          </div>
-          <span class="text-gray-500">共 {{ totalShares }} 个分享</span>
-          <Space v-if="selectedRowKeys.length > 0 && (hasDeletePermission || hasManagePermission)">
-            <span class="text-blue-500">已选 {{ selectedRowKeys.length }} 项</span>
-            <Button v-if="hasDeletePermission" size="small" danger @click="handleBatchDelete">
-              批量删除
-            </Button>
-            <Button v-if="hasManagePermission" size="small" @click="openBatchStatusModal(3)">
-              批量禁用
-            </Button>
-            <Button v-if="hasManagePermission" size="small" @click="openBatchStatusModal(1)">
-              批量启用
-            </Button>
-            <Button v-if="hasManagePermission" size="small" @click="openBatchStatusModal(2)">
-              批量过期
-            </Button>
-          </Space>
+      <!-- 顶部统计卡片 -->
+      <div class="mb-4 flex items-center gap-4 flex-wrap">
+        <div
+          class="flex-1 min-w-[120px] px-4 py-3 rounded-lg cursor-pointer transition-colors"
+          :class="statusFilter === undefined ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50 hover:bg-gray-100'"
+          @click="statusFilter = undefined"
+        >
+          <div class="text-2xl font-bold text-gray-800">{{ statusCounts.total }}</div>
+          <div class="text-sm text-gray-500">全部分享</div>
         </div>
+        <div
+          class="flex-1 min-w-[120px] px-4 py-3 rounded-lg cursor-pointer transition-colors"
+          :class="statusFilter === 1 ? 'bg-green-50 border border-green-200' : 'bg-gray-50 hover:bg-gray-100'"
+          @click="statusFilter = statusFilter === 1 ? undefined : 1"
+        >
+          <div class="text-2xl font-bold text-green-600">{{ statusCounts.active }}</div>
+          <div class="text-sm text-gray-500">有效</div>
+        </div>
+        <div
+          class="flex-1 min-w-[120px] px-4 py-3 rounded-lg cursor-pointer transition-colors"
+          :class="statusFilter === 2 ? 'bg-orange-50 border border-orange-200' : 'bg-gray-50 hover:bg-gray-100'"
+          @click="statusFilter = statusFilter === 2 ? undefined : 2"
+        >
+          <div class="text-2xl font-bold text-orange-500">{{ statusCounts.expired }}</div>
+          <div class="text-sm text-gray-500">已过期</div>
+        </div>
+        <div
+          class="flex-1 min-w-[120px] px-4 py-3 rounded-lg cursor-pointer transition-colors"
+          :class="statusFilter === 3 ? 'bg-red-50 border border-red-200' : 'bg-gray-50 hover:bg-gray-100'"
+          @click="statusFilter = statusFilter === 3 ? undefined : 3"
+        >
+          <div class="text-2xl font-bold text-red-500">{{ statusCounts.disabled }}</div>
+          <div class="text-sm text-gray-500">已禁用</div>
+        </div>
+      </div>
+
+      <!-- 工具栏 -->
+      <div class="mb-4 flex items-center justify-between gap-4 flex-wrap">
+        <div class="flex items-center gap-3">
+          <!-- 分享范围切换 -->
+          <Radio.Group v-if="hasViewAllPermission" v-model:value="shareScope" button-style="solid" @change="loadShareList">
+            <Radio.Button value="own">我的分享</Radio.Button>
+            <Radio.Button value="all">所有分享</Radio.Button>
+          </Radio.Group>
+
+          <!-- 搜索 -->
+          <InputSearch
+            v-model:value="searchText"
+            placeholder="搜索文件名或分享码"
+            allow-clear
+            style="width: 240px"
+          />
+        </div>
+
+        <!-- 批量操作 -->
+        <Space v-if="selectedRowKeys.length > 0 && hasBatchPermission">
+          <span class="text-blue-500">已选 {{ selectedRowKeys.length }} 项</span>
+          <Button v-if="hasDeletePermission" size="small" danger @click="handleBatchDelete">
+            批量删除
+          </Button>
+          <Button v-if="hasManagePermission" size="small" @click="openBatchStatusModal(3)">
+            批量禁用
+          </Button>
+          <Button v-if="hasManagePermission" size="small" @click="openBatchStatusModal(1)">
+            批量启用
+          </Button>
+        </Space>
       </div>
 
       <!-- 分享列表表格 -->
       <Table
         :columns="columns"
-        :data-source="shareList"
+        :data-source="filteredShareList"
         :loading="loading"
         :pagination="{
           current: pagination.current,
           pageSize: pagination.pageSize,
           total: totalShares,
           showSizeChanger: true,
+          showTotal: (total: number) => `共 ${total} 条`,
         }"
-        :scroll="{ x: 1200 }"
-        :row-selection="(hasDeletePermission || hasManagePermission) ? { selectedRowKeys, onChange: (keys) => selectedRowKeys = keys } : undefined"
+        :scroll="{ x: 1100 }"
+        :row-selection="hasBatchPermission ? { selectedRowKeys, onChange: (keys: any) => selectedRowKeys = keys as number[] } : undefined"
         row-key="id"
-        @change="(pag) => { pagination = pag; loadShareList(); }"
+        @change="(pag: any) => { pagination.current = pag.current; pagination.pageSize = pag.pageSize; loadShareList(); }"
       >
         <template #bodyCell="{ column, record }">
-          <!-- 文件/文件夹名 -->
+          <!-- 分享内容 -->
           <template v-if="column.key === 'name'">
-            <div class="flex items-center">
-              <span v-if="record.type === 'file'" :class="getFileIcon(record.contentType)" class="mr-2 text-lg" />
-              <span v-else class="i-ant-design:folder-outlined mr-2 text-lg text-yellow-500" />
-              <span class="truncate">{{ record.fileName || record.folderName || '-' }}</span>
+            <div class="flex items-center gap-2">
+              <span
+                v-if="record.type === 'file'"
+                :class="getFileIcon(record.contentType)"
+                class="text-lg flex-shrink-0"
+                :style="{ color: record.contentType?.startsWith('image/') ? '#8b5cf6' : record.contentType?.startsWith('video/') ? '#ef4444' : record.contentType?.startsWith('audio/') ? '#f59e0b' : record.contentType?.includes('pdf') ? '#ef4444' : '#6b7280' }"
+              />
+              <span v-else class="i-ant-design:folder-outlined text-lg text-yellow-500 flex-shrink-0" />
+              <Tooltip :title="record.fileName || record.folderName">
+                <span class="truncate max-w-[160px]">{{ record.fileName || record.folderName || '-' }}</span>
+              </Tooltip>
             </div>
           </template>
 
           <!-- 类型 -->
           <template v-if="column.key === 'type'">
-            <Tag :color="record.type === 'file' ? 'blue' : 'orange'">
+            <Tag :color="record.type === 'file' ? 'blue' : 'orange'" size="small">
               {{ record.type === 'file' ? '文件' : '文件夹' }}
             </Tag>
           </template>
 
           <!-- 大小 -->
           <template v-if="column.key === 'size'">
-            {{ record.type === 'file' ? formatFileSize(record.fileSize) : '-' }}
-          </template>
-
-          <!-- 分享人 -->
-          <template v-if="column.key === 'sharer'">
-            <div class="flex items-center">
-              <span v-if="record.userAvatar" class="mr-1 inline-block w-5 h-5 rounded-full bg-gray-200 overflow-hidden">
-                <img :src="record.userAvatar" class="w-full h-full object-cover" />
-              </span>
-              <span v-else class="mr-1 inline-block w-5 h-5 rounded-full bg-blue-100 text-blue-600 text-xs flex items-center justify-center">
-                {{ (record.userName || '?')[0] }}
-              </span>
-              <span class="text-sm">{{ record.userName || '-' }}</span>
-            </div>
+            <span class="text-gray-600">
+              {{ record.type === 'file' ? formatFileSize(record.fileSize) : '-' }}
+            </span>
           </template>
 
           <!-- 状态 -->
           <template v-if="column.key === 'status'">
-            <Tag :color="getStatusTag(record.status).color">
+            <Tag :color="getStatusTag(record.status).color" size="small">
               {{ getStatusTag(record.status).text }}
             </Tag>
           </template>
 
+          <!-- 访问统计 -->
+          <template v-if="column.key === 'access'">
+            <Tooltip :title="record.accessedAt ? `最后访问: ${formatDate(record.accessedAt)}` : '暂无访问'">
+              <div class="flex flex-col items-center">
+                <span class="font-medium">{{ record.accessCount }}</span>
+                <span v-if="record.maxAccess > 0" class="text-xs text-gray-400">
+                  / {{ record.maxAccess }}
+                </span>
+              </div>
+            </Tooltip>
+          </template>
+
           <!-- 过期时间 -->
           <template v-if="column.key === 'expireAt'">
-            <span :class="{ 'text-orange-500': record.status === 2 }">
+            <span
+              :class="{
+                'text-orange-500 font-medium': record.status === 2,
+                'text-red-500': isExpiringSoon(record.expireAt) && record.status === 1,
+              }"
+            >
+              <span v-if="isExpiringSoon(record.expireAt) && record.status === 1" class="i-ant-design:warning-outlined mr-1" />
               {{ formatDate(record.expireAt) }}
             </span>
           </template>
 
           <!-- 创建时间 -->
           <template v-if="column.key === 'createdAt'">
-            {{ formatDate(record.createdAt) }}
+            <span class="text-gray-500">{{ formatDate(record.createdAt) }}</span>
           </template>
 
           <!-- 操作 -->
@@ -483,61 +614,32 @@ onMounted(() => {
                 复制链接
               </Button>
 
-              <!-- 有效状态的操作 -->
-              <template v-if="record.status === 1 && hasManagePermission">
-                <Button type="link" size="small" @click="openRenewModal(record.id)">
-                  续签
+              <Dropdown :trigger="['click']">
+                <Button type="link" size="small">
+                  更多
                 </Button>
-                <Button type="link" size="small" @click="openExpiryModal(record)">
-                  改期
-                </Button>
-                <Popconfirm
-                  title="确定要立即过期此分享吗？"
-                  @confirm="handleExpire(record.id)"
-                >
-                  <Button type="link" size="small" danger>
-                    过期
-                  </Button>
-                </Popconfirm>
-                <Popconfirm
-                  title="确定要禁用此分享吗？"
-                  @confirm="handleDisable(record.id)"
-                >
-                  <Button type="link" size="small" danger>
-                    禁用
-                  </Button>
-                </Popconfirm>
-              </template>
+                <template #overlay>
+                  <Menu @click="({ key }: any) => handleMenuAction(key, record)">
+                    <!-- 有效状态的操作 -->
+                    <template v-if="record.status === 1 && hasManagePermission">
+                      <MenuItem key="renew">续签</MenuItem>
+                      <MenuItem key="expiry">修改到期时间</MenuItem>
+                      <MenuItem key="expire">立即过期</MenuItem>
+                      <MenuItem key="disable" class="text-red-500">禁用</MenuItem>
+                    </template>
 
-              <!-- 过期/禁用状态的操作 -->
-              <template v-if="(record.status === 2 || record.status === 3) && hasManagePermission">
-                <Button type="link" size="small" @click="openRenewModal(record.id)">
-                  续签
-                </Button>
-                <Button type="link" size="small" @click="openExpiryModal(record)">
-                  改期
-                </Button>
-                <Popconfirm
-                  v-if="record.status === 3"
-                  title="确定要启用此分享吗？"
-                  @confirm="handleEnable(record.id)"
-                >
-                  <Button type="primary" size="small">
-                    启用
-                  </Button>
-                </Popconfirm>
-              </template>
+                    <!-- 过期/禁用状态的操作 -->
+                    <template v-if="(record.status === 2 || record.status === 3) && hasManagePermission">
+                      <MenuItem key="renew">续签</MenuItem>
+                      <MenuItem key="expiry">修改到期时间</MenuItem>
+                      <MenuItem v-if="record.status === 3" key="enable">启用</MenuItem>
+                    </template>
 
-              <!-- 删除 -->
-              <Popconfirm
-                v-if="hasDeletePermission"
-                title="确定要删除此分享吗？删除后无法恢复。"
-                @confirm="handleDelete(record.id)"
-              >
-                <Button type="link" size="small" danger>
-                  删除
-                </Button>
-              </Popconfirm>
+                    <!-- 删除 -->
+                    <MenuItem v-if="hasDeletePermission" key="delete" class="text-red-500">删除</MenuItem>
+                  </Menu>
+                </template>
+              </Dropdown>
             </Space>
           </template>
         </template>

@@ -35,6 +35,8 @@ export interface TreeProps {
   selectAllLabel?: string;
   /** 显示由iconField指定的图标 */
   showIcon?: boolean;
+  /** 显示顶部展开/折叠全部按钮 */
+  showToggleAll?: boolean;
   /** 启用展开收缩动画 */
   transition?: boolean;
   /** 树数据 */
@@ -57,6 +59,7 @@ export function treePropsDefaults() {
     labelField: 'label',
     multiple: false,
     showIcon: true,
+    showToggleAll: true,
     transition: true,
     valueField: 'value',
     childrenField: 'children',

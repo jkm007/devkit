@@ -149,10 +149,10 @@ export const useUploadStore = defineStore('upload', () => {
         routing: result.routing, // 保存路由信息
       });
 
-      // 5秒后移除完成的任务
+      // 3秒后移除完成的任务
       setTimeout(() => {
         removeTask(`temp-${tempId}`);
-      }, 5000);
+      }, 3000);
 
       return result;
     } catch (err) {

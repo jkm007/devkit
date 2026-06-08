@@ -257,6 +257,7 @@
     "pathPrefixPlaceholder": "如: images/, videos/",
     "bucketName": "桶名称",
     "bucketNamePlaceholder": "如: devkit-images",
+    "selectStorageBucket": "选择存储桶",
     "setDefaultRule": "设为默认规则",
     "setDefaultRuleHelp": "设为兜底规则（只能有一个）",
     "testRoute": "测试路由",
