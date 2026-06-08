@@ -131,6 +131,10 @@ func (r *FileRepo) ListEntries(userID uint, folderID uint, page, pageSize int, f
 	if contentType, ok := filters["contentType"].(string); ok && contentType != "" {
 		query = query.Where("content_type LIKE ?", escapeLike(contentType)+"%")
 	}
+	// 标签筛选
+	if tagFileIDs, ok := filters["tagFileIDs"].([]uint); ok && len(tagFileIDs) > 0 {
+		query = query.Where("id IN ?", tagFileIDs)
+	}
 
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err

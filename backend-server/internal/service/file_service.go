@@ -14,6 +14,27 @@ import (
 	"gorm.io/gorm"
 )
 
+// intersectFileIDs 计算两个文件ID列表的交集
+func intersectFileIDs(a, b []uint) []uint {
+	if a == nil {
+		return b
+	}
+	if b == nil {
+		return a
+	}
+	set := make(map[uint]bool, len(a))
+	for _, id := range a {
+		set[id] = true
+	}
+	result := make([]uint, 0)
+	for _, id := range b {
+		if set[id] {
+			result = append(result, id)
+		}
+	}
+	return result
+}
+
 // FileService 文件管理服务
 type FileService struct {
 	fileRepo    *repository.FileRepo
@@ -296,6 +317,7 @@ type ListFilesRequest struct {
 	PageSize    int    `form:"pageSize" binding:"omitempty,min=1,max=100"`
 	Keyword     string `form:"keyword"`
 	ContentType string `form:"contentType"`
+	TagKeys     string `form:"tagKeys"` // 标签筛选，格式: "type:image,source:user"
 }
 
 func (s *FileService) ListFiles(userID uint, req *ListFilesRequest) ([]FileEntryWithURL, int64, error) {
@@ -306,9 +328,37 @@ func (s *FileService) ListFiles(userID uint, req *ListFilesRequest) ([]FileEntry
 		req.PageSize = 20
 	}
 
+	// 处理标签筛选
+	var tagFilteredFileIDs []uint
+	if req.TagKeys != "" {
+		tagPairs := strings.Split(req.TagKeys, ",")
+		for _, pair := range tagPairs {
+			parts := strings.SplitN(pair, ":", 2)
+			if len(parts) != 2 {
+				continue
+			}
+			key, value := parts[0], parts[1]
+			fileIDs, err := s.fileTagRepo.GetFilesByTagCondition(key, value)
+			if err != nil {
+				continue
+			}
+			if tagFilteredFileIDs == nil {
+				tagFilteredFileIDs = fileIDs
+			} else {
+				// 取交集（AND 逻辑）
+				tagFilteredFileIDs = intersectFileIDs(tagFilteredFileIDs, fileIDs)
+			}
+		}
+		// 如果筛选后没有结果，直接返回空
+		if len(tagFilteredFileIDs) == 0 && req.TagKeys != "" {
+			return []FileEntryWithURL{}, 0, nil
+		}
+	}
+
 	filters := map[string]interface{}{
-		"keyword":     req.Keyword,
-		"contentType": req.ContentType,
+		"keyword":       req.Keyword,
+		"contentType":   req.ContentType,
+		"tagFileIDs":    tagFilteredFileIDs,
 	}
 
 	entries, total, err := s.fileRepo.ListEntries(userID, req.FolderID, req.Page, req.PageSize, filters)

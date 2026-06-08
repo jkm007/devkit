@@ -34,6 +34,16 @@ export namespace FileApi {
     children?: Folder[];
   }
 
+  /** 标签信息 */
+  export interface TagInfo {
+    id: number;
+    key: string;
+    value: string;
+    name: string;
+    icon: string;
+    color: string;
+  }
+
   /** 文件条目 */
   export interface FileEntry {
     id: number;
@@ -47,6 +57,7 @@ export namespace FileApi {
     previewUrl?: string;
     uploaderName?: string;
     uploaderAvatar?: string;
+    tags?: TagInfo[];
   }
 
   /** 文件资产 */
@@ -124,6 +135,7 @@ export namespace FileApi {
     keyword?: string;
     contentType?: string;
     scope?: 'own' | 'all'; // own=自己的文件, all=所有文件（需要权限）
+    tagKeys?: string; // 标签筛选，格式: "type:image,source:user"
   }
 
   /** 文件列表响应 */
@@ -505,6 +517,28 @@ export function disableShare(id: number) {
 /** 启用分享 */
 export function enableShare(id: number) {
   return requestClient.put(`/files/shares/${id}/enable`);
+}
+
+// ==================== 文件标签管理 ====================
+
+/** 获取文件标签 */
+export function getFileTags(fileId: number) {
+  return requestClient.get<FileApi.TagInfo[]>(`/files/${fileId}/tags`);
+}
+
+/** 添加文件标签 */
+export function addFileTag(fileId: number, tagId: number) {
+  return requestClient.post(`/files/${fileId}/tags`, { tagId });
+}
+
+/** 移除文件标签 */
+export function removeFileTag(fileId: number, tagId: number) {
+  return requestClient.delete(`/files/${fileId}/tags/${tagId}`);
+}
+
+/** 批量更新文件标签 */
+export function batchUpdateFileTags(fileId: number, tagIds: number[]) {
+  return requestClient.put(`/files/${fileId}/tags`, { tagIds });
 }
 
 // ==================== 简单文件上传（用于头像等小文件） ====================

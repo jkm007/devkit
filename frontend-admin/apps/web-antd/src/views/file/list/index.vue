@@ -19,10 +19,12 @@ import {
   Modal,
   Progress,
   Radio,
+  Select,
   Space,
   Spin,
   Table,
   Tag,
+  Tooltip,
   Tree,
   TreeSelect,
   Upload,
@@ -74,6 +76,10 @@ const selectedRowKeys = ref<number[]>([]);
 
 // 文件范围：own=自己的文件, all=所有文件
 const fileScope = ref<'own' | 'all'>('own');
+
+// 标签筛选
+const selectedTagKeys = ref<string[]>([]);
+const availableTags = ref<{ key: string; value: string; name: string; icon: string; color: string }[]>([]);
 
 // 新建文件夹
 const newFolderModalVisible = ref(false);
@@ -184,6 +190,7 @@ async function loadFileList() {
       page: pagination.value.current,
       pageSize: pagination.value.pageSize,
       scope: fileScope.value,
+      tagKeys: selectedTagKeys.value.length > 0 ? selectedTagKeys.value.join(',') : undefined,
     });
     const items = result?.items || [];
     items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -194,6 +201,29 @@ async function loadFileList() {
     message.error('加载文件列表失败');
   } finally {
     loading.value = false;
+  }
+}
+
+// 加载可用标签
+async function loadAvailableTags() {
+  try {
+    const { getGroupedTags } = await import('#/api/system/tag');
+    const grouped = await getGroupedTags();
+    const tags: typeof availableTags.value = [];
+    for (const [key, tagList] of Object.entries(grouped)) {
+      for (const tag of tagList) {
+        tags.push({
+          key: tag.tagKey,
+          value: tag.tagValue,
+          name: tag.tagName,
+          icon: tag.icon,
+          color: tag.color,
+        });
+      }
+    }
+    availableTags.value = tags;
+  } catch {
+    // 静默失败
   }
 }
 
@@ -594,6 +624,7 @@ function formatDuration(ms: number | undefined): string {
 onMounted(() => {
   loadFolderTree();
   loadFileList();
+  loadAvailableTags();
 });
 
 // ==================== 表格列 ====================
@@ -612,6 +643,7 @@ const columns = computed(() => {
     { title: '大小', dataIndex: 'size', key: 'size', width: 80, customRender: ({ text }: any) => formatFileSize(text) },
     { title: '状态', key: 'status', width: 150 },
     { title: '存储', key: 'storage', width: 80 },
+    { title: '标签', key: 'tags', width: 200 },
   ];
 
   // 查看所有文件时显示上传者列
@@ -731,7 +763,21 @@ const folderSelectData = computed(() => {
               </Radio.Group>
             </div>
           </Space>
-          <span class="text-sm text-gray-500">共 {{ totalFiles }} 个文件</span>
+          <Space>
+            <!-- 标签筛选 -->
+            <Select
+              v-if="availableTags.length > 0"
+              v-model:value="selectedTagKeys"
+              mode="multiple"
+              placeholder="按标签筛选"
+              style="min-width: 200px"
+              :options="availableTags.map(t => ({ label: `${t.icon} ${t.name}`, value: `${t.key}:${t.value}` }))"
+              @change="() => { pagination.current = 1; loadFileList(); }"
+              allow-clear
+              max-tag-count="2"
+            />
+            <span class="text-sm text-gray-500">共 {{ totalFiles }} 个文件</span>
+          </Space>
         </div>
 
         <!-- 文件表格 -->
@@ -779,6 +825,22 @@ const folderSelectData = computed(() => {
               <Tag :color="storageTypeLabels[record.storageType]?.color || 'default'">
                 {{ storageTypeLabels[record.storageType]?.label || record.storageType || '本地' }}
               </Tag>
+            </template>
+            <template v-if="column.key === 'tags'">
+              <template v-if="record.tags && record.tags.length > 0">
+                <Tag
+                  v-for="tag in record.tags.slice(0, 3)"
+                  :key="tag.id"
+                  :color="tag.color"
+                  class="mr-1 mb-1"
+                >
+                  {{ tag.icon }} {{ tag.name }}
+                </Tag>
+                <Tooltip v-if="record.tags.length > 3" :title="record.tags.map(t => `${t.icon} ${t.name}`).join(', ')">
+                  <Tag>+{{ record.tags.length - 3 }}</Tag>
+                </Tooltip>
+              </template>
+              <span v-else class="text-gray-400">-</span>
             </template>
             <template v-if="column.key === 'uploader'">
               <span class="text-sm">{{ record.uploaderName || '-' }}</span>
