@@ -34,4 +34,4 @@ Thumbs.db
 
 # Go 编译产物
 backend-server/backend-server
-backend-server/server
+backend-server/serverbackups/
