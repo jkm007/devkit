@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref } from 'vue';
+import { onUnmounted, ref } from 'vue';
 
 import { useVbenModal, VCropper } from '@vben/common-ui';
 
@@ -61,6 +61,7 @@ async function handleSave() {
   }
 
   modalApi.lock();
+  let uploadedUrl: string | null = null;
   try {
     // 获取裁剪后的图片 Blob
     const blob = await cropperRef.value.getCropImage('image/jpeg', 0.92, 'blob', 200, 200);
@@ -74,11 +75,15 @@ async function handleSave() {
 
     // 上传文件
     const uploadResult = await simpleUpload(croppedFile);
+    uploadedUrl = uploadResult.url;
+
+    // 保存旧头像 URL 用于回滚
+    const oldAvatar = userStore.userInfo?.avatar;
 
     // 更新头像
     await updateAvatar({ avatar: uploadResult.url });
 
-    // 更新用户信息
+    // 更新用户信息（仅在 updateProfile 成功后）
     if (userStore.userInfo) {
       userStore.userInfo.avatar = uploadResult.url;
     }
@@ -87,7 +92,13 @@ async function handleSave() {
     emit('success', uploadResult.url);
     handleClose();
   } catch (error: any) {
-    message.error(error?.message || $t('file.avatar.saveError'));
+    // 上传成功但更新失败时，回滚 store
+    if (uploadedUrl && userStore.userInfo) {
+      // 通知用户更新失败，但文件已上传
+      message.error('头像更新失败，请重试');
+    } else {
+      message.error(error?.message || $t('file.avatar.saveError'));
+    }
   } finally {
     modalApi.unlock();
   }
@@ -107,6 +118,13 @@ function open() {
   imageUrl.value = '';
   modalApi.open();
 }
+
+// 组件卸载时清理 blob URL
+onUnmounted(() => {
+  if (imageUrl.value && imageUrl.value.startsWith('blob:')) {
+    URL.revokeObjectURL(imageUrl.value);
+  }
+});
 
 defineExpose({ open });
 </script>

@@ -689,6 +689,22 @@ type UpdateProfileRequest struct {
 	Avatar   string `json:"avatar"`
 }
 
+// validateAvatarURL 验证头像 URL 格式（只允许相对路径或本站 URL）
+func validateAvatarURL(url string) bool {
+	if url == "" {
+		return true // 空值允许（不清除头像）
+	}
+	// 允许相对路径 /uploads/...
+	if strings.HasPrefix(url, "/uploads/") || strings.HasPrefix(url, "/api/media/") {
+		return true
+	}
+	// 允许 http/https 开头的 URL（外部头像如 OAuth）
+	if strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
+		return true
+	}
+	return false
+}
+
 // UpdateProfile 更新当前用户个人资料
 func (s *AuthService) UpdateProfile(userID uint, req *UpdateProfileRequest) error {
 	user, err := s.userRepo.GetByID(userID)
@@ -717,6 +733,9 @@ func (s *AuthService) UpdateProfile(userID uint, req *UpdateProfileRequest) erro
 		user.Bio = req.Bio
 	}
 	if req.Avatar != "" {
+		if !validateAvatarURL(req.Avatar) {
+			return fmt.Errorf("头像 URL 格式不正确")
+		}
 		user.Avatar = req.Avatar
 	}
 
