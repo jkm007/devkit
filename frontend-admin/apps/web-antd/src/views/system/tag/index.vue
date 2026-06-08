@@ -21,14 +21,7 @@ import {
   Badge,
   ColorPicker,
 } from 'ant-design-vue';
-import {
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  ReloadOutlined,
-  TagsOutlined,
-  NodeIndexOutlined,
-} from '@ant-design/icons-vue';
+import { IconifyIcon, Plus } from '@vben/icons';
 import {
   getAllTags,
   createTag,
@@ -342,7 +335,7 @@ const getTagValueOptions = (key: string) => {
         <TabPane key="tags" :tab="t('system.tag.tagManagement')">
           <template #tab>
             <span>
-              <TagsOutlined />
+              <IconifyIcon icon="mdi:tag-multiple" class="mr-1" />
               {{ t('system.tag.tagManagement') }}
             </span>
           </template>
@@ -350,11 +343,11 @@ const getTagValueOptions = (key: string) => {
           <div class="mb-4">
             <Space>
               <Button type="primary" @click="openTagModal()">
-                <PlusOutlined />
+                <Plus class="mr-1" />
                 {{ t('system.tag.addTag') }}
               </Button>
               <Button @click="loadTags">
-                <ReloadOutlined />
+                <IconifyIcon icon="mdi:reload" class="mr-1" />
                 {{ t('common.refresh') }}
               </Button>
             </Space>
@@ -397,7 +390,7 @@ const getTagValueOptions = (key: string) => {
                 <Space>
                   <Tooltip :title="t('common.edit')">
                     <Button type="link" size="small" @click="openTagModal(record)" :disabled="record.isSystem">
-                      <EditOutlined />
+                      <IconifyIcon icon="mdi:pencil" />
                     </Button>
                   </Tooltip>
                   <Popconfirm
@@ -407,7 +400,7 @@ const getTagValueOptions = (key: string) => {
                   >
                     <Tooltip :title="t('common.delete')">
                       <Button type="link" size="small" danger :disabled="record.isSystem">
-                        <DeleteOutlined />
+                        <IconifyIcon icon="mdi:delete" />
                       </Button>
                     </Tooltip>
                   </Popconfirm>
@@ -420,7 +413,7 @@ const getTagValueOptions = (key: string) => {
         <TabPane key="rules" :tab="t('system.tag.routingRules')">
           <template #tab>
             <span>
-              <NodeIndexOutlined />
+              <IconifyIcon icon="mdi:routes" class="mr-1" />
               {{ t('system.tag.routingRules') }}
             </span>
           </template>
@@ -428,11 +421,11 @@ const getTagValueOptions = (key: string) => {
           <div class="mb-4">
             <Space>
               <Button type="primary" @click="openRuleModal()">
-                <PlusOutlined />
+                <Plus class="mr-1" />
                 {{ t('system.tag.addRule') }}
               </Button>
               <Button @click="loadRules">
-                <ReloadOutlined />
+                <IconifyIcon icon="mdi:reload" class="mr-1" />
                 {{ t('common.refresh') }}
               </Button>
               <Button @click="openTestModal">
@@ -472,7 +465,7 @@ const getTagValueOptions = (key: string) => {
                 <Space>
                   <Tooltip :title="t('common.edit')">
                     <Button type="link" size="small" @click="openRuleModal(record)">
-                      <EditOutlined />
+                      <IconifyIcon icon="mdi:pencil" />
                     </Button>
                   </Tooltip>
                   <Popconfirm
@@ -482,7 +475,7 @@ const getTagValueOptions = (key: string) => {
                   >
                     <Tooltip :title="t('common.delete')">
                       <Button type="link" size="small" danger :disabled="record.isDefault">
-                        <DeleteOutlined />
+                        <IconifyIcon icon="mdi:delete" />
                       </Button>
                     </Tooltip>
                   </Popconfirm>
@@ -564,7 +557,7 @@ const getTagValueOptions = (key: string) => {
             <Button type="link" danger @click="removeCondition(index)">{{ t('common.delete') }}</Button>
           </div>
           <Button type="dashed" @click="addCondition" block>
-            <PlusOutlined />
+            <Plus class="mr-1" />
             {{ t('system.tag.addCondition') }}
           </Button>
         </Form.Item>
