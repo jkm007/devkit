@@ -52,6 +52,7 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	shareHandler := handler.NewShareHandler()
 	tagHandler := handler.NewTagHandler(service.NewTagService(repository.NewTagRepo(database.GetMySQL()), repository.NewFileTagRepo(database.GetMySQL())))
 	routingHandler := handler.NewRoutingHandler(service.NewRoutingService(repository.NewTagRoutingRepo(database.GetMySQL())))
+	storageBucketHandler := handler.NewStorageBucketHandler(service.NewStorageBucketService(repository.NewStorageBucketRepo(database.GetMySQL())))
 
 	// 健康检查
 	// @Summary      健康检查
@@ -303,6 +304,17 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 			system.POST("/routing-rules/batch-priority", middleware.Permission("system:setting:edit"), routingHandler.BatchUpdatePriority)
 			system.POST("/routing-rules/:id/test", middleware.Permission("system:setting:list"), routingHandler.TestRule)
 			system.POST("/routing-rules/test-route", middleware.Permission("system:setting:list"), routingHandler.TestRoute)
+
+			// 存储桶管理
+			system.GET("/storage-buckets", middleware.Permission("system:setting:list"), storageBucketHandler.GetAll)
+			system.GET("/storage-buckets/default", middleware.Permission("system:setting:list"), storageBucketHandler.GetDefault)
+			system.GET("/storage-buckets/driver/:driver", middleware.Permission("system:setting:list"), storageBucketHandler.GetByDriver)
+			system.GET("/storage-buckets/purpose/:purpose", middleware.Permission("system:setting:list"), storageBucketHandler.GetByPurpose)
+			system.GET("/storage-buckets/:id", middleware.Permission("system:setting:list"), storageBucketHandler.GetByID)
+			system.POST("/storage-buckets", middleware.Permission("system:setting:edit"), storageBucketHandler.Create)
+			system.PUT("/storage-buckets/:id", middleware.Permission("system:setting:edit"), storageBucketHandler.Update)
+			system.DELETE("/storage-buckets/:id", middleware.Permission("system:setting:edit"), storageBucketHandler.Delete)
+			system.PUT("/storage-buckets/:id/default", middleware.Permission("system:setting:edit"), storageBucketHandler.SetDefault)
 		}
 	}
 

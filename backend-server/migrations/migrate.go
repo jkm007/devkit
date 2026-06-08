@@ -29,5 +29,9 @@ func Run(db *gorm.DB) error {
 		&model.FileEntry{},
 		&model.MediaAsset{},
 		&model.FileShare{},
+		&model.Tag{},
+		&model.TagRouting{},
+		&model.FileTag{},
+		&model.StorageBucket{},
 	)
 }
