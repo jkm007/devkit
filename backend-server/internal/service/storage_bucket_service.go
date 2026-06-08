@@ -182,11 +182,18 @@ func SyncDefaultBuckets() error {
 
 		log.Printf("[INFO] 同步存储桶检查: driver=%s, enabled=%v, endpoint=%s, bucket=%s", d.name, enabled, endpoint, bucketName)
 
-		// 从 storage_bucket 表查找该驱动的默认桶
+		// 从 storage_bucket 表查找该驱动的桶（优先找默认桶，没有则找任意一个）
 		existing, err := repo.GetDefaultByDriver(d.name)
 		if err != nil && err != gorm.ErrRecordNotFound {
 			log.Printf("[WARN] 查询 %s 默认桶失败: %v", d.name, err)
 			continue
+		}
+		if existing == nil {
+			// 没有默认桶，查找该驱动的任意一个桶
+			buckets, err := repo.GetByDriver(d.name)
+			if err == nil && len(buckets) > 0 {
+				existing = &buckets[0]
+			}
 		}
 
 		if !enabled {
