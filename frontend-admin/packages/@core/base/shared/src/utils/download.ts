@@ -127,7 +127,7 @@ export function urlToBase64(url: string, mineType?: string): Promise<string> {
       resolve(dataURL);
     });
 
-    img.addEventListener('error', (e) => {
+    img.addEventListener('error', (_e) => {
       cleanup();
       reject(new Error(`Failed to load image: ${url}`));
     });

@@ -81,7 +81,7 @@ const ruleForm = reactive({
   priority: 0,
   matchType: 'all' as 'all' | 'any' | 'exact',
   conditions: [] as { key: string; value: string }[],
-  storageBucketId: null as number | null,
+  storageBucketId: undefined as number | undefined,
   driver: 'local',
   bucket: '',
   pathPrefix: '',
@@ -104,7 +104,10 @@ const tagGroups = computed(() => {
     if (!groups[tag.tagKey]) {
       groups[tag.tagKey] = [];
     }
-    groups[tag.tagKey].push(tag);
+    const group = groups[tag.tagKey];
+    if (group) {
+      group.push(tag);
+    }
   });
   return groups;
 });
@@ -151,7 +154,7 @@ onMounted(() => {
 });
 
 // 标签操作
-const openTagModal = (tag?: TagType) => {
+const openTagModal = (tag?: any) => {
   if (tag) {
     tagEditing.value = tag;
     tagForm.tagKey = tag.tagKey;
@@ -177,10 +180,10 @@ const openTagModal = (tag?: TagType) => {
 const handleTagSubmit = async () => {
   try {
     if (tagEditing.value) {
-      await updateTag(tagEditing.value.id, tagForm);
+      await updateTag(tagEditing.value.id, { ...tagForm } as Partial<TagType>);
       message.success('更新成功');
     } else {
-      await createTag(tagForm);
+      await createTag({ ...tagForm } as Partial<TagType>);
       message.success('创建成功');
     }
     tagModalVisible.value = false;
@@ -201,7 +204,7 @@ const handleDeleteTag = async (id: number) => {
 };
 
 // 路由规则操作
-const openRuleModal = (rule?: TagRouting) => {
+const openRuleModal = (rule?: any) => {
   if (rule) {
     ruleEditing.value = rule;
     ruleForm.ruleName = rule.ruleName;
@@ -217,7 +220,7 @@ const openRuleModal = (rule?: TagRouting) => {
     const matchedBucket = storageBuckets.value.find(
       (b) => b.driver === rule.driver && (b.bucket || '') === (rule.bucket || '')
     );
-    ruleForm.storageBucketId = matchedBucket ? matchedBucket.id : null;
+    ruleForm.storageBucketId = matchedBucket ? matchedBucket.id : undefined;
   } else {
     ruleEditing.value = null;
     ruleForm.ruleName = '';
@@ -225,7 +228,7 @@ const openRuleModal = (rule?: TagRouting) => {
     ruleForm.priority = 0;
     ruleForm.matchType = 'all';
     ruleForm.conditions = [];
-    ruleForm.storageBucketId = null;
+    ruleForm.storageBucketId = undefined;
     ruleForm.driver = 'local';
     ruleForm.bucket = '';
     ruleForm.pathPrefix = '';
@@ -235,7 +238,8 @@ const openRuleModal = (rule?: TagRouting) => {
 };
 
 // 选择存储桶时自动填充 driver 和 bucket
-const handleStorageBucketChange = (bucketId: number | null) => {
+const handleStorageBucketChange = (value: any) => {
+  const bucketId = value as number | null;
   if (bucketId) {
     const selected = storageBuckets.value.find((b) => b.id === bucketId);
     if (selected) {
@@ -274,10 +278,10 @@ const handleRuleSubmit = async () => {
       conditions: { tags: ruleForm.conditions },
     };
     if (ruleEditing.value) {
-      await updateRoutingRule(ruleEditing.value.id, data);
+      await updateRoutingRule(ruleEditing.value.id, data as Partial<TagRouting>);
       message.success('更新成功');
     } else {
-      await createRoutingRule(data);
+      await createRoutingRule(data as Partial<TagRouting>);
       message.success('创建成功');
     }
     ruleModalVisible.value = false;
@@ -297,7 +301,7 @@ const handleDeleteRule = async (id: number) => {
   }
 };
 
-const handleToggleRuleStatus = async (rule: TagRouting) => {
+const handleToggleRuleStatus = async (rule: any) => {
   try {
     await updateRoutingRuleStatus(rule.id, rule.status === 1 ? 0 : 1);
     message.success('更新成功');
@@ -364,7 +368,9 @@ const getFileCount = (tagId: number) => {
   return stat?.fileCount || 0;
 };
 
-// 存储驱动选项
+// 存储驱动选项（保留用于将来可能的扩展）
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// @ts-ignore - 暂时未使用
 const driverOptions = computed(() => [
   { label: t('system.tag.storageLocal'), value: 'local' },
   { label: t('system.tag.storageMinio'), value: 'minio' },

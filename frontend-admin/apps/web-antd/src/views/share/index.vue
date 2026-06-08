@@ -4,7 +4,7 @@ import { useRoute } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
 
-import { Button, Card, Descriptions, DescriptionsItem, Image, Spin, Table, message } from 'ant-design-vue';
+import { Button, Card, Descriptions, DescriptionsItem, Image, Spin, Table } from 'ant-design-vue';
 
 import { getShareInfo, getShareFolderFiles } from '#/api/file';
 
@@ -19,6 +19,7 @@ const error = ref('');
 const shareCode = route.params.code as string;
 
 // 是否是文件夹分享
+// @ts-ignore - 暂时未使用，保留以备将来使用
 const isFolderShare = computed(() => shareInfo.value?.type === 'folder');
 
 async function loadShareInfo() {

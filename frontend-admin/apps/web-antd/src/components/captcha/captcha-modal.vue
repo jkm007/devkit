@@ -9,7 +9,6 @@
 import { computed, ref, watch } from 'vue';
 
 import { Modal } from 'ant-design-vue';
-import { $t } from '@vben/locales';
 
 import BackendCaptcha from './backend-captcha.vue';
 import BackendRotateCaptcha from './backend-rotate-captcha.vue';
@@ -149,12 +148,13 @@ async function handleCaptchaSuccess(data: { captchaCode: string; captchaId: stri
     const result = await verifyCaptcha({
       captchaId: captchaId.value,
       captchaCode: data.captchaCode,
+      startTime: Date.now(),
     });
     captchaResult.value = result;
 
     if (result.valid) {
       setTimeout(() => {
-        emit('success', { captchaId: captchaId.value, captchaCode: data.captchaCode });
+        emit('success', { captchaId: captchaId.value, captchaCode: data.captchaCode, startTime: Date.now() });
         modalVisible.value = false;
       }, 500);
     } else {

@@ -41,7 +41,7 @@ const publicRouteNames = [...coreRouteNames, ...externalRouteNames];
 const accessRoutes = [...dynamicRoutes, ...staticRoutes];
 
 /** 获取所有路由组件名称 */
-const componentKeys = traverseTreeValues(accessRoutes, (route) => {
+const componentKeys = traverseTreeValues(accessRoutes, (route: any) => {
   if (typeof route.component === 'string') {
     return route.component;
   }

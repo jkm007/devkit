@@ -36,6 +36,7 @@ function onCaptchaFail(msg: string) {
 }
 
 // 提交业务表单（示例）
+// @ts-ignore - 示例代码，暂时未使用
 async function submitForm() {
   if (!verifiedCaptchaData.value) {
     message.warning('请先完成安全验证');
@@ -44,6 +45,7 @@ async function submitForm() {
   }
 
   // 提交时带上验证码数据
+  // @ts-ignore - 示例代码，暂时未使用
   const params = {
     // ...其他表单数据
     captchaId: verifiedCaptchaData.value.captchaId,

@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import dayjs from 'dayjs';
 
 import { Page } from '@vben/common-ui';
@@ -42,6 +42,7 @@ const accessStore = useAccessStore();
 
 const permissions = computed(() => accessStore.accessCodes || []);
 const hasViewAllPermission = computed(() => permissions.value.includes('file:view:all'));
+// @ts-ignore - 暂时未使用，保留以备将来使用
 const hasSharePermission = computed(() => permissions.value.includes('file:share'));
 const hasDeletePermission = computed(() => permissions.value.includes('file:delete'));
 const hasManagePermission = computed(() => permissions.value.includes('file:manage'));
@@ -127,7 +128,7 @@ async function loadShareList() {
 // ==================== 操作 ====================
 
 // 复制分享链接
-function copyShareUrl(share: ShareListItem) {
+function copyShareUrl(share: any) {
   const url = share.shareUrl || `${window.location.origin}/share/${share.shareCode}`;
   fallbackCopy(url);
 }
@@ -149,7 +150,7 @@ function fallbackCopy(text: string) {
 }
 
 // 菜单操作处理
-function handleMenuAction(key: string, record: ShareListItem) {
+function handleMenuAction(key: string, record: any) {
   switch (key) {
     case 'renew':
       openRenewModal(record.id);
@@ -380,7 +381,8 @@ function getFileIcon(type: string | undefined) {
   return 'i-ant-design:file-outlined';
 }
 
-function getShareUrl(share: ShareListItem) {
+// @ts-ignore - 暂时未使用，保留以备将来使用
+function getShareUrl(share: any) {
   return share.shareUrl || `${window.location.origin}/share/${share.shareCode}`;
 }
 

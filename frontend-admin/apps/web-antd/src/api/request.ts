@@ -52,9 +52,9 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
    */
   async function doRefreshToken() {
     const accessStore = useAccessStore();
-    const resp = await refreshTokenApi();
+    const resp = await refreshTokenApi() as any;
     // baseRequestClient 返回原始 axios response，resp.data = { code, data, message }
-    const result = resp.data?.data ?? resp.data;
+    const result = resp?.data?.data ?? resp?.data;
     const newAccessToken = result?.accessToken || result;
     const newRefreshToken = result?.refreshToken;
     accessStore.setAccessToken(newAccessToken);

@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { DataNode } from 'ant-design-vue';
+import type { DataNode } from 'ant-design-vue/es/tree';
 
 import type { Recordable } from '@vben/types';
 

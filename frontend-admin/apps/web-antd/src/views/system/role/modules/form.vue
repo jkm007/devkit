@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { DataNode } from 'ant-design-vue';
+import type { DataNode } from 'ant-design-vue/es/tree';
 
 import type { Recordable } from '@vben/types';
 
@@ -238,7 +238,7 @@ function getNodeClass(node: Recordable<any>) {
             :default-expanded-level="2"
             :get-node-class="getNodeClass"
             :model-value="selectedKeys"
-            @update:model-value="(keys: string[], node?: any) => handleUpdateValue(keys, node)"
+            @update:model-value="(keys: string[]) => handleUpdateValue(keys)"
             value-field="authCode"
             label-field="meta.title"
             icon-field="meta.icon"

@@ -100,13 +100,16 @@ export const useUploadStore = defineStore('upload', () => {
     const onPartProgress: PartProgressCallback = (event) => {
       const partIndex = event.partNumber - 1;
       if (partIndex >= 0 && partIndex < partDetails.length) {
-        if (event.status === 'start') {
-          partDetails[partIndex].status = 'uploading';
-          partDetails[partIndex].startTime = event.startTime;
-        } else if (event.status === 'completed') {
-          partDetails[partIndex].status = 'completed';
-          partDetails[partIndex].endTime = event.endTime;
-          partDetails[partIndex].duration = event.duration;
+        const part = partDetails[partIndex];
+        if (part) {
+          if (event.status === 'start') {
+            part.status = 'uploading';
+            part.startTime = event.startTime;
+          } else if (event.status === 'completed') {
+            part.status = 'completed';
+            part.endTime = event.endTime;
+            part.duration = event.duration!;
+          }
         }
       }
       const uploadedCount = partDetails.filter(p => p.status === 'completed').length;
@@ -153,8 +156,6 @@ export const useUploadStore = defineStore('upload', () => {
       setTimeout(() => {
         removeTask(`temp-${tempId}`);
       }, 3000);
-
-      return result;
     } catch (err) {
       console.error('上传失败:', err);
 
