@@ -360,6 +360,17 @@ const getTagValueOptions = (key: string) => {
             </Space>
           </div>
 
+          <!-- 标签统计卡片 -->
+          <div class="mb-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card v-for="(tagList, key) in tagGroups" :key="key" size="small">
+              <div class="text-center">
+                <div class="text-lg font-bold">{{ key }}</div>
+                <div class="text-2xl text-blue-500">{{ tagList.length }}</div>
+                <div class="text-gray-500 text-sm">{{ t('system.tag.tagList') }}</div>
+              </div>
+            </Card>
+          </div>
+
           <Table
             :columns="tagColumns"
             :data-source="tags"

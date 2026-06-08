@@ -1589,13 +1589,13 @@ onMounted(() => {
             <!-- 标签路由管理入口 -->
             <div class="settings-section">
               <h3 class="settings-section-title">
-                🏷️ 标签路由管理
+                🏷️ {{ $t('system.tag.routeManagementEntry') }}
               </h3>
               <p class="text-gray-500 mb-3">
-                配置不同类型的文件存储到不同的存储位置。例如：图片存储到 MinIO，备份存储到 OSS。
+                {{ $t('system.tag.routeManagementDesc') }}
               </p>
               <Button type="primary" @click="$router.push('/system/tag')">
-                进入标签路由管理
+                {{ $t('system.tag.enterRouteManagement') }}
               </Button>
             </div>
           </div>
