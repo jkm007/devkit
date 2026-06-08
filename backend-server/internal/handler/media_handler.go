@@ -46,7 +46,11 @@ func resolveExpiry(c *gin.Context, storageType string) int64 {
 		db := database.GetMySQL()
 		if db != nil {
 			if err := db.Where("driver = ? AND is_default = 1 AND status = 1", storageType).First(&config).Error; err == nil && config.PresignedURLExpiry > 0 {
-				return int64(config.PresignedURLExpiry)
+				expiry := int64(config.PresignedURLExpiry)
+				if expiry > maxExpiry {
+					expiry = maxExpiry
+				}
+				return expiry
 			}
 		}
 	}

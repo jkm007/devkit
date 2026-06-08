@@ -82,6 +82,9 @@ func (h *StorageConfigHandler) Create(c *gin.Context) {
 	if req.PresignedURLExpiry != nil && *req.PresignedURLExpiry > 0 {
 		presignedURLExpiry = *req.PresignedURLExpiry
 	}
+	if presignedURLExpiry > 604800 {
+		presignedURLExpiry = 604800
+	}
 
 	config := &model.StorageConfig{
 		Name:               req.Name,
@@ -159,6 +162,9 @@ func (h *StorageConfigHandler) Update(c *gin.Context) {
 	presignedURLExpiry := existing.PresignedURLExpiry
 	if req.PresignedURLExpiry != nil && *req.PresignedURLExpiry > 0 {
 		presignedURLExpiry = *req.PresignedURLExpiry
+	}
+	if presignedURLExpiry > 604800 {
+		presignedURLExpiry = 604800
 	}
 
 	config := &model.StorageConfig{
