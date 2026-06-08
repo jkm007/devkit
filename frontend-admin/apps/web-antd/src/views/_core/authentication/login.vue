@@ -67,6 +67,7 @@ const shouldShowCaptcha = computed(() => {
 
 // 验证码类型判断
 const isNumericCaptcha = computed(() => captchaType.value === 'numeric');
+// @ts-ignore - 暂时未使用，保留以备将来使用
 const isModalCaptcha = computed(() =>
   ['slider', 'puzzle', 'rotation', 'point'].includes(captchaType.value),
 );
@@ -138,6 +139,7 @@ async function fetchNumericCaptcha() {
 }
 
 // 打开验证码弹框
+// @ts-ignore - 暂时未使用，保留以备将来使用
 function openCaptchaModal() {
   captchaModalVisible.value = true;
 }
@@ -156,7 +158,8 @@ function onCaptchaModalSuccess(data: { captchaId: string; captchaCode: string; s
 }
 
 // 弹框验证失败
-function onCaptchaModalFail(msg: string) {
+// @ts-ignore - 暂时未使用，保留以备将来使用
+function onCaptchaModalFail(_msg: string) {
   captchaVerified.value = false;
   captchaResult.value = null;
 }

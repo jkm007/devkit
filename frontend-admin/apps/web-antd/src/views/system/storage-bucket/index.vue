@@ -47,7 +47,7 @@ const enabledDrivers = ref<
 const modalVisible = ref(false);
 const modalTitle = ref('');
 const isEditing = ref(false);
-const currentBucket = ref<StorageBucketApi.CreateStorageBucket>({
+const currentBucket = ref<Partial<StorageBucketApi.StorageBucket> & StorageBucketApi.CreateStorageBucket>({
   name: '',
   driver: 'local',
   endpoint: '',
@@ -79,6 +79,7 @@ const driverOptions = computed(() => {
     .map((d) => ({
       value: d.value,
       label: `${d.icon} ${d.label}`,
+      icon: d.icon,
       color: driverColors[d.value] || '#8c8c8c',
     }));
 });
@@ -221,7 +222,7 @@ const handleAdd = () => {
 };
 
 // 编辑
-const handleEdit = (record: StorageBucketApi.StorageBucket) => {
+const handleEdit = (record: any) => {
   modalTitle.value = '编辑存储桶';
   isEditing.value = true;
   currentBucket.value = { ...record };
@@ -266,7 +267,7 @@ const handleDelete = async (record: StorageBucketApi.StorageBucket) => {
 };
 
 // 设置默认
-const handleSetDefault = async (record: StorageBucketApi.StorageBucket) => {
+const handleSetDefault = async (record: any) => {
   try {
     await setDefaultStorageBucketApi(record.id);
     message.success('设置成功');

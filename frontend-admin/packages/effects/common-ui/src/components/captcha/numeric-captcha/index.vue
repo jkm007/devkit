@@ -119,7 +119,7 @@ function drawCaptcha() {
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(deg);
-    ctx.fillText(code[i], -fontSize / 4, 0);
+    ctx.fillText(code[i]!, -fontSize / 4, 0);
     ctx.restore();
   }
 }

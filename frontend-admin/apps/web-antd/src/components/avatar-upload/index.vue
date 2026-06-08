@@ -77,9 +77,6 @@ async function handleSave() {
     const uploadResult = await simpleUpload(croppedFile);
     uploadedUrl = uploadResult.url;
 
-    // 保存旧头像 URL 用于回滚
-    const oldAvatar = userStore.userInfo?.avatar;
-
     // 更新头像
     await updateAvatar({ avatar: uploadResult.url });
 

@@ -697,7 +697,6 @@ async function chunkedUpload(
       file: chunk,
       onProgress: (event) => {
         // 计算总体进度
-        const currentChunkSize = end - start;
         const chunkLoaded = event.loaded;
         const totalLoaded = uploadedSize + chunkLoaded;
         const percent = Math.round((totalLoaded / file.size) * 100);

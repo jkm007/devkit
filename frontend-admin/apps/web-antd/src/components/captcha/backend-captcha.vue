@@ -54,6 +54,7 @@ const imageContainerRef = useTemplateRef<HTMLDivElement>('imageContainerRef');
 // 点选验证码相关
 const clickPoints = ref<Array<{ x: number; y: number }>>([]);
 const pointChars = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧'];
+// @ts-ignore - 暂时未使用，保留以备将来使用
 const expectedPointCount = ref(4); // 期望点击的点数（从后端获取）
 
 // 后端图片实际尺寸（go-captcha 配置）

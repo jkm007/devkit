@@ -24,10 +24,10 @@ import { useColumns, useGridFormSchema } from './data';
 import Detail from './modules/detail.vue';
 import Form from './modules/form.vue';
 
-const groupList = ref<SystemGroupApi.SystemGroup[]>([]);
-const allGroupList = ref<SystemGroupApi.SystemGroup[]>([]);
+const groupList = ref<(SystemGroupApi.SystemGroup | { id: number; name: string; status: 0 | 1 })[]>([]);
+const allGroupList = ref<(SystemGroupApi.SystemGroup | { id: number; name: string; status: 0 | 1 })[]>([]);
 const inputSearchValue = ref('');
-const selectedGroupId = ref<string>('');
+const selectedGroupId = ref<number>(-1);
 
 const { hasAccessByCodes } = useAccess();
 
@@ -168,7 +168,7 @@ function onCreate() {
 async function loadGroupList() {
   try {
     const res = await getGroupList();
-    allGroupList.value = [{ id: '', name: '全部' }, ...res];
+    allGroupList.value = [{ id: -1, name: '全部', status: 1 }, ...res];
     groupList.value = allGroupList.value;
   } catch (error) {
     console.error('Failed to load group list:', error);
@@ -176,7 +176,7 @@ async function loadGroupList() {
 }
 
 function selectGroup(v: any) {
-  selectedGroupId.value = v.value?.id ?? v.id ?? '';
+  selectedGroupId.value = v.value?.id ?? v.id ?? -1;
   gridApi.query();
 }
 
@@ -187,7 +187,7 @@ function searchGroup(value: string) {
   }
   groupList.value = allGroupList.value.filter(
     (group) =>
-      group.id === '' ||
+      group.id === -1 ||
       group.name.toLowerCase().includes(value.toLowerCase()),
   );
 }

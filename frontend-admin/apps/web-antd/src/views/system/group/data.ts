@@ -44,7 +44,7 @@ export function useSchema(): VbenFormSchema[] {
         allowClear: true,
         api: async () => {
           const res = await getRoleList({ page: 1, pageSize: 100 });
-          return res.items || res;
+          return res || [];
         },
         class: 'w-full',
         labelField: 'name',

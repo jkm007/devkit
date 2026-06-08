@@ -5,7 +5,7 @@ export namespace SystemSettingsApi {
     key: string;
     value: any;
     label: string;
-    type: 'boolean' | 'json' | 'number' | 'select' | 'string';
+    type: 'array' | 'boolean' | 'json' | 'number' | 'select' | 'string';
     options: Array<{ label: string; value: string }> | null;
     tip: string;
     sort: number;
