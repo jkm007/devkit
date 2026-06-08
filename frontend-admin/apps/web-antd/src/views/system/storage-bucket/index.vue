@@ -11,9 +11,9 @@ import {
   updateStorageBucketApi,
   type StorageBucketApi,
 } from '#/api/system/storage-bucket';
-import { useI18n } from '#/locales';
+import { $t } from '#/locales';
 
-const { t } = useI18n();
+const t = $t;
 
 // 数据列表
 const bucketList = ref<StorageBucketApi.StorageBucket[]>([]);

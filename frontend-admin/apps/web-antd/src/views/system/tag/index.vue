@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref, reactive } from 'vue';
-import { useI18n } from 'vue-i18n';
+
 import {
   Card,
   Table,
@@ -19,9 +19,9 @@ import {
   TabPane,
   Tooltip,
   Badge,
-  ColorPicker,
 } from 'ant-design-vue';
 import { IconifyIcon, Plus } from '@vben/icons';
+import { $t } from '#/locales';
 import {
   getAllTags,
   createTag,
@@ -37,7 +37,7 @@ import {
 } from '#/api/system/tag';
 import type { Tag as TagType, TagUsageStat, TagRouting } from '#/api/system/tag';
 
-const { t } = useI18n();
+const t = $t;
 
 // 标签管理相关
 const tags = ref<TagType[]>([]);
