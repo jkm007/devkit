@@ -142,21 +142,21 @@ func (h *StorageConfigHandler) Update(c *gin.Context) {
 		return
 	}
 
-	// Status 为 nil 时保留原值（不默认为启用）
-	var status int8
-	if req.Status != nil {
-		status = *req.Status
-	} else {
-		// 获取现有配置的 status
-		existing, err := h.service.GetByID(id)
-		if err != nil {
-			response.NotFound(c, "存储配置不存在")
-			return
-		}
-		status = existing.Status
+	// 获取现有配置，用于保留未传字段的原值
+	existing, err := h.service.GetByID(id)
+	if err != nil {
+		response.NotFound(c, "存储配置不存在")
+		return
 	}
 
-	presignedURLExpiry := 3600
+	// Status 为 nil 时保留原值
+	status := existing.Status
+	if req.Status != nil {
+		status = *req.Status
+	}
+
+	// PresignedURLExpiry 为 nil 或 0 时保留原值
+	presignedURLExpiry := existing.PresignedURLExpiry
 	if req.PresignedURLExpiry != nil && *req.PresignedURLExpiry > 0 {
 		presignedURLExpiry = *req.PresignedURLExpiry
 	}

@@ -254,21 +254,15 @@ const handleSave = async () => {
   }
 };
 
-// 删除
-const handleDelete = (record: StorageBucketApi.StorageBucket) => {
-  Modal.confirm({
-    title: '确认删除',
-    content: `确定要删除存储桶 "${record.name}" 吗？删除后引用此桶的路由规则将失效。`,
-    onOk: async () => {
-      try {
-        await deleteStorageBucketApi(record.id);
-        message.success('删除成功');
-        fetchBuckets();
-      } catch (error: any) {
-        message.error(error?.message || '删除失败');
-      }
-    },
-  });
+// 删除（由 Popconfirm 确认后直接执行）
+const handleDelete = async (record: StorageBucketApi.StorageBucket) => {
+  try {
+    await deleteStorageBucketApi(record.id);
+    message.success('删除成功');
+    fetchBuckets();
+  } catch (error: any) {
+    message.error(error?.message || '删除失败');
+  }
 };
 
 // 设置默认
@@ -366,7 +360,7 @@ const handleCancel = () => {
         </template>
         <template v-else-if="column.key === 'isDefault'">
           <Tag v-if="record.isDefault" color="gold">⭐ 默认</Tag>
-          <Button v-else-if="hasAccessByCodes(['system:setting:edit'])" type="link" size="small" @click="handleSetDefault(record)">设为默认</Button>
+          <Button v-else-if="hasAccessByCodes(['system:setting:edit']) && record.status === 1" type="link" size="small" @click="handleSetDefault(record)">设为默认</Button>
         </template>
         <template v-else-if="column.key === 'action'">
           <Space>
@@ -395,11 +389,7 @@ const handleCancel = () => {
           <Input v-model:value="currentBucket.name" placeholder="如：生产环境图片桶" />
         </FormItem>
         <FormItem label="存储驱动" required>
-          <Select v-model:value="currentBucket.driver" placeholder="选择驱动">
-            <SelectOption v-for="opt in driverOptions" :key="opt.value" :value="opt.value">
-              {{ opt.icon }} {{ opt.label }}
-            </SelectOption>
-          </Select>
+          <Select v-model:value="currentBucket.driver" :options="driverOptions" placeholder="选择驱动" />
         </FormItem>
 
         <template v-if="currentBucket.driver !== 'local'">

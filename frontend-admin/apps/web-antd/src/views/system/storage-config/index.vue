@@ -231,7 +231,16 @@ const handleSave = async () => {
   saveLoading.value = true;
   try {
     if (isEditing.value) {
-      await updateStorageConfigApi(currentConfig._editId, currentConfig);
+      // 编辑模式下，如果凭证字段未修改（仍为脱敏值），则不发送给后端，避免覆盖原值
+      const updateData: Record<string, any> = { ...currentConfig };
+      if (updateData.accessKey === '******') {
+        delete updateData.accessKey;
+      }
+      if (updateData.secretKey === '******') {
+        delete updateData.secretKey;
+      }
+      delete updateData._editId;
+      await updateStorageConfigApi(currentConfig._editId, updateData);
       message.success('更新成功');
     } else {
       await createStorageConfigApi(currentConfig);
@@ -469,7 +478,7 @@ const isCOS = computed(() => currentConfig.driver === 'cos');
               </Form.Item>
             </Col>
             <Col :span="12">
-              <Form.Item :label="isCOS ? 'Secret Key' : 'Secret Key'" required>
+              <Form.Item label="Secret Key" required>
                 <Input.Password v-model:value="currentConfig.secretKey" :placeholder="isCOS ? '腾讯云 Secret Key' : 'Secret Key'" />
               </Form.Item>
             </Col>

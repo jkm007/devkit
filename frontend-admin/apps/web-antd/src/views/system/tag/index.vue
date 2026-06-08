@@ -401,7 +401,7 @@ const getTagValueOptions = (key: string) => {
   <div class="p-4">
     <Card>
       <Tabs default-active-key="tags">
-        <TabPane key="tags" :tab="t('system.tag.tagManagement')">
+        <TabPane key="tags">
           <template #tab>
             <span>
               <IconifyIcon icon="mdi:tag-multiple" class="mr-1" />
@@ -480,7 +480,7 @@ const getTagValueOptions = (key: string) => {
           </Table>
         </TabPane>
 
-        <TabPane key="rules" :tab="t('system.tag.routingRules')">
+        <TabPane key="rules">
           <template #tab>
             <span>
               <IconifyIcon icon="mdi:routes" class="mr-1" />
@@ -649,9 +649,6 @@ const getTagValueOptions = (key: string) => {
             :filter-option="(input: string, option: any) => option.label.toLowerCase().includes(input.toLowerCase())"
             @change="handleStorageBucketChange"
           />
-        </Form.Item>
-        <Form.Item :label="t('system.tag.pathPrefix')">
-          <Input v-model:value="ruleForm.pathPrefix" :placeholder="t('system.tag.pathPrefixPlaceholder')" />
         </Form.Item>
         <Form.Item :label="t('system.tag.pathPrefix')">
           <Input v-model:value="ruleForm.pathPrefix" :placeholder="t('system.tag.pathPrefixPlaceholder')" />

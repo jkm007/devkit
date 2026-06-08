@@ -27,10 +27,15 @@ func sanitizeContentDisposition(disposition, fileName string) string {
 
 // resolveExpiry 解析 expires 参数，返回实际过期时间（秒）
 // 如果 expires > 0 则使用用户传入的值，否则使用存储配置的默认值
+// 上限为 7 天（604800秒），防止恶意请求过长过期时间
 func resolveExpiry(c *gin.Context, storageType string) int64 {
+	const maxExpiry = 604800 // 7天
 	// 解析用户传入的 expires 参数
 	if expiresStr := c.Query("expires"); expiresStr != "" {
 		if expires, err := strconv.ParseInt(expiresStr, 10, 64); err == nil && expires > 0 {
+			if expires > maxExpiry {
+				expires = maxExpiry
+			}
 			return expires
 		}
 	}
