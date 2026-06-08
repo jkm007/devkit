@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"net/http"
 	"strconv"
 
 	"backend-server/internal/model"
@@ -26,7 +25,7 @@ func NewRoutingHandler(routingService *service.RoutingService) *RoutingHandler {
 func (h *RoutingHandler) GetAllRules(c *gin.Context) {
 	rules, err := h.routingService.GetAllRules()
 	if err != nil {
-		response.InternalServerError(c, "获取规则失败")
+		response.InternalError(c, "获取规则失败")
 		return
 	}
 	response.Success(c, rules)

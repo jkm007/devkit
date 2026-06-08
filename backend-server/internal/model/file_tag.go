@@ -6,7 +6,7 @@ import "time"
 type FileTag struct {
 	ID        int64     `json:"id" gorm:"primaryKey;autoIncrement"`
 	FileID    uint      `json:"fileId" gorm:"not null;uniqueIndex:uk_file_tag"`
-	TagID     int64     `json:"tagId" gorm:"not null;uniqueIndex:uk_file_tag"`
+	TagID     int64     `json:"tagId" gorm:"column:tag_id;not null;uniqueIndex:uk_file_tag"`
 	Source    string    `json:"source" gorm:"size:10;not null;default:auto"`
 	CreatedAt time.Time `json:"createdAt" gorm:"autoCreateTime"`
 

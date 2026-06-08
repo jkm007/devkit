@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"net/http"
 	"strconv"
 
 	"backend-server/internal/model"
@@ -25,7 +24,7 @@ func NewTagHandler(tagService *service.TagService) *TagHandler {
 func (h *TagHandler) GetAllTags(c *gin.Context) {
 	tags, err := h.tagService.GetAllTags()
 	if err != nil {
-		response.InternalServerError(c, "获取标签失败")
+		response.InternalError(c, "获取标签失败")
 		return
 	}
 	response.Success(c, tags)
@@ -35,7 +34,7 @@ func (h *TagHandler) GetAllTags(c *gin.Context) {
 func (h *TagHandler) GetGroupedTags(c *gin.Context) {
 	tags, err := h.tagService.GetGroupedTags()
 	if err != nil {
-		response.InternalServerError(c, "获取标签失败")
+		response.InternalError(c, "获取标签失败")
 		return
 	}
 	response.Success(c, tags)
@@ -51,7 +50,7 @@ func (h *TagHandler) GetTagsByKey(c *gin.Context) {
 
 	tags, err := h.tagService.GetTagsByKey(key)
 	if err != nil {
-		response.InternalServerError(c, "获取标签失败")
+		response.InternalError(c, "获取标签失败")
 		return
 	}
 	response.Success(c, tags)
@@ -140,7 +139,7 @@ func (h *TagHandler) DeleteTag(c *gin.Context) {
 func (h *TagHandler) GetUsageStats(c *gin.Context) {
 	stats, err := h.tagService.GetUsageStats()
 	if err != nil {
-		response.InternalServerError(c, "获取统计失败")
+		response.InternalError(c, "获取统计失败")
 		return
 	}
 	response.Success(c, stats)
@@ -157,7 +156,7 @@ func (h *TagHandler) GetFileTags(c *gin.Context) {
 
 	tags, err := h.tagService.GetFileTags(uint(fileID))
 	if err != nil {
-		response.InternalServerError(c, "获取文件标签失败")
+		response.InternalError(c, "获取文件标签失败")
 		return
 	}
 	response.Success(c, tags)
@@ -180,7 +179,6 @@ func (h *TagHandler) AddFileTag(c *gin.Context) {
 		return
 	}
 
-	userID := c.GetUint("userID")
 	if err := h.tagService.AddFileTag(uint(fileID), req.TagID, "manual"); err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -205,7 +203,6 @@ func (h *TagHandler) RemoveFileTag(c *gin.Context) {
 		return
 	}
 
-	userID := c.GetUint("userID")
 	if err := h.tagService.RemoveFileTag(uint(fileID), tagID); err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -231,7 +228,6 @@ func (h *TagHandler) BatchUpdateFileTags(c *gin.Context) {
 		return
 	}
 
-	userID := c.GetUint("userID")
 	if err := h.tagService.ReplaceFileTags(uint(fileID), req.TagIDs, "manual"); err != nil {
 		response.BadRequest(c, err.Error())
 		return

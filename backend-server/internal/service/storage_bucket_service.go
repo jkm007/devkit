@@ -1,8 +1,8 @@
 package service
 
 import (
-	"claude-manager/internal/model"
-	"claude-manager/internal/repository"
+	"backend-server/internal/model"
+	"backend-server/internal/repository"
 	"fmt"
 )
 

@@ -43,7 +43,7 @@ type TagRouting struct {
 	Driver      string       `json:"driver" gorm:"size:20;not null"`
 	Bucket      string       `json:"bucket" gorm:"size:100"`
 	PathPrefix  string       `json:"pathPrefix" gorm:"size:200"`
-	ExtraConfig JSON         `json:"extraConfig" gorm:"type:json"`
+	ExtraConfig string       `json:"extraConfig" gorm:"type:text"`
 	IsDefault   bool         `json:"isDefault" gorm:"default:false;index:idx_default"`
 	Status      int8         `json:"status" gorm:"default:1;index:idx_status"`
 	CreatedAt   time.Time    `json:"createdAt" gorm:"autoCreateTime"`

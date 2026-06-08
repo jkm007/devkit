@@ -1,7 +1,7 @@
 package storage
 
 import (
-	"claude-manager/internal/model"
+	"backend-server/internal/model"
 	"fmt"
 	"sort"
 )

@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"claude-manager/internal/model"
+	"backend-server/internal/model"
 	"gorm.io/gorm"
 )
 

@@ -424,7 +424,6 @@ async function handleTagEditSubmit() {
     message.error(error.message || '更新失败');
   }
 }
-}
 
 // 获取有效的文件 ID（排除上传任务）
 const validFileIds = computed(() => {

@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"net/http"
 	"strconv"
 
 	"backend-server/internal/model"
@@ -25,7 +24,7 @@ func NewStorageBucketHandler(service *service.StorageBucketService) *StorageBuck
 func (h *StorageBucketHandler) GetAll(c *gin.Context) {
 	buckets, err := h.service.GetAll()
 	if err != nil {
-		response.InternalServerError(c, "获取存储桶列表失败")
+		response.InternalError(c, "获取存储桶列表失败")
 		return
 	}
 	response.Success(c, buckets)
@@ -141,7 +140,7 @@ func (h *StorageBucketHandler) GetByDriver(c *gin.Context) {
 
 	buckets, err := h.service.GetByDriver(driver)
 	if err != nil {
-		response.InternalServerError(c, "获取存储桶列表失败")
+		response.InternalError(c, "获取存储桶列表失败")
 		return
 	}
 	response.Success(c, buckets)
@@ -157,7 +156,7 @@ func (h *StorageBucketHandler) GetByPurpose(c *gin.Context) {
 
 	buckets, err := h.service.GetByPurpose(purpose)
 	if err != nil {
-		response.InternalServerError(c, "获取存储桶列表失败")
+		response.InternalError(c, "获取存储桶列表失败")
 		return
 	}
 	response.Success(c, buckets)
