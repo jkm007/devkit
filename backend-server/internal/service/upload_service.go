@@ -399,11 +399,17 @@ func (s *UploadService) CompleteUpload(uploadID string) (*CompleteResult, error)
 		}
 	}
 
-	// 使用 API 代理 URL 而非直接存储 URL，确保文件访问经过认证
-	proxyURL := "/files/" + strconv.FormatUint(uint64(entryID), 10) + "/view"
+	// 根据存储驱动返回合适的 URL
+	var fileURL string
+	if task.StorageDriver == "local" {
+		fileURL = "/files/" + strconv.FormatUint(uint64(entryID), 10) + "/view"
+	} else {
+		// 云存储：返回 direct-url 接口（前端获取 presigned URL）
+		fileURL = "/files/" + strconv.FormatUint(uint64(entryID), 10) + "/direct-url"
+	}
 	return &CompleteResult{
 		ObjectKey: task.ObjectKey,
-		URL:       proxyURL,
+		URL:       fileURL,
 		Routing:   routingInfo,
 	}, nil
 }

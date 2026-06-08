@@ -646,7 +646,12 @@ async function handlePreview(row: any) {
       });
       if (response.ok) {
         const result = await response.json();
-        if (result.code === 0) { previewUrl.value = `/api${result.data.url}`; return; }
+        if (result.code === 0) {
+          const url = result.data.url;
+          // 云存储 presigned URL 是完整地址，本地存储是相对路径
+          previewUrl.value = url.startsWith('http') ? url : `/api${url}`;
+          return;
+        }
       }
       message.error('获取预览失败');
       previewVisible.value = false;

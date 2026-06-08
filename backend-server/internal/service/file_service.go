@@ -425,9 +425,14 @@ func (s *FileService) ListFiles(userID uint, req *ListFilesRequest) ([]FileEntry
 		}
 
 		// 获取预览 URL 和存储类型
-		// 使用 API 代理 URL 而非直接存储 URL，确保文件访问经过认证
 		if asset, ok := assetMap[entry.FileAssetID]; ok {
-			result[i].PreviewURL = "/files/" + strconv.FormatUint(uint64(entry.ID), 10) + "/view"
+			if asset.StorageType == "local" {
+				// 本地存储：走代理（文件在服务器上）
+				result[i].PreviewURL = "/files/" + strconv.FormatUint(uint64(entry.ID), 10) + "/view"
+			} else {
+				// 云存储：使用 direct-url 接口获取 presigned URL（节省带宽）
+				result[i].PreviewURL = "/files/" + strconv.FormatUint(uint64(entry.ID), 10) + "/direct-url"
+			}
 			result[i].StorageType = asset.StorageType
 		}
 

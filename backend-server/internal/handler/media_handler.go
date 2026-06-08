@@ -101,13 +101,14 @@ func (h *MediaHandler) GetStream(c *gin.Context) {
 	// 检查是否有 HLS 转码
 	media, _ := h.mediaService.GetMediaInfo(asset.ID)
 	if media != nil && media.TranscodeStatus == "completed" && media.HLSPath != "" {
-		// HLS 流 - 对于云存储返回 presigned URL，本地存储返回 API URL
-		driver := storage.GetStorageDriver()
-		if driver == "local" {
-			// 本地存储：返回流 API URL（需要在路由中添加 HLS 流接口）
+		// HLS 流 - 使用文件资产的实际存储类型判断
+		if asset.StorageType == "local" {
+			// 本地存储：返回代理 URL
 			response.Success(c, gin.H{"type": "hls", "url": "/files/" + strconv.FormatUint(id, 10) + "/hls"})
 		} else {
-			url, err := storage.GetStorage().GetPresignedURL(c, media.HLSPath, 3600)
+			// 云存储：返回 presigned URL
+			st := storage.GetStorageByDriver(asset.StorageType)
+			url, err := st.GetPresignedURL(c, media.HLSPath, 3600)
 			if err != nil {
 				response.InternalError(c, err.Error())
 				return
@@ -117,8 +118,14 @@ func (h *MediaHandler) GetStream(c *gin.Context) {
 		return
 	}
 
-	// 原始文件 - 返回流 API URL（通过 /files/:id/view 访问）
-	response.Success(c, gin.H{"type": "original", "url": "/files/" + strconv.FormatUint(id, 10) + "/view"})
+	// 原始文件 - 根据存储类型返回合适的 URL
+	if asset.StorageType == "local" {
+		// 本地存储：返回代理 URL
+		response.Success(c, gin.H{"type": "original", "url": "/files/" + strconv.FormatUint(id, 10) + "/view"})
+	} else {
+		// 云存储：返回 direct-url 接口（前端获取 presigned URL）
+		response.Success(c, gin.H{"type": "original", "url": "/files/" + strconv.FormatUint(id, 10) + "/direct-url"})
+	}
 }
 
 // DownloadFile 文件下载（直接返回文件内容）
@@ -174,11 +181,13 @@ func (h *MediaHandler) DownloadFile(c *gin.Context) {
 }
 
 // ViewFile 文件查看（带认证，用于预览，支持 Range 请求）
+// 支持 ?presigned=true 参数：云存储文件 302 重定向到 presigned URL，节省服务器带宽
 // @Summary      查看文件
 // @Description  返回文件内容用于预览（需认证，inline 显示，支持 Range 请求用于视频流式播放）
 // @Tags         媒体文件
 // @Produce      octet-stream
-// @Param        id  path  int  true  "文件ID"
+// @Param        id         path   int     true   "文件ID"
+// @Param        presigned  query  string  false  "云存储使用 presigned URL 重定向 (true)"
 // @Success      200   {file}  binary
 // @Router       /files/{id}/view [get]
 func (h *MediaHandler) ViewFile(c *gin.Context) {
@@ -207,6 +216,17 @@ func (h *MediaHandler) ViewFile(c *gin.Context) {
 
 	// 根据存储类型获取对应的存储实例
 	st := storage.GetStorageByDriver(asset.StorageType)
+
+	// presigned 模式：云存储 302 重定向，节省服务器带宽
+	if c.Query("presigned") == "true" && asset.StorageType != "local" {
+		presignedURL, err := st.GetPresignedURL(c, asset.ObjectKey, 3600)
+		if err != nil {
+			// presigned 失败，回退到代理模式
+		} else {
+			c.Redirect(http.StatusFound, presignedURL)
+			return
+		}
+	}
 
 	fileSize := asset.FileSize
 	contentType := asset.ContentType
@@ -266,9 +286,77 @@ func (h *MediaHandler) ViewFile(c *gin.Context) {
 	io.CopyBuffer(c.Writer, reader, buf)
 }
 
+// GetDirectURL 获取文件直链（presigned URL，仅云存储）
+// 云存储返回 presigned URL（有效期1小时），本地存储返回代理 URL
+// @Summary      获取文件直链
+// @Description  云存储返回 presigned URL，本地存储返回代理 URL
+// @Tags         媒体文件
+// @Produce      json
+// @Param        id  path  int  true  "文件ID"
+// @Success      200  {object}  response.Response
+// @Router       /files/{id}/direct-url [get]
+func (h *MediaHandler) GetDirectURL(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.BadRequest(c, "无效的ID")
+		return
+	}
+
+	// 获取当前用户ID
+	userID := middleware.GetCurrentUserID(c)
+
+	// 验证文件归属
+	entry, err := h.fileService.GetFileEntry(userID, uint(id))
+	if err != nil {
+		response.NotFound(c, "文件不存在或无权访问")
+		return
+	}
+
+	// 获取文件资产
+	asset, err := h.fileService.GetAssetByID(entry.FileAssetID)
+	if err != nil {
+		response.NotFound(c, "文件资产不存在")
+		return
+	}
+
+	// 根据存储类型决定 URL 策略
+	st := storage.GetStorageByDriver(asset.StorageType)
+
+	if asset.StorageType == "local" {
+		// 本地存储：返回代理 URL
+		response.Success(c, gin.H{
+			"url":         fmt.Sprintf("/files/%d/view", id),
+			"strategy":    "proxy",
+			"contentType": entry.ContentType,
+			"name":        entry.Name,
+		})
+	} else {
+		// 云存储：返回 presigned URL
+		presignedURL, err := st.GetPresignedURL(c, asset.ObjectKey, 3600)
+		if err != nil {
+			// presigned 失败，回退到代理 URL
+			response.Success(c, gin.H{
+				"url":         fmt.Sprintf("/files/%d/view", id),
+				"strategy":    "proxy",
+				"contentType": entry.ContentType,
+				"name":        entry.Name,
+			})
+		} else {
+			response.Success(c, gin.H{
+				"url":         presignedURL,
+				"strategy":    "presigned",
+				"expiresIn":   3600,
+				"contentType": entry.ContentType,
+				"name":        entry.Name,
+			})
+		}
+	}
+}
+
 // GetPreviewURL 获取临时预签名 URL（用于视频流式播放）
+// 云存储直接返回 presigned URL，本地存储返回 JWT token URL
 // @Summary      获取临时预签名 URL
-// @Description  返回带临时 token 的 URL，用于视频流式播放
+// @Description  云存储返回 presigned URL，本地存储返回 JWT token URL
 // @Tags         媒体文件
 // @Produce      json
 // @Param        id  path  int  true  "文件ID"
@@ -291,17 +379,41 @@ func (h *MediaHandler) GetPreviewURL(c *gin.Context) {
 		return
 	}
 
-	// 生成临时 token（使用 JWT 的短期 token）
+	// 获取文件资产
+	asset, err := h.fileService.GetAssetByID(entry.FileAssetID)
+	if err != nil {
+		response.NotFound(c, "文件资产不存在")
+		return
+	}
+
+	// 云存储：直接返回 presigned URL（前端直接访问云存储，零带宽）
+	if asset.StorageType != "local" {
+		st := storage.GetStorageByDriver(asset.StorageType)
+		presignedURL, err := st.GetPresignedURL(c, asset.ObjectKey, 3600)
+		if err == nil {
+			response.Success(c, gin.H{
+				"url":         presignedURL,
+				"strategy":    "presigned",
+				"expiresIn":   3600,
+				"contentType": entry.ContentType,
+				"name":        entry.Name,
+			})
+			return
+		}
+		// presigned 失败，回退到 token 方式
+	}
+
+	// 本地存储：返回 JWT token URL（通过后端代理）
 	token, err := middleware.GeneratePreviewToken(userID, uint(id))
 	if err != nil {
 		response.InternalError(c, "生成预览 token 失败")
 		return
 	}
 
-	// 返回带 token 的 URL
 	previewURL := fmt.Sprintf("/files/%d/preview?token=%s", id, token)
 	response.Success(c, gin.H{
 		"url":         previewURL,
+		"strategy":    "proxy",
 		"contentType": entry.ContentType,
 		"name":        entry.Name,
 	})
@@ -352,6 +464,16 @@ func (h *MediaHandler) PreviewFile(c *gin.Context) {
 
 	// 根据存储类型获取对应的存储实例
 	st := storage.GetStorageByDriver(asset.StorageType)
+
+	// 云存储：302 重定向到 presigned URL，节省服务器带宽
+	if asset.StorageType != "local" {
+		presignedURL, err := st.GetPresignedURL(c, asset.ObjectKey, 3600)
+		if err == nil {
+			c.Redirect(http.StatusFound, presignedURL)
+			return
+		}
+		// presigned 失败，回退到代理模式
+	}
 
 	fileSize := asset.FileSize
 	contentType := asset.ContentType
