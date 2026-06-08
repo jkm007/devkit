@@ -171,3 +171,48 @@ func (h *StorageBucketHandler) GetDefault(c *gin.Context) {
 	}
 	response.Success(c, bucket)
 }
+
+// TestConnection 测试存储桶连接
+func (h *StorageBucketHandler) TestConnection(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		response.BadRequest(c, "无效的存储桶ID")
+		return
+	}
+
+	msg, err := service.TestConnection(id)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	response.Success(c, map[string]string{"message": msg})
+}
+
+// GetEnabledDrivers 获取已启用的存储驱动列表
+func (h *StorageBucketHandler) GetEnabledDrivers(c *gin.Context) {
+	drivers := service.GetEnabledDrivers()
+	response.Success(c, drivers)
+}
+
+// TestConnectionByDriver 根据驱动和桶名测试连接（无需先保存）
+func (h *StorageBucketHandler) TestConnectionByDriver(c *gin.Context) {
+	var req struct {
+		Driver     string `json:"driver" binding:"required"`
+		BucketName string `json:"bucketName" binding:"required"`
+		Region     string `json:"region"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "请求参数错误")
+		return
+	}
+
+	msg, err := service.TestConnectionByDriver(req.Driver, req.BucketName, req.Region)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	response.Success(c, map[string]string{"message": msg})
+}

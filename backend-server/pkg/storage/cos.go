@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"backend-server/config"
@@ -168,9 +169,11 @@ func (s *COStorage) CompleteUpload(ctx context.Context, objectKey string, upload
 		Parts: make([]cos.Object, len(parts)),
 	}
 	for i, p := range parts {
+		// COS 要求 ETag 不带引号
+		etag := strings.Trim(p.ETag, "\"")
 		opt.Parts[i] = cos.Object{
-			Key:  fmt.Sprintf("%d", p.PartNumber),
-			ETag: p.ETag,
+			PartNumber: p.PartNumber,
+			ETag:       etag,
 		}
 	}
 	_, _, err := s.client.Object.CompleteMultipartUpload(ctx, objectKey, uploadID, opt)

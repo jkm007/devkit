@@ -192,6 +192,10 @@ func (s *SystemSettingService) Update(req *UpdateSettingsRequest, userID uint) (
 			if err := storage.RefreshStorage(); err != nil {
 				return nil, fmt.Errorf("刷新存储配置失败: %w", err)
 			}
+			// 同步默认桶到存储桶管理
+			if err := SyncDefaultBuckets(); err != nil {
+				return nil, fmt.Errorf("同步默认存储桶失败: %w", err)
+			}
 		}
 	}
 
@@ -268,6 +272,10 @@ func (s *SystemSettingService) UpdateByGroup(groupKey string, req *SettingGroupU
 	if groupKey == "storage" {
 		if err := storage.RefreshStorage(); err != nil {
 			return nil, fmt.Errorf("刷新存储配置失败: %w", err)
+		}
+		// 同步默认桶到存储桶管理
+		if err := SyncDefaultBuckets(); err != nil {
+			return nil, fmt.Errorf("同步默认存储桶失败: %w", err)
 		}
 	}
 

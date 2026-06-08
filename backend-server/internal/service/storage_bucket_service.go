@@ -1,9 +1,18 @@
 package service
 
 import (
+	"backend-server/config"
 	"backend-server/internal/model"
 	"backend-server/internal/repository"
+	"backend-server/pkg/database"
+	"backend-server/pkg/storage"
+	"context"
 	"fmt"
+	"log"
+	"strings"
+	"time"
+
+	"gorm.io/gorm"
 )
 
 // StorageBucketService 存储桶服务
@@ -42,6 +51,7 @@ func (s *StorageBucketService) GetDefault() (*model.StorageBucket, error) {
 }
 
 // Create 创建存储桶
+// 如果是外部驱动且未填写凭据，自动从存储配置中获取
 func (s *StorageBucketService) Create(bucket *model.StorageBucket) error {
 	// 检查名称是否存在
 	exists, err := s.repo.NameExists(bucket.Name, 0)
@@ -50,6 +60,29 @@ func (s *StorageBucketService) Create(bucket *model.StorageBucket) error {
 	}
 	if exists {
 		return fmt.Errorf("存储桶名称 %s 已存在", bucket.Name)
+	}
+
+	// 外部驱动自动填充凭据（如果未填写）
+	if bucket.Driver != "local" && bucket.AccessKey == "" {
+		endpoint, accessKey, secretKey, region, cdnDomain, useSSL := GetCredentialsForDriver(bucket.Driver)
+		if bucket.Endpoint == "" {
+			bucket.Endpoint = endpoint
+		}
+		if bucket.AccessKey == "" {
+			bucket.AccessKey = accessKey
+		}
+		if bucket.SecretKey == "" {
+			bucket.SecretKey = secretKey
+		}
+		if bucket.Region == "" {
+			bucket.Region = region
+		}
+		if bucket.CDNDomain == "" {
+			bucket.CDNDomain = cdnDomain
+		}
+		if !bucket.UseSSL {
+			bucket.UseSSL = useSSL
+		}
 	}
 
 	return s.repo.Create(bucket)
@@ -100,5 +133,471 @@ func (s *StorageBucketService) SetDefault(id int64) error {
 		return fmt.Errorf("存储桶不存在: %d", id)
 	}
 
-	return s.repo.SetDefault(id)
+	if err := s.repo.SetDefault(id); err != nil {
+		return err
+	}
+
+	// 切换默认桶后刷新存储驱动
+	return storage.RefreshStorage()
+}
+
+// SyncDefaultBuckets 从存储配置同步默认桶到存储桶管理
+// 读取 sys_system_settings 中 storage 组的配置，为每个启用的驱动创建/更新默认桶
+func SyncDefaultBuckets() error {
+	db := database.GetMySQL()
+
+	// 读取 storage 组的所有配置
+	rows, err := db.Raw("SELECT `key`, value FROM sys_system_settings WHERE group_key = 'storage' AND deleted_at IS NULL").Rows()
+	if err != nil {
+		return fmt.Errorf("读取存储配置失败: %w", err)
+	}
+	defer rows.Close()
+
+	settings := make(map[string]string)
+	for rows.Next() {
+		var key, value string
+		if err := rows.Scan(&key, &value); err != nil {
+			continue
+		}
+		settings[key] = value
+	}
+
+	// 同步每个驱动的默认桶
+	drivers := []struct {
+		name       string
+		enabledKey string
+		label      string
+	}{
+		{"minio", "storage_minio_enabled", "MinIO"},
+		{"oss", "storage_oss_enabled", "阿里云 OSS"},
+		{"cos", "storage_cos_enabled", "腾讯云 COS"},
+	}
+
+	repo := repository.NewStorageBucketRepo(db)
+
+	for _, d := range drivers {
+		enabled := getSettingBoolFromMap(settings, d.enabledKey)
+		endpoint := getSettingStrFromMap(settings, fmt.Sprintf("storage_%s_endpoint", d.name))
+		bucketName := getSettingStrFromMap(settings, fmt.Sprintf("storage_%s_bucket", d.name))
+
+		log.Printf("[INFO] 同步存储桶检查: driver=%s, enabled=%v, endpoint=%s, bucket=%s", d.name, enabled, endpoint, bucketName)
+
+		// 从 storage_bucket 表查找该驱动的默认桶
+		existing, err := repo.GetDefaultByDriver(d.name)
+		if err != nil && err != gorm.ErrRecordNotFound {
+			log.Printf("[WARN] 查询 %s 默认桶失败: %v", d.name, err)
+			continue
+		}
+
+		if !enabled {
+			// 未启用：如果存在默认桶，标记为禁用
+			if existing != nil && existing.Status == 1 {
+				existing.Status = 0
+				existing.Description = fmt.Sprintf("%s 未启用，请在存储配置中启用", d.label)
+				if err := repo.Update(existing); err != nil {
+					log.Printf("[ERROR] 禁用 %s 默认桶失败: %v", d.name, err)
+				}
+			}
+			continue
+		}
+
+		// 已启用：构建桶配置（不自动设为默认，由用户手动选择）
+		newBucket := &model.StorageBucket{
+			Driver:     d.name,
+			Endpoint:   endpoint,
+			Bucket:     bucketName,
+			Purpose:    "file",
+			IsDefault:  existing != nil && existing.IsDefault, // 保留已有的默认状态
+			Status:     1,
+			AccessKey:  getSettingStrFromMap(settings, fmt.Sprintf("storage_%s_access_key", d.name)),
+			SecretKey:  getSettingStrFromMap(settings, fmt.Sprintf("storage_%s_secret_key", d.name)),
+			CDNDomain:  getSettingStrFromMap(settings, fmt.Sprintf("storage_%s_cdn_domain", d.name)),
+			UseSSL:     getSettingBoolFromMap(settings, fmt.Sprintf("storage_%s_use_ssl", d.name)),
+			Description: fmt.Sprintf("由存储配置自动同步的 %s 桶", d.label),
+		}
+
+		// OSS 特殊字段
+		if d.name == "oss" {
+			newBucket.AccessKey = getSettingStrFromMap(settings, "storage_oss_access_key_id")
+			newBucket.SecretKey = getSettingStrFromMap(settings, "storage_oss_access_key_secret")
+		}
+		// COS 特殊字段
+		if d.name == "cos" {
+			newBucket.AccessKey = getSettingStrFromMap(settings, "storage_cos_secret_id")
+			newBucket.SecretKey = getSettingStrFromMap(settings, "storage_cos_secret_key")
+			newBucket.Region = getSettingStrFromMap(settings, "storage_cos_region")
+		}
+
+		ak := newBucket.AccessKey
+		if len(ak) > 4 {
+			ak = ak[:4] + "***"
+		} else if ak == "" {
+			ak = "(空)"
+		}
+		log.Printf("[INFO] 同步存储桶: driver=%s, endpoint=%s, bucket=%s, accessKey=%s", d.name, newBucket.Endpoint, newBucket.Bucket, ak)
+
+		if existing != nil {
+			// 更新：保留用户自定义的名称和路径前缀
+			newBucket.ID = existing.ID
+			newBucket.Name = existing.Name
+			newBucket.PathPrefix = existing.PathPrefix
+			newBucket.CreatedAt = existing.CreatedAt
+			if newBucket.Name == "" {
+				newBucket.Name = fmt.Sprintf("%s 默认桶", d.label)
+			}
+			if err := repo.Update(newBucket); err != nil {
+				log.Printf("[ERROR] 更新 %s 默认桶失败: %v", d.name, err)
+			}
+		} else {
+			// 新建
+			newBucket.Name = fmt.Sprintf("%s 默认桶", d.label)
+			if err := repo.Create(newBucket); err != nil {
+				log.Printf("[ERROR] 创建 %s 默认桶失败: %v", d.name, err)
+			} else {
+				log.Printf("[INFO] 已创建 %s 默认桶: %s", d.name, newBucket.Name)
+			}
+		}
+	}
+
+	// 同步本地存储的默认桶
+	localPath := getSettingStrFromMap(settings, "storage_local_path")
+	localExisting, err := repo.GetDefaultByDriver("local")
+	if err != nil && err != gorm.ErrRecordNotFound {
+		log.Printf("[WARN] 查询本地默认桶失败: %v", err)
+	} else if localExisting == nil {
+		// 本地默认桶不存在，创建
+		if err := repo.Create(&model.StorageBucket{
+			Name:        "本地默认存储",
+			Driver:      "local",
+			PathPrefix:  localPath,
+			Purpose:     "file",
+			IsDefault:   true,
+			Status:      1,
+			Description: "系统内置的本地文件存储",
+		}); err != nil {
+			log.Printf("[ERROR] 创建本地默认桶失败: %v", err)
+		}
+	}
+
+	return nil
+}
+
+// getSettingStrFromMap 从设置 map 中获取字符串值（去除 JSON 引号）
+// 自动尝试带 storage_ 前缀和不带前缀两种 key
+func getSettingStrFromMap(settings map[string]string, key string) string {
+	// 先尝试原始 key
+	val, ok := settings[key]
+	if !ok || val == "" {
+		// 尝试去掉 storage_ 前缀
+		altKey := strings.TrimPrefix(key, "storage_")
+		if altKey != key {
+			val, ok = settings[altKey]
+		}
+	}
+	if !ok || val == "" {
+		// 尝试加上 storage_ 前缀
+		if !strings.HasPrefix(key, "storage_") {
+			altKey := "storage_" + key
+			val, ok = settings[altKey]
+		}
+	}
+	if !ok {
+		return ""
+	}
+	val = strings.TrimSpace(val)
+	if len(val) >= 2 && val[0] == '"' && val[len(val)-1] == '"' {
+		val = val[1 : len(val)-1]
+	}
+	return val
+}
+
+// getSettingBoolFromMap 从设置 map 中获取布尔值
+func getSettingBoolFromMap(settings map[string]string, key string) bool {
+	val := getSettingStrFromMap(settings, key)
+	return strings.ToLower(val) == "true"
+}
+
+// GetCredentialsForDriver 从存储配置获取指定驱动的连接凭据
+// 供手动创建桶时自动填充
+func GetCredentialsForDriver(driver string) (endpoint, accessKey, secretKey, region, cdnDomain string, useSSL bool) {
+	db := database.GetMySQL()
+	if db == nil {
+		return
+	}
+
+	rows, err := db.Raw("SELECT `key`, value FROM sys_system_settings WHERE group_key = 'storage' AND deleted_at IS NULL").Rows()
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+
+	settings := make(map[string]string)
+	for rows.Next() {
+		var key, value string
+		if err := rows.Scan(&key, &value); err != nil {
+			continue
+		}
+		settings[key] = value
+	}
+
+	endpoint = getSettingStrFromMap(settings, fmt.Sprintf("storage_%s_endpoint", driver))
+	useSSL = getSettingBoolFromMap(settings, fmt.Sprintf("storage_%s_use_ssl", driver))
+	cdnDomain = getSettingStrFromMap(settings, fmt.Sprintf("storage_%s_cdn_domain", driver))
+
+	switch driver {
+	case "oss":
+		accessKey = getSettingStrFromMap(settings, "storage_oss_access_key_id")
+		secretKey = getSettingStrFromMap(settings, "storage_oss_access_key_secret")
+	case "cos":
+		accessKey = getSettingStrFromMap(settings, "storage_cos_secret_id")
+		secretKey = getSettingStrFromMap(settings, "storage_cos_secret_key")
+		region = getSettingStrFromMap(settings, "storage_cos_region")
+	default:
+		accessKey = getSettingStrFromMap(settings, fmt.Sprintf("storage_%s_access_key", driver))
+		secretKey = getSettingStrFromMap(settings, fmt.Sprintf("storage_%s_secret_key", driver))
+	}
+
+	return
+}
+
+// TestConnection 测试存储桶连接是否可用
+func TestConnection(bucketID int64) (string, error) {
+	db := database.GetMySQL()
+	repo := repository.NewStorageBucketRepo(db)
+
+	bucket, err := repo.GetByID(bucketID)
+	if err != nil {
+		return "", fmt.Errorf("存储桶不存在: %d", bucketID)
+	}
+
+	if bucket.Driver == "local" {
+		return "本地存储无需测试连接", nil
+	}
+
+	// 获取凭据（桶自身的凭据优先，否则从存储配置获取）
+	endpoint := bucket.Endpoint
+	accessKey := bucket.AccessKey
+	secretKey := bucket.SecretKey
+	region := bucket.Region
+	useSSL := bucket.UseSSL
+
+	if accessKey == "" {
+		ep, ak, sk, rg, _, ssl := GetCredentialsForDriver(bucket.Driver)
+		if endpoint == "" {
+			endpoint = ep
+		}
+		accessKey = ak
+		secretKey = sk
+		region = rg
+		useSSL = ssl
+	}
+
+	// COS 不需要 endpoint，需要 region
+	if bucket.Driver == "cos" {
+		if region == "" || accessKey == "" {
+			return "", fmt.Errorf("缺少连接信息，请先在存储配置中配置 COS 的 Region 和密钥")
+		}
+	} else if endpoint == "" || accessKey == "" {
+		return "", fmt.Errorf("缺少连接信息，请先在存储配置中配置 %s 的 Endpoint 和密钥", bucket.Driver)
+	}
+
+	// 构建配置并创建存储实例
+	cfg := config.StorageConfig{
+		Driver: bucket.Driver,
+		MinIO: config.MinIOConfig{
+			Endpoint:  endpoint,
+			AccessKey: accessKey,
+			SecretKey: secretKey,
+			Bucket:    bucket.Bucket,
+			UseSSL:    useSSL,
+		},
+		OSS: config.OSSConfig{
+			Endpoint:      endpoint,
+			AccessKeyID:   accessKey,
+			AccessKeySecret: secretKey,
+			Bucket:        bucket.Bucket,
+			CDNDomain:     bucket.CDNDomain,
+		},
+		COS: config.COSConfig{
+			Region:    region,
+			SecretID:  accessKey,
+			SecretKey: secretKey,
+			Bucket:    bucket.Bucket,
+			CDNDomain: bucket.CDNDomain,
+		},
+	}
+
+	s, err := storage.New(cfg)
+	if err != nil {
+		return "", fmt.Errorf("连接失败: %w", err)
+	}
+
+	// 尝试上传一个小测试文件
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	testKey := fmt.Sprintf(".connection-test/%d", time.Now().UnixNano())
+	testContent := strings.NewReader("devkit-connection-test")
+
+	_, err = s.Upload(ctx, testKey, testContent, "text/plain")
+	if err != nil {
+		return "", fmt.Errorf("上传测试失败: %w", err)
+	}
+
+	// 清理测试文件
+	_ = s.Delete(ctx, testKey)
+
+	return fmt.Sprintf("连接成功！%s 桶 [%s] 可正常读写", bucket.Driver, bucket.Bucket), nil
+}
+
+// TestConnectionByDriver 根据驱动和桶名测试连接（无需先保存）
+func TestConnectionByDriver(driver, bucketName, region string) (string, error) {
+	if driver == "local" {
+		return "本地存储无需测试连接", nil
+	}
+
+	if bucketName == "" {
+		return "", fmt.Errorf("请输入 Bucket 名称")
+	}
+
+	// 从存储配置获取凭据
+	endpoint, accessKey, secretKey, cfgRegion, cdnDomain, useSSL := GetCredentialsForDriver(driver)
+	if driver == "cos" && region != "" {
+		cfgRegion = region
+	}
+
+	if driver == "cos" {
+		if cfgRegion == "" || accessKey == "" {
+			return "", fmt.Errorf("缺少连接信息，请先在存储配置中配置 COS 的 Region 和密钥")
+		}
+	} else if endpoint == "" || accessKey == "" {
+		return "", fmt.Errorf("缺少连接信息，请先在存储配置中配置 %s 的 Endpoint 和密钥", driver)
+	}
+
+	cfg := config.StorageConfig{
+		Driver: driver,
+		MinIO: config.MinIOConfig{
+			Endpoint:  endpoint,
+			AccessKey: accessKey,
+			SecretKey: secretKey,
+			Bucket:    bucketName,
+			UseSSL:    useSSL,
+		},
+		OSS: config.OSSConfig{
+			Endpoint:        endpoint,
+			AccessKeyID:     accessKey,
+			AccessKeySecret: secretKey,
+			Bucket:          bucketName,
+			CDNDomain:       cdnDomain,
+		},
+		COS: config.COSConfig{
+			Region:    cfgRegion,
+			SecretID:  accessKey,
+			SecretKey: secretKey,
+			Bucket:    bucketName,
+			CDNDomain: cdnDomain,
+		},
+	}
+
+	s, err := storage.New(cfg)
+	if err != nil {
+		return "", fmt.Errorf("连接失败: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	testKey := fmt.Sprintf(".connection-test/%d", time.Now().UnixNano())
+	testContent := strings.NewReader("devkit-connection-test")
+
+	_, err = s.Upload(ctx, testKey, testContent, "text/plain")
+	if err != nil {
+		return "", fmt.Errorf("上传测试失败: %w", err)
+	}
+
+	_ = s.Delete(ctx, testKey)
+
+	return fmt.Sprintf("连接成功！%s 桶 [%s] 可正常读写", driver, bucketName), nil
+}
+
+// GetEnabledDrivers 获取已启用的存储驱动列表
+func GetEnabledDrivers() []map[string]interface{} {
+	db := database.GetMySQL()
+	if db == nil {
+		return nil
+	}
+
+	rows, err := db.Raw("SELECT `key`, value FROM sys_system_settings WHERE group_key = 'storage' AND deleted_at IS NULL").Rows()
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	settings := make(map[string]string)
+	for rows.Next() {
+		var key, value string
+		if err := rows.Scan(&key, &value); err != nil {
+			continue
+		}
+		settings[key] = value
+	}
+
+	drivers := []map[string]interface{}{
+		{"value": "local", "label": "本地存储", "icon": "🖥️", "enabled": true},
+	}
+
+	externalDrivers := []struct {
+		name       string
+		label      string
+		icon       string
+		enabledKey string
+	}{
+		{"minio", "MinIO", "🪣", "storage_minio_enabled"},
+		{"oss", "阿里云 OSS", "☁️", "storage_oss_enabled"},
+		{"cos", "腾讯云 COS", "🌐", "storage_cos_enabled"},
+	}
+
+	for _, d := range externalDrivers {
+		enabled := getSettingBoolFromMap(settings, d.enabledKey)
+		drivers = append(drivers, map[string]interface{}{
+			"value":   d.name,
+			"label":   d.label,
+			"icon":    d.icon,
+			"enabled": enabled,
+		})
+	}
+
+	return drivers
+}
+
+// InitDefaultStorageBuckets 初始化默认存储桶
+// 从存储配置同步默认桶，并确保本地默认桶存在
+func InitDefaultStorageBuckets() error {
+	db := database.GetMySQL()
+
+	// 先同步外部存储驱动的默认桶
+	if err := SyncDefaultBuckets(); err != nil {
+		return fmt.Errorf("同步默认存储桶失败: %w", err)
+	}
+
+	// 确保本地默认桶存在
+	repo := repository.NewStorageBucketRepo(db)
+	localDefault, err := repo.GetDefaultByDriver("local")
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return fmt.Errorf("查询本地默认桶失败: %w", err)
+	}
+	if localDefault == nil {
+		if err := repo.Create(&model.StorageBucket{
+			Name:        "本地默认存储",
+			Driver:      "local",
+			Purpose:     "file",
+			IsDefault:   true,
+			Status:      1,
+			Description: "系统内置的本地文件存储",
+		}); err != nil {
+			return fmt.Errorf("创建本地默认桶失败: %w", err)
+		}
+	}
+
+	return nil
 }

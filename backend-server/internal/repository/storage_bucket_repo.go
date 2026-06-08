@@ -103,3 +103,29 @@ func (r *StorageBucketRepo) NameExists(name string, excludeID int64) (bool, erro
 	err := query.Count(&count).Error
 	return count > 0, err
 }
+
+// GetDefaultByDriver 根据驱动获取默认存储桶
+func (r *StorageBucketRepo) GetDefaultByDriver(driver string) (*model.StorageBucket, error) {
+	var bucket model.StorageBucket
+	err := r.db.Where("driver = ? AND is_default = ?", driver, true).First(&bucket).Error
+	if err != nil {
+		return nil, err
+	}
+	return &bucket, nil
+}
+
+// UpsertByDriverAndDefault 根据驱动和默认标记更新或创建存储桶
+func (r *StorageBucketRepo) UpsertByDriverAndDefault(bucket *model.StorageBucket) error {
+	var existing model.StorageBucket
+	err := r.db.Where("driver = ? AND is_default = ?", bucket.Driver, true).First(&existing).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return r.db.Create(bucket).Error
+		}
+		return err
+	}
+	// 更新已存在的默认桶
+	bucket.ID = existing.ID
+	bucket.CreatedAt = existing.CreatedAt
+	return r.db.Save(bucket).Error
+}

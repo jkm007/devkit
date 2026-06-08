@@ -308,6 +308,7 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 			// 存储桶管理
 			system.GET("/storage-buckets", middleware.Permission("system:setting:list"), storageBucketHandler.GetAll)
 			system.GET("/storage-buckets/default", middleware.Permission("system:setting:list"), storageBucketHandler.GetDefault)
+			system.GET("/storage-buckets/enabled-drivers", middleware.Permission("system:setting:list"), storageBucketHandler.GetEnabledDrivers)
 			system.GET("/storage-buckets/driver/:driver", middleware.Permission("system:setting:list"), storageBucketHandler.GetByDriver)
 			system.GET("/storage-buckets/purpose/:purpose", middleware.Permission("system:setting:list"), storageBucketHandler.GetByPurpose)
 			system.GET("/storage-buckets/:id", middleware.Permission("system:setting:list"), storageBucketHandler.GetByID)
@@ -315,6 +316,8 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 			system.PUT("/storage-buckets/:id", middleware.Permission("system:setting:edit"), storageBucketHandler.Update)
 			system.DELETE("/storage-buckets/:id", middleware.Permission("system:setting:edit"), storageBucketHandler.Delete)
 			system.PUT("/storage-buckets/:id/default", middleware.Permission("system:setting:edit"), storageBucketHandler.SetDefault)
+			system.POST("/storage-buckets/:id/test", middleware.Permission("system:setting:edit"), storageBucketHandler.TestConnection)
+			system.POST("/storage-buckets/test-by-driver", middleware.Permission("system:setting:edit"), storageBucketHandler.TestConnectionByDriver)
 		}
 	}
 

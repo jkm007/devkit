@@ -103,25 +103,80 @@ func GetStorageByDriver(driver string) Storage {
 		return s
 	}
 
-	// 缓存中没有，使用当前存储（可能是相同驱动）
+	// 缓存中没有，尝试初始化该驱动
+	storageMutex.RUnlock()
+	if s := tryInitDriver(driver); s != nil {
+		storageMutex.RLock()
+		return s
+	}
+	storageMutex.RLock()
+
+	// 仍然没有，使用当前存储
+	log.Printf("[WARN] 驱动 %s 未缓存，回退到当前存储", driver)
 	return currentStorage
 }
 
-// determineActiveDriver 确定应该使用哪个存储驱动
-// 优先级：COS > OSS > MinIO > Local（按启用顺序，最后启用的优先）
-// 如果没有启用任何外部存储，则返回 "local"
-func determineActiveDriver(cfg config.StorageConfig) string {
-	// 检查是否有启用的外部存储（按优先级）
-	// 这里我们检查配置中是否有有效的连接信息
-	// 用户通过前端启用某个存储时，会设置 enabled = true
+// tryInitDriver 尝试初始化指定的存储驱动
+func tryInitDriver(driver string) Storage {
+	db := database.GetMySQL()
+	if db == nil {
+		return nil
+	}
 
-	// 从数据库设置中获取启用状态
+	rows, err := db.Raw("SELECT `key`, value FROM sys_system_settings WHERE group_key = 'storage' AND deleted_at IS NULL").Rows()
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	settings := make(map[string]string)
+	for rows.Next() {
+		var key, value string
+		if err := rows.Scan(&key, &value); err != nil {
+			continue
+		}
+		settings[key] = value
+	}
+
+	cfg := loadStorageConfigFromDB()
+	if cfg == nil {
+		return nil
+	}
+	cfg.Driver = driver
+
+	s, err := New(*cfg)
+	if err != nil {
+		log.Printf("[WARN] 初始化 %s 驱动失败: %v", driver, err)
+		return nil
+	}
+
+	storageMutex.Lock()
+	storageCache[driver] = s
+	storageMutex.Unlock()
+	log.Printf("[INFO] 按需初始化 %s 驱动成功", driver)
+	return s
+}
+
+// determineActiveDriver 确定应该使用哪个存储驱动
+// 优先使用存储桶管理中设置的默认桶对应的驱动
+// 如果没有默认桶，则按优先级：COS > OSS > MinIO > Local
+func determineActiveDriver(cfg config.StorageConfig) string {
 	db := database.GetMySQL()
 	if db == nil {
 		return "local"
 	}
 
-	// 查询所有 storage 组的设置
+	// 优先检查存储桶管理中的默认桶
+	var defaultBucket struct {
+		Driver string
+	}
+	err := db.Raw("SELECT driver FROM sys_storage_bucket WHERE is_default = 1 AND status = 1 LIMIT 1").Scan(&defaultBucket).Error
+	if err == nil && defaultBucket.Driver != "" {
+		log.Printf("[INFO] 使用存储桶管理的默认桶驱动: %s", defaultBucket.Driver)
+		return defaultBucket.Driver
+	}
+
+	// 没有默认桶，按优先级选择
 	rows, err := db.Raw("SELECT `key`, value FROM sys_system_settings WHERE group_key = 'storage' AND deleted_at IS NULL").Rows()
 	if err != nil {
 		log.Printf("[WARN] 查询存储设置失败: %v", err)
@@ -138,8 +193,6 @@ func determineActiveDriver(cfg config.StorageConfig) string {
 		settings[key] = value
 	}
 
-	// 检查各存储的启用状态（按优先级从高到低）
-	// 如果多个存储同时启用，使用优先级最高的
 	if isStorageEnabled(settings, "storage_cos_enabled") && hasRequiredConfig(settings, "cos") {
 		return "cos"
 	}

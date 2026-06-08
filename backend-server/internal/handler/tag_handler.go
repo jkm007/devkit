@@ -103,13 +103,22 @@ func (h *TagHandler) UpdateTag(c *gin.Context) {
 		return
 	}
 
+	// 先获取现有标签，保留 created_at
+	existing, err := h.tagService.GetTagByID(id)
+	if err != nil {
+		response.NotFound(c, "标签不存在")
+		return
+	}
+
 	var tag model.Tag
 	if err := c.ShouldBindJSON(&tag); err != nil {
 		response.BadRequest(c, "请求参数错误")
 		return
 	}
 
+	// 保留原始的创建时间
 	tag.ID = id
+	tag.CreatedAt = existing.CreatedAt
 	if err := h.tagService.UpdateTag(&tag); err != nil {
 		response.BadRequest(c, err.Error())
 		return

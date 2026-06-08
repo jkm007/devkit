@@ -96,21 +96,24 @@ type InitResult struct {
 
 // InitUpload 初始化分片上传
 func (s *UploadService) InitUpload(userID uint, fileName string, fileSize int64, fileHash string, contentType string, totalParts int) (*InitResult, error) {
-	uploader := s.getUploader()
-	if uploader == nil {
-		return nil, fmt.Errorf("当前存储驱动不支持分片上传")
-	}
-
-	// 使用路由引擎生成 objectKey
+	// 使用路由引擎生成 objectKey 并确定存储驱动
 	routingResult, _, err := storage.Route(fileName, contentType, "user")
 	if err != nil {
 		// 路由失败，使用默认路径
-		ext := filepath.Ext(fileName)
 		routingResult = &storage.RoutingResult{
 			Driver:     "local",
 			PathPrefix: "files/",
 		}
-		_ = ext // 避免未使用警告
+	}
+
+	// 根据路由结果获取对应的存储驱动
+	storageDriver := storage.GetStorageByDriver(routingResult.Driver)
+	if storageDriver == nil {
+		return nil, fmt.Errorf("存储驱动 %s 不可用", routingResult.Driver)
+	}
+	uploader, ok := storageDriver.(storage.MultipartUploader)
+	if !ok {
+		return nil, fmt.Errorf("存储驱动 %s 不支持分片上传", routingResult.Driver)
 	}
 
 	// 生成唯一 objectKey
@@ -144,15 +147,16 @@ func (s *UploadService) InitUpload(userID uint, fileName string, fileSize int64,
 
 	// 创建上传任务记录
 	task := &model.UploadTask{
-		FileHash:    fileHash,
-		UploadID:    uploadID,
-		FileName:    fileName,
-		FileSize:    fileSize,
-		ContentType: contentType,
-		ObjectKey:   objectKey,
-		TotalParts:  totalParts,
-		Status:      "uploading",
-		UserID:      userID,
+		FileHash:      fileHash,
+		UploadID:      uploadID,
+		FileName:      fileName,
+		FileSize:      fileSize,
+		ContentType:   contentType,
+		ObjectKey:     objectKey,
+		StorageDriver: routingResult.Driver,
+		TotalParts:    totalParts,
+		Status:        "uploading",
+		UserID:        userID,
 	}
 	if err := s.uploadRepo.CreateTask(task); err != nil {
 		return nil, fmt.Errorf("创建上传任务失败: %w", err)
@@ -177,17 +181,22 @@ type UploadPartResult struct {
 
 // UploadPart 上传分片
 func (s *UploadService) UploadPart(uploadID string, partNumber int, reader interface{}, size int64) (*UploadPartResult, error) {
-	uploader := s.getUploader()
-	if uploader == nil {
-		return nil, fmt.Errorf("当前存储驱动不支持分片上传")
-	}
-
 	task, err := s.uploadRepo.GetTaskByUploadID(uploadID)
 	if err != nil {
 		return nil, fmt.Errorf("上传任务不存在")
 	}
 	if task.Status != "uploading" {
 		return nil, fmt.Errorf("上传任务已结束")
+	}
+
+	// 根据任务的存储驱动获取对应的存储实例
+	storageDriver := storage.GetStorageByDriver(task.StorageDriver)
+	if storageDriver == nil {
+		return nil, fmt.Errorf("存储驱动 %s 不可用", task.StorageDriver)
+	}
+	uploader, ok := storageDriver.(storage.MultipartUploader)
+	if !ok {
+		return nil, fmt.Errorf("存储驱动 %s 不支持分片上传", task.StorageDriver)
 	}
 
 	// 上传到存储
@@ -241,14 +250,19 @@ type CompleteResult struct {
 
 // CompleteUpload 合并分片
 func (s *UploadService) CompleteUpload(uploadID string) (*CompleteResult, error) {
-	uploader := s.getUploader()
-	if uploader == nil {
-		return nil, fmt.Errorf("当前存储驱动不支持分片上传")
-	}
-
 	task, err := s.uploadRepo.GetTaskByUploadID(uploadID)
 	if err != nil {
 		return nil, fmt.Errorf("上传任务不存在")
+	}
+
+	// 根据任务的存储驱动获取对应的存储实例
+	storageDriver := storage.GetStorageByDriver(task.StorageDriver)
+	if storageDriver == nil {
+		return nil, fmt.Errorf("存储驱动 %s 不可用", task.StorageDriver)
+	}
+	uploader, ok := storageDriver.(storage.MultipartUploader)
+	if !ok {
+		return nil, fmt.Errorf("存储驱动 %s 不支持分片上传", task.StorageDriver)
 	}
 
 	// 更新状态为处理中
@@ -291,26 +305,43 @@ func (s *UploadService) CompleteUpload(uploadID string) (*CompleteResult, error)
 			return fmt.Errorf("更新任务状态失败: %w", err)
 		}
 
-		// 获取路由结果
-		routingResult, tags, routeErr := storage.Route(task.FileName, task.ContentType, "user")
+		// 获取路由结果（用于标签）
+		_, tags, routeErr := storage.Route(task.FileName, task.ContentType, "user")
 		if routeErr != nil {
-			routingResult = &storage.RoutingResult{
-				Driver: "local",
-			}
+			// 路由失败不影响上传
 		}
 
-		// 创建文件资产（秒传映射）
-		asset := &model.FileAsset{
-			FileHash:    task.FileHash,
-			ObjectKey:   task.ObjectKey,
-			FileName:    task.FileName,
-			FileSize:    task.FileSize,
-			ContentType: task.ContentType,
-			StorageType: routingResult.Driver,
-			RefCount:    1,
-		}
-		if err := tx.Create(asset).Error; err != nil {
-			return fmt.Errorf("创建文件资产失败: %w", err)
+		// 查找或创建文件资产（秒传映射）
+		// 使用任务中记录的存储驱动
+		var asset model.FileAsset
+		err = tx.Where("file_hash = ?", task.FileHash).First(&asset).Error
+		if err == nil {
+			// 文件已存在，增加引用计数并更新存储信息（如果驱动变化）
+			updates := map[string]interface{}{
+				"ref_count": gorm.Expr("ref_count + 1"),
+			}
+			// 如果存储驱动发生变化，更新存储类型和对象键
+			if asset.StorageType != task.StorageDriver {
+				updates["storage_type"] = task.StorageDriver
+				updates["object_key"] = task.ObjectKey
+			}
+			if err := tx.Model(&asset).Updates(updates).Error; err != nil {
+				return fmt.Errorf("更新文件资产失败: %w", err)
+			}
+		} else {
+			// 文件不存在，创建新资产
+			asset = model.FileAsset{
+				FileHash:    task.FileHash,
+				ObjectKey:   task.ObjectKey,
+				FileName:    task.FileName,
+				FileSize:    task.FileSize,
+				ContentType: task.ContentType,
+				StorageType: task.StorageDriver,
+				RefCount:    1,
+			}
+			if err := tx.Create(&asset).Error; err != nil {
+				return fmt.Errorf("创建文件资产失败: %w", err)
+			}
 		}
 
 		// 创建文件条目（用于文件列表显示）

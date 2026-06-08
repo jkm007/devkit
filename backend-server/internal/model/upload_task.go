@@ -4,22 +4,23 @@ import "time"
 
 // UploadTask 上传任务
 type UploadTask struct {
-	ID           uint       `gorm:"primaryKey;autoIncrement" json:"id"`
-	FileHash     string     `gorm:"index;size:255;comment:文件哈希" json:"fileHash"`
-	UploadID     string     `gorm:"uniqueIndex;size:128;comment:MinIO上传ID" json:"uploadId"`
-	FileName     string     `gorm:"size:255;comment:原始文件名" json:"fileName"`
-	FileSize     int64      `gorm:"comment:文件大小(字节)" json:"fileSize"`
-	ContentType  string     `gorm:"size:128;comment:MIME类型" json:"contentType"`
-	ObjectKey    string     `gorm:"size:500;comment:最终存储路径" json:"objectKey"`
-	TotalParts   int        `gorm:"comment:总分片数" json:"totalParts"`
-	UploadedParts int       `gorm:"default:0;comment:已上传分片数" json:"uploadedParts"`
-	Progress     int        `gorm:"default:0;comment:上传进度(0-100)" json:"progress"`
-	Status       string     `gorm:"size:20;default:uploading;comment:状态" json:"status"` // uploading, processing, completed, failed, aborted
-	ErrorMessage string     `gorm:"size:500;comment:失败原因" json:"errorMessage"`
-	UserID       uint       `gorm:"index;comment:上传者ID" json:"userId"`
-	CompletedAt  *time.Time `gorm:"comment:完成时间" json:"completedAt"`
-	CreatedAt    time.Time  `json:"createdAt"`
-	UpdatedAt    time.Time  `json:"updatedAt"`
+	ID            uint       `gorm:"primaryKey;autoIncrement" json:"id"`
+	FileHash      string     `gorm:"index;size:255;comment:文件哈希" json:"fileHash"`
+	UploadID      string     `gorm:"uniqueIndex;size:128;comment:上传ID" json:"uploadId"`
+	FileName      string     `gorm:"size:255;comment:原始文件名" json:"fileName"`
+	FileSize      int64      `gorm:"comment:文件大小(字节)" json:"fileSize"`
+	ContentType   string     `gorm:"size:128;comment:MIME类型" json:"contentType"`
+	ObjectKey     string     `gorm:"size:500;comment:最终存储路径" json:"objectKey"`
+	StorageDriver string     `gorm:"size:20;default:minio;comment:存储驱动" json:"storageDriver"`
+	TotalParts    int        `gorm:"comment:总分片数" json:"totalParts"`
+	UploadedParts int        `gorm:"default:0;comment:已上传分片数" json:"uploadedParts"`
+	Progress      int        `gorm:"default:0;comment:上传进度(0-100)" json:"progress"`
+	Status        string     `gorm:"size:20;default:uploading;comment:状态" json:"status"` // uploading, processing, completed, failed, aborted
+	ErrorMessage  string     `gorm:"size:500;comment:失败原因" json:"errorMessage"`
+	UserID        uint       `gorm:"index;comment:上传者ID" json:"userId"`
+	CompletedAt   *time.Time `gorm:"comment:完成时间" json:"completedAt"`
+	CreatedAt     time.Time  `json:"createdAt"`
+	UpdatedAt     time.Time  `json:"updatedAt"`
 }
 
 func (UploadTask) TableName() string { return "sys_upload_tasks" }

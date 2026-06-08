@@ -102,6 +102,11 @@ func main() {
 		logger.Fatal("初始化默认存储配置失败", zap.Error(err))
 	}
 
+	// 7.1 初始化默认存储桶
+	if err := service.InitDefaultStorageBuckets(); err != nil {
+		logger.Fatal("初始化默认存储桶失败", zap.Error(err))
+	}
+
 	// 8. 启动 WebSocket Hub
 	hub := ws.NewHub()
 	go hub.Run()

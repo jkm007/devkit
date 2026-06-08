@@ -86,13 +86,22 @@ func (h *RoutingHandler) UpdateRule(c *gin.Context) {
 		return
 	}
 
+	// 先获取现有规则，保留 created_at
+	existing, err := h.routingService.GetRuleByID(id)
+	if err != nil {
+		response.NotFound(c, "规则不存在")
+		return
+	}
+
 	var rule model.TagRouting
 	if err := c.ShouldBindJSON(&rule); err != nil {
 		response.BadRequest(c, "请求参数错误")
 		return
 	}
 
+	// 保留原始的创建时间
 	rule.ID = id
+	rule.CreatedAt = existing.CreatedAt
 	if err := h.routingService.UpdateRule(&rule); err != nil {
 		response.BadRequest(c, err.Error())
 		return
