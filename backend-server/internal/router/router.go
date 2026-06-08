@@ -64,6 +64,11 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	}
 
+	// 静态文件服务（上传文件公开访问，仅 local 存储模式）
+	if cfg.Storage.Driver == "local" {
+		r.Static(cfg.Storage.Local.URLPrefix, cfg.Storage.Local.Path)
+	}
+
 	// 公开接口（无需认证）
 	r.GET("/system/settings/public", systemSettingHandler.GetPublic)
 

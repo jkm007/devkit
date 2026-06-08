@@ -17,8 +17,10 @@ import (
 
 // MinIOStorage MinIO 对象存储
 type MinIOStorage struct {
-	client *minio.Client
-	bucket string
+	client   *minio.Client
+	bucket   string
+	endpoint string
+	useSSL   bool
 }
 
 // NewMinIOStorage 创建 MinIO 存储实例
@@ -62,8 +64,10 @@ func NewMinIOStorage(cfg config.MinIOConfig) (*MinIOStorage, error) {
 	}
 
 	return &MinIOStorage{
-		client: client,
-		bucket: cfg.Bucket,
+		client:   client,
+		bucket:   cfg.Bucket,
+		endpoint: endpoint,
+		useSSL:   cfg.UseSSL,
 	}, nil
 }
 
@@ -107,9 +111,13 @@ func (s *MinIOStorage) Delete(ctx context.Context, objectKey string) error {
 	return s.client.RemoveObject(ctx, s.bucket, objectKey, minio.RemoveObjectOptions{})
 }
 
-// GetURL 获取文件访问 URL
+// GetURL 获取文件访问 URL（返回完整 URL）
 func (s *MinIOStorage) GetURL(objectKey string) string {
-	return fmt.Sprintf("/%s/%s", s.bucket, objectKey)
+	scheme := "http"
+	if s.useSSL {
+		scheme = "https"
+	}
+	return fmt.Sprintf("%s://%s/%s/%s", scheme, s.endpoint, s.bucket, objectKey)
 }
 
 // GetPresignedURL 获取临时访问 URL
