@@ -1429,10 +1429,42 @@ onMounted(() => {
           <div
             v-else-if="activeGroup === 'storage' && formValues.storage"
           >
-            <!-- 本地存储（始终启用） -->
+            <Alert
+              message="存储管理已独立"
+              description="存储连接配置和存储桶管理已拆分为独立页面，支持更灵活的多配置管理。"
+              type="info"
+              show-icon
+              class="mb-4"
+            />
+
+            <div class="settings-section">
+              <h3 class="settings-section-title">⚙️ 存储管理入口</h3>
+              <div class="flex flex-wrap gap-3">
+                <Button type="primary" @click="$router.push('/system/storage-config')">
+                  📡 存储配置管理
+                </Button>
+                <Button @click="$router.push('/system/storage-bucket')">
+                  📦 存储桶管理
+                </Button>
+                <Button @click="$router.push('/system/tag')">
+                  🏷️ 标签路由管理
+                </Button>
+              </div>
+              <div class="mt-4 text-sm text-gray-500">
+                <ul class="list-disc pl-5 space-y-1">
+                  <li><b>存储配置</b>：管理存储连接信息（MinIO/OSS/COS 的 endpoint、密钥等），支持多个同类型配置</li>
+                  <li><b>存储桶</b>：管理具体的存储桶，自动使用存储配置中的连接信息</li>
+                  <li><b>标签路由</b>：根据文件类型自动选择存储到哪个桶</li>
+                </ul>
+              </div>
+            </div>
+
+            <Divider />
+
+            <!-- 本地存储基本配置 -->
             <div class="settings-section">
               <h3 class="settings-section-title">
-                💻 本地存储
+                💻 本地存储基本设置
                 <Tag color="green" class="ml-2">始终启用</Tag>
               </h3>
               <Row :gutter="[16, 16]">
@@ -1457,147 +1489,13 @@ onMounted(() => {
               </Row>
             </div>
 
-            <Divider />
-
-            <!-- MinIO 存储 -->
-            <div class="settings-section">
-              <h3 class="settings-section-title">
-                📦 MinIO 存储
-              </h3>
-              <Row :gutter="[16, 16]">
-                <Col :span="12">
-                  <div class="setting-item">
-                    <label class="setting-label">启用 MinIO</label>
-                    <Switch v-model:checked="formValues.storage.storage_minio_enabled" />
-                  </div>
-                </Col>
-              </Row>
-              <template v-if="formValues.storage.storage_minio_enabled">
-                <Row :gutter="[16, 16]" class="mt-3">
-                  <Col
-                    v-for="item in currentGroupItems.filter((i) => getStorageSubGroup(i) === 'minio' && i.key !== 'storage_minio_enabled')"
-                    :key="item.key"
-                    :span="12"
-                  >
-                    <div class="setting-item">
-                      <label class="setting-label">
-                        {{ item.label }}
-                        <Tag v-if="item.isSensitive" color="orange" class="ml-2">{{ $t('system.settings.sensitive') }}</Tag>
-                      </label>
-                      <Input
-                        v-if="item.type === 'string'"
-                        v-model:value="formValues.storage[item.key]"
-                        :placeholder="item.tip"
-                        :type="item.isSensitive ? 'password' : 'text'"
-                      />
-                      <Switch
-                        v-else-if="item.type === 'boolean'"
-                        v-model:checked="formValues.storage[item.key]"
-                      />
-                    </div>
-                  </Col>
-                </Row>
-              </template>
-            </div>
-
-            <Divider />
-
-            <!-- OSS 存储 -->
-            <div class="settings-section">
-              <h3 class="settings-section-title">
-                ☁️ 阿里云 OSS
-              </h3>
-              <Row :gutter="[16, 16]">
-                <Col :span="12">
-                  <div class="setting-item">
-                    <label class="setting-label">启用 OSS</label>
-                    <Switch v-model:checked="formValues.storage.storage_oss_enabled" />
-                  </div>
-                </Col>
-              </Row>
-              <template v-if="formValues.storage.storage_oss_enabled">
-                <Row :gutter="[16, 16]" class="mt-3">
-                  <Col
-                    v-for="item in currentGroupItems.filter((i) => getStorageSubGroup(i) === 'oss' && i.key !== 'storage_oss_enabled')"
-                    :key="item.key"
-                    :span="12"
-                  >
-                    <div class="setting-item">
-                      <label class="setting-label">
-                        {{ item.label }}
-                        <Tag v-if="item.isSensitive" color="orange" class="ml-2">{{ $t('system.settings.sensitive') }}</Tag>
-                      </label>
-                      <Input
-                        v-model:value="formValues.storage[item.key]"
-                        :placeholder="item.tip"
-                        :type="item.isSensitive ? 'password' : 'text'"
-                      />
-                    </div>
-                  </Col>
-                </Row>
-              </template>
-            </div>
-
-            <Divider />
-
-            <!-- COS 存储 -->
-            <div class="settings-section">
-              <h3 class="settings-section-title">
-                🌊 腾讯云 COS
-              </h3>
-              <Row :gutter="[16, 16]">
-                <Col :span="12">
-                  <div class="setting-item">
-                    <label class="setting-label">启用 COS</label>
-                    <Switch v-model:checked="formValues.storage.storage_cos_enabled" />
-                  </div>
-                </Col>
-              </Row>
-              <template v-if="formValues.storage.storage_cos_enabled">
-                <Row :gutter="[16, 16]" class="mt-3">
-                  <Col
-                    v-for="item in currentGroupItems.filter((i) => getStorageSubGroup(i) === 'cos' && i.key !== 'storage_cos_enabled')"
-                    :key="item.key"
-                    :span="12"
-                  >
-                    <div class="setting-item">
-                      <label class="setting-label">
-                        {{ item.label }}
-                        <Tag v-if="item.isSensitive" color="orange" class="ml-2">{{ $t('system.settings.sensitive') }}</Tag>
-                      </label>
-                      <Input
-                        v-model:value="formValues.storage[item.key]"
-                        :placeholder="item.tip"
-                        :type="item.isSensitive ? 'password' : 'text'"
-                      />
-                    </div>
-                  </Col>
-                </Row>
-              </template>
-            </div>
-
             <Alert
               message="存储优先级"
-              description="本地存储始终启用。如果同时启用了多个外部存储，优先级为：COS > OSS > MinIO。启用外部存储后，新上传的文件将存储到外部存储，但历史文件仍可通过本地存储访问。"
+              description="本地存储始终启用。默认存储由「存储配置」页面中的默认设置决定。通过标签路由可以实现按文件类型自动选择存储。"
               type="info"
               show-icon
               class="mt-4"
             />
-
-            <Divider />
-
-            <!-- 标签路由管理入口 -->
-            <div class="settings-section">
-              <h3 class="settings-section-title">
-                🏷️ {{ $t('system.tag.routeManagementEntry') }}
-              </h3>
-              <p class="text-gray-500 mb-3">
-                {{ $t('system.tag.routeManagementDesc') }}
-              </p>
-              <Button type="primary" @click="$router.push('/system/tag')">
-                {{ $t('system.tag.enterRouteManagement') }}
-              </Button>
-            </div>
           </div>
 
           <!-- ==================== 微信设置 ==================== -->

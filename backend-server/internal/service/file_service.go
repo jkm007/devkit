@@ -4,12 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"backend-server/internal/model"
 	"backend-server/internal/repository"
 	"backend-server/pkg/database"
-	"backend-server/pkg/storage"
 
 	"gorm.io/gorm"
 )
@@ -425,9 +425,9 @@ func (s *FileService) ListFiles(userID uint, req *ListFilesRequest) ([]FileEntry
 		}
 
 		// 获取预览 URL 和存储类型
+		// 使用 API 代理 URL 而非直接存储 URL，确保文件访问经过认证
 		if asset, ok := assetMap[entry.FileAssetID]; ok {
-			st := storage.GetStorageByDriver(asset.StorageType)
-			result[i].PreviewURL = st.GetURL(asset.ObjectKey)
+			result[i].PreviewURL = "/files/" + strconv.FormatUint(uint64(entry.ID), 10) + "/view"
 			result[i].StorageType = asset.StorageType
 		}
 

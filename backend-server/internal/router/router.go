@@ -53,6 +53,7 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	tagHandler := handler.NewTagHandler(service.NewTagService(repository.NewTagRepo(database.GetMySQL()), repository.NewFileTagRepo(database.GetMySQL())))
 	routingHandler := handler.NewRoutingHandler(service.NewRoutingService(repository.NewTagRoutingRepo(database.GetMySQL())))
 	storageBucketHandler := handler.NewStorageBucketHandler(service.NewStorageBucketService(repository.NewStorageBucketRepo(database.GetMySQL())))
+	storageConfigHandler := handler.NewStorageConfigHandler()
 
 	// 健康检查
 	// @Summary      健康检查
@@ -318,6 +319,17 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 			system.PUT("/storage-buckets/:id/default", middleware.Permission("system:setting:edit"), storageBucketHandler.SetDefault)
 			system.POST("/storage-buckets/:id/test", middleware.Permission("system:setting:edit"), storageBucketHandler.TestConnection)
 			system.POST("/storage-buckets/test-by-driver", middleware.Permission("system:setting:edit"), storageBucketHandler.TestConnectionByDriver)
+
+			// 存储连接配置管理
+			system.GET("/storage-configs", middleware.Permission("system:setting:list"), storageConfigHandler.GetAll)
+			system.GET("/storage-configs/enabled-drivers", middleware.Permission("system:setting:list"), storageConfigHandler.GetEnabledDrivers)
+			system.GET("/storage-configs/:id", middleware.Permission("system:setting:list"), storageConfigHandler.GetByID)
+			system.POST("/storage-configs", middleware.Permission("system:setting:edit"), storageConfigHandler.Create)
+			system.PUT("/storage-configs/:id", middleware.Permission("system:setting:edit"), storageConfigHandler.Update)
+			system.DELETE("/storage-configs/:id", middleware.Permission("system:setting:edit"), storageConfigHandler.Delete)
+			system.PUT("/storage-configs/:id/default", middleware.Permission("system:setting:edit"), storageConfigHandler.SetDefault)
+			system.POST("/storage-configs/:id/test", middleware.Permission("system:setting:edit"), storageConfigHandler.TestConnection)
+			system.POST("/storage-configs/test-by-data", middleware.Permission("system:setting:edit"), storageConfigHandler.TestConnectionByData)
 		}
 	}
 

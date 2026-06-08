@@ -94,6 +94,15 @@ const routes: RouteRecordRaw[] = [
         component: () => import('#/views/system/tag/index.vue'),
       },
       {
+        path: '/system/storage-config',
+        name: 'SystemStorageConfig',
+        meta: {
+          icon: 'mdi:server-network',
+          title: '存储配置',
+        },
+        component: () => import('#/views/system/storage-config/index.vue'),
+      },
+      {
         path: '/system/storage-bucket',
         name: 'SystemStorageBucket',
         meta: {

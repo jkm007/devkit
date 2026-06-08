@@ -63,6 +63,14 @@ func NewMinIOStorage(cfg config.MinIOConfig) (*MinIOStorage, error) {
 		log.Printf("[INFO] MinIO bucket %s 已创建", cfg.Bucket)
 	}
 
+	// 设置 bucket 策略为私有（防止未认证访问）
+	policy := `{"Version":"2012-10-17","Statement":[{"Effect":"Deny","Principal":"*","Action":"s3:GetObject","Resource":"arn:aws:s3:::` + cfg.Bucket + `/*"}]}`
+	if err := client.SetBucketPolicy(ctx, cfg.Bucket, policy); err != nil {
+		log.Printf("[WARN] 设置 MinIO bucket %s 私有策略失败: %v", cfg.Bucket, err)
+	} else {
+		log.Printf("[INFO] MinIO bucket %s 已设置为私有访问策略", cfg.Bucket)
+	}
+
 	return &MinIOStorage{
 		client:   client,
 		bucket:   cfg.Bucket,

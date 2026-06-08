@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -84,7 +85,6 @@ func (s *UploadService) CheckUpload(fileHash string, fileSize int64) (*CheckResu
 	return &CheckResult{
 		Exists:    true,
 		ObjectKey: asset.ObjectKey,
-		URL:       s.getStorage().GetURL(asset.ObjectKey),
 	}, nil
 }
 
@@ -285,7 +285,7 @@ func (s *UploadService) CompleteUpload(uploadID string) (*CompleteResult, error)
 	}
 
 	// 合并
-	url, err := uploader.CompleteUpload(context.Background(), task.ObjectKey, uploadID, completedParts)
+	_, err = uploader.CompleteUpload(context.Background(), task.ObjectKey, uploadID, completedParts)
 	if err != nil {
 		s.uploadRepo.UpdateTaskFailed(uploadID, fmt.Sprintf("合并分片失败: %v", err))
 		return nil, err
@@ -293,6 +293,7 @@ func (s *UploadService) CompleteUpload(uploadID string) (*CompleteResult, error)
 
 	// 事务：更新任务状态 + 创建文件资产 + 创建文件条目 + 创建标签
 	db := database.GetMySQL()
+	var entryID uint
 	err = db.Transaction(func(tx *gorm.DB) error {
 		// 更新任务完成状态
 		now := time.Now()
@@ -356,6 +357,7 @@ func (s *UploadService) CompleteUpload(uploadID string) (*CompleteResult, error)
 		if err := tx.Create(entry).Error; err != nil {
 			return fmt.Errorf("创建文件条目失败: %w", err)
 		}
+		entryID = entry.ID
 
 		// 自动打标签
 		if len(tags) > 0 {
@@ -397,9 +399,11 @@ func (s *UploadService) CompleteUpload(uploadID string) (*CompleteResult, error)
 		}
 	}
 
+	// 使用 API 代理 URL 而非直接存储 URL，确保文件访问经过认证
+	proxyURL := "/files/" + strconv.FormatUint(uint64(entryID), 10) + "/view"
 	return &CompleteResult{
 		ObjectKey: task.ObjectKey,
-		URL:       url,
+		URL:       proxyURL,
 		Routing:   routingInfo,
 	}, nil
 }

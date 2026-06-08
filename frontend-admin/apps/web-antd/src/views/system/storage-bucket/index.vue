@@ -1,6 +1,8 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref } from 'vue';
 
+import { useAccess } from '@vben/access';
+
 import {
   Badge,
   Button,
@@ -30,6 +32,8 @@ import {
   updateStorageBucketApi,
   type StorageBucketApi,
 } from '#/api/system/storage-bucket';
+
+const { hasAccessByCodes } = useAccess();
 
 // 数据列表
 const bucketList = ref<StorageBucketApi.StorageBucket[]>([]);
@@ -328,7 +332,7 @@ const handleCancel = () => {
 
     <!-- 操作栏 -->
     <div class="mb-4 flex justify-between items-center">
-      <Button type="primary" @click="handleAdd">
+      <Button v-if="hasAccessByCodes(['system:setting:edit'])" type="primary" @click="handleAdd">
         <Plus class="mr-1" />
         添加存储桶
       </Button>
@@ -362,13 +366,13 @@ const handleCancel = () => {
         </template>
         <template v-else-if="column.key === 'isDefault'">
           <Tag v-if="record.isDefault" color="gold">⭐ 默认</Tag>
-          <Button v-else type="link" size="small" @click="handleSetDefault(record)">设为默认</Button>
+          <Button v-else-if="hasAccessByCodes(['system:setting:edit'])" type="link" size="small" @click="handleSetDefault(record)">设为默认</Button>
         </template>
         <template v-else-if="column.key === 'action'">
           <Space>
-            <Button type="link" size="small" @click="handleEdit(record)">编辑</Button>
+            <Button v-if="hasAccessByCodes(['system:setting:edit'])" type="link" size="small" @click="handleEdit(record)">编辑</Button>
             <Popconfirm
-              v-if="!record.isDefault"
+              v-if="!record.isDefault && hasAccessByCodes(['system:setting:edit'])"
               title="确定删除?"
               @confirm="handleDelete(record)"
             >

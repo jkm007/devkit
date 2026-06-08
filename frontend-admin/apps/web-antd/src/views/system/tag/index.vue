@@ -1,6 +1,8 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref, reactive } from 'vue';
 
+import { useAccess } from '@vben/access';
+
 import {
   Card,
   Table,
@@ -22,6 +24,8 @@ import {
 } from 'ant-design-vue';
 import { IconifyIcon, Plus } from '@vben/icons';
 import { $t } from '#/locales';
+
+const { hasAccessByCodes } = useAccess();
 import {
   getAllTags,
   createTag,
@@ -407,7 +411,7 @@ const getTagValueOptions = (key: string) => {
 
           <div class="mb-4">
             <Space>
-              <Button type="primary" @click="openTagModal()">
+              <Button v-if="hasAccessByCodes(['system:setting:edit'])" type="primary" @click="openTagModal()">
                 <Plus class="mr-1" />
                 {{ t('system.tag.addTag') }}
               </Button>
@@ -453,12 +457,13 @@ const getTagValueOptions = (key: string) => {
               </template>
               <template v-if="column.key === 'action'">
                 <Space>
-                  <Tooltip :title="t('common.edit')">
+                  <Tooltip v-if="hasAccessByCodes(['system:setting:edit'])" :title="t('common.edit')">
                     <Button type="link" size="small" @click="openTagModal(record)" :disabled="record.isSystem">
                       <IconifyIcon icon="mdi:pencil" />
                     </Button>
                   </Tooltip>
                   <Popconfirm
+                    v-if="hasAccessByCodes(['system:setting:edit'])"
                     :title="t('system.tag.deleteTagConfirm')"
                     @confirm="handleDeleteTag(record.id)"
                     :disabled="record.isSystem"
@@ -485,7 +490,7 @@ const getTagValueOptions = (key: string) => {
 
           <div class="mb-4">
             <Space>
-              <Button type="primary" @click="openRuleModal()">
+              <Button v-if="hasAccessByCodes(['system:setting:edit'])" type="primary" @click="openRuleModal()">
                 <Plus class="mr-1" />
                 {{ t('system.tag.addRule') }}
               </Button>
@@ -523,20 +528,25 @@ const getTagValueOptions = (key: string) => {
               </template>
               <template v-if="column.dataIndex === 'status'">
                 <Switch
+                  v-if="hasAccessByCodes(['system:setting:edit'])"
                   :checked="record.status === 1"
                   @change="() => handleToggleRuleStatus(record)"
                   :checked-children="t('common.enable')"
                   :un-checked-children="t('common.disable')"
                 />
+                <Tag v-else :color="record.status === 1 ? 'green' : 'default'">
+                  {{ record.status === 1 ? t('common.enable') : t('common.disable') }}
+                </Tag>
               </template>
               <template v-if="column.key === 'action'">
                 <Space>
-                  <Tooltip :title="t('common.edit')">
+                  <Tooltip v-if="hasAccessByCodes(['system:setting:edit'])" :title="t('common.edit')">
                     <Button type="link" size="small" @click="openRuleModal(record)">
                       <IconifyIcon icon="mdi:pencil" />
                     </Button>
                   </Tooltip>
                   <Popconfirm
+                    v-if="hasAccessByCodes(['system:setting:edit'])"
                     :title="t('system.tag.deleteRuleConfirm')"
                     @confirm="handleDeleteRule(record.id)"
                     :disabled="record.isDefault"

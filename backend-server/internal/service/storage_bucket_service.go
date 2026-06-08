@@ -324,9 +324,40 @@ func getSettingBoolFromMap(settings map[string]string, key string) bool {
 	return strings.ToLower(val) == "true"
 }
 
-// GetCredentialsForDriver 从存储配置获取指定驱动的连接凭据
-// 供手动创建桶时自动填充
+// GetCredentialsForDriver 从 sys_storage_config 获取指定驱动的连接凭据
+// 优先使用默认配置，没有默认则使用第一个启用的配置
 func GetCredentialsForDriver(driver string) (endpoint, accessKey, secretKey, region, cdnDomain string, useSSL bool) {
+	db := database.GetMySQL()
+	if db == nil {
+		return
+	}
+
+	// 先查默认配置
+	var cfg struct {
+		Endpoint  string
+		AccessKey string
+		SecretKey string
+		Region    string
+		CDNDomain string
+		UseSSL    bool
+	}
+	err := db.Raw("SELECT endpoint, access_key, secret_key, region, cdn_domain, use_ssl FROM sys_storage_config WHERE driver = ? AND status = 1 ORDER BY is_default DESC LIMIT 1", driver).Scan(&cfg).Error
+	if err != nil {
+		// 回退到旧的 sys_system_settings
+		return getCredentialsFromSettings(driver)
+	}
+
+	endpoint = cfg.Endpoint
+	accessKey = cfg.AccessKey
+	secretKey = cfg.SecretKey
+	region = cfg.Region
+	cdnDomain = cfg.CDNDomain
+	useSSL = cfg.UseSSL
+	return
+}
+
+// getCredentialsFromSettings 从旧的 sys_system_settings 获取凭据（兼容回退）
+func getCredentialsFromSettings(driver string) (endpoint, accessKey, secretKey, region, cdnDomain string, useSSL bool) {
 	db := database.GetMySQL()
 	if db == nil {
 		return
@@ -528,44 +559,40 @@ func TestConnectionByDriver(driver, bucketName, region string) (string, error) {
 }
 
 // GetEnabledDrivers 获取已启用的存储驱动列表
+// 从 sys_storage_config 表读取，回退到 sys_system_settings
 func GetEnabledDrivers() []map[string]interface{} {
 	db := database.GetMySQL()
 	if db == nil {
 		return nil
 	}
 
-	rows, err := db.Raw("SELECT `key`, value FROM sys_system_settings WHERE group_key = 'storage' AND deleted_at IS NULL").Rows()
-	if err != nil {
-		return nil
-	}
-	defer rows.Close()
-
-	settings := make(map[string]string)
-	for rows.Next() {
-		var key, value string
-		if err := rows.Scan(&key, &value); err != nil {
-			continue
-		}
-		settings[key] = value
-	}
-
 	drivers := []map[string]interface{}{
 		{"value": "local", "label": "本地存储", "icon": "🖥️", "enabled": true},
 	}
 
+	// 从 sys_storage_config 获取已启用的驱动
 	externalDrivers := []struct {
-		name       string
-		label      string
-		icon       string
-		enabledKey string
+		name  string
+		label string
+		icon  string
 	}{
-		{"minio", "MinIO", "🪣", "storage_minio_enabled"},
-		{"oss", "阿里云 OSS", "☁️", "storage_oss_enabled"},
-		{"cos", "腾讯云 COS", "🌐", "storage_cos_enabled"},
+		{"minio", "MinIO", "🪣"},
+		{"oss", "阿里云 OSS", "☁️"},
+		{"cos", "腾讯云 COS", "🌐"},
 	}
 
 	for _, d := range externalDrivers {
-		enabled := getSettingBoolFromMap(settings, d.enabledKey)
+		var count int64
+		db.Raw("SELECT COUNT(*) FROM sys_storage_config WHERE driver = ? AND status = 1", d.name).Scan(&count)
+		enabled := count > 0
+
+		// 如果新表没有数据，回退到旧设置
+		if !enabled {
+			var settingCount int64
+			db.Raw("SELECT COUNT(*) FROM sys_system_settings WHERE group_key = 'storage' AND `key` = ? AND value = 'true'", "storage_"+d.name+"_enabled").Scan(&settingCount)
+			enabled = settingCount > 0
+		}
+
 		drivers = append(drivers, map[string]interface{}{
 			"value":   d.name,
 			"label":   d.label,
