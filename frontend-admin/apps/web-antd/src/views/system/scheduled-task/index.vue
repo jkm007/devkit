@@ -19,6 +19,7 @@ import {
 } from 'ant-design-vue';
 
 import {
+  createScheduledTask,
   getScheduledTasks,
   runScheduledTask,
   updateScheduledTask,
@@ -37,6 +38,15 @@ const editTask = ref<ScheduledTask | null>(null);
 const editForm = ref({
   name: '',
   cronExpr: '',
+  retentionDays: 7,
+});
+
+// 创建弹窗
+const createModalVisible = ref(false);
+const createForm = ref({
+  name: '',
+  taskType: 'recycle_cleanup',
+  cronExpr: '0 3 * * *',
   retentionDays: 7,
 });
 
@@ -208,6 +218,39 @@ async function handleRun(record: ScheduledTask) {
   });
 }
 
+function handleCreate() {
+  createForm.value = {
+    name: '',
+    taskType: 'recycle_cleanup',
+    cronExpr: '0 3 * * *',
+    retentionDays: 7,
+  };
+  createModalVisible.value = true;
+}
+
+async function handleSaveCreate() {
+  if (!createForm.value.name) {
+    message.warning('请输入任务名称');
+    return;
+  }
+
+  try {
+    await createScheduledTask({
+      name: createForm.value.name,
+      taskType: createForm.value.taskType,
+      cronExpr: createForm.value.cronExpr,
+      config: {
+        retention_days: createForm.value.retentionDays,
+      },
+    });
+    message.success('创建成功');
+    createModalVisible.value = false;
+    loadData();
+  } catch (err: any) {
+    message.error(err.message || '创建失败');
+  }
+}
+
 // ==================== Cron 表达式帮助 ====================
 
 const cronExamples = [
@@ -229,9 +272,14 @@ onMounted(() => {
     <div class="p-4">
       <!-- 说明卡片 -->
       <Card class="mb-4">
-        <div class="text-sm text-gray-600">
-          <p class="mb-2"><strong>定时任务管理</strong> - 配置系统自动执行的任务</p>
-          <p>Cron 表达式格式：分 时 日 月 周（例：0 3 * * * = 每天凌晨 3:00）</p>
+        <div class="flex items-center justify-between">
+          <div class="text-sm text-gray-600">
+            <p class="mb-2"><strong>定时任务管理</strong> - 配置系统自动执行的任务</p>
+            <p>Cron 表达式格式：分 时 日 月 周（例：0 3 * * * = 每天凌晨 3:00）</p>
+          </div>
+          <Button type="primary" @click="handleCreate">
+            新增任务
+          </Button>
         </div>
       </Card>
 
@@ -306,6 +354,47 @@ onMounted(() => {
 
         <FormItem v-if="editTask.taskType === 'recycle_cleanup'" label="保留天数">
           <InputNumber v-model:value="editForm.retentionDays" :min="1" :max="365" />
+          <span class="ml-2 text-gray-500">天（超过此天数的文件将被自动清理）</span>
+        </FormItem>
+      </Form>
+    </Modal>
+
+    <!-- 创建弹窗 -->
+    <Modal
+      v-model:open="createModalVisible"
+      title="新增定时任务"
+      @ok="handleSaveCreate"
+      width="600px"
+    >
+      <Form :label-col="{ span: 6 }" :wrapper-col="{ span: 16 }">
+        <FormItem label="任务名称">
+          <Input v-model:value="createForm.name" placeholder="请输入任务名称" />
+        </FormItem>
+
+        <FormItem label="任务类型">
+          <select v-model="createForm.taskType" class="w-full border rounded px-3 py-1.5">
+            <option value="recycle_cleanup">回收站清理</option>
+          </select>
+        </FormItem>
+
+        <FormItem label="Cron 表达式">
+          <Input v-model:value="createForm.cronExpr" placeholder="0 3 * * *" />
+          <div class="mt-2 text-xs text-gray-500">
+            <p class="mb-1">常用表达式：</p>
+            <div v-for="example in cronExamples" :key="example.expr" class="flex items-center gap-2 mb-1">
+              <code
+                class="px-2 py-0.5 bg-gray-100 rounded cursor-pointer hover:bg-gray-200"
+                @click="createForm.cronExpr = example.expr"
+              >
+                {{ example.expr }}
+              </code>
+              <span>= {{ example.desc }}</span>
+            </div>
+          </div>
+        </FormItem>
+
+        <FormItem v-if="createForm.taskType === 'recycle_cleanup'" label="保留天数">
+          <InputNumber v-model:value="createForm.retentionDays" :min="1" :max="365" />
           <span class="ml-2 text-gray-500">天（超过此天数的文件将被自动清理）</span>
         </FormItem>
       </Form>

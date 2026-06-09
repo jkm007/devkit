@@ -529,7 +529,14 @@ func (s *FileService) DeleteFile(userID uint, fileID uint, hasPermission bool) e
 
 	// 软删除：移入回收站，7天后过期
 	expireAt := time.Now().Add(7 * 24 * time.Hour)
-	return s.fileRepo.SoftDeleteEntry(fileID, expireAt)
+	if err := s.fileRepo.SoftDeleteEntry(fileID, expireAt); err != nil {
+		return err
+	}
+
+	// 删除该文件的所有分享链接
+	_ = s.shareRepo.DeleteByFileID(fileID)
+
+	return nil
 }
 
 // BatchDeleteFiles 批量删除文件（移入回收站）

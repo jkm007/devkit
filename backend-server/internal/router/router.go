@@ -357,6 +357,7 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 
 			// 定时任务管理
 			system.GET("/scheduled-tasks", middleware.Permission("system:task:view"), scheduledTaskHandler.List)
+			system.POST("/scheduled-tasks", middleware.Permission("system:task:edit"), scheduledTaskHandler.Create)
 			system.GET("/scheduled-tasks/:id", middleware.Permission("system:task:view"), scheduledTaskHandler.GetByID)
 			system.PUT("/scheduled-tasks/:id", middleware.Permission("system:task:edit"), scheduledTaskHandler.Update)
 			system.PUT("/scheduled-tasks/:id/enabled", middleware.Permission("system:task:edit"), scheduledTaskHandler.UpdateEnabled)

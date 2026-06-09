@@ -528,7 +528,7 @@ async function handleDeleteWithShareCheck(row: any) {
         okText: '确定移入回收站',
         okType: 'danger',
         cancelText: '取消',
-        onOk: () => handleDeleteFile(row),
+        onOk: async () => { await handleDeleteFile(row); },
       });
     } else {
       Modal.confirm({
@@ -537,7 +537,7 @@ async function handleDeleteWithShareCheck(row: any) {
         okText: '确定',
         okType: 'danger',
         cancelText: '取消',
-        onOk: () => handleDeleteFile(row),
+        onOk: async () => { await handleDeleteFile(row); },
       });
     }
   } catch {
@@ -548,7 +548,7 @@ async function handleDeleteWithShareCheck(row: any) {
       okText: '确定',
       okType: 'danger',
       cancelText: '取消',
-      onOk: () => handleDeleteFile(row),
+      onOk: async () => { await handleDeleteFile(row); },
     });
   }
 }

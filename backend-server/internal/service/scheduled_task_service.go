@@ -24,6 +24,32 @@ func NewScheduledTaskService() *ScheduledTaskService {
 	}
 }
 
+// Create 创建任务
+func (s *ScheduledTaskService) Create(name string, taskType string, cronExpr string, config model.JSONMap) (*model.ScheduledTask, error) {
+	// 验证 cron 表达式
+	if !isValidCronExpr(cronExpr) {
+		return nil, fmt.Errorf("无效的 Cron 表达式: %s", cronExpr)
+	}
+
+	task := &model.ScheduledTask{
+		Name:     name,
+		TaskType: taskType,
+		CronExpr: cronExpr,
+		Config:   config,
+		Enabled:  true,
+		Status:   "idle",
+	}
+
+	// 计算下次执行时间
+	task.NextRunAt = s.calculateNextRun(cronExpr)
+
+	if err := s.taskRepo.Create(task); err != nil {
+		return nil, err
+	}
+
+	return task, nil
+}
+
 // GetAll 获取所有任务
 func (s *ScheduledTaskService) GetAll() ([]model.ScheduledTask, error) {
 	return s.taskRepo.GetAll()

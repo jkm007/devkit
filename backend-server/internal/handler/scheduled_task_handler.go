@@ -21,6 +21,31 @@ func NewScheduledTaskHandler() *ScheduledTaskHandler {
 	}
 }
 
+// CreateRequest 创建任务请求
+type CreateRequest struct {
+	Name     string        `json:"name" binding:"required"`
+	TaskType string        `json:"taskType" binding:"required"`
+	CronExpr string        `json:"cronExpr" binding:"required"`
+	Config   model.JSONMap `json:"config"`
+}
+
+// Create 创建任务
+func (h *ScheduledTaskHandler) Create(c *gin.Context) {
+	var req CreateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	task, err := h.taskService.Create(req.Name, req.TaskType, req.CronExpr, req.Config)
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.Success(c, task)
+}
+
 // List 获取所有任务
 func (h *ScheduledTaskHandler) List(c *gin.Context) {
 	tasks, err := h.taskService.GetAll()

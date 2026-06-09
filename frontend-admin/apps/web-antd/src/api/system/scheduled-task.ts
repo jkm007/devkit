@@ -22,6 +22,16 @@ export function getScheduledTasks() {
   return requestClient.get<ScheduledTask[]>('/system/scheduled-tasks');
 }
 
+/** 创建定时任务 */
+export function createScheduledTask(data: {
+  name: string;
+  taskType: string;
+  cronExpr: string;
+  config?: Record<string, any>;
+}) {
+  return requestClient.post<ScheduledTask>('/system/scheduled-tasks', data);
+}
+
 /** 获取任务详情 */
 export function getScheduledTaskById(id: number) {
   return requestClient.get<ScheduledTask>(`/system/scheduled-tasks/${id}`);

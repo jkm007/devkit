@@ -120,7 +120,7 @@ func (r *FileRepo) ListEntries(userID uint, folderID uint, page, pageSize int, f
 	var entries []model.FileEntry
 	var total int64
 
-	query := r.db.Model(&model.FileEntry{})
+	query := r.db.Model(&model.FileEntry{}).Where("deleted_at IS NULL")
 	if userID > 0 {
 		query = query.Where("user_id = ?", userID)
 	}
