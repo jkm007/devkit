@@ -13,6 +13,7 @@ import {
   Form,
   Input,
   Select,
+  AutoComplete,
   Switch,
   message,
   Popconfirm,
@@ -48,25 +49,52 @@ const form = reactive({
   status: 1,
 });
 
-// 文件类型选项
-const fileTypeOptions = computed(() => [
-  { label: '图片 (image)', value: 'image' },
-  { label: '视频 (video)', value: 'video' },
-  { label: '音频 (audio)', value: 'audio' },
-  { label: '文档 (document)', value: 'document' },
-  { label: '压缩包 (archive)', value: 'archive' },
-  { label: '其他 (other)', value: 'other' },
-]);
+// 默认文件类型
+const defaultTypes = [
+  { label: '图片 (image)', value: 'image', color: 'green' },
+  { label: '视频 (video)', value: 'video', color: 'blue' },
+  { label: '音频 (audio)', value: 'audio', color: 'purple' },
+  { label: '文档 (document)', value: 'document', color: 'orange' },
+  { label: '压缩包 (archive)', value: 'archive', color: 'cyan' },
+  { label: '其他 (other)', value: 'other', color: 'default' },
+];
 
-// 文件类型颜色映射
-const fileTypeColors: Record<string, string> = {
-  image: 'green',
-  video: 'blue',
-  audio: 'purple',
-  document: 'orange',
-  archive: 'cyan',
-  other: 'default',
-};
+// 文件类型选项（默认 + 从规则中动态提取的自定义类型）
+const fileTypeOptions = computed(() => {
+  const defaultValues = new Set(defaultTypes.map((t) => t.value));
+  const customTypes = [
+    ...new Set(rules.value.map((r) => r.fileType).filter((t) => !defaultValues.has(t))),
+  ];
+  return [
+    ...defaultTypes,
+    ...customTypes.map((t) => ({ label: t, value: t })),
+  ];
+});
+
+// 文件类型颜色映射（默认类型 + 动态扩展）
+const fileTypeColors = computed(() => {
+  const colors: Record<string, string> = {
+    image: 'green',
+    video: 'blue',
+    audio: 'purple',
+    document: 'orange',
+    archive: 'cyan',
+    other: 'default',
+  };
+  // 为自定义类型分配颜色
+  const customColors = ['magenta', 'red', 'lime', 'gold', 'geekblue', 'volcano'];
+  let index = 0;
+  rules.value.forEach((r) => {
+    if (!colors[r.fileType]) {
+      colors[r.fileType] = customColors[index % customColors.length]!;
+      index++;
+    }
+  });
+  return colors;
+});
+
+// 所有可用类型列表
+const allTypes = computed(() => fileTypeOptions.value.map((t) => t.value));
 
 // 过滤后的规则
 const filteredRules = computed(() => {
@@ -312,11 +340,15 @@ const typeCounts = computed(() => {
           </div>
         </Form.Item>
         <Form.Item label="文件类型" required>
-          <Select
+          <AutoComplete
             v-model:value="form.fileType"
             :options="fileTypeOptions"
-            placeholder="请选择文件类型"
+            placeholder="选择或输入自定义类型"
+            :filter-option="(input: string, option: any) => option.value.toLowerCase().includes(input.toLowerCase())"
           />
+          <div class="text-gray-400 text-xs mt-1">
+            可选择预设类型或输入自定义类型，如 cad、3d、font 等
+          </div>
         </Form.Item>
         <Form.Item label="描述">
           <Input
