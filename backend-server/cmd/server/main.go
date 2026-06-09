@@ -111,6 +111,9 @@ func main() {
 	hub := ws.NewHub()
 	go hub.Run()
 
+	// 8.1 从数据库加载文件类型规则到 AutoTagger
+	initFileTypeRules()
+
 	// 9. 初始化存储（优先从 DB 加载配置）
 	storage.InitStorage(cfg.Storage)
 
@@ -187,6 +190,40 @@ func initOAuthProviders(cfg *config.Config) {
 		}))
 		logger.Info("OAuth 提供商已注册: wechat")
 	}
+}
+
+// initFileTypeRules 从数据库加载文件类型规则到 AutoTagger
+func initFileTypeRules() {
+	db := database.GetMySQL()
+	if db == nil {
+		return
+	}
+
+	type ruleRow struct {
+		Extension string
+		FileType  string
+	}
+
+	var rows []ruleRow
+	if err := db.Raw("SELECT extension, file_type FROM sys_file_type_rules WHERE status = 1").Scan(&rows).Error; err != nil {
+		logger.Info("未找到文件类型规则表，使用默认规则")
+		return
+	}
+
+	if len(rows) == 0 {
+		logger.Info("文件类型规则表为空，使用默认规则")
+		return
+	}
+
+	rules := make([]storage.FileTypeRuleData, len(rows))
+	for i, r := range rows {
+		rules[i] = storage.FileTypeRuleData{
+			Extension: r.Extension,
+			FileType:  r.FileType,
+		}
+	}
+
+	storage.GetGlobalAutoTagger().LoadFromDB(rules)
 }
 
 // validateSecrets 启动时校验敏感密钥，拒绝使用默认占位符值

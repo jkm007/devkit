@@ -111,6 +111,15 @@ const routes: RouteRecordRaw[] = [
         },
         component: () => import('#/views/system/storage-bucket/index.vue'),
       },
+      {
+        path: '/system/file-type-rule',
+        name: 'SystemFileTypeRule',
+        meta: {
+          icon: 'mdi:file-check',
+          title: '文件类型规则',
+        },
+        component: () => import('#/views/system/file-type-rule/index.vue'),
+      },
     ],
   },
 ];

@@ -20,7 +20,8 @@ var (
 
 	// 路由引擎相关
 	routingEngine *RoutingEngine
-	autoTagger    *AutoTagger
+	// autoTagger 使用全局实例，支持从数据库加载规则
+	autoTagger    = globalAutoTagger
 )
 
 // InitStorage 初始化存储（启动时调用）
@@ -290,7 +291,6 @@ func InitRoutingEngine() error {
 	}
 
 	routingEngine = NewRoutingEngine(rules)
-	autoTagger = NewAutoTagger()
 	log.Printf("[INFO] 路由引擎已初始化，共 %d 条规则", len(rules))
 	return nil
 }

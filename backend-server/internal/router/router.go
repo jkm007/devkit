@@ -54,6 +54,7 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	routingHandler := handler.NewRoutingHandler(service.NewRoutingService(repository.NewTagRoutingRepo(database.GetMySQL())))
 	storageBucketHandler := handler.NewStorageBucketHandler(service.NewStorageBucketService(repository.NewStorageBucketRepo(database.GetMySQL())))
 	storageConfigHandler := handler.NewStorageConfigHandler()
+	fileTypeRuleHandler := handler.NewFileTypeRuleHandler()
 
 	// 健康检查
 	// @Summary      健康检查
@@ -331,6 +332,14 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 			system.PUT("/storage-configs/:id/default", middleware.Permission("system:setting:edit"), storageConfigHandler.SetDefault)
 			system.POST("/storage-configs/:id/test", middleware.Permission("system:setting:edit"), storageConfigHandler.TestConnection)
 			system.POST("/storage-configs/test-by-data", middleware.Permission("system:setting:edit"), storageConfigHandler.TestConnectionByData)
+
+			// 文件类型规则管理
+			system.GET("/file-type-rules", middleware.Permission("system:setting:list"), fileTypeRuleHandler.GetAll)
+			system.GET("/file-type-rules/grouped", middleware.Permission("system:setting:list"), fileTypeRuleHandler.GetGrouped)
+			system.POST("/file-type-rules", middleware.Permission("system:setting:edit"), fileTypeRuleHandler.Create)
+			system.PUT("/file-type-rules/:id", middleware.Permission("system:setting:edit"), fileTypeRuleHandler.Update)
+			system.DELETE("/file-type-rules/:id", middleware.Permission("system:setting:edit"), fileTypeRuleHandler.Delete)
+			system.POST("/file-type-rules/refresh", middleware.Permission("system:setting:edit"), fileTypeRuleHandler.RefreshAutoTagger)
 		}
 	}
 
