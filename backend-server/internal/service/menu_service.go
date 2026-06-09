@@ -161,7 +161,7 @@ type MenuItem struct {
 	Type       string                 `json:"type"`
 	Path       string                 `json:"path"`
 	Redirect   string                 `json:"redirect,omitempty"`
-	Component  interface{}            `json:"component"`
+	Component  interface{}            `json:"component,omitempty"`
 	Icon       string                 `json:"icon"`
 	AuthCode   string                 `json:"authCode"`
 	Meta       interface{}            `json:"meta"`
@@ -183,11 +183,9 @@ func (s *MenuService) menuToMap(menu model.Menu) *MenuItem {
 		Status:     menu.Status,
 		CreateTime: menu.CreatedAt,
 	}
-	// component 为空时返回空字符串（前端需要字符串类型）
+	// 只在 component 非空时设置（前端需要字符串类型，空时不返回该字段）
 	if menu.Component != "" {
 		item.Component = menu.Component
-	} else {
-		item.Component = ""
 	}
 	// 解析 meta JSON 字符串为对象
 	if menu.Meta != "" {
