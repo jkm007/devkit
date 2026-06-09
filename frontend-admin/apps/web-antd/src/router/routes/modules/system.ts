@@ -49,24 +49,6 @@ const routes: RouteRecordRaw[] = [
         component: () => import('#/views/system/group/list.vue'),
       },
       {
-        path: '/system/real-name',
-        name: 'SystemRealName',
-        meta: {
-          icon: 'lucide:badge-check',
-          title: $t('system.realName.title'),
-        },
-        component: () => import('#/views/system/real-name/list.vue'),
-      },
-      {
-        path: '/system/security-log',
-        name: 'SystemSecurityLog',
-        meta: {
-          icon: 'lucide:shield-check',
-          title: $t('system.securityLog.title'),
-        },
-        component: () => import('#/views/system/security-log/list.vue'),
-      },
-      {
         path: '/system/settings',
         name: 'SystemSettings',
         meta: {
@@ -76,15 +58,6 @@ const routes: RouteRecordRaw[] = [
         component: () => import('#/views/system/settings/index.vue'),
       },
       {
-        path: '/system/risk',
-        name: 'SystemRisk',
-        meta: {
-          icon: 'lucide:shield-alert',
-          title: $t('system.risk.title'),
-        },
-        component: () => import('#/views/system/risk/index.vue'),
-      },
-      {
         path: '/system/tag',
         name: 'SystemTag',
         meta: {
@@ -92,33 +65,6 @@ const routes: RouteRecordRaw[] = [
           title: '标签路由',
         },
         component: () => import('#/views/system/tag/index.vue'),
-      },
-      {
-        path: '/system/storage-config',
-        name: 'SystemStorageConfig',
-        meta: {
-          icon: 'mdi:server-network',
-          title: '存储配置',
-        },
-        component: () => import('#/views/system/storage-config/index.vue'),
-      },
-      {
-        path: '/system/storage-bucket',
-        name: 'SystemStorageBucket',
-        meta: {
-          icon: 'mdi:database',
-          title: '存储桶管理',
-        },
-        component: () => import('#/views/system/storage-bucket/index.vue'),
-      },
-      {
-        path: '/system/file-type-rule',
-        name: 'SystemFileTypeRule',
-        meta: {
-          icon: 'mdi:file-check',
-          title: '文件类型规则',
-        },
-        component: () => import('#/views/system/file-type-rule/index.vue'),
       },
     ],
   },

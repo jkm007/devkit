@@ -238,7 +238,7 @@ const typeCounts = computed(() => {
       <div class="mb-4 flex justify-between items-center">
         <Space>
           <Button
-            v-if="hasAccessByCodes(['system:setting:edit'])"
+            v-if="hasAccessByCodes(['storage:file-type:edit'])"
             type="primary"
             @click="openModal()"
           >
@@ -250,7 +250,7 @@ const typeCounts = computed(() => {
             刷新
           </Button>
           <Button
-            v-if="hasAccessByCodes(['system:setting:edit'])"
+            v-if="hasAccessByCodes(['storage:file-type:edit'])"
             :loading="refreshLoading"
             @click="handleRefresh"
           >
@@ -299,7 +299,7 @@ const typeCounts = computed(() => {
           <template v-if="column.key === 'action'">
             <Space>
               <Tooltip
-                v-if="hasAccessByCodes(['system:setting:edit'])"
+                v-if="hasAccessByCodes(['storage:file-type:edit'])"
                 title="编辑"
               >
                 <Button type="link" size="small" @click="openModal(record)">
@@ -307,7 +307,7 @@ const typeCounts = computed(() => {
                 </Button>
               </Tooltip>
               <Popconfirm
-                v-if="hasAccessByCodes(['system:setting:edit'])"
+                v-if="hasAccessByCodes(['storage:file-type:edit'])"
                 title="确定删除此规则？"
                 @confirm="handleDelete(record.id)"
               >

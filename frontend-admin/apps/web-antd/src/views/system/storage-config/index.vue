@@ -354,7 +354,7 @@ const isCOS = computed(() => currentConfig.driver === 'cos');
     <!-- 操作栏 -->
     <div class="mb-4 flex justify-between items-center">
       <Space>
-        <Button v-if="hasAccessByCodes(['system:setting:edit'])" type="primary" @click="handleAdd">
+        <Button v-if="hasAccessByCodes(['storage:config:edit'])" type="primary" @click="handleAdd">
           <Plus class="mr-1" />
           添加存储配置
         </Button>
@@ -388,7 +388,7 @@ const isCOS = computed(() => currentConfig.driver === 'cos');
         <template v-else-if="column.key === 'isDefault'">
           <Tag v-if="record.isDefault" color="gold">⭐ 默认</Tag>
           <Button
-            v-else-if="hasAccessByCodes(['system:setting:edit']) && record.status === 1"
+            v-else-if="hasAccessByCodes(['storage:config:edit']) && record.status === 1"
             type="link"
             size="small"
             @click="handleSetDefault(record)"
@@ -399,7 +399,7 @@ const isCOS = computed(() => currentConfig.driver === 'cos');
         <template v-else-if="column.key === 'action'">
           <Space>
             <Button
-              v-if="hasAccessByCodes(['system:setting:edit'])"
+              v-if="hasAccessByCodes(['storage:config:edit'])"
               type="link"
               size="small"
               @click="handleEdit(record)"
@@ -407,7 +407,7 @@ const isCOS = computed(() => currentConfig.driver === 'cos');
               编辑
             </Button>
             <Button
-              v-if="hasAccessByCodes(['system:setting:edit']) && record.driver !== 'local'"
+              v-if="hasAccessByCodes(['storage:config:edit']) && record.driver !== 'local'"
               type="link"
               size="small"
               @click="async () => {
@@ -422,7 +422,7 @@ const isCOS = computed(() => currentConfig.driver === 'cos');
               测试
             </Button>
             <Popconfirm
-              v-if="hasAccessByCodes(['system:setting:edit']) && record.driver !== 'local'"
+              v-if="hasAccessByCodes(['storage:config:edit']) && record.driver !== 'local'"
               title="确定删除此配置?"
               @confirm="handleDelete(record)"
             >
