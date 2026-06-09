@@ -187,9 +187,8 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		authorized.POST("/files/move", fileHandler.MoveFile)
 		authorized.POST("/files/batch-delete", fileHandler.BatchDeleteFiles)
 		authorized.POST("/files/batch-move", fileHandler.BatchMoveFiles)
-		authorized.DELETE("/files/:id", fileHandler.DeleteFile)
 
-		// 回收站
+		// 回收站（必须在 :id 路由之前）
 		authorized.GET("/files/recycle/list", recycleBinHandler.List)
 		authorized.GET("/files/recycle/count", recycleBinHandler.GetCount)
 		authorized.POST("/files/recycle/restore/:id", recycleBinHandler.Restore)
@@ -197,6 +196,9 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		authorized.DELETE("/files/recycle/:id", recycleBinHandler.PermanentDelete)
 		authorized.POST("/files/recycle/batch-delete", recycleBinHandler.BatchPermanentDelete)
 		authorized.DELETE("/files/recycle/empty", recycleBinHandler.Empty)
+
+		// 文件操作（:id 路由）
+		authorized.DELETE("/files/:id", fileHandler.DeleteFile)
 
 		// 文件标签管理
 		authorized.GET("/files/:id/tags", tagHandler.GetFileTags)
