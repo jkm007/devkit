@@ -461,10 +461,31 @@ const matchTypeOptions = computed(() => [
   { label: t('system.tag.matchExact'), value: 'exact' },
 ]);
 
-// 标签键选项（用于条件选择）
+// 标签键选项（用于条件选择，返回 {label, value} 格式）
+const tagKeyOptionsForSelect = computed(() => {
+  const keys = new Set(tags.value.map((t) => t.tagKey));
+  return Array.from(keys).sort().map((key) => ({ label: key, value: key }));
+});
+
+// 标签键选项（用于标签编辑弹框，返回纯字符串数组）
 const tagKeyOptions = computed(() => {
   const keys = new Set(tags.value.map((t) => t.tagKey));
-  return Array.from(keys).map((key) => ({ label: key, value: key }));
+  return Array.from(keys).sort();
+});
+
+// 标签值选项（根据选中的 tagKey 过滤）
+const tagValueOptions = computed(() => {
+  if (!tagForm.tagKey) {
+    // 如果没有选择 key，显示所有值
+    const vals = new Set(tags.value.map((t) => t.tagValue));
+    return Array.from(vals).sort();
+  }
+  // 根据选中的 key 过滤值
+  return tags.value
+    .filter((t) => t.tagKey === tagForm.tagKey)
+    .map((t) => t.tagValue)
+    .filter((v, i, a) => a.indexOf(v) === i)
+    .sort();
 });
 
 // 获取指定键的标签值选项
@@ -652,10 +673,30 @@ const getTagValueOptions = (key: string) => {
     >
       <Form :model="tagForm" layout="vertical">
         <Form.Item :label="t('system.tag.tagKey')" required>
-          <Input v-model:value="tagForm.tagKey" :placeholder="t('system.tag.tagKeyPlaceholder')" />
+          <Select
+            v-model:value="tagForm.tagKey"
+            :placeholder="t('system.tag.tagKeyPlaceholder')"
+            show-search
+            allow-clear
+            :filter-option="(input: string, option: any) => option.value.toLowerCase().includes(input.toLowerCase())"
+          >
+            <Select.Option v-for="key in tagKeyOptions" :key="key" :value="key">
+              {{ key }}
+            </Select.Option>
+          </Select>
         </Form.Item>
         <Form.Item :label="t('system.tag.tagValue')" required>
-          <Input v-model:value="tagForm.tagValue" :placeholder="t('system.tag.tagValuePlaceholder')" />
+          <Select
+            v-model:value="tagForm.tagValue"
+            :placeholder="t('system.tag.tagValuePlaceholder')"
+            show-search
+            allow-clear
+            :filter-option="(input: string, option: any) => option.value.toLowerCase().includes(input.toLowerCase())"
+          >
+            <Select.Option v-for="val in tagValueOptions" :key="val" :value="val">
+              {{ val }}
+            </Select.Option>
+          </Select>
         </Form.Item>
         <Form.Item :label="t('system.tag.tagName')" required>
           <Input v-model:value="tagForm.tagName" :placeholder="t('system.tag.tagNamePlaceholder')" />
@@ -734,7 +775,7 @@ const getTagValueOptions = (key: string) => {
           <div v-for="(condition, index) in ruleForm.conditions" :key="index" class="mb-2 flex gap-2">
             <Select
               v-model:value="condition.key"
-              :options="tagKeyOptions"
+              :options="tagKeyOptionsForSelect"
               :placeholder="t('system.tag.tagKeyLabel')"
               style="width: 150px"
             />
