@@ -57,6 +57,7 @@ func (s *UploadService) getUploader() storage.MultipartUploader {
 // CheckResult 秒传检查结果
 type CheckResult struct {
 	Exists    bool   `json:"exists"`
+	FileID    uint   `json:"fileId,omitempty"`
 	ObjectKey string `json:"objectKey,omitempty"`
 	URL       string `json:"url,omitempty"`
 }
@@ -243,6 +244,7 @@ type RoutingInfo struct {
 
 // CompleteResult 合并结果
 type CompleteResult struct {
+	FileID    uint         `json:"fileId"`
 	ObjectKey string       `json:"objectKey"`
 	URL       string       `json:"url"`
 	Routing   *RoutingInfo `json:"routing,omitempty"`
@@ -408,6 +410,7 @@ func (s *UploadService) CompleteUpload(uploadID string) (*CompleteResult, error)
 		fileURL = "/files/" + strconv.FormatUint(uint64(entryID), 10) + "/direct-url"
 	}
 	return &CompleteResult{
+		FileID:    entryID,
 		ObjectKey: task.ObjectKey,
 		URL:       fileURL,
 		Routing:   routingInfo,
