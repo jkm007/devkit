@@ -5,7 +5,7 @@ import { useVbenModal, VCropper } from '@vben/common-ui';
 
 import { message, Upload } from 'ant-design-vue';
 
-import { simpleUpload } from '#/api/file';
+import { getPreviewURL, simpleUpload } from '#/api/file';
 import { updateAvatar } from '#/api/account';
 import { useUserStore } from '@vben/stores';
 import { $t } from '#/locales';
@@ -77,16 +77,30 @@ async function handleSave() {
     const uploadResult = await simpleUpload(croppedFile);
     uploadedUrl = uploadResult.url;
 
+    // 获取预览URL（带token，可在 <img> 中直接使用）
+    let avatarUrl = uploadResult.url;
+    try {
+      const previewResult = await getPreviewURL(uploadResult.fileId, 604800); // 7天有效
+      if (previewResult?.url) {
+        // 如果是相对路径，加上 /api 前缀
+        avatarUrl = previewResult.url.startsWith('http')
+          ? previewResult.url
+          : `/api${previewResult.url}`;
+      }
+    } catch {
+      // 获取预览URL失败，使用原始URL
+    }
+
     // 更新头像
-    await updateAvatar({ avatar: uploadResult.url });
+    await updateAvatar({ avatar: avatarUrl });
 
     // 更新用户信息（仅在 updateProfile 成功后）
     if (userStore.userInfo) {
-      userStore.userInfo.avatar = uploadResult.url;
+      userStore.userInfo.avatar = avatarUrl;
     }
 
     message.success($t('file.avatar.saveSuccess'));
-    emit('success', uploadResult.url);
+    emit('success', avatarUrl);
     handleClose();
   } catch (error: any) {
     // 上传成功但更新失败时，回滚 store
