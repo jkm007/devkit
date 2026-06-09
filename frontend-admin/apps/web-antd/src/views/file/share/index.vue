@@ -129,24 +129,54 @@ async function loadShareList() {
 
 // 复制分享链接
 function copyShareUrl(share: any) {
-  const url = share.shareUrl || `${window.location.origin}/share/${share.shareCode}`;
+  const url = getFullShareUrl(share);
   fallbackCopy(url);
 }
 
-function fallbackCopy(text: string) {
-  const textarea = document.createElement('textarea');
-  textarea.value = text;
-  textarea.style.position = 'fixed';
-  textarea.style.opacity = '0';
-  document.body.appendChild(textarea);
-  textarea.select();
-  try {
-    document.execCommand('copy');
-    message.success('链接已复制');
-  } catch {
-    message.error('复制失败，请手动复制');
+// 获取完整的分享 URL（确保包含 origin）
+function getFullShareUrl(share: any) {
+  const url = share.shareUrl || `/share/${share.shareCode}`;
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
   }
-  document.body.removeChild(textarea);
+  return `${window.location.origin}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
+function fallbackCopy(text: string) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(
+      () => message.success('链接已复制'),
+      () => {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+          document.execCommand('copy');
+          message.success('链接已复制');
+        } catch {
+          message.error('复制失败，请手动复制');
+        }
+        document.body.removeChild(textarea);
+      },
+    );
+  } else {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      document.execCommand('copy');
+      message.success('链接已复制');
+    } catch {
+      message.error('复制失败，请手动复制');
+    }
+    document.body.removeChild(textarea);
+  }
 }
 
 // 菜单操作处理
@@ -383,7 +413,7 @@ function getFileIcon(type: string | undefined) {
 
 // @ts-ignore - 暂时未使用，保留以备将来使用
 function getShareUrl(share: any) {
-  return share.shareUrl || `${window.location.origin}/share/${share.shareCode}`;
+  return getFullShareUrl(share);
 }
 
 function isExpiringSoon(date: string | undefined) {
