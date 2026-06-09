@@ -183,19 +183,41 @@ function formatDuration(ms: number | undefined): string {
 }
 
 function fallbackCopy(text: string) {
-  const textarea = document.createElement('textarea');
-  textarea.value = text;
-  textarea.style.cssText = 'position:fixed;left:0;top:0;opacity:0';
-  document.body.appendChild(textarea);
-  textarea.focus();
-  textarea.select();
-  try {
-    document.execCommand('copy');
-    message.success('链接已复制到剪贴板');
-  } catch {
-    message.error('复制失败，请手动复制');
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(
+      () => message.success('链接已复制到剪贴板'),
+      () => {
+        // 降级方案
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.cssText = 'position:fixed;left:0;top:0;opacity:0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        try {
+          document.execCommand('copy');
+          message.success('链接已复制到剪贴板');
+        } catch {
+          message.error('复制失败，请手动复制');
+        }
+        document.body.removeChild(textarea);
+      },
+    );
+  } else {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.cssText = 'position:fixed;left:0;top:0;opacity:0';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    try {
+      document.execCommand('copy');
+      message.success('链接已复制到剪贴板');
+    } catch {
+      message.error('复制失败，请手动复制');
+    }
+    document.body.removeChild(textarea);
   }
-  document.body.removeChild(textarea);
 }
 
 const storageTypeLabels: Record<string, { label: string; color: string }> = {

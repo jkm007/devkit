@@ -40,6 +40,7 @@ import {
   testRoute,
 } from '#/api/system/tag';
 import type { Tag as TagType, TagUsageStat, TagRouting } from '#/api/system/tag';
+import { getAllFileTypeRules } from '#/api/system/file-type-rule';
 import { getAllStorageBucketsApi } from '#/api/system/storage-bucket';
 import type { StorageBucketApi } from '#/api/system/storage-bucket';
 
@@ -135,6 +136,9 @@ const colorOptions = [
 
 // 存储桶相关
 const storageBuckets = ref<StorageBucketApi.StorageBucket[]>([]);
+
+// 文件类型规则（用于扩展标签键选项）
+const fileTypeRules = ref<any[]>([]);
 const storageBucketOptions = computed(() =>
   storageBuckets.value
     .filter((b) => b.status === 1)
@@ -201,6 +205,15 @@ const loadTags = async () => {
   }
 };
 
+// 加载文件类型规则
+const loadFileTypeRules = async () => {
+  try {
+    fileTypeRules.value = await getAllFileTypeRules();
+  } catch {
+    // 静默失败
+  }
+};
+
 // 加载存储桶
 const loadStorageBuckets = async () => {
   try {
@@ -227,6 +240,7 @@ onMounted(() => {
   loadTags();
   loadRules();
   loadStorageBuckets();
+  loadFileTypeRules();
 });
 
 // 标签操作
@@ -461,9 +475,13 @@ const matchTypeOptions = computed(() => [
   { label: t('system.tag.matchExact'), value: 'exact' },
 ]);
 
-// 标签键选项（用于条件选择，返回 {label, value} 格式）
+// 标签键选项（用于条件选择，返回 {label, value} 格式，包含文件类型规则）
 const tagKeyOptionsForSelect = computed(() => {
   const keys = new Set(tags.value.map((t) => t.tagKey));
+  // 添加文件类型规则中的 type 键
+  if (fileTypeRules.value.length > 0) {
+    keys.add('type');
+  }
   return Array.from(keys).sort().map((key) => ({ label: key, value: key }));
 });
 
@@ -490,9 +508,22 @@ const tagValueOptions = computed(() => {
 
 // 获取指定键的标签值选项
 const getTagValueOptions = (key: string) => {
-  return tags.value
+  const options = tags.value
     .filter((t) => t.tagKey === key)
     .map((t) => ({ label: `${t.icon} ${t.tagName}`, value: t.tagValue }));
+
+  // 如果是 type 键，添加文件类型规则中的类型
+  if (key === 'type' && fileTypeRules.value.length > 0) {
+    const existingValues = new Set(options.map((o) => o.value));
+    const fileTypes = [...new Set(fileTypeRules.value.map((r) => r.fileType))];
+    fileTypes.forEach((ft) => {
+      if (!existingValues.has(ft)) {
+        options.push({ label: ft, value: ft });
+      }
+    });
+  }
+
+  return options;
 };
 </script>
 

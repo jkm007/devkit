@@ -34,7 +34,7 @@ func (r *UserRepo) List(page, pageSize int, filters map[string]interface{}) ([]m
 	if status, ok := filters["status"].(string); ok && status != "" {
 		query = query.Where("status = ?", status)
 	}
-	if groupID, ok := filters["groupId"].(string); ok && groupID != "" {
+	if groupID, ok := filters["groupId"].(string); ok && groupID != "" && groupID != "-1" {
 		query = query.Where("group_id = ?", groupID)
 	}
 	if startTime, ok := filters["startTime"].(string); ok && startTime != "" {
