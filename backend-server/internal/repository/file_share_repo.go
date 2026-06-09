@@ -112,3 +112,22 @@ func (r *FileShareRepo) CheckExpiredShares() error {
 		Where("status = 1 AND expire_at IS NOT NULL AND expire_at <= ?", now).
 		Update("status", 2).Error
 }
+
+// GetActiveByFileID 获取文件的有效分享记录
+func (r *FileShareRepo) GetActiveByFileID(fileID uint) ([]model.FileShare, error) {
+	var shares []model.FileShare
+	err := r.db.Where("file_id = ? AND status = 1", fileID).Find(&shares).Error
+	return shares, err
+}
+
+// CountActiveByFileID 统计文件的有效分享数量
+func (r *FileShareRepo) CountActiveByFileID(fileID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&model.FileShare{}).Where("file_id = ? AND status = 1", fileID).Count(&count).Error
+	return count, err
+}
+
+// DeleteByFileID 删除文件的所有分享记录
+func (r *FileShareRepo) DeleteByFileID(fileID uint) error {
+	return r.db.Where("file_id = ?", fileID).Delete(&model.FileShare{}).Error
+}

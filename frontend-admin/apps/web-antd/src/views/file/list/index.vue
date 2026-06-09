@@ -522,9 +522,21 @@ async function handleMoveFile() {
   } catch { message.error('移动失败'); }
 }
 
-async function handleDeleteFile(row: any) {
+async function handleDeleteFile(row: any, force = false) {
   try {
-    await deleteFile(row.id);
+    const result = await deleteFile(row.id, force);
+    // 检查是否有分享记录
+    if (result && result.shareExists) {
+      Modal.confirm({
+        title: '文件已被分享',
+        content: `文件 "${row.name}" 有 ${result.shareCount} 个活跃的分享链接，删除文件后分享链接将失效。确定删除文件和所有分享记录吗？`,
+        okText: '确定删除',
+        okType: 'danger',
+        cancelText: '取消',
+        onOk: () => handleDeleteFile(row, true),
+      });
+      return;
+    }
     message.success(`已删除 ${row.name}`);
     onRefresh();
   } catch { message.error('删除失败'); }
@@ -552,16 +564,32 @@ async function handleTagEditSubmit() {
   } catch (error: any) { message.error(error.message || '更新失败'); }
 }
 
-async function handleBatchDelete() {
+async function doBatchDelete(force = false) {
   if (validFileIds.value.length === 0) { message.warning('请先选择文件'); return; }
   try {
-    const result = await batchDeleteFiles(validFileIds.value);
+    const result = await batchDeleteFiles(validFileIds.value, force);
+    // 检查是否有分享记录
+    if (result && result.shareExists) {
+      Modal.confirm({
+        title: '文件已被分享',
+        content: `选中的文件中有 ${result.shareCount} 个活跃的分享链接，删除文件后分享链接将失效。确定删除文件和所有分享记录吗？`,
+        okText: '确定删除',
+        okType: 'danger',
+        cancelText: '取消',
+        onOk: () => doBatchDelete(true),
+      });
+      return;
+    }
     if (result.errors?.length > 0) message.warning(`已删除 ${result.deleted} 个文件，${result.errors.length} 个失败`);
     else message.success(`已删除 ${result.deleted} 个文件`);
     selectedRowKeys.value = [];
     gridApi.grid?.clearCheckboxRow?.();
     onRefresh();
   } catch { message.error('批量删除失败'); }
+}
+
+function handleBatchDelete() {
+  doBatchDelete();
 }
 
 function openBatchMoveModal() {

@@ -47,3 +47,8 @@ func (r *FileAssetRepo) GetByID(id uint) (*model.FileAsset, error) {
 	}
 	return &asset, nil
 }
+
+// DeleteByID 根据 ID 删除文件资产
+func (r *FileAssetRepo) DeleteByID(id uint) error {
+	return r.db.Delete(&model.FileAsset{}, id).Error
+}

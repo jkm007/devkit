@@ -382,14 +382,31 @@ export function moveFile(data: { fileId: number; targetFolderId?: number }) {
   return requestClient.post('/files/move', data);
 }
 
+/** 删除文件结果 */
+export interface DeleteFileResult {
+  shareExists?: boolean;
+  shareCount?: number;
+  [key: string]: any;
+}
+
 /** 删除文件 */
-export function deleteFile(id: number) {
-  return requestClient.delete(`/files/${id}`);
+export function deleteFile(id: number, force?: boolean): Promise<DeleteFileResult> {
+  return requestClient.delete<DeleteFileResult>(`/files/${id}`, {
+    params: force ? { force: true } : undefined,
+  });
+}
+
+/** 批量删除文件结果 */
+export interface BatchDeleteResult {
+  deleted: number;
+  errors: string[];
+  shareExists?: boolean;
+  shareCount?: number;
 }
 
 /** 批量删除文件 */
-export function batchDeleteFiles(fileIds: number[]) {
-  return requestClient.post<{ deleted: number; errors: string[] }>('/files/batch-delete', { fileIds });
+export function batchDeleteFiles(fileIds: number[], force?: boolean): Promise<BatchDeleteResult> {
+  return requestClient.post<BatchDeleteResult>('/files/batch-delete', { fileIds, force: !!force });
 }
 
 /** 批量移动文件 */

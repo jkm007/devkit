@@ -2,6 +2,7 @@ package handler
 
 import (
 	"strconv"
+	"strings"
 
 	"backend-server/internal/middleware"
 	"backend-server/internal/service"
@@ -234,7 +235,8 @@ func (h *FileHandler) MoveFile(c *gin.Context) {
 // @Summary      删除文件
 // @Tags         文件管理
 // @Produce      json
-// @Param        id  path  int  true  "文件ID"
+// @Param        id     path   int   true  "文件ID"
+// @Param        force  query  bool  false "强制删除（包括分享记录）"
 // @Success      200   {object}  response.Response
 // @Router       /files/{id} [delete]
 func (h *FileHandler) DeleteFile(c *gin.Context) {
@@ -244,13 +246,22 @@ func (h *FileHandler) DeleteFile(c *gin.Context) {
 		return
 	}
 
+	force := c.DefaultQuery("force", "false") == "true"
+
 	userID := middleware.GetCurrentUserID(c)
 	// 检查是否有删除权限
 	hasPermission := h.hasFilePermission(userID, "file:delete") || h.hasFilePermission(userID, "file:manage")
 
-	if err := h.fileService.DeleteFile(userID, uint(id), hasPermission); err != nil {
+	if err := h.fileService.DeleteFile(userID, uint(id), hasPermission, force); err != nil {
 		if err.Error() == "文件不存在" {
 			response.NotFound(c, "文件不存在")
+		} else if strings.HasPrefix(err.Error(), "SHARE_EXISTS:") {
+			// 返回分享数量，让前端提示用户
+			countStr := strings.TrimPrefix(err.Error(), "SHARE_EXISTS:")
+			response.Success(c, gin.H{
+				"shareExists": true,
+				"shareCount":  countStr,
+			})
 		} else {
 			response.InternalError(c, err.Error())
 		}
@@ -263,6 +274,7 @@ func (h *FileHandler) DeleteFile(c *gin.Context) {
 // batchDeleteRequest 批量删除请求
 type batchDeleteRequest struct {
 	FileIDs []uint `json:"fileIds" binding:"required,min=1"`
+	Force   bool   `json:"force"` // 强制删除（包括分享记录）
 }
 
 // BatchDeleteFiles 批量删除文件
@@ -284,7 +296,7 @@ func (h *FileHandler) BatchDeleteFiles(c *gin.Context) {
 	// 检查是否有删除权限
 	hasPermission := h.hasFilePermission(userID, "file:delete") || h.hasFilePermission(userID, "file:manage")
 
-	deleted, errors := h.fileService.BatchDeleteFiles(userID, req.FileIDs, hasPermission)
+	deleted, errors := h.fileService.BatchDeleteFiles(userID, req.FileIDs, hasPermission, req.Force)
 
 	response.Success(c, gin.H{
 		"deleted": deleted,
