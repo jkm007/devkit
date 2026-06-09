@@ -61,6 +61,78 @@ const tagForm = reactive({
   sortOrder: 0,
 });
 
+// 图标选项
+const iconOptions = [
+  { value: '📁', emoji: '📁', label: '文件夹' },
+  { value: '📄', emoji: '📄', label: '文档' },
+  { value: '🖼️', emoji: '🖼️', label: '图片' },
+  { value: '🎬', emoji: '🎬', label: '视频' },
+  { value: '🎵', emoji: '🎵', label: '音频' },
+  { value: '📦', emoji: '📦', label: '压缩包' },
+  { value: '📝', emoji: '📝', label: '笔记' },
+  { value: '📊', emoji: '📊', label: '报表' },
+  { value: '📈', emoji: '📈', label: '数据' },
+  { value: '🔧', emoji: '🔧', label: '工具' },
+  { value: '⚙️', emoji: '⚙️', label: '设置' },
+  { value: '🎯', emoji: '🎯', label: '目标' },
+  { value: '⭐', emoji: '⭐', label: '星标' },
+  { value: '❤️', emoji: '❤️', label: '心' },
+  { value: '🔥', emoji: '🔥', label: '热门' },
+  { value: '💡', emoji: '💡', label: '创意' },
+  { value: '🔒', emoji: '🔒', label: '加密' },
+  { value: '🌐', emoji: '🌐', label: '网络' },
+  { value: '👤', emoji: '👤', label: '用户' },
+  { value: '👥', emoji: '👥', label: '团队' },
+  { value: '🏠', emoji: '🏠', label: '主页' },
+  { value: '🏢', emoji: '🏢', label: '公司' },
+  { value: '📅', emoji: '📅', label: '日期' },
+  { value: '⏰', emoji: '⏰', label: '时间' },
+  { value: '🏷️', emoji: '🏷️', label: '标签' },
+  { value: '📌', emoji: '📌', label: '固定' },
+  { value: '📎', emoji: '📎', label: '附件' },
+  { value: '🔗', emoji: '🔗', label: '链接' },
+  { value: '💰', emoji: '💰', label: '财务' },
+  { value: '🎁', emoji: '🎁', label: '礼物' },
+  { value: '🎉', emoji: '🎉', label: '庆祝' },
+  { value: '🚀', emoji: '🚀', label: '发布' },
+  { value: '⚡', emoji: '⚡', label: '快速' },
+  { value: '🌈', emoji: '🌈', label: '彩虹' },
+  { value: '🎨', emoji: '🎨', label: '设计' },
+  { value: '📱', emoji: '📱', label: '移动端' },
+  { value: '💻', emoji: '💻', label: '开发' },
+  { value: '🎮', emoji: '🎮', label: '游戏' },
+  { value: '📚', emoji: '📚', label: '学习' },
+  { value: '🔬', emoji: '🔬', label: '研究' },
+];
+
+// 颜色选项
+const colorOptions = [
+  '#1890ff',
+  '#52c41a',
+  '#faad14',
+  '#f5222d',
+  '#722ed1',
+  '#13c2c2',
+  '#eb2f96',
+  '#fa8c16',
+  '#2f54eb',
+  '#a0d911',
+  '#fadb14',
+  '#ff4d4f',
+  '#9254de',
+  '#36cfc9',
+  '#ff85c0',
+  '#ffa940',
+  '#40a9ff',
+  '#73d13d',
+  '#ffec3d',
+  '#ff7875',
+  '#b37feb',
+  '#5cdbd3',
+  '#ff9c6e',
+  '#87e8de',
+];
+
 // 存储桶相关
 const storageBuckets = ref<StorageBucketApi.StorageBucket[]>([]);
 const storageBucketOptions = computed(() =>
@@ -576,7 +648,7 @@ const getTagValueOptions = (key: string) => {
       v-model:open="tagModalVisible"
       :title="tagEditing ? t('system.tag.editTag') : t('system.tag.addTag')"
       @ok="handleTagSubmit"
-      width="500px"
+      width="560px"
     >
       <Form :model="tagForm" layout="vertical">
         <Form.Item :label="t('system.tag.tagKey')" required>
@@ -589,10 +661,44 @@ const getTagValueOptions = (key: string) => {
           <Input v-model:value="tagForm.tagName" :placeholder="t('system.tag.tagNamePlaceholder')" />
         </Form.Item>
         <Form.Item :label="t('system.tag.icon')">
-          <Input v-model:value="tagForm.icon" :placeholder="t('system.tag.iconPlaceholder')" />
+          <Select
+            v-model:value="tagForm.icon"
+            :placeholder="t('system.tag.iconPlaceholder')"
+            show-search
+            allow-clear
+            :filter-option="(input: string, option: any) => option.value.toLowerCase().includes(input.toLowerCase())"
+          >
+            <Select.Option v-for="icon in iconOptions" :key="icon.value" :value="icon.value">
+              <span class="mr-2" style="font-size: 16px">{{ icon.emoji }}</span>
+              {{ icon.label }}
+            </Select.Option>
+          </Select>
+          <div v-if="tagForm.icon" class="mt-1">
+            <span class="text-gray-400 text-xs">预览：</span>
+            <span style="font-size: 20px">{{ tagForm.icon }}</span>
+          </div>
         </Form.Item>
         <Form.Item :label="t('system.tag.color')">
-          <Input v-model:value="tagForm.color" placeholder="#1890ff" />
+          <div class="flex flex-wrap gap-2">
+            <div
+              v-for="color in colorOptions"
+              :key="color"
+              class="w-7 h-7 rounded cursor-pointer border-2 flex items-center justify-center"
+              :style="{
+                backgroundColor: color,
+                borderColor: tagForm.color === color ? '#333' : 'transparent',
+              }"
+              @click="tagForm.color = color"
+            >
+              <span v-if="tagForm.color === color" class="text-white text-xs">✓</span>
+            </div>
+            <Input
+              v-model:value="tagForm.color"
+              style="width: 100px"
+              placeholder="#1890ff"
+              size="small"
+            />
+          </div>
         </Form.Item>
         <Form.Item :label="t('system.tag.description')">
           <Input.TextArea v-model:value="tagForm.description" />
