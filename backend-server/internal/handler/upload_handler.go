@@ -63,6 +63,7 @@ type initRequest struct {
 	FileHash    string `json:"fileHash" binding:"required"`
 	ContentType string `json:"contentType"`
 	TotalParts  int    `json:"totalParts" binding:"required,min=1"`
+	FolderID    uint   `json:"folderId"`
 }
 
 // InitUpload 初始化分片上传
@@ -82,7 +83,7 @@ func (h *UploadHandler) InitUpload(c *gin.Context) {
 	}
 
 	userID := middleware.GetCurrentUserID(c)
-	result, err := h.uploadService.InitUpload(userID, req.FileName, req.FileSize, req.FileHash, req.ContentType, req.TotalParts)
+	result, err := h.uploadService.InitUpload(userID, req.FileName, req.FileSize, req.FileHash, req.ContentType, req.TotalParts, req.FolderID)
 	if err != nil {
 		response.InternalError(c, err.Error())
 		return
@@ -109,6 +110,18 @@ func (h *UploadHandler) UploadPart(c *gin.Context) {
 		return
 	}
 
+	// 所有权检查
+	userID := middleware.GetCurrentUserID(c)
+	task, err := h.uploadService.GetTaskByUploadID(uploadID)
+	if err != nil {
+		response.NotFound(c, "上传任务不存在")
+		return
+	}
+	if task.UserID != userID {
+		response.Forbidden(c, "无权操作此上传任务")
+		return
+	}
+
 	partNumberStr := c.PostForm("partNumber")
 	partNumber, err := strconv.Atoi(partNumberStr)
 	if err != nil || partNumber < 1 {
@@ -131,7 +144,7 @@ func (h *UploadHandler) UploadPart(c *gin.Context) {
 
 	result, err := h.uploadService.UploadPart(uploadID, partNumber, file, size)
 	if err != nil {
-		response.InternalError(c, "上传分片失败: "+err.Error())
+		response.InternalError(c, "上传分片失败")
 		return
 	}
 
@@ -159,9 +172,21 @@ func (h *UploadHandler) CompleteUpload(c *gin.Context) {
 		return
 	}
 
+	// 所有权检查
+	userID := middleware.GetCurrentUserID(c)
+	task, err := h.uploadService.GetTaskByUploadID(req.UploadID)
+	if err != nil {
+		response.NotFound(c, "上传任务不存在")
+		return
+	}
+	if task.UserID != userID {
+		response.Forbidden(c, "无权操作此上传任务")
+		return
+	}
+
 	result, err := h.uploadService.CompleteUpload(req.UploadID)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		response.InternalError(c, "合并分片失败")
 		return
 	}
 
@@ -189,8 +214,20 @@ func (h *UploadHandler) AbortUpload(c *gin.Context) {
 		return
 	}
 
+	// 所有权检查
+	userID := middleware.GetCurrentUserID(c)
+	task, err := h.uploadService.GetTaskByUploadID(req.UploadID)
+	if err != nil {
+		response.NotFound(c, "上传任务不存在")
+		return
+	}
+	if task.UserID != userID {
+		response.Forbidden(c, "无权操作此上传任务")
+		return
+	}
+
 	if err := h.uploadService.AbortUpload(req.UploadID); err != nil {
-		response.InternalError(c, err.Error())
+		response.InternalError(c, "取消上传失败")
 		return
 	}
 
@@ -212,9 +249,21 @@ func (h *UploadHandler) GetUploadStatus(c *gin.Context) {
 		return
 	}
 
+	// 所有权检查
+	userID := middleware.GetCurrentUserID(c)
+	task, err := h.uploadService.GetTaskByUploadID(uploadID)
+	if err != nil {
+		response.NotFound(c, "上传任务不存在")
+		return
+	}
+	if task.UserID != userID {
+		response.Forbidden(c, "无权查看此上传任务")
+		return
+	}
+
 	result, err := h.uploadService.GetUploadStatus(uploadID)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		response.InternalError(c, "获取状态失败")
 		return
 	}
 

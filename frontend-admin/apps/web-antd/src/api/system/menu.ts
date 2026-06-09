@@ -83,6 +83,8 @@ export namespace SystemMenuApi {
     path: string;
     /** 父级ID */
     pid: number;
+    /** 排序值(越小越靠前) */
+    sort?: number;
     /** 重定向 */
     redirect?: string;
     /** 菜单类型 */

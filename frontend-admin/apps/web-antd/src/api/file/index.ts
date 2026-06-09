@@ -185,6 +185,7 @@ export function initUpload(data: {
   fileHash: string;
   contentType?: string;
   totalParts: number;
+  folderId?: number;
 }) {
   return requestClient.post<FileApi.InitUploadResult>('/files/upload/init', data);
 }
@@ -586,6 +587,7 @@ export async function simpleUpload(
   file: File,
   onProgress?: UploadProgressCallback,
   onPartProgress?: PartProgressCallback,
+  folderId?: number,
 ): Promise<FileApi.CompleteUploadResult> {
   // 计算文件 hash
   const fileHash = await calculateFileHash(file);
@@ -612,6 +614,7 @@ export async function simpleUpload(
       fileHash,
       contentType: file.type,
       totalParts: 1,
+      folderId,
     });
 
     const partStartTime = Date.now();
@@ -643,7 +646,7 @@ export async function simpleUpload(
   }
 
   // 大文件分片上传
-  return chunkedUpload(file, fileHash, onProgress, onPartProgress);
+  return chunkedUpload(file, fileHash, onProgress, onPartProgress, folderId);
 }
 
 /** 大文件分片上传 */
@@ -652,6 +655,7 @@ async function chunkedUpload(
   fileHash: string,
   onProgress?: UploadProgressCallback,
   onPartProgress?: PartProgressCallback,
+  folderId?: number,
 ): Promise<FileApi.CompleteUploadResult> {
   // 计算分片数量
   const totalParts = Math.ceil(file.size / CHUNK_SIZE);
@@ -663,6 +667,7 @@ async function chunkedUpload(
     fileHash,
     contentType: file.type,
     totalParts,
+    folderId,
   });
 
   // 已上传的分片

@@ -40,6 +40,12 @@ export function useColumns(): VxeTableGridColumns<SystemMenuApi.SystemMenu> {
       width: 100,
     },
     {
+      align: 'center',
+      field: 'sort',
+      title: $t('system.menu.sort'),
+      width: 80,
+    },
+    {
       field: 'authCode',
       title: $t('system.menu.authCode'),
       width: 200,

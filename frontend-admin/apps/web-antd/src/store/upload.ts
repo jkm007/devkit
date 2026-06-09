@@ -78,7 +78,7 @@ export const useUploadStore = defineStore('upload', () => {
   }
 
   // 执行上传
-  async function uploadFile(file: File): Promise<void> {
+  async function uploadFile(file: File, folderId?: number): Promise<void> {
     const tempId = Date.now();
     const startTime = Date.now();
     const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
@@ -138,7 +138,7 @@ export const useUploadStore = defineStore('upload', () => {
     uploadingCount.value++;
 
     try {
-      const result = await simpleUpload(file, onProgress, onPartProgress);
+      const result = await simpleUpload(file, onProgress, onPartProgress, folderId);
       console.log('上传成功:', result);
 
       const endTime = Date.now();

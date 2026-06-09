@@ -27,6 +27,7 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	r.Use(middleware.Logger())
 	r.Use(middleware.CORS(cfg.CORS))
 	r.Use(middleware.RateLimiter(cfg.RateLimit))
+	r.Use(middleware.DBRateLimiter())
 	r.Use(gin.Recovery())
 
 	// 初始化处理器
@@ -55,6 +56,7 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	storageBucketHandler := handler.NewStorageBucketHandler(service.NewStorageBucketService(repository.NewStorageBucketRepo(database.GetMySQL())))
 	storageConfigHandler := handler.NewStorageConfigHandler()
 	fileTypeRuleHandler := handler.NewFileTypeRuleHandler()
+	rateLimitRuleHandler := handler.NewRateLimitRuleHandler()
 
 	// 健康检查
 	// @Summary      健康检查
@@ -80,8 +82,8 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	// 公开接口（无需认证）
 	r.GET("/system/settings/public", systemSettingHandler.GetPublic)
 
-	// 分享访问（公开，独立限流：每秒 10 个，突发 20）
-	sharePublic := r.Group("/share", middleware.NewIPRateLimiter(10, 20))
+	// 分享访问（公开，限流由数据库规则管理）
+	sharePublic := r.Group("/share")
 	{
 		sharePublic.GET("/:code", shareHandler.GetShareInfo)
 		sharePublic.GET("/:code/files", shareHandler.GetShareFolderFiles)
@@ -89,34 +91,24 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		sharePublic.GET("/:code/file/:fileId", shareHandler.GetShareFile)
 	}
 
-	// 认证接口（无需认证）
+	// 认证接口（无需认证，限流由数据库规则管理）
 	captchaHandler := handler.NewCaptchaHandler()
 	verifyCodeHandler := handler.NewVerifyCodeHandler()
 	auth := r.Group("/auth")
 	{
-		// 验证码接口单独限流（每秒 5 个，突发 10）
-		auth.GET("/captcha", middleware.NewIPRateLimiter(5, 10), captchaHandler.GetCaptcha)
+		auth.GET("/captcha", captchaHandler.GetCaptcha)
 		auth.POST("/login", authHandler.Login)
-		// 邮箱登录（限流：每秒 1 个，突发 3）
-		auth.POST("/login-by-email", middleware.NewIPRateLimiter(1, 3), authHandler.LoginByEmail)
+		auth.POST("/login-by-email", authHandler.LoginByEmail)
 		auth.POST("/logout", authHandler.Logout)
 		auth.POST("/refresh", authHandler.RefreshToken)
 		auth.GET("/oauth/authorize", oauthHandler.GetBindURL)
-		// OAuth 回调（限流：每秒 2 个，突发 5）
-		auth.GET("/oauth/callback", middleware.NewIPRateLimiter(2, 5), oauthHandler.Callback)
-		// 邮箱验证码（限流：每秒 1 个，突发 2）
-		auth.POST("/send-code", middleware.NewIPRateLimiter(1, 2), verifyCodeHandler.SendCode)
-		// 验证验证码（限流：每秒 5 个，突发 10）
-		auth.POST("/verify-code", middleware.NewIPRateLimiter(5, 10), verifyCodeHandler.VerifyCode)
-		// 短信验证码（限流：每秒 1 个，突发 2）
-		auth.POST("/send-sms-code", middleware.NewIPRateLimiter(1, 2), verifyCodeHandler.SendSMSCode)
-		// 手机号登录（限流：每秒 1 个，突发 3）
-		auth.POST("/login-by-phone", middleware.NewIPRateLimiter(1, 3), authHandler.LoginByPhone)
-		// 注册（限流：每秒 1 个，突发 3）
-		auth.POST("/register", middleware.NewIPRateLimiter(1, 3), authHandler.Register)
-		// 重置密码（限流：每秒 1 个，突发 3）
-		auth.POST("/reset-password", middleware.NewIPRateLimiter(1, 3), authHandler.ResetPassword)
-
+		auth.GET("/oauth/callback", oauthHandler.Callback)
+		auth.POST("/send-code", verifyCodeHandler.SendCode)
+		auth.POST("/verify-code", verifyCodeHandler.VerifyCode)
+		auth.POST("/send-sms-code", verifyCodeHandler.SendSMSCode)
+		auth.POST("/login-by-phone", authHandler.LoginByPhone)
+		auth.POST("/register", authHandler.Register)
+		auth.POST("/reset-password", authHandler.ResetPassword)
 
 		// 微信登录
 		wechat := auth.Group("/wechat")
@@ -332,6 +324,14 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 			system.PUT("/storage-configs/:id/default", middleware.Permission("storage:config:edit"), storageConfigHandler.SetDefault)
 			system.POST("/storage-configs/:id/test", middleware.Permission("storage:config:edit"), storageConfigHandler.TestConnection)
 			system.POST("/storage-configs/test-by-data", middleware.Permission("storage:config:edit"), storageConfigHandler.TestConnectionByData)
+
+			// 限流规则管理
+			system.GET("/rate-limit-rules", middleware.Permission("security:ratelimit:view"), rateLimitRuleHandler.List)
+			system.GET("/rate-limit-rules/:id", middleware.Permission("security:ratelimit:view"), rateLimitRuleHandler.GetByID)
+			system.POST("/rate-limit-rules", middleware.Permission("security:ratelimit:edit"), rateLimitRuleHandler.Create)
+			system.PUT("/rate-limit-rules/:id", middleware.Permission("security:ratelimit:edit"), rateLimitRuleHandler.Update)
+			system.DELETE("/rate-limit-rules/:id", middleware.Permission("security:ratelimit:delete"), rateLimitRuleHandler.Delete)
+			system.PUT("/rate-limit-rules/:id/status", middleware.Permission("security:ratelimit:edit"), rateLimitRuleHandler.UpdateStatus)
 
 			// 文件类型规则管理
 			system.GET("/file-type-rules", middleware.Permission("storage:file-type:view"), fileTypeRuleHandler.GetAll)

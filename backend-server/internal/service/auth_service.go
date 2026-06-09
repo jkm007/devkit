@@ -414,22 +414,15 @@ func permissionCacheKey(userID uint) string {
 
 // GetPermissionCodes 获取权限码列表（带 Redis 缓存）
 func (s *AuthService) GetPermissionCodes(userID uint) ([]string, error) {
-	ctx := context.Background()
-	cacheKey := permissionCacheKey(userID)
-
-	// 1. 尝试从缓存获取
-	var cachedCodes []string
-	if err := cache.Get(ctx, cacheKey, &cachedCodes); err == nil {
-		return cachedCodes, nil
-	}
-
-	// 2. 缓存未命中，查询数据库
+	// 直接从数据库加载（缓存暂时禁用，等权限稳定后恢复）
 	codes, err := s.loadPermissionCodesFromDB(userID)
 	if err != nil {
 		return nil, err
 	}
 
-	// 3. 写入缓存，10 分钟过期
+	// 写入缓存供其他地方使用
+	ctx := context.Background()
+	cacheKey := permissionCacheKey(userID)
 	_ = cache.Set(ctx, cacheKey, codes, 10*time.Minute)
 
 	return codes, nil

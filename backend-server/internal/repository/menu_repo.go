@@ -19,7 +19,7 @@ func NewMenuRepo(db *gorm.DB) *MenuRepo {
 // List 获取所有菜单列表
 func (r *MenuRepo) List() ([]model.Menu, error) {
 	var menus []model.Menu
-	if err := r.db.Order("created_at ASC").Find(&menus).Error; err != nil {
+	if err := r.db.Order("sort ASC, id ASC").Find(&menus).Error; err != nil {
 		return nil, err
 	}
 	return menus, nil
@@ -79,7 +79,7 @@ func (r *MenuRepo) GetByIDs(ids []uint) ([]model.Menu, error) {
 // GetChildren 获取子菜单
 func (r *MenuRepo) GetChildren(pid uint) ([]model.Menu, error) {
 	var menus []model.Menu
-	if err := r.db.Where("pid = ?", pid).Order("created_at ASC").Find(&menus).Error; err != nil {
+	if err := r.db.Where("pid = ?", pid).Order("sort ASC, id ASC").Find(&menus).Error; err != nil {
 		return nil, err
 	}
 	return menus, nil

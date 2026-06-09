@@ -96,7 +96,7 @@ type InitResult struct {
 }
 
 // InitUpload 初始化分片上传
-func (s *UploadService) InitUpload(userID uint, fileName string, fileSize int64, fileHash string, contentType string, totalParts int) (*InitResult, error) {
+func (s *UploadService) InitUpload(userID uint, fileName string, fileSize int64, fileHash string, contentType string, totalParts int, folderID uint) (*InitResult, error) {
 	// 使用路由引擎生成 objectKey 并确定存储驱动
 	routingResult, _, err := storage.Route(fileName, contentType, "user")
 	if err != nil {
@@ -158,6 +158,7 @@ func (s *UploadService) InitUpload(userID uint, fileName string, fileSize int64,
 		TotalParts:    totalParts,
 		Status:        "uploading",
 		UserID:        userID,
+		FolderID:      folderID,
 	}
 	if err := s.uploadRepo.CreateTask(task); err != nil {
 		return nil, fmt.Errorf("创建上传任务失败: %w", err)
@@ -349,7 +350,7 @@ func (s *UploadService) CompleteUpload(uploadID string) (*CompleteResult, error)
 
 		// 创建文件条目（用于文件列表显示）
 		entry := &model.FileEntry{
-			FolderID:     0, // 根目录
+			FolderID:     task.FolderID,
 			FileAssetID:  asset.ID,
 			Name:         task.FileName,
 			Size:         task.FileSize,
@@ -500,6 +501,11 @@ func (s *UploadService) GetUserUploadTasks(userID uint, limit int) ([]model.Uplo
 // GetUploadTaskByID 根据ID获取上传任务
 func (s *UploadService) GetUploadTaskByID(id uint) (*model.UploadTask, error) {
 	return s.uploadRepo.GetTaskByID(id)
+}
+
+// GetTaskByUploadID 根据 uploadID 获取上传任务
+func (s *UploadService) GetTaskByUploadID(uploadID string) (*model.UploadTask, error) {
+	return s.uploadRepo.GetTaskByUploadID(uploadID)
 }
 
 // TaskStatusResponse 任务状态响应

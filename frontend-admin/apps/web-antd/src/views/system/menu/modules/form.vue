@@ -252,6 +252,18 @@ const schema: VbenFormSchema[] = [
     label: $t('system.menu.authCode'),
   },
   {
+    component: 'InputNumber',
+    componentProps: {
+      class: 'w-full',
+      min: 0,
+      max: 9999,
+      placeholder: '0',
+    },
+    defaultValue: 0,
+    fieldName: 'sort',
+    label: $t('system.menu.sort'),
+  },
+  {
     component: 'RadioGroup',
     componentProps: {
       buttonStyle: 'solid',

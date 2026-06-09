@@ -74,25 +74,10 @@ const groupConfig: Record<
     title: $t('system.settings.groups.captcha'),
     description: $t('system.settings.groupDesc.captcha'),
   },
-  risk_score: {
-    icon: '⚠️',
-    title: $t('system.settings.groups.riskScore'),
-    description: $t('system.settings.groupDesc.riskScore'),
-  },
-  storage: {
-    icon: '📁',
-    title: $t('system.settings.groups.storage'),
-    description: $t('system.settings.groupDesc.storage'),
-  },
   wechat: {
     icon: '💚',
     title: $t('system.settings.groups.wechat'),
     description: $t('system.settings.groupDesc.wechat'),
-  },
-  security: {
-    icon: '🛡️',
-    title: $t('system.settings.groups.security'),
-    description: $t('system.settings.groupDesc.security'),
   },
 };
 
@@ -102,10 +87,7 @@ const ALL_GROUPS = [
   'email',
   'sms',
   'captcha',
-  'risk_score',
-  'storage',
   'wechat',
-  'security',
 ];
 
 // 验证码类型中文映射
@@ -511,15 +493,6 @@ function getSelectOptions(
     return item.options;
   }
   return [];
-}
-
-function getStorageSubGroup(item: SystemSettingsApi.SettingItem): string {
-  const key = item.key;
-  // 支持带前缀和不带前缀的 key
-  if (key.startsWith('storage_minio_') || key.startsWith('minio_')) return 'minio';
-  if (key.startsWith('storage_oss_') || key.startsWith('oss_')) return 'oss';
-  if (key.startsWith('storage_cos_') || key.startsWith('cos_')) return 'cos';
-  return 'general';
 }
 
 // ==================== Lifecycle ====================
@@ -1214,290 +1187,6 @@ onMounted(() => {
             </Modal>
           </div>
 
-          <!-- ==================== 风险评分设置 ==================== -->
-          <div
-            v-else-if="activeGroup === 'risk_score' && formValues.risk_score"
-          >
-            <!-- 通用配置 -->
-            <div class="settings-section">
-              <h3 class="settings-section-title">⚙️ 通用配置</h3>
-              <Row :gutter="[16, 16]">
-                <Col
-                  v-for="item in currentGroupItems.filter((i) => i.key.startsWith('risk_') && !i.key.startsWith('rule_'))"
-                  :key="item.key"
-                  :span="12"
-                >
-                  <div class="setting-item">
-                    <label class="setting-label">
-                      {{ item.label }}
-                      <Tooltip v-if="item.tip" :title="item.tip">
-                        <span class="text-foreground/40 ml-1 cursor-help">ⓘ</span>
-                      </Tooltip>
-                    </label>
-                    <Switch
-                      v-if="item.type === 'boolean'"
-                      v-model:checked="formValues.risk_score[item.key]"
-                    />
-                    <InputNumber
-                      v-else-if="item.type === 'number'"
-                      v-model:value="formValues.risk_score[item.key]"
-                      class="w-full"
-                      :min="0"
-                    />
-                    <Input
-                      v-else-if="item.type === 'string'"
-                      v-model:value="formValues.risk_score[item.key]"
-                      :placeholder="item.tip"
-                    />
-                  </div>
-                </Col>
-              </Row>
-            </div>
-
-            <Divider />
-
-            <!-- 频率检测规则 -->
-            <div class="settings-section">
-              <h3 class="settings-section-title">📊 频率检测规则</h3>
-              <Row :gutter="[16, 16]">
-                <Col
-                  v-for="item in currentGroupItems.filter((i) => i.key.startsWith('rule_frequency'))"
-                  :key="item.key"
-                  :span="12"
-                >
-                  <div class="setting-item">
-                    <label class="setting-label">
-                      {{ item.label }}
-                      <Tooltip v-if="item.tip" :title="item.tip">
-                        <span class="text-foreground/40 ml-1 cursor-help">ⓘ</span>
-                      </Tooltip>
-                    </label>
-                    <Switch
-                      v-if="item.type === 'boolean'"
-                      v-model:checked="formValues.risk_score[item.key]"
-                    />
-                    <InputNumber
-                      v-else-if="item.type === 'number'"
-                      v-model:value="formValues.risk_score[item.key]"
-                      class="w-full"
-                      :min="0"
-                    />
-                  </div>
-                </Col>
-              </Row>
-            </div>
-
-            <Divider />
-
-            <!-- 无 Referer 规则 -->
-            <div class="settings-section">
-              <h3 class="settings-section-title">🔗 无 Referer 规则</h3>
-              <Row :gutter="[16, 16]">
-                <Col
-                  v-for="item in currentGroupItems.filter((i) => i.key.startsWith('rule_no_referer'))"
-                  :key="item.key"
-                  :span="12"
-                >
-                  <div class="setting-item">
-                    <label class="setting-label">
-                      {{ item.label }}
-                      <Tooltip v-if="item.tip" :title="item.tip">
-                        <span class="text-foreground/40 ml-1 cursor-help">ⓘ</span>
-                      </Tooltip>
-                    </label>
-                    <Switch
-                      v-if="item.type === 'boolean'"
-                      v-model:checked="formValues.risk_score[item.key]"
-                    />
-                    <InputNumber
-                      v-else-if="item.type === 'number'"
-                      v-model:value="formValues.risk_score[item.key]"
-                      class="w-full"
-                      :min="0"
-                    />
-                  </div>
-                </Col>
-              </Row>
-            </div>
-
-            <Divider />
-
-            <!-- 无 Accept-Language 规则 -->
-            <div class="settings-section">
-              <h3 class="settings-section-title">🌐 无 Accept-Language 规则</h3>
-              <Row :gutter="[16, 16]">
-                <Col
-                  v-for="item in currentGroupItems.filter((i) => i.key.startsWith('rule_no_lang'))"
-                  :key="item.key"
-                  :span="12"
-                >
-                  <div class="setting-item">
-                    <label class="setting-label">
-                      {{ item.label }}
-                      <Tooltip v-if="item.tip" :title="item.tip">
-                        <span class="text-foreground/40 ml-1 cursor-help">ⓘ</span>
-                      </Tooltip>
-                    </label>
-                    <Switch
-                      v-if="item.type === 'boolean'"
-                      v-model:checked="formValues.risk_score[item.key]"
-                    />
-                    <InputNumber
-                      v-else-if="item.type === 'number'"
-                      v-model:value="formValues.risk_score[item.key]"
-                      class="w-full"
-                      :min="0"
-                    />
-                  </div>
-                </Col>
-              </Row>
-            </div>
-
-            <Divider />
-
-            <!-- UA 异常规则 -->
-            <div class="settings-section">
-              <h3 class="settings-section-title">🤖 UA 异常规则</h3>
-              <Row :gutter="[16, 16]">
-                <Col
-                  v-for="item in currentGroupItems.filter((i) => i.key.startsWith('rule_ua'))"
-                  :key="item.key"
-                  :span="12"
-                >
-                  <div class="setting-item">
-                    <label class="setting-label">
-                      {{ item.label }}
-                      <Tooltip v-if="item.tip" :title="item.tip">
-                        <span class="text-foreground/40 ml-1 cursor-help">ⓘ</span>
-                      </Tooltip>
-                    </label>
-                    <Switch
-                      v-if="item.type === 'boolean'"
-                      v-model:checked="formValues.risk_score[item.key]"
-                    />
-                    <InputNumber
-                      v-else-if="item.type === 'number'"
-                      v-model:value="formValues.risk_score[item.key]"
-                      class="w-full"
-                      :min="0"
-                    />
-                    <Input
-                      v-else-if="item.type === 'string'"
-                      v-model:value="formValues.risk_score[item.key]"
-                      :placeholder="item.tip"
-                    />
-                  </div>
-                </Col>
-              </Row>
-            </div>
-
-            <Divider />
-
-            <!-- 请求间隔规则 -->
-            <div class="settings-section">
-              <h3 class="settings-section-title">⏱️ 请求间隔规则</h3>
-              <Row :gutter="[16, 16]">
-                <Col
-                  v-for="item in currentGroupItems.filter((i) => i.key.startsWith('rule_interval'))"
-                  :key="item.key"
-                  :span="12"
-                >
-                  <div class="setting-item">
-                    <label class="setting-label">
-                      {{ item.label }}
-                      <Tooltip v-if="item.tip" :title="item.tip">
-                        <span class="text-foreground/40 ml-1 cursor-help">ⓘ</span>
-                      </Tooltip>
-                    </label>
-                    <Switch
-                      v-if="item.type === 'boolean'"
-                      v-model:checked="formValues.risk_score[item.key]"
-                    />
-                    <InputNumber
-                      v-else-if="item.type === 'number'"
-                      v-model:value="formValues.risk_score[item.key]"
-                      class="w-full"
-                      :min="0"
-                    />
-                  </div>
-                </Col>
-              </Row>
-            </div>
-          </div>
-
-          <!-- ==================== 存储设置 ==================== -->
-          <div
-            v-else-if="activeGroup === 'storage' && formValues.storage"
-          >
-            <Alert
-              message="存储管理已独立"
-              description="存储连接配置和存储桶管理已拆分为独立页面，支持更灵活的多配置管理。"
-              type="info"
-              show-icon
-              class="mb-4"
-            />
-
-            <div class="settings-section">
-              <h3 class="settings-section-title">⚙️ 存储管理入口</h3>
-              <div class="flex flex-wrap gap-3">
-                <Button type="primary" @click="$router.push('/system/storage-config')">
-                  📡 存储配置管理
-                </Button>
-                <Button @click="$router.push('/system/storage-bucket')">
-                  📦 存储桶管理
-                </Button>
-                <Button @click="$router.push('/system/tag')">
-                  🏷️ 标签路由管理
-                </Button>
-              </div>
-              <div class="mt-4 text-sm text-gray-500">
-                <ul class="list-disc pl-5 space-y-1">
-                  <li><b>存储配置</b>：管理存储连接信息（MinIO/OSS/COS 的 endpoint、密钥等），支持多个同类型配置</li>
-                  <li><b>存储桶</b>：管理具体的存储桶，自动使用存储配置中的连接信息</li>
-                  <li><b>标签路由</b>：根据文件类型自动选择存储到哪个桶</li>
-                </ul>
-              </div>
-            </div>
-
-            <Divider />
-
-            <!-- 本地存储基本配置 -->
-            <div class="settings-section">
-              <h3 class="settings-section-title">
-                💻 本地存储基本设置
-                <Tag color="green" class="ml-2">始终启用</Tag>
-              </h3>
-              <Row :gutter="[16, 16]">
-                <Col
-                  v-for="item in currentGroupItems.filter((i) => i.key === 'storage_local_path' || i.key === 'storage_local_url_prefix')"
-                  :key="item.key"
-                  :span="12"
-                >
-                  <div class="setting-item">
-                    <label class="setting-label">
-                      {{ item.label }}
-                      <Tooltip v-if="item.tip" :title="item.tip">
-                        <span class="text-foreground/40 ml-1 cursor-help">ⓘ</span>
-                      </Tooltip>
-                    </label>
-                    <Input
-                      v-model:value="formValues.storage[item.key]"
-                      :placeholder="item.tip"
-                    />
-                  </div>
-                </Col>
-              </Row>
-            </div>
-
-            <Alert
-              message="存储优先级"
-              description="本地存储始终启用。默认存储由「存储配置」页面中的默认设置决定。通过标签路由可以实现按文件类型自动选择存储。"
-              type="info"
-              show-icon
-              class="mt-4"
-            />
-          </div>
-
           <!-- ==================== 微信设置 ==================== -->
           <div v-else-if="activeGroup === 'wechat' && formValues.wechat">
             <Row :gutter="[16, 16]">
@@ -1569,49 +1258,6 @@ onMounted(() => {
                     <SelectOption value="wechat">微信</SelectOption>
                     <SelectOption value="google">Google</SelectOption>
                   </Select>
-                </div>
-              </Col>
-            </Row>
-          </div>
-
-          <!-- ==================== 安全设置 ==================== -->
-          <div
-            v-else-if="activeGroup === 'security' && formValues.security"
-          >
-            <Alert
-              :message="$t('system.settings.securityTip')"
-              type="info"
-              show-icon
-              class="mb-4"
-            />
-            <Row :gutter="[16, 16]">
-              <Col
-                v-for="item in currentGroupItems"
-                :key="item.key"
-                :span="12"
-              >
-                <div class="setting-item">
-                  <label class="setting-label">
-                    {{ item.label }}
-                    <Tooltip v-if="item.tip" :title="item.tip">
-                      <span class="text-foreground/40 ml-1 cursor-help">ⓘ</span>
-                    </Tooltip>
-                  </label>
-                  <Input
-                    v-if="item.type === 'string'"
-                    v-model:value="formValues.security[item.key]"
-                    :placeholder="item.tip"
-                  />
-                  <Switch
-                    v-else-if="item.type === 'boolean'"
-                    v-model:checked="formValues.security[item.key]"
-                  />
-                  <InputNumber
-                    v-else-if="item.type === 'number'"
-                    v-model:value="formValues.security[item.key]"
-                    class="w-full"
-                    :min="0"
-                  />
                 </div>
               </Col>
             </Row>

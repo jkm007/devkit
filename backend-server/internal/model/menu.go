@@ -17,6 +17,7 @@ type Menu struct {
 	Status    int            `gorm:"type:tinyint;default:1;comment:状态 1:启用 0:禁用" json:"status"`
 	AuthCode  string         `gorm:"type:varchar(100);comment:权限码" json:"authCode"`
 	Icon      string         `gorm:"type:varchar(100);comment:图标" json:"icon"`
+	Sort      int            `gorm:"type:int;default:0;comment:排序值(越小越靠前)" json:"sort"`
 	Meta      string         `gorm:"type:text;comment:元数据(JSON)" json:"meta"`
 	CreatedAt time.Time      `gorm:"comment:创建时间" json:"createTime"`
 	UpdatedAt time.Time      `gorm:"comment:更新时间" json:"-"`

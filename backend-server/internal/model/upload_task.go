@@ -18,6 +18,7 @@ type UploadTask struct {
 	Status        string     `gorm:"size:20;default:uploading;comment:状态" json:"status"` // uploading, processing, completed, failed, aborted
 	ErrorMessage  string     `gorm:"size:500;comment:失败原因" json:"errorMessage"`
 	UserID        uint       `gorm:"index;comment:上传者ID" json:"userId"`
+	FolderID      uint       `gorm:"index;default:0;comment:目标文件夹ID" json:"folderId"`
 	CompletedAt   *time.Time `gorm:"comment:完成时间" json:"completedAt"`
 	CreatedAt     time.Time  `json:"createdAt"`
 	UpdatedAt     time.Time  `json:"updatedAt"`

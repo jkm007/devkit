@@ -69,7 +69,8 @@
       "normal": "Text",
       "none": "None"
     },
-    "badgeVariants": "Badge Style"
+    "badgeVariants": "Badge Style",
+    "sort": "Sort"
   },
   "role": {
     "title": "Role Management",
@@ -196,5 +197,38 @@
     "testSmsError": "Failed to send test SMS",
     "testCaptcha": "Test Captcha",
     "testCaptchaTip": "Click to preview and interact with the currently configured captcha type"
+  },
+  "tag": {
+    "title": "Tag Routing",
+    "tagKey": "Tag Key",
+    "tagValue": "Tag Value",
+    "description": "Description",
+    "addTag": "Add Tag",
+    "editTag": "Edit Tag",
+    "deleteTag": "Delete Tag",
+    "deleteConfirm": "Are you sure to delete this tag?",
+    "tagKeyPlaceholder": "Enter tag key",
+    "tagValuePlaceholder": "Enter tag value",
+    "descriptionPlaceholder": "Enter description",
+    "tagKeyRequired": "Tag key is required",
+    "tagValueRequired": "Tag value is required",
+    "tagExists": "Tag already exists",
+    "noTags": "No tags",
+    "groupedTags": "Grouped Tags",
+    "ungrouped": "Ungrouped",
+    "files": "files",
+    "addSuccess": "Tag added successfully",
+    "updateSuccess": "Tag updated successfully",
+    "deleteSuccess": "Tag deleted successfully",
+    "operationFailed": "Operation failed",
+    "searchPlaceholder": "Search tags...",
+    "filterByGroup": "Filter by group",
+    "allGroups": "All groups",
+    "tagName": "Tag Name",
+    "tagGroup": "Tag Group",
+    "createTime": "Create Time",
+    "operation": "Operation",
+    "confirm": "Confirm",
+    "cancel": "Cancel"
   }
 }

@@ -108,14 +108,14 @@ onMounted(() => {
         <div class="settings-section">
           <h3 class="settings-section-title">⚙️ 存储管理入口</h3>
           <div class="flex flex-wrap gap-3">
-            <Button type="primary" @click="$router.push('/storage/storage-config')">
-              📡 存储配置管理
+            <Button type="primary" @click="$router.push('/storage/storage-manage')">
+              📡 存储管理
             </Button>
-            <Button @click="$router.push('/storage/storage-bucket')">
-              📦 存储桶管理
+            <Button @click="$router.push('/storage/tag-routing')">
+              🏷️ 标签路由
             </Button>
-            <Button @click="$router.push('/system/tag')">
-              🏷️ 标签路由管理
+            <Button @click="$router.push('/storage/file-type-rule')">
+              📋 文件类型规则
             </Button>
           </div>
           <div class="mt-4 text-sm text-gray-500">

@@ -71,7 +71,8 @@
     "typeCatalog": "目录",
     "typeEmbedded": "内嵌",
     "typeLink": "外链",
-    "typeMenu": "菜单"
+    "typeMenu": "菜单",
+    "sort": "排序"
   },
   "role": {
     "title": "角色管理",

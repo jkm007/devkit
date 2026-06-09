@@ -723,7 +723,7 @@ function copyShareUrl() { fallbackCopy(shareFullUrl.value); }
 
 async function handleUpload(file: File) {
   try {
-    await uploadStore.uploadFile(file);
+    await uploadStore.uploadFile(file, currentFolderId.value ?? undefined);
     message.success(`${file.name} 上传成功`);
     onRefresh();
   } catch (err) { message.error(`上传失败: ${err}`); }

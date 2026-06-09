@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"backend-server/internal/model"
@@ -30,6 +31,7 @@ type CreateMenuRequest struct {
 	Status    int         `json:"status" binding:"required"`
 	PID       uint        `json:"pid"`
 	AuthCode  string      `json:"authCode"`
+	Sort      int         `json:"sort"`
 	Meta      interface{} `json:"meta"`
 }
 
@@ -42,6 +44,7 @@ type UpdateMenuRequest struct {
 	Status    int         `json:"status"`
 	PID       uint        `json:"pid"`
 	AuthCode  string      `json:"authCode"`
+	Sort      *int        `json:"sort"`
 	Meta      interface{} `json:"meta"`
 }
 
@@ -164,6 +167,7 @@ type MenuItem struct {
 	Component  interface{}            `json:"component,omitempty"`
 	Icon       string                 `json:"icon"`
 	AuthCode   string                 `json:"authCode"`
+	Sort       int                    `json:"sort"`
 	Meta       interface{}            `json:"meta"`
 	Status     int                    `json:"status"`
 	CreateTime time.Time              `json:"createTime"`
@@ -180,6 +184,7 @@ func (s *MenuService) menuToMap(menu model.Menu) *MenuItem {
 		Path:       menu.Path,
 		Icon:       menu.Icon,
 		AuthCode:   menu.AuthCode,
+		Sort:       menu.Sort,
 		Status:     menu.Status,
 		CreateTime: menu.CreatedAt,
 	}
@@ -220,8 +225,21 @@ func (s *MenuService) GetByID(id uint) (*model.Menu, error) {
 	return s.menuRepo.GetByID(id)
 }
 
+// 有效的菜单类型
+var validMenuTypes = map[string]bool{
+	"catalog":  true,
+	"menu":     true,
+	"embedded": true,
+	"link":     true,
+	"button":   true,
+}
+
 // Create 创建菜单
 func (s *MenuService) Create(req *CreateMenuRequest) error {
+	if !validMenuTypes[req.Type] {
+		return fmt.Errorf("无效的菜单类型: %s", req.Type)
+	}
+
 	menu := &model.Menu{
 		PID:       req.PID,
 		Name:      req.Name,
@@ -230,6 +248,7 @@ func (s *MenuService) Create(req *CreateMenuRequest) error {
 		Type:      req.Type,
 		Status:    req.Status,
 		AuthCode:  req.AuthCode,
+		Sort:      req.Sort,
 		Meta:      s.metaToString(req.Meta),
 	}
 
@@ -263,6 +282,9 @@ func (s *MenuService) Update(id uint, req *UpdateMenuRequest) error {
 	}
 	if req.AuthCode != "" {
 		menu.AuthCode = req.AuthCode
+	}
+	if req.Sort != nil {
+		menu.Sort = *req.Sort
 	}
 	if req.Meta != nil {
 		menu.Meta = s.metaToString(req.Meta)
