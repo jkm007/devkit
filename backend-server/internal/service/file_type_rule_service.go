@@ -136,15 +136,17 @@ func normalizeExtension(ext string) string {
 	return ext
 }
 
-// isValidFileType 验证文件类型是否有效
+// isValidFileType 验证文件类型是否有效（允许自定义类型）
 func isValidFileType(fileType string) bool {
-	validTypes := map[string]bool{
-		"image":    true,
-		"video":    true,
-		"audio":    true,
-		"document": true,
-		"archive":  true,
-		"other":    true,
+	fileType = strings.TrimSpace(fileType)
+	if fileType == "" {
+		return false
 	}
-	return validTypes[fileType]
+	// 只允许字母、数字、下划线、短横线
+	for _, c := range fileType {
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-') {
+			return false
+		}
+	}
+	return true
 }
