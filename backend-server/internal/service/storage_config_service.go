@@ -12,6 +12,8 @@ import (
 	"backend-server/internal/repository"
 	"backend-server/pkg/database"
 	"backend-server/pkg/storage"
+
+	"gorm.io/gorm"
 )
 
 // StorageConfigService 存储连接配置服务
@@ -61,6 +63,12 @@ func (s *StorageConfigService) Create(config *model.StorageConfig) error {
 	if err := storage.RefreshStorage(); err != nil {
 		log.Printf("[WARN] 刷新存储管理器失败: %v", err)
 	}
+
+	// 同步到桶管理
+	if err := s.SyncBucketsFromConfig(); err != nil {
+		log.Printf("[WARN] 同步存储桶失败: %v", err)
+	}
+
 	return nil
 }
 
@@ -99,6 +107,12 @@ func (s *StorageConfigService) Update(config *model.StorageConfig) error {
 	if err := storage.RefreshStorage(); err != nil {
 		log.Printf("[WARN] 刷新存储管理器失败: %v", err)
 	}
+
+	// 同步到桶管理
+	if err := s.SyncBucketsFromConfig(); err != nil {
+		log.Printf("[WARN] 同步存储桶失败: %v", err)
+	}
+
 	return nil
 }
 
@@ -122,6 +136,12 @@ func (s *StorageConfigService) Delete(id int64) error {
 	if err := storage.RefreshStorage(); err != nil {
 		log.Printf("[WARN] 刷新存储管理器失败: %v", err)
 	}
+
+	// 同步到桶管理
+	if err := s.SyncBucketsFromConfig(); err != nil {
+		log.Printf("[WARN] 同步存储桶失败: %v", err)
+	}
+
 	return nil
 }
 
@@ -230,6 +250,111 @@ func configModelToConfig(m *model.StorageConfig) config.StorageConfig {
 		cfg.COS.CDNDomain = m.CDNDomain
 	}
 	return cfg
+}
+
+// SyncBucketsFromConfig 从 sys_storage_config 同步到 sys_storage_bucket
+// 当存储配置创建/更新/删除时调用，确保桶管理中有对应的默认桶
+func (s *StorageConfigService) SyncBucketsFromConfig() error {
+	db := database.GetMySQL()
+	bucketRepo := repository.NewStorageBucketRepo(db)
+
+	configs, err := s.repo.GetAll()
+	if err != nil {
+		return fmt.Errorf("读取存储配置失败: %w", err)
+	}
+
+	// 按 driver 分组，取默认配置
+	driverConfigs := make(map[string]*model.StorageConfig)
+	for i, c := range configs {
+		if c.Status != 1 {
+			continue
+		}
+		if _, ok := driverConfigs[c.Driver]; !ok || c.IsDefault {
+			driverConfigs[c.Driver] = &configs[i]
+		}
+	}
+
+	driverLabels := map[string]string{
+		"local": "本地存储",
+		"minio": "MinIO",
+		"oss":   "阿里云 OSS",
+		"cos":   "腾讯云 COS",
+	}
+
+	// 同步每个驱动
+	for driver, cfg := range driverConfigs {
+		label := driverLabels[driver]
+		if label == "" {
+			label = driver
+		}
+
+		// 查找该驱动的默认桶
+		existing, err := bucketRepo.GetDefaultByDriver(driver)
+		if err != nil && err != gorm.ErrRecordNotFound {
+			log.Printf("[WARN] 查询 %s 默认桶失败: %v", driver, err)
+			continue
+		}
+
+		if existing != nil {
+			// 更新凭据
+			existing.Endpoint = cfg.Endpoint
+			existing.AccessKey = cfg.AccessKey
+			existing.SecretKey = cfg.SecretKey
+			existing.CDNDomain = cfg.CDNDomain
+			existing.UseSSL = cfg.UseSSL
+			if driver == "cos" {
+				existing.Region = cfg.Region
+			}
+			existing.Status = 1
+			existing.Description = fmt.Sprintf("由存储配置自动同步的 %s 桶", label)
+			if err := bucketRepo.Update(existing); err != nil {
+				log.Printf("[ERROR] 更新 %s 默认桶失败: %v", driver, err)
+			} else {
+				log.Printf("[INFO] 已更新 %s 默认桶凭据", driver)
+			}
+		} else {
+			// 创建新桶
+			newBucket := &model.StorageBucket{
+				Name:       fmt.Sprintf("%s 默认桶", label),
+				Driver:     driver,
+				Endpoint:   cfg.Endpoint,
+				Bucket:     cfg.Bucket,
+				AccessKey:  cfg.AccessKey,
+				SecretKey:  cfg.SecretKey,
+				CDNDomain:  cfg.CDNDomain,
+				UseSSL:     cfg.UseSSL,
+				Purpose:    "file",
+				IsDefault:  true,
+				Status:     1,
+				Description: fmt.Sprintf("由存储配置自动同步的 %s 桶", label),
+			}
+			if driver == "cos" {
+				newBucket.Region = cfg.Region
+			}
+			if err := bucketRepo.Create(newBucket); err != nil {
+				log.Printf("[ERROR] 创建 %s 默认桶失败: %v", driver, err)
+			} else {
+				log.Printf("[INFO] 已创建 %s 默认桶: %s", driver, newBucket.Name)
+			}
+		}
+	}
+
+	// 禁用没有配置的驱动的桶
+	allDrivers := []string{"minio", "oss", "cos"}
+	for _, driver := range allDrivers {
+		if _, ok := driverConfigs[driver]; !ok {
+			existing, err := bucketRepo.GetDefaultByDriver(driver)
+			if err == nil && existing != nil && existing.Status == 1 {
+				existing.Status = 0
+				existing.Description = fmt.Sprintf("%s 未配置，请在存储配置中添加", driverLabels[driver])
+				if err := bucketRepo.Update(existing); err != nil {
+					log.Printf("[ERROR] 禁用 %s 默认桶失败: %v", driver, err)
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 // driverOrder 驱动固定排序顺序
