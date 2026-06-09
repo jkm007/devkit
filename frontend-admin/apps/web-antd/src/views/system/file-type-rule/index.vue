@@ -346,12 +346,21 @@ const typeCounts = computed(() => {
           <AutoComplete
             v-model:value="form.fileType"
             :options="fileTypeOptions"
-            placeholder="选择已有类型或输入新类型"
+            placeholder="输入自定义类型，如 design、cad、font"
             :filter-option="(input: string, option: any) =>
               option.value.toLowerCase().includes(input.toLowerCase())"
           />
-          <div class="text-gray-400 text-xs mt-1">
-            预设：image / video / audio / document / archive，也可自定义
+          <div class="mt-2">
+            <span class="text-gray-400 text-xs">快速选择：</span>
+            <Tag
+              v-for="t in defaultTypes"
+              :key="t.value"
+              :color="t.color"
+              class="cursor-pointer ml-1 mb-1"
+              @click="form.fileType = t.value"
+            >
+              {{ t.value }}
+            </Tag>
           </div>
         </Form.Item>
         <Form.Item label="描述">
