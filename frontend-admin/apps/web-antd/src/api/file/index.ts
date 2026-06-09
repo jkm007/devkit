@@ -382,6 +382,11 @@ export function moveFile(data: { fileId: number; targetFolderId?: number }) {
   return requestClient.post('/files/move', data);
 }
 
+/** 检查文件是否有活跃分享 */
+export function checkFileShares(id: number) {
+  return requestClient.get<{ shareCount: number }>(`/files/${id}/shares`);
+}
+
 /** 删除文件 */
 export function deleteFile(id: number) {
   return requestClient.delete(`/files/${id}`);

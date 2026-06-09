@@ -230,6 +230,29 @@ func (h *FileHandler) MoveFile(c *gin.Context) {
 	response.Success(c, nil)
 }
 
+// CheckFileShares 检查文件是否有活跃分享
+// @Summary      检查文件分享
+// @Tags         文件管理
+// @Produce      json
+// @Param        id  path  int  true  "文件ID"
+// @Success      200   {object}  response.Response
+// @Router       /files/{id}/shares [get]
+func (h *FileHandler) CheckFileShares(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.BadRequest(c, "无效的ID")
+		return
+	}
+
+	count, err := h.fileService.CheckFileShares(uint(id))
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.Success(c, gin.H{"shareCount": count})
+}
+
 // DeleteFile 删除文件（移入回收站）
 // @Summary      删除文件
 // @Tags         文件管理

@@ -35,6 +35,7 @@ import {
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { VxeTableGridOptions } from '#/adapter/vxe-table';
 import {
+  checkFileShares,
   createFolder,
   createFileShare,
   createFolderShare,
@@ -404,14 +405,7 @@ function handleFileAction(key: string, row: any) {
       openMoveFileModal(row.id);
       break;
     case 'delete':
-      Modal.confirm({
-        title: '移入回收站',
-        content: `确定将文件 "${row.name}" 移入回收站吗？文件将在 7 天后自动清理。`,
-        okText: '确定',
-        okType: 'danger',
-        cancelText: '取消',
-        onOk: () => handleDeleteFile(row),
-      });
+      handleDeleteWithShareCheck(row);
       break;
   }
 }
@@ -522,6 +516,43 @@ async function handleMoveFile() {
   } catch { message.error('移动失败'); }
 }
 
+async function handleDeleteWithShareCheck(row: any) {
+  try {
+    const result = await checkFileShares(row.id);
+    const shareCount = result?.shareCount || 0;
+
+    if (shareCount > 0) {
+      Modal.confirm({
+        title: '文件有分享链接',
+        content: `文件 "${row.name}" 当前有 ${shareCount} 个有效分享链接，移入回收站后分享链接将失效。确定继续吗？`,
+        okText: '确定移入回收站',
+        okType: 'danger',
+        cancelText: '取消',
+        onOk: () => handleDeleteFile(row),
+      });
+    } else {
+      Modal.confirm({
+        title: '移入回收站',
+        content: `确定将文件 "${row.name}" 移入回收站吗？文件将在 7 天后自动清理。`,
+        okText: '确定',
+        okType: 'danger',
+        cancelText: '取消',
+        onOk: () => handleDeleteFile(row),
+      });
+    }
+  } catch {
+    // 检查失败时直接弹确认框
+    Modal.confirm({
+      title: '移入回收站',
+      content: `确定将文件 "${row.name}" 移入回收站吗？文件将在 7 天后自动清理。`,
+      okText: '确定',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: () => handleDeleteFile(row),
+    });
+  }
+}
+
 async function handleDeleteFile(row: any) {
   try {
     await deleteFile(row.id);
@@ -554,14 +585,44 @@ async function handleTagEditSubmit() {
 
 async function handleBatchDelete() {
   if (validFileIds.value.length === 0) { message.warning('请先选择文件'); return; }
+
+  // 检查选中文件是否有分享
+  let totalShares = 0;
   try {
-    const result = await batchDeleteFiles(validFileIds.value);
-    if (result.errors?.length > 0) message.warning(`已移入回收站 ${result.deleted} 个文件，${result.errors.length} 个失败`);
-    else message.success(`已将 ${result.deleted} 个文件移入回收站`);
-    selectedRowKeys.value = [];
-    gridApi.grid?.clearCheckboxRow?.();
-    onRefresh();
-  } catch { message.error('批量删除失败'); }
+    const results = await Promise.all(validFileIds.value.map(id => checkFileShares(id).catch(() => ({ shareCount: 0 }))));
+    totalShares = results.reduce((sum, r) => sum + (r?.shareCount || 0), 0);
+  } catch { /* ignore */ }
+
+  const doDelete = async () => {
+    try {
+      const result = await batchDeleteFiles(validFileIds.value);
+      if (result.errors?.length > 0) message.warning(`已移入回收站 ${result.deleted} 个文件，${result.errors.length} 个失败`);
+      else message.success(`已将 ${result.deleted} 个文件移入回收站`);
+      selectedRowKeys.value = [];
+      gridApi.grid?.clearCheckboxRow?.();
+      onRefresh();
+    } catch { message.error('批量删除失败'); }
+  };
+
+  if (totalShares > 0) {
+    Modal.confirm({
+      title: '文件有分享链接',
+      content: `选中的文件中有 ${totalShares} 个有效分享链接，移入回收站后这些分享链接将失效。确定继续吗？`,
+      okText: '确定移入回收站',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: doDelete,
+    });
+  } else {
+    Modal.confirm({
+      title: '批量移入回收站',
+      content: `确定将 ${validFileIds.value.length} 个文件移入回收站吗？文件将在 7 天后自动清理。`,
+      okText: '确定',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: doDelete,
+    });
+  }
 }
 
 function openBatchMoveModal() {

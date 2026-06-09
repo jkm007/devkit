@@ -511,6 +511,11 @@ func (s *FileService) MoveFile(userID uint, fileID uint, targetFolderID uint) er
 	return s.fileRepo.UpdateEntry(entry)
 }
 
+// CheckFileShares 检查文件是否有活跃分享
+func (s *FileService) CheckFileShares(fileID uint) (int64, error) {
+	return s.shareRepo.CountActiveByFileID(fileID)
+}
+
 // DeleteFile 删除文件（移入回收站）
 // hasPermission=true 时可以删除任何文件，否则只能删除自己的
 func (s *FileService) DeleteFile(userID uint, fileID uint, hasPermission bool) error {

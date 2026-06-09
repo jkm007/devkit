@@ -199,6 +199,7 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 
 		// 文件操作（:id 路由）
 		authorized.DELETE("/files/:id", fileHandler.DeleteFile)
+		authorized.GET("/files/:id/shares", fileHandler.CheckFileShares)
 
 		// 文件标签管理
 		authorized.GET("/files/:id/tags", tagHandler.GetFileTags)
