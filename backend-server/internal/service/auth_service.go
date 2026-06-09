@@ -694,11 +694,13 @@ func validateAvatarURL(url string) bool {
 	if url == "" {
 		return true // 空值允许（不清除头像）
 	}
-	// 允许相对路径 /uploads/...
-	if strings.HasPrefix(url, "/uploads/") || strings.HasPrefix(url, "/api/media/") {
+	// 允许相对路径
+	if strings.HasPrefix(url, "/uploads/") ||
+		strings.HasPrefix(url, "/api/media/") ||
+		strings.HasPrefix(url, "/files/") {
 		return true
 	}
-	// 允许 http/https 开头的 URL（外部头像如 OAuth）
+	// 允许 http/https 开头的 URL（外部头像如 OAuth、云存储 presigned URL）
 	if strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
 		return true
 	}
