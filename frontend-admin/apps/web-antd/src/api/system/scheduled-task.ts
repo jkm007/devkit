@@ -52,6 +52,11 @@ export function updateScheduledTaskEnabled(id: number, enabled: boolean) {
   return requestClient.put(`/system/scheduled-tasks/${id}/enabled`, { enabled });
 }
 
+/** 删除任务 */
+export function deleteScheduledTask(id: number) {
+  return requestClient.delete(`/system/scheduled-tasks/${id}`);
+}
+
 /** 手动执行任务 */
 export function runScheduledTask(id: number) {
   return requestClient.post(`/system/scheduled-tasks/${id}/run`);

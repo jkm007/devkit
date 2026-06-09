@@ -132,6 +132,22 @@ func (h *ScheduledTaskHandler) UpdateEnabled(c *gin.Context) {
 	response.Success(c, nil)
 }
 
+// Delete 删除任务
+func (h *ScheduledTaskHandler) Delete(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.BadRequest(c, "无效的ID")
+		return
+	}
+
+	if err := h.taskService.Delete(uint(id)); err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.Success(c, nil)
+}
+
 // Run 手动执行任务
 func (h *ScheduledTaskHandler) Run(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)

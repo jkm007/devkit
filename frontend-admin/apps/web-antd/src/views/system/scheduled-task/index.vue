@@ -20,6 +20,7 @@ import {
 
 import {
   createScheduledTask,
+  deleteScheduledTask,
   getScheduledTasks,
   runScheduledTask,
   updateScheduledTask,
@@ -228,6 +229,25 @@ function handleCreate() {
   createModalVisible.value = true;
 }
 
+async function handleDelete(record: ScheduledTask) {
+  Modal.confirm({
+    title: '删除任务',
+    content: `确定删除定时任务 "${record.name}" 吗？`,
+    okText: '确定删除',
+    okType: 'danger',
+    cancelText: '取消',
+    onOk: async () => {
+      try {
+        await deleteScheduledTask(record.id);
+        message.success('删除成功');
+        loadData();
+      } catch {
+        message.error('删除失败');
+      }
+    },
+  });
+}
+
 async function handleSaveCreate() {
   if (!createForm.value.name) {
     message.warning('请输入任务名称');
@@ -317,6 +337,9 @@ onMounted(() => {
               </Button>
               <Button type="link" size="small" @click="handleRun(record as any)">
                 立即执行
+              </Button>
+              <Button type="link" size="small" danger @click="handleDelete(record as any)">
+                删除
               </Button>
             </Space>
           </template>

@@ -90,6 +90,11 @@ func (s *ScheduledTaskService) UpdateEnabled(id uint, enabled bool) error {
 	return s.taskRepo.UpdateEnabled(id, enabled)
 }
 
+// Delete 删除任务
+func (s *ScheduledTaskService) Delete(id uint) error {
+	return s.taskRepo.Delete(id)
+}
+
 // RunTask 手动执行任务
 func (s *ScheduledTaskService) RunTask(id uint) error {
 	task, err := s.taskRepo.GetByID(id)
