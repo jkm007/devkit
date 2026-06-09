@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"backend-server/internal/model"
 	"backend-server/internal/repository"
@@ -510,10 +511,9 @@ func (s *FileService) MoveFile(userID uint, fileID uint, targetFolderID uint) er
 	return s.fileRepo.UpdateEntry(entry)
 }
 
-// DeleteFile 删除文件
+// DeleteFile 删除文件（移入回收站）
 // hasPermission=true 时可以删除任何文件，否则只能删除自己的
-// force=true 时强制删除（包括分享记录）
-func (s *FileService) DeleteFile(userID uint, fileID uint, hasPermission bool, force bool) error {
+func (s *FileService) DeleteFile(userID uint, fileID uint, hasPermission bool) error {
 	entry, err := s.fileRepo.GetEntryByID(fileID)
 	if err != nil {
 		return fmt.Errorf("文件不存在")
@@ -522,58 +522,18 @@ func (s *FileService) DeleteFile(userID uint, fileID uint, hasPermission bool, f
 		return fmt.Errorf("无权操作")
 	}
 
-	// 检查是否有活跃的分享记录
-	shareCount, _ := s.shareRepo.CountActiveByFileID(fileID)
-	if shareCount > 0 && !force {
-		return fmt.Errorf("SHARE_EXISTS:%d", shareCount)
-	}
-
-	// 如果强制删除，先删除分享记录
-	if shareCount > 0 && force {
-		if err := s.shareRepo.DeleteByFileID(fileID); err != nil {
-			fmt.Printf("删除分享记录失败: fileID=%d, err=%v\n", fileID, err)
-		}
-	}
-
-	// 删除文件标签
-	if err := s.fileTagRepo.DeleteByFileID(fileID); err != nil {
-		fmt.Printf("删除文件标签失败: fileID=%d, err=%v\n", fileID, err)
-	}
-
-	// 减少文件资产引用计数
-	if entry.FileAssetID > 0 {
-		asset, err := s.assetRepo.GetByID(entry.FileAssetID)
-		if err == nil {
-			// 引用计数减到 0 时，删除存储对象和资产记录
-			if asset.RefCount <= 1 {
-				// 删除存储对象
-				if asset.ObjectKey != "" {
-					st := storage.GetStorageByDriver(asset.StorageType)
-					if err := st.Delete(context.Background(), asset.ObjectKey); err != nil {
-						fmt.Printf("删除存储对象失败: objectKey=%s, err=%v\n", asset.ObjectKey, err)
-					}
-				}
-				// 删除资产记录
-				if err := s.assetRepo.DeleteByID(entry.FileAssetID); err != nil {
-					fmt.Printf("删除资产记录失败: assetID=%d, err=%v\n", entry.FileAssetID, err)
-				}
-			} else {
-				// 引用计数减 1
-				s.assetRepo.DecrementRefCount(entry.FileAssetID)
-			}
-		}
-	}
-
-	return s.fileRepo.DeleteEntry(fileID)
+	// 软删除：移入回收站，7天后过期
+	expireAt := time.Now().Add(7 * 24 * time.Hour)
+	return s.fileRepo.SoftDeleteEntry(fileID, expireAt)
 }
 
-// BatchDeleteFiles 批量删除文件
-func (s *FileService) BatchDeleteFiles(userID uint, fileIDs []uint, hasPermission bool, force bool) (int, []string) {
+// BatchDeleteFiles 批量删除文件（移入回收站）
+func (s *FileService) BatchDeleteFiles(userID uint, fileIDs []uint, hasPermission bool) (int, []string) {
 	deleted := 0
 	errList := []string{}
 
 	for _, fileID := range fileIDs {
-		err := s.DeleteFile(userID, fileID, hasPermission, force)
+		err := s.DeleteFile(userID, fileID, hasPermission)
 		if err != nil {
 			errList = append(errList, fmt.Sprintf("文件 %d: %s", fileID, err.Error()))
 		} else {

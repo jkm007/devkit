@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"time"
+
 	"backend-server/internal/model"
 
 	"gorm.io/gorm"
@@ -190,4 +192,105 @@ func (r *FileRepo) ListEntriesByFolders(folderIDs []uint) ([]model.FileEntry, er
 		return nil, err
 	}
 	return entries, nil
+}
+
+// --- 回收站 ---
+
+// SoftDeleteEntry 软删除文件（移入回收站）
+func (r *FileRepo) SoftDeleteEntry(id uint, expireAt time.Time) error {
+	now := time.Now()
+	return r.db.Model(&model.FileEntry{}).Where("id = ?", id).Updates(map[string]interface{}{
+		"deleted_at":        now,
+		"recycle_expire_at": expireAt,
+	}).Error
+}
+
+// SoftDeleteEntries 批量软删除文件
+func (r *FileRepo) SoftDeleteEntries(ids []uint, expireAt time.Time) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	now := time.Now()
+	return r.db.Model(&model.FileEntry{}).Where("id IN ?", ids).Updates(map[string]interface{}{
+		"deleted_at":        now,
+		"recycle_expire_at": expireAt,
+	}).Error
+}
+
+// RestoreEntry 从回收站恢复文件
+func (r *FileRepo) RestoreEntry(id uint) error {
+	return r.db.Model(&model.FileEntry{}).Where("id = ?", id).Updates(map[string]interface{}{
+		"deleted_at":        nil,
+		"recycle_expire_at": nil,
+	}).Error
+}
+
+// RestoreEntries 批量恢复文件
+func (r *FileRepo) RestoreEntries(ids []uint) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	return r.db.Model(&model.FileEntry{}).Where("id IN ?", ids).Updates(map[string]interface{}{
+		"deleted_at":        nil,
+		"recycle_expire_at": nil,
+	}).Error
+}
+
+// ListRecycleBin 获取回收站文件列表
+func (r *FileRepo) ListRecycleBin(userID uint, page, pageSize int) ([]model.FileEntry, int64, error) {
+	var entries []model.FileEntry
+	var total int64
+
+	query := r.db.Model(&model.FileEntry{}).Where("deleted_at IS NOT NULL")
+	if userID > 0 {
+		query = query.Where("user_id = ?", userID)
+	}
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * pageSize
+	if err := query.Offset(offset).Limit(pageSize).Order("deleted_at DESC").Find(&entries).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return entries, total, nil
+}
+
+// GetExpiredRecycleBinEntries 获取已过期的回收站文件
+func (r *FileRepo) GetExpiredRecycleBinEntries() ([]model.FileEntry, error) {
+	var entries []model.FileEntry
+	now := time.Now()
+	err := r.db.Where("deleted_at IS NOT NULL AND recycle_expire_at IS NOT NULL AND recycle_expire_at <= ?", now).Find(&entries).Error
+	return entries, err
+}
+
+// HardDeleteEntry 永久删除文件条目
+func (r *FileRepo) HardDeleteEntry(id uint) error {
+	return r.db.Unscoped().Delete(&model.FileEntry{}, id).Error
+}
+
+// HardDeleteEntries 批量永久删除文件条目
+func (r *FileRepo) HardDeleteEntries(ids []uint) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	return r.db.Unscoped().Where("id IN ?", ids).Delete(&model.FileEntry{}).Error
+}
+
+// EmptyRecycleBin 清空用户的回收站
+func (r *FileRepo) EmptyRecycleBin(userID uint) error {
+	return r.db.Unscoped().Where("deleted_at IS NOT NULL AND user_id = ?", userID).Delete(&model.FileEntry{}).Error
+}
+
+// CountRecycleBin 统计回收站文件数量
+func (r *FileRepo) CountRecycleBin(userID uint) (int64, error) {
+	var count int64
+	query := r.db.Model(&model.FileEntry{}).Where("deleted_at IS NOT NULL")
+	if userID > 0 {
+		query = query.Where("user_id = ?", userID)
+	}
+	err := query.Count(&count).Error
+	return count, err
 }

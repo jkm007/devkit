@@ -382,31 +382,14 @@ export function moveFile(data: { fileId: number; targetFolderId?: number }) {
   return requestClient.post('/files/move', data);
 }
 
-/** 删除文件结果 */
-export interface DeleteFileResult {
-  shareExists?: boolean;
-  shareCount?: number;
-  [key: string]: any;
-}
-
 /** 删除文件 */
-export function deleteFile(id: number, force?: boolean): Promise<DeleteFileResult> {
-  return requestClient.delete<DeleteFileResult>(`/files/${id}`, {
-    params: force ? { force: true } : undefined,
-  });
-}
-
-/** 批量删除文件结果 */
-export interface BatchDeleteResult {
-  deleted: number;
-  errors: string[];
-  shareExists?: boolean;
-  shareCount?: number;
+export function deleteFile(id: number) {
+  return requestClient.delete(`/files/${id}`);
 }
 
 /** 批量删除文件 */
-export function batchDeleteFiles(fileIds: number[], force?: boolean): Promise<BatchDeleteResult> {
-  return requestClient.post<BatchDeleteResult>('/files/batch-delete', { fileIds, force: !!force });
+export function batchDeleteFiles(fileIds: number[]) {
+  return requestClient.post<{ deleted: number; errors: string[] }>('/files/batch-delete', { fileIds });
 }
 
 /** 批量移动文件 */
@@ -575,6 +558,63 @@ export function removeFileTag(fileId: number, tagId: number) {
 /** 批量更新文件标签 */
 export function batchUpdateFileTags(fileId: number, tagIds: number[]) {
   return requestClient.put(`/files/${fileId}/tags`, { tagIds });
+}
+
+// ==================== 回收站 ====================
+
+/** 回收站列表项 */
+export interface RecycleBinItem {
+  id: number;
+  name: string;
+  size: number;
+  contentType: string;
+  folderId: number;
+  userId: number;
+  userName?: string;
+  deletedAt: string;
+  recycleExpireAt?: string;
+  daysRemaining: number;
+}
+
+/** 回收站列表响应 */
+export interface RecycleBinListResponse {
+  items: RecycleBinItem[];
+  total: number;
+}
+
+/** 获取回收站列表 */
+export function getRecycleBinList(params?: { page?: number; pageSize?: number; scope?: 'all' | 'own' }) {
+  return requestClient.get<RecycleBinListResponse>('/files/recycle/list', { params });
+}
+
+/** 获取回收站文件数量 */
+export function getRecycleBinCount() {
+  return requestClient.get<{ count: number }>('/files/recycle/count');
+}
+
+/** 恢复文件 */
+export function restoreFile(id: number) {
+  return requestClient.post(`/files/recycle/restore/${id}`);
+}
+
+/** 批量恢复文件 */
+export function batchRestoreFiles(fileIds: number[]) {
+  return requestClient.post<{ restored: number; errors: string[] }>('/files/recycle/batch-restore', { fileIds });
+}
+
+/** 永久删除文件 */
+export function permanentDeleteFile(id: number) {
+  return requestClient.delete(`/files/recycle/${id}`);
+}
+
+/** 批量永久删除文件 */
+export function batchPermanentDeleteFiles(fileIds: number[]) {
+  return requestClient.post<{ deleted: number; errors: string[] }>('/files/recycle/batch-delete', { fileIds });
+}
+
+/** 清空回收站 */
+export function emptyRecycleBin() {
+  return requestClient.delete('/files/recycle/empty');
 }
 
 // ==================== 简单文件上传（用于头像等小文件） ====================

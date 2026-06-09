@@ -122,6 +122,9 @@ func main() {
 		logger.Error("初始化路由引擎失败，使用默认路由", zap.Error(err))
 	}
 
+	// 9.2 初始化定时任务
+	service.InitScheduledTasks()
+
 	// 10. 初始化路由
 	r := router.Setup(cfg, hub)
 

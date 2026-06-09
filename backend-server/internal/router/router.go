@@ -57,6 +57,8 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	storageConfigHandler := handler.NewStorageConfigHandler()
 	fileTypeRuleHandler := handler.NewFileTypeRuleHandler()
 	rateLimitRuleHandler := handler.NewRateLimitRuleHandler()
+	recycleBinHandler := handler.NewRecycleBinHandler()
+	scheduledTaskHandler := handler.NewScheduledTaskHandler()
 
 	// 健康检查
 	// @Summary      健康检查
@@ -186,6 +188,15 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		authorized.POST("/files/batch-delete", fileHandler.BatchDeleteFiles)
 		authorized.POST("/files/batch-move", fileHandler.BatchMoveFiles)
 		authorized.DELETE("/files/:id", fileHandler.DeleteFile)
+
+		// 回收站
+		authorized.GET("/files/recycle/list", recycleBinHandler.List)
+		authorized.GET("/files/recycle/count", recycleBinHandler.GetCount)
+		authorized.POST("/files/recycle/restore/:id", recycleBinHandler.Restore)
+		authorized.POST("/files/recycle/batch-restore", recycleBinHandler.BatchRestore)
+		authorized.DELETE("/files/recycle/:id", recycleBinHandler.PermanentDelete)
+		authorized.POST("/files/recycle/batch-delete", recycleBinHandler.BatchPermanentDelete)
+		authorized.DELETE("/files/recycle/empty", recycleBinHandler.Empty)
 
 		// 文件标签管理
 		authorized.GET("/files/:id/tags", tagHandler.GetFileTags)
@@ -340,6 +351,13 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 			system.PUT("/file-type-rules/:id", middleware.Permission("storage:file-type:edit"), fileTypeRuleHandler.Update)
 			system.DELETE("/file-type-rules/:id", middleware.Permission("storage:file-type:delete"), fileTypeRuleHandler.Delete)
 			system.POST("/file-type-rules/refresh", middleware.Permission("storage:file-type:edit"), fileTypeRuleHandler.RefreshAutoTagger)
+
+			// 定时任务管理
+			system.GET("/scheduled-tasks", middleware.Permission("system:task:view"), scheduledTaskHandler.List)
+			system.GET("/scheduled-tasks/:id", middleware.Permission("system:task:view"), scheduledTaskHandler.GetByID)
+			system.PUT("/scheduled-tasks/:id", middleware.Permission("system:task:edit"), scheduledTaskHandler.Update)
+			system.PUT("/scheduled-tasks/:id/enabled", middleware.Permission("system:task:edit"), scheduledTaskHandler.UpdateEnabled)
+			system.POST("/scheduled-tasks/:id/run", middleware.Permission("system:task:run"), scheduledTaskHandler.Run)
 		}
 	}
 

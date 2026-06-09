@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // defaultImageExts 默认图片扩展名
@@ -223,18 +225,18 @@ func (t *AutoTagger) getTypeTag(ext, contentType string) string {
 	return "other"
 }
 
-// GenerateObjectKey 生成存储对象键
+// GenerateObjectKey 生成存储对象键（使用 UUID 随机名称）
 func (t *AutoTagger) GenerateObjectKey(pathPrefix, filename string) string {
-	// 格式: {pathPrefix}{yyyy/MM/dd}/{timestamp}{ext}
+	// 格式: {pathPrefix}{yyyy/MM/dd}/{uuid}{ext}
 	now := time.Now()
 	ext := filepath.Ext(filename)
-	timestamp := now.UnixNano() / int64(time.Millisecond)
+	randomName := uuid.New().String()
 
-	return fmt.Sprintf("%s%s/%s/%d%s",
+	return fmt.Sprintf("%s%s/%s/%s%s",
 		pathPrefix,
 		now.Format("2006"),
 		now.Format("01/02"),
-		timestamp,
+		randomName,
 		ext,
 	)
 }
