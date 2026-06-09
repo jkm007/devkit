@@ -17,7 +17,7 @@ const routes: RouteRecordRaw[] = [
           icon: 'lucide:badge-check',
           title: '实名审核',
         },
-        component: () => import('#/views/system/real-name/list.vue'),
+        component: () => import('#/views/security/real-name/index.vue'),
       },
       {
         path: '/security/security-log',
@@ -26,7 +26,7 @@ const routes: RouteRecordRaw[] = [
           icon: 'lucide:shield-check',
           title: '安全日志',
         },
-        component: () => import('#/views/system/security-log/list.vue'),
+        component: () => import('#/views/security/security-log/index.vue'),
       },
       {
         path: '/security/risk',
@@ -35,7 +35,7 @@ const routes: RouteRecordRaw[] = [
           icon: 'lucide:shield-alert',
           title: '风险评分监控',
         },
-        component: () => import('#/views/system/risk/index.vue'),
+        component: () => import('#/views/security/risk/index.vue'),
       },
     ],
   },

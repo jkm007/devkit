@@ -17,7 +17,7 @@ const routes: RouteRecordRaw[] = [
           icon: 'mdi:database',
           title: '存储桶管理',
         },
-        component: () => import('#/views/system/storage-bucket/index.vue'),
+        component: () => import('#/views/storage/storage-bucket/index.vue'),
       },
       {
         path: '/storage/storage-config',
@@ -26,7 +26,7 @@ const routes: RouteRecordRaw[] = [
           icon: 'mdi:server-network',
           title: '存储配置',
         },
-        component: () => import('#/views/system/storage-config/index.vue'),
+        component: () => import('#/views/storage/storage-config/index.vue'),
       },
       {
         path: '/storage/file-type-rule',
@@ -35,7 +35,7 @@ const routes: RouteRecordRaw[] = [
           icon: 'mdi:file-check',
           title: '文件类型规则',
         },
-        component: () => import('#/views/system/file-type-rule/index.vue'),
+        component: () => import('#/views/storage/file-type-rule/index.vue'),
       },
     ],
   },
