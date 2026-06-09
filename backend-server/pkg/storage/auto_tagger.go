@@ -45,12 +45,13 @@ var defaultArchiveExts = map[string]bool{
 // AutoTagger 自动打标签器
 type AutoTagger struct {
 	mu           sync.RWMutex
-	extTypeMap   map[string]string // extension -> file_type
+	extTypeMap   map[string]string // extension -> file_type（包含所有类型）
 	imageExts    map[string]bool
 	videoExts    map[string]bool
 	audioExts    map[string]bool
 	documentExts map[string]bool
 	archiveExts  map[string]bool
+	customExts   map[string]string // 自定义类型的扩展名 -> 类型
 }
 
 // 全局 AutoTagger 实例
@@ -70,6 +71,7 @@ func NewAutoTagger() *AutoTagger {
 		audioExts:    copyMap(defaultAudioExts),
 		documentExts: copyMap(defaultDocumentExts),
 		archiveExts:  copyMap(defaultArchiveExts),
+		customExts:   make(map[string]string),
 	}
 	t.buildExtTypeMap()
 	return t
@@ -101,6 +103,7 @@ func (t *AutoTagger) LoadFromDB(rules []FileTypeRuleData) {
 	t.audioExts = copyMap(defaultAudioExts)
 	t.documentExts = copyMap(defaultDocumentExts)
 	t.archiveExts = copyMap(defaultArchiveExts)
+	t.customExts = make(map[string]string)
 
 	// 用数据库规则覆盖
 	for _, rule := range rules {
@@ -123,11 +126,15 @@ func (t *AutoTagger) LoadFromDB(rules []FileTypeRuleData) {
 			t.documentExts[ext] = true
 		case "archive":
 			t.archiveExts[ext] = true
+		default:
+			// 自定义类型
+			t.customExts[ext] = rule.FileType
 		}
 	}
 
 	t.buildExtTypeMap()
-	log.Printf("[INFO] AutoTagger 已从数据库加载 %d 条文件类型规则", len(rules))
+	log.Printf("[INFO] AutoTagger 已从数据库加载 %d 条文件类型规则（含 %d 个自定义类型）",
+		len(rules), len(t.customExts))
 }
 
 // buildExtTypeMap 构建扩展名到类型的快速查找映射
@@ -147,6 +154,10 @@ func (t *AutoTagger) buildExtTypeMap() {
 	}
 	for ext := range t.archiveExts {
 		t.extTypeMap[ext] = "archive"
+	}
+	// 添加自定义类型
+	for ext, fileType := range t.customExts {
+		t.extTypeMap[ext] = fileType
 	}
 }
 
