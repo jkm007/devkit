@@ -53,7 +53,7 @@ const canEdit = computed(() => hasAccessByCodes(['storage:bucket:edit', 'storage
 const activeTab = ref<'bucket' | 'config'>('config');
 const loading = ref(false);
 const saveLoading = ref(false);
-const testLoading = ref(false);
+const testLoadingId = ref<number | null>(null);
 
 const configList = ref<StorageConfigApi.StorageConfig[]>([]);
 const bucketList = ref<StorageBucketApi.StorageBucket[]>([]);
@@ -254,7 +254,8 @@ async function handleSetDefaultConfig(record: StorageConfigApi.StorageConfig) {
 }
 
 async function handleTestConfig(record?: StorageConfigApi.StorageConfig) {
-  testLoading.value = true;
+  const id = record?.id || -1;
+  testLoadingId.value = id;
   try {
     if (record?.id) {
       await testStorageConfigConnectionApi(record.id);
@@ -265,7 +266,7 @@ async function handleTestConfig(record?: StorageConfigApi.StorageConfig) {
   } catch (e: any) {
     message.error(e?.message || '连接测试失败');
   } finally {
-    testLoading.value = false;
+    testLoadingId.value = null;
   }
 }
 
@@ -335,7 +336,8 @@ async function handleSetDefaultBucket(record: StorageBucketApi.StorageBucket) {
 }
 
 async function handleTestBucket(record?: StorageBucketApi.StorageBucket) {
-  testLoading.value = true;
+  const id = record?.id || -1;
+  testLoadingId.value = id;
   try {
     if (record?.id) {
       await testStorageBucketConnectionApi(record.id);
@@ -346,7 +348,7 @@ async function handleTestBucket(record?: StorageBucketApi.StorageBucket) {
   } catch (e: any) {
     message.error(e?.message || '连接测试失败');
   } finally {
-    testLoading.value = false;
+    testLoadingId.value = null;
   }
 }
 
@@ -447,7 +449,7 @@ onMounted(() => loadData());
           <template v-else-if="column.key === 'action'">
             <Space>
               <Button v-if="canEdit" type="link" size="small" @click="handleEditConfig(record)">编辑</Button>
-              <Button type="link" size="small" :loading="testLoading" @click="handleTestConfig(record)">测试</Button>
+              <Button type="link" size="small" :loading="testLoadingId === record.id" @click="handleTestConfig(record)">测试</Button>
               <Button v-if="canEdit && !record.isDefault && record.status === 1" type="link" size="small" @click="handleSetDefaultConfig(record)">设为默认</Button>
               <Popconfirm v-if="canEdit && record.driver !== 'local'" title="确定删除此配置？" @confirm="handleDeleteConfig(record.id)">
                 <Button type="link" size="small" danger>删除</Button>
@@ -492,7 +494,7 @@ onMounted(() => loadData());
           <template v-else-if="column.key === 'action'">
             <Space>
               <Button v-if="canEdit" type="link" size="small" @click="handleEditBucket(record)">编辑</Button>
-              <Button type="link" size="small" :loading="testLoading" @click="handleTestBucket(record)">测试</Button>
+              <Button type="link" size="small" :loading="testLoadingId === record.id" @click="handleTestBucket(record)">测试</Button>
               <Button v-if="canEdit && !record.isDefault && record.status === 1" type="link" size="small" @click="handleSetDefaultBucket(record)">设为默认</Button>
               <Popconfirm v-if="canEdit && !record.isDefault" title="确定删除此桶？" @confirm="handleDeleteBucket(record.id)">
                 <Button type="link" size="small" danger>删除</Button>
@@ -589,7 +591,7 @@ onMounted(() => loadData());
           </div>
 
           <div class="flex justify-end">
-            <Button :loading="testLoading" @click="handleTestConfig()">🔌 测试连接</Button>
+            <Button :loading="testLoadingId === -1" @click="handleTestConfig()">🔌 测试连接</Button>
           </div>
         </div>
       </template>
@@ -644,7 +646,7 @@ onMounted(() => loadData());
             <Input.TextArea v-model:value="bucketForm.description" :rows="2" placeholder="备注" />
           </div>
           <div class="flex justify-end">
-            <Button :loading="testLoading" @click="handleTestBucket()">🔌 测试连接</Button>
+            <Button :loading="testLoadingId === -1" @click="handleTestBucket()">🔌 测试连接</Button>
           </div>
         </div>
       </template>
