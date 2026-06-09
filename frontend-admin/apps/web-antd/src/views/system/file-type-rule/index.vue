@@ -18,10 +18,8 @@ import {
   message,
   Popconfirm,
   Tooltip,
-  InputNumber,
 } from 'ant-design-vue';
 import { IconifyIcon, Plus } from '@vben/icons';
-import { $t } from '#/locales';
 
 const { hasAccessByCodes } = useAccess();
 import {
@@ -32,8 +30,6 @@ import {
   refreshAutoTagger,
 } from '#/api/system/file-type-rule';
 import type { FileTypeRule } from '#/api/system/file-type-rule';
-
-const t = $t;
 
 const rules = ref<FileTypeRule[]>([]);
 const loading = ref(false);
@@ -63,7 +59,9 @@ const defaultTypes = [
 const fileTypeOptions = computed(() => {
   const defaultValues = new Set(defaultTypes.map((t) => t.value));
   const customTypes = [
-    ...new Set(rules.value.map((r) => r.fileType).filter((t) => !defaultValues.has(t))),
+    ...new Set(
+      rules.value.map((r) => r.fileType).filter((t) => !defaultValues.has(t)),
+    ),
   ];
   return [
     ...defaultTypes,
@@ -81,8 +79,14 @@ const fileTypeColors = computed(() => {
     archive: 'cyan',
     other: 'default',
   };
-  // 为自定义类型分配颜色
-  const customColors = ['magenta', 'red', 'lime', 'gold', 'geekblue', 'volcano'];
+  const customColors = [
+    'magenta',
+    'red',
+    'lime',
+    'gold',
+    'geekblue',
+    'volcano',
+  ];
   let index = 0;
   rules.value.forEach((r) => {
     if (!colors[r.fileType]) {
@@ -92,9 +96,6 @@ const fileTypeColors = computed(() => {
   });
   return colors;
 });
-
-// 所有可用类型列表
-const allTypes = computed(() => fileTypeOptions.value.map((t) => t.value));
 
 // 过滤后的规则
 const filteredRules = computed(() => {
@@ -107,14 +108,13 @@ const loadRules = async () => {
   loading.value = true;
   try {
     rules.value = await getAllFileTypeRules();
-  } catch (error) {
+  } catch {
     message.error('加载规则失败');
   } finally {
     loading.value = false;
   }
 };
 
-// 初始化
 onMounted(() => {
   loadRules();
 });
@@ -144,18 +144,16 @@ const handleSubmit = async () => {
     return;
   }
   if (!form.fileType) {
-    message.error('请选择文件类型');
+    message.error('请选择或输入文件类型');
     return;
   }
 
   try {
     if (editing.value) {
-      await updateFileTypeRule(editing.value.id, {
-        ...form,
-      } as Partial<FileTypeRule>);
+      await updateFileTypeRule(editing.value.id, { ...form });
       message.success('更新成功');
     } else {
-      await createFileTypeRule({ ...form } as Partial<FileTypeRule>);
+      await createFileTypeRule({ ...form });
       message.success('创建成功');
     }
     modalVisible.value = false;
@@ -190,14 +188,19 @@ const handleRefresh = async () => {
 };
 
 // 列定义
-const columns = computed(() => [
+const columns = [
   { title: '扩展名', dataIndex: 'extension', width: 120 },
   { title: '文件类型', dataIndex: 'fileType', width: 120 },
-  { title: '描述', dataIndex: 'description', width: 200 },
-  { title: '状态', dataIndex: 'status', width: 100 },
-  { title: '创建时间', dataIndex: 'createdAt', width: 180 },
-  { title: '操作', key: 'action', width: 150 },
-]);
+  { title: '描述', dataIndex: 'description', ellipsis: true },
+  { title: '状态', dataIndex: 'status', width: 80, align: 'center' as const },
+  {
+    title: '创建时间',
+    dataIndex: 'createdAt',
+    width: 170,
+    align: 'center' as const,
+  },
+  { title: '操作', key: 'action', width: 120, align: 'center' as const },
+];
 
 // 统计各类型数量
 const typeCounts = computed(() => {
@@ -211,26 +214,26 @@ const typeCounts = computed(() => {
 
 <template>
   <div class="p-4">
-    <Card>
-      <!-- 统计卡片 -->
-      <div class="mb-4 grid grid-cols-2 md:grid-cols-6 gap-4">
-        <Card
-          v-for="(count, type) in typeCounts"
-          :key="type"
-          size="small"
-          :class="filterType === type ? 'border-blue-500' : ''"
-          hoverable
-          @click="filterType = filterType === type ? '' : (type as string)"
-        >
-          <div class="text-center">
-            <Tag :color="fileTypeColors[type as string] || 'default'" class="mb-1">
-              {{ type }}
-            </Tag>
-            <div class="text-2xl font-bold text-blue-500">{{ count }}</div>
-          </div>
-        </Card>
-      </div>
+    <!-- 统计卡片 -->
+    <div class="mb-4 grid grid-cols-2 md:grid-cols-6 gap-3">
+      <Card
+        v-for="(count, type) in typeCounts"
+        :key="type"
+        size="small"
+        hoverable
+        :class="filterType === type ? 'border-blue-500 shadow' : 'cursor-pointer'"
+        @click="filterType = filterType === type ? '' : (type as string)"
+      >
+        <div class="text-center py-1">
+          <Tag :color="fileTypeColors[type as string] || 'default'" class="mb-1">
+            {{ type }}
+          </Tag>
+          <div class="text-xl font-bold text-blue-500">{{ count }}</div>
+        </div>
+      </Card>
+    </div>
 
+    <Card>
       <!-- 工具栏 -->
       <div class="mb-4 flex justify-between items-center">
         <Space>
@@ -256,12 +259,13 @@ const typeCounts = computed(() => {
           </Button>
         </Space>
         <Space>
-          <span class="text-gray-500">筛选类型：</span>
+          <span class="text-gray-500">筛选：</span>
           <Select
             v-model:value="filterType"
             :options="[{ label: '全部', value: '' }, ...fileTypeOptions]"
             style="width: 180px"
-            allowClear
+            allow-clear
+            placeholder="按类型筛选"
           />
         </Space>
       </div>
@@ -273,10 +277,11 @@ const typeCounts = computed(() => {
         :loading="loading"
         row-key="id"
         size="middle"
+        :pagination="{ pageSize: 20, showSizeChanger: true, showTotal: (t: number) => `共 ${t} 条` }"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.dataIndex === 'extension'">
-            <Tag>{{ record.extension }}</Tag>
+            <Tag color="blue">{{ record.extension }}</Tag>
           </template>
           <template v-if="column.dataIndex === 'fileType'">
             <Tag :color="fileTypeColors[record.fileType] || 'default'">
@@ -297,17 +302,13 @@ const typeCounts = computed(() => {
                 v-if="hasAccessByCodes(['system:setting:edit'])"
                 title="编辑"
               >
-                <Button
-                  type="link"
-                  size="small"
-                  @click="openModal(record)"
-                >
+                <Button type="link" size="small" @click="openModal(record)">
                   <IconifyIcon icon="mdi:pencil" />
                 </Button>
               </Tooltip>
               <Popconfirm
                 v-if="hasAccessByCodes(['system:setting:edit'])"
-                title="确定要删除此规则吗？"
+                title="确定删除此规则？"
                 @confirm="handleDelete(record.id)"
               >
                 <Tooltip title="删除">
@@ -327,33 +328,36 @@ const typeCounts = computed(() => {
       v-model:open="modalVisible"
       :title="editing ? '编辑规则' : '新增规则'"
       @ok="handleSubmit"
-      width="500px"
+      width="480px"
+      :ok-text="editing ? '保存' : '添加'"
+      cancel-text="取消"
     >
-      <Form :model="form" layout="vertical">
+      <Form :model="form" layout="vertical" class="mt-4">
         <Form.Item label="扩展名" required>
           <Input
             v-model:value="form.extension"
             placeholder="例如: .jpg 或 jpg"
           />
           <div class="text-gray-400 text-xs mt-1">
-            输入扩展名，不带点号会自动添加
+            不带点号会自动添加
           </div>
         </Form.Item>
         <Form.Item label="文件类型" required>
           <AutoComplete
             v-model:value="form.fileType"
             :options="fileTypeOptions"
-            placeholder="选择或输入自定义类型"
-            :filter-option="(input: string, option: any) => option.value.toLowerCase().includes(input.toLowerCase())"
+            placeholder="选择已有类型或输入新类型"
+            :filter-option="(input: string, option: any) =>
+              option.value.toLowerCase().includes(input.toLowerCase())"
           />
           <div class="text-gray-400 text-xs mt-1">
-            可选择预设类型或输入自定义类型，如 cad、3d、font 等
+            预设：image / video / audio / document / archive，也可自定义
           </div>
         </Form.Item>
         <Form.Item label="描述">
           <Input
             v-model:value="form.description"
-            placeholder="规则描述（可选）"
+            placeholder="可选，例如：JPEG 图片"
           />
         </Form.Item>
         <Form.Item label="状态">
