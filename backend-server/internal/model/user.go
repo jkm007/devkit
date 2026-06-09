@@ -13,7 +13,7 @@ type User struct {
 	Nickname         string         `gorm:"type:varchar(50);default:;comment:昵称" json:"nickname"`
 	Email            string         `gorm:"type:varchar(100);default:;comment:邮箱" json:"email"`
 	Phone            string         `gorm:"type:varchar(20);default:;comment:手机号" json:"phone"`
-	Avatar           string         `gorm:"type:varchar(255);default:;comment:头像URL" json:"avatar"`
+	Avatar           string         `gorm:"type:varchar(1000);default:;comment:头像URL" json:"avatar"`
 	Gender           int            `gorm:"type:tinyint;default:0;comment:性别 0未知 1男 2女" json:"gender"`
 	Birthday         *time.Time     `gorm:"comment:生日" json:"birthday"`
 	Bio              string         `gorm:"type:varchar(500);default:;comment:个人简介" json:"bio"`
