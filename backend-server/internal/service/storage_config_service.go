@@ -92,6 +92,9 @@ func (s *StorageConfigService) Update(config *model.StorageConfig) error {
 		config.SecretKey = existing.SecretKey
 	}
 
+	// 保留创建时间
+	config.CreatedAt = existing.CreatedAt
+
 	if err := s.repo.Update(config); err != nil {
 		return fmt.Errorf("更新存储配置失败: %w", err)
 	}
