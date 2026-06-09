@@ -124,28 +124,51 @@ func tryInitDriver(driver string) Storage {
 		return nil
 	}
 
-	rows, err := db.Raw("SELECT `key`, value FROM sys_system_settings WHERE group_key = 'storage' AND deleted_at IS NULL").Rows()
-	if err != nil {
-		return nil
-	}
-	defer rows.Close()
+	// 优先从 sys_storage_config 新表读取（默认配置优先）
+	var cfg config.StorageConfig
+	var found bool
 
-	settings := make(map[string]string)
-	for rows.Next() {
-		var key, value string
-		if err := rows.Scan(&key, &value); err != nil {
-			continue
+	row := db.Raw("SELECT endpoint, access_key, secret_key, bucket, region, cdn_domain, use_ssl FROM sys_storage_config WHERE driver = ? AND status = 1 ORDER BY is_default DESC LIMIT 1", driver).Row()
+	if row != nil {
+		var endpoint, accessKey, secretKey, bucket, region, cdnDomain string
+		var useSSL bool
+		if err := row.Scan(&endpoint, &accessKey, &secretKey, &bucket, &region, &cdnDomain, &useSSL); err == nil {
+			cfg.Driver = driver
+			switch driver {
+			case "minio":
+				cfg.MinIO.Endpoint = endpoint
+				cfg.MinIO.AccessKey = accessKey
+				cfg.MinIO.SecretKey = secretKey
+				cfg.MinIO.Bucket = bucket
+				cfg.MinIO.UseSSL = useSSL
+			case "oss":
+				cfg.OSS.Endpoint = endpoint
+				cfg.OSS.AccessKeyID = accessKey
+				cfg.OSS.AccessKeySecret = secretKey
+				cfg.OSS.Bucket = bucket
+				cfg.OSS.CDNDomain = cdnDomain
+			case "cos":
+				cfg.COS.Region = region
+				cfg.COS.SecretID = accessKey
+				cfg.COS.SecretKey = secretKey
+				cfg.COS.Bucket = bucket
+				cfg.COS.CDNDomain = cdnDomain
+			}
+			found = true
 		}
-		settings[key] = value
 	}
 
-	cfg := loadStorageConfigFromDB()
-	if cfg == nil {
-		return nil
+	// 回退到旧表 sys_system_settings
+	if !found {
+		oldCfg := loadStorageConfigFromDB()
+		if oldCfg == nil {
+			return nil
+		}
+		cfg = *oldCfg
+		cfg.Driver = driver
 	}
-	cfg.Driver = driver
 
-	s, err := New(*cfg)
+	s, err := New(cfg)
 	if err != nil {
 		log.Printf("[WARN] 初始化 %s 驱动失败: %v", driver, err)
 		return nil
