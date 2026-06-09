@@ -1,11 +1,14 @@
 package service
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"backend-server/internal/model"
 	"backend-server/internal/repository"
+	"backend-server/pkg/cache"
 	"backend-server/pkg/database"
 )
 
@@ -116,7 +119,14 @@ func (s *RoleApplicationService) Approve(id, reviewerID uint, note string) error
 	}
 
 	// 给用户追加角色（不影响已有角色）
-	return s.userRepo.AddUserRole(app.UserID, app.RoleID)
+	if err := s.userRepo.AddUserRole(app.UserID, app.RoleID); err != nil {
+		return err
+	}
+
+	// 清除用户权限缓存，使新角色权限立即生效
+	ctx := context.Background()
+	_ = cache.Delete(ctx, fmt.Sprintf("permission_codes:%d", app.UserID))
+	return nil
 }
 
 // Reject 审核拒绝

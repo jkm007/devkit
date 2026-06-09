@@ -7,6 +7,7 @@ import (
 	"backend-server/internal/model"
 	"backend-server/internal/repository"
 	"backend-server/pkg/database"
+	"backend-server/pkg/storage"
 )
 
 // FileTypeRuleService 文件类型规则服务
@@ -82,7 +83,13 @@ func (s *FileTypeRuleService) Create(rule *model.FileTypeRule) error {
 		return fmt.Errorf("无效的文件类型: %s，支持: image, video, audio, document, archive, other", rule.FileType)
 	}
 
-	return s.repo.Create(rule)
+	if err := s.repo.Create(rule); err != nil {
+		return err
+	}
+
+	// 自动刷新 AutoTagger
+	s.refreshAutoTagger()
+	return nil
 }
 
 // Update 更新规则
@@ -110,7 +117,13 @@ func (s *FileTypeRuleService) Update(rule *model.FileTypeRule) error {
 	// 保留创建时间
 	rule.CreatedAt = existing.CreatedAt
 
-	return s.repo.Update(rule)
+	if err := s.repo.Update(rule); err != nil {
+		return err
+	}
+
+	// 自动刷新 AutoTagger
+	s.refreshAutoTagger()
+	return nil
 }
 
 // Delete 删除规则
@@ -119,7 +132,29 @@ func (s *FileTypeRuleService) Delete(id int64) error {
 	if err != nil {
 		return fmt.Errorf("规则不存在: %d", id)
 	}
-	return s.repo.Delete(id)
+	if err := s.repo.Delete(id); err != nil {
+		return err
+	}
+
+	// 自动刷新 AutoTagger
+	s.refreshAutoTagger()
+	return nil
+}
+
+// refreshAutoTagger 刷新 AutoTagger 的文件类型规则缓存
+func (s *FileTypeRuleService) refreshAutoTagger() {
+	rules, err := s.GetAllEnabled()
+	if err != nil {
+		return
+	}
+	data := make([]storage.FileTypeRuleData, len(rules))
+	for i, r := range rules {
+		data[i] = storage.FileTypeRuleData{
+			Extension: r.Extension,
+			FileType:  r.FileType,
+		}
+	}
+	storage.GetGlobalAutoTagger().LoadFromDB(data)
 }
 
 // GetAllEnabled 获取所有启用的规则（供 AutoTagger 使用）

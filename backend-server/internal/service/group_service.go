@@ -156,10 +156,23 @@ func (s *GroupService) invalidateCacheForGroup(groupID uint) {
 	}
 }
 
+// invalidateCacheForGroupRecursive 递归清除分组及其所有子分组用户的权限缓存
+func (s *GroupService) invalidateCacheForGroupRecursive(groupID uint) {
+	s.invalidateCacheForGroup(groupID)
+
+	children, err := s.groupRepo.GetChildren(groupID)
+	if err != nil {
+		return
+	}
+	for _, child := range children {
+		s.invalidateCacheForGroupRecursive(child.ID)
+	}
+}
+
 // Delete 删除分组（同时清除权限缓存）
 func (s *GroupService) Delete(id uint) error {
-	// 先清除该分组所有用户的权限缓存
-	s.invalidateCacheForGroup(id)
+	// 先清除该分组及所有子分组用户的权限缓存
+	s.invalidateCacheForGroupRecursive(id)
 
 	return s.groupRepo.DeleteWithChildren(id)
 }

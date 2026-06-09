@@ -42,7 +42,10 @@ func (s *RoutingService) CreateRule(rule *model.TagRouting) error {
 			return err
 		}
 	}
-	return s.routingRepo.Create(rule)
+	if err := s.routingRepo.Create(rule); err != nil {
+		return err
+	}
+	return storage.RefreshRoutingEngine()
 }
 
 // UpdateRule 更新路由规则
