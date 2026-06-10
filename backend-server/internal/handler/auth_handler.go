@@ -312,7 +312,17 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 		return
 	}
 
-	if err := h.authService.ChangePassword(userID, &req, c.ClientIP(), c.GetHeader("User-Agent")); err != nil {
+	// 获取当前 access token，用于修改密码后加入黑名单
+	tokenStr := ""
+	authHeader := c.GetHeader("Authorization")
+	if authHeader != "" {
+		parts := strings.SplitN(authHeader, " ", 2)
+		if len(parts) == 2 && parts[0] == "Bearer" {
+			tokenStr = parts[1]
+		}
+	}
+
+	if err := h.authService.ChangePassword(userID, &req, c.ClientIP(), c.GetHeader("User-Agent"), tokenStr); err != nil {
 		response.BadRequest(c, err.Error())
 		return
 	}

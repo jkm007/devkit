@@ -747,7 +747,8 @@ type ChangePasswordRequest struct {
 }
 
 // ChangePassword 修改密码
-func (s *AuthService) ChangePassword(userID uint, req *ChangePasswordRequest, ip, userAgent string) error {
+// accessToken 参数为当前 access token 字符串，修改密码后会加入黑名单使其立即失效
+func (s *AuthService) ChangePassword(userID uint, req *ChangePasswordRequest, ip, userAgent string, accessToken string) error {
 	// 验证码校验
 	if req.CaptchaID == "" || req.CaptchaCode == "" {
 		return fmt.Errorf("请先完成验证码验证")
@@ -799,6 +800,20 @@ func (s *AuthService) ChangePassword(userID uint, req *ChangePasswordRequest, ip
 	// 使现有 Token 失效，强制所有设备重新登录
 	rdb := database.GetRedis()
 	ctx := context.Background()
+
+	// 将当前 access token 加入黑名单（立即失效）
+	if accessToken != "" {
+		claims, err := jwt.Parse(accessToken)
+		if err == nil && claims.ExpiresAt != nil {
+			remaining := time.Until(claims.ExpiresAt.Time)
+			if remaining > 0 {
+				blacklistKey := fmt.Sprintf("token_blacklist:%s", accessToken)
+				rdb.Set(ctx, blacklistKey, "1", remaining)
+			}
+		}
+	}
+
+	// 清除 refresh token
 	rdb.Del(ctx, fmt.Sprintf("refresh_token:%d", userID))
 
 	// 记录安全日志
