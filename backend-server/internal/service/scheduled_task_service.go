@@ -167,7 +167,7 @@ func (s *ScheduledTaskService) executeRecycleCleanup(task *model.ScheduledTask) 
 	return fmt.Sprintf("已清理 %d 个过期文件", deleted), nil
 }
 
-// calculateNextRun 计算下次执行时间（简化版，支持 "0 3 * * *" 格式）
+// calculateNextRun 计算下次执行时间（支持 * 和具体数字，找到下一个大于当前时间的执行时间）
 func (s *ScheduledTaskService) calculateNextRun(cronExpr string) *time.Time {
 	parts := strings.Fields(cronExpr)
 	if len(parts) != 5 {
@@ -182,14 +182,22 @@ func (s *ScheduledTaskService) calculateNextRun(cronExpr string) *time.Time {
 	}
 
 	now := time.Now()
-	next := time.Date(now.Year(), now.Month(), now.Day(), hour[0], minute[0], 0, 0, now.Location())
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 
-	// 如果计算出的时间已经过去，推到明天
-	if next.Before(now) || next.Equal(now) {
-		next = next.Add(24 * time.Hour)
+	// 在今天和明天中查找下一个匹配的执行时间（最多搜索2天）
+	for dayOffset := 0; dayOffset <= 1; dayOffset++ {
+		base := today.Add(time.Duration(dayOffset) * 24 * time.Hour)
+		for _, h := range hour {
+			for _, m := range minute {
+				candidate := base.Add(time.Duration(h)*time.Hour + time.Duration(m)*time.Minute)
+				if candidate.After(now) {
+					return &candidate
+				}
+			}
+		}
 	}
 
-	return &next
+	return nil
 }
 
 // parseCronField 解析 cron 字段（简化版，支持 * 和具体数字）

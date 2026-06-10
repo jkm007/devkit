@@ -49,11 +49,11 @@ func (r *ScheduledTaskRepo) GetEnabled() ([]model.ScheduledTask, error) {
 	return tasks, err
 }
 
-// GetDueTasks 获取到期需要执行的任务
+// GetDueTasks 获取到期需要执行的任务（排除正在执行的任务）
 func (r *ScheduledTaskRepo) GetDueTasks() ([]model.ScheduledTask, error) {
 	var tasks []model.ScheduledTask
 	now := time.Now()
-	err := r.db.Where("enabled = ? AND (next_run_at IS NULL OR next_run_at <= ?)", true, now).Find(&tasks).Error
+	err := r.db.Where("enabled = ? AND status != ? AND (next_run_at IS NULL OR next_run_at <= ?)", true, "running", now).Find(&tasks).Error
 	return tasks, err
 }
 
