@@ -10,10 +10,10 @@ server:
 
 # MySQL 配置
 mysql:
-  host: 10.0.50.108
+  host: 127.0.0.1
   port: 3306
   user: root
-  password: "root123456"
+  password: ""
   database: backend_db
   max_open_conns: 100
   max_idle_conns: 10
@@ -22,9 +22,9 @@ mysql:
 
 # Redis 配置
 redis:
-  host: 10.0.50.108
+  host: 127.0.0.1
   port: 6379
-  password: "redis123456"
+  password: ""
   db: 0
   pool_size: 100
 
