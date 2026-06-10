@@ -123,12 +123,14 @@ func loadRiskConfigFromDB() *RiskConfig {
 		Keywords:  parseStringList(kv["rule_ua_keywords"]),
 	})
 
-	// 请求间隔
+	// 滑动窗口频率检测
+	windowSec := parseInt(kv["rule_interval_window_seconds"], 10)
 	cfg.Rules = append(cfg.Rules, RiskRule{
 		Key:       "interval",
 		Enabled:   parseBool(kv["rule_interval_enabled"], true),
 		Score:     parseInt(kv["rule_interval_score"], 20),
-		Threshold: parseInt(kv["rule_interval_min_ms"], 500),
+		Threshold: parseInt(kv["rule_interval_max_count"], 50),
+		Keywords:  []string{strconv.Itoa(windowSec)},
 	})
 
 	return cfg

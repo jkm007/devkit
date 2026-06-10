@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"strconv"
 	"time"
 
@@ -56,6 +57,7 @@ func CaptchaGuard() gin.HandlerFunc {
 		ctx := context.Background()
 		whitelistKey := "captcha:whitelist:" + ip
 		if exists, _ := rdb.Exists(ctx, whitelistKey).Result(); exists > 0 {
+			log.Printf("[RiskScore] ip=%s path=%s | 白名单放行", ip, path)
 			c.Next()
 			return
 		}
@@ -68,10 +70,13 @@ func CaptchaGuard() gin.HandlerFunc {
 		}
 
 		// 计算本次请求的风险分
-		requestScore := calculateRiskScore(ip, path, headers, cfg)
+		requestScore, details := calculateRiskScore(ip, path, headers, cfg)
 
 		// 累加到 Redis 中的总分
 		totalScore := accumulateRiskScore(ip, requestScore, cfg)
+
+		log.Printf("[RiskScore] ip=%s path=%s | 本次=%d(%s) 累计=%d 阈值=%d",
+			ip, path, requestScore, details, totalScore, cfg.TriggerScore)
 
 		// 低风险：直接放行
 		if totalScore < cfg.TriggerScore {
@@ -118,6 +123,7 @@ func CaptchaGuard() gin.HandlerFunc {
 
 		// 验证通过，风险分减半而非清零
 		halveRiskScore(ip)
+		log.Printf("[RiskScore] ip=%s | 验证码通过，写入白名单(10min)，风险分减半", ip)
 		c.Next()
 	}
 }
@@ -169,8 +175,10 @@ func (c *RiskConfigGetter) IsProtectedPath(path string) bool {
 }
 
 // calculateRiskScore 计算风险分数（在中间件内部实现，避免循环依赖）
-func calculateRiskScore(ip, path string, headers map[string]string, cfg *RiskConfigGetter) int {
+// 返回风险分和触发详情
+func calculateRiskScore(ip, path string, headers map[string]string, cfg *RiskConfigGetter) (int, string) {
 	score := 0
+	details := make([]string, 0)
 
 	for _, rule := range cfg.Rules {
 		if !rule.Enabled {
@@ -179,23 +187,52 @@ func calculateRiskScore(ip, path string, headers map[string]string, cfg *RiskCon
 
 		switch rule.Key {
 		case "frequency":
-			score += evalFrequencyRule(rule, ip)
+			s := evalFrequencyRule(rule, ip)
+			if s > 0 {
+				score += s
+				details = append(details, "频率+"+strconv.Itoa(s))
+			}
 		case "no_referer":
 			if headers["Referer"] == "" {
 				score += rule.Score
+				details = append(details, "无Referer+"+strconv.Itoa(rule.Score))
 			}
 		case "no_lang":
 			if headers["Accept-Language"] == "" {
 				score += rule.Score
+				details = append(details, "无语言+"+strconv.Itoa(rule.Score))
 			}
 		case "ua":
-			score += evalUARule(rule, headers["User-Agent"])
+			s := evalUARule(rule, headers["User-Agent"])
+			if s > 0 {
+				score += s
+				details = append(details, "UA异常+"+strconv.Itoa(s))
+			}
 		case "interval":
-			score += evalIntervalRule(rule, ip)
+			s := evalIntervalRule(rule, ip)
+			if s > 0 {
+				score += s
+				details = append(details, "窗口频率+"+strconv.Itoa(s))
+			}
 		}
 	}
 
-	return score
+	detail := "无"
+	if len(details) > 0 {
+		detail = joinStrings(details, ", ")
+	}
+	return score, detail
+}
+
+func joinStrings(parts []string, sep string) string {
+	if len(parts) == 0 {
+		return ""
+	}
+	result := parts[0]
+	for _, p := range parts[1:] {
+		result += sep + p
+	}
+	return result
 }
 
 // accumulateRiskScore 累加风险分到 Redis（原子操作）
@@ -278,27 +315,42 @@ func evalUARule(rule RiskRuleItem, ua string) int {
 	return 0
 }
 
-// evalIntervalRule 请求间隔检测
+// evalIntervalRule 滑动窗口频率检测
+// 使用 Redis 有序集合记录请求时间戳，统计窗口内的请求次数
+// Threshold = 窗口内最大请求数，Keywords[0] = 窗口秒数（默认10）
 func evalIntervalRule(rule RiskRuleItem, ip string) int {
 	rdb := database.GetRedis()
 	ctx := context.Background()
-	key := "risk:last:" + ip
+	key := "risk:window:" + ip
 
-	lastStr, err := rdb.Get(ctx, key).Result()
-	if err != nil {
-		rdb.Set(ctx, key, time.Now().UnixMilli(), 60*time.Second)
-		return 0
-	}
-
-	lastTime, err := strconv.ParseInt(lastStr, 10, 64)
-	if err != nil {
-		return 0
+	// 窗口大小（秒），从 Keywords[0] 读取，默认 10 秒
+	windowSeconds := 10
+	if len(rule.Keywords) > 0 {
+		if v, err := strconv.Atoi(rule.Keywords[0]); err == nil && v > 0 {
+			windowSeconds = v
+		}
 	}
 
 	now := time.Now().UnixMilli()
-	rdb.Set(ctx, key, now, 60*time.Second)
+	windowStart := now - int64(windowSeconds*1000)
 
-	if now-lastTime < int64(rule.Threshold) {
+	// 原子操作：清除过期记录 + 添加当前请求 + 计数
+	pipe := rdb.Pipeline()
+	pipe.ZRemRangeByScore(ctx, key, "0", strconv.FormatInt(windowStart, 10))
+	pipe.ZAdd(ctx, key, redis.Z{Score: float64(now), Member: strconv.FormatInt(now, 10) + ":" + strconv.Itoa(int(now%1000))})
+	countCmd := pipe.ZCard(ctx, key)
+	pipe.Expire(ctx, key, time.Duration(windowSeconds+5)*time.Second)
+	_, _ = pipe.Exec(ctx)
+
+	count := int(countCmd.Val())
+
+	// 阈值：窗口内最大请求数（Threshold 字段复用为 maxCount）
+	maxCount := rule.Threshold
+	if maxCount <= 0 {
+		maxCount = 50
+	}
+
+	if count > maxCount {
 		return rule.Score
 	}
 	return 0
