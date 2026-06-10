@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"encoding/json"
 	"strconv"
 	"time"
 
@@ -97,8 +98,14 @@ func CaptchaGuard() gin.HandlerFunc {
 			startTime, _ = strconv.ParseInt(startTimeStr, 10, 64)
 		}
 
+		// 解析点选验证码的坐标数据
+		var points []captcha.Point
+		if len(captchaCode) > 0 && captchaCode[0] == '[' {
+			_ = json.Unmarshal([]byte(captchaCode), &points)
+		}
+
 		// 验证验证码
-		valid, _ := captcha.Verify(captchaID, captchaCode, startTime, nil)
+		valid, _ := captcha.Verify(captchaID, captchaCode, startTime, points)
 		if !valid {
 			// 验证失败，返回 403001 让前端重新获取验证码
 			response.CaptchaRequired(c, "验证码错误或已过期")
