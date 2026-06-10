@@ -51,6 +51,7 @@ import {
 import type { FileApi } from '#/api/file';
 import { useUploadStore } from '#/store/upload';
 import type { UploadTaskItem } from '#/store/upload';
+import { getFileIcon, formatFileSize, fallbackCopy } from '#/utils/file-utils';
 
 defineOptions({ name: 'FileList' });
 
@@ -155,24 +156,7 @@ watch(() => uploadTasks.value.length, (newLen, oldLen) => {
 
 // ==================== 工具函数 ====================
 
-function getFileIcon(type: string) {
-  if (type?.startsWith('image/')) return 'i-ant-design:file-image-outlined';
-  if (type?.startsWith('video/')) return 'i-ant-design:file-video-outlined';
-  if (type?.startsWith('audio/')) return 'i-ant-design:sound-outlined';
-  if (type?.includes('pdf')) return 'i-ant-design:file-pdf-outlined';
-  if (type?.includes('word') || type?.includes('document')) return 'i-ant-design:file-word-outlined';
-  if (type?.includes('excel') || type?.includes('spreadsheet')) return 'i-ant-design:file-excel-outlined';
-  if (type?.includes('zip') || type?.includes('rar')) return 'i-ant-design:file-zip-outlined';
-  return 'i-ant-design:file-outlined';
-}
-
-function formatFileSize(size: number | undefined | null) {
-  if (size === undefined || size === null || isNaN(size)) return '-';
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  if (size < 1024 * 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)} MB`;
-  return `${(size / 1024 / 1024 / 1024).toFixed(1)} GB`;
-}
+// formatFileSize, getFileIcon, fallbackCopy are imported from '#/utils/file-utils'
 
 function formatDuration(ms: number | undefined): string {
   if (!ms) return '-';
@@ -183,43 +167,6 @@ function formatDuration(ms: number | undefined): string {
   return `${minutes}m ${seconds}s`;
 }
 
-function fallbackCopy(text: string) {
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text).then(
-      () => message.success('链接已复制到剪贴板'),
-      () => {
-        // 降级方案
-        const textarea = document.createElement('textarea');
-        textarea.value = text;
-        textarea.style.cssText = 'position:fixed;left:0;top:0;opacity:0';
-        document.body.appendChild(textarea);
-        textarea.focus();
-        textarea.select();
-        try {
-          document.execCommand('copy');
-          message.success('链接已复制到剪贴板');
-        } catch {
-          message.error('复制失败，请手动复制');
-        }
-        document.body.removeChild(textarea);
-      },
-    );
-  } else {
-    const textarea = document.createElement('textarea');
-    textarea.value = text;
-    textarea.style.cssText = 'position:fixed;left:0;top:0;opacity:0';
-    document.body.appendChild(textarea);
-    textarea.focus();
-    textarea.select();
-    try {
-      document.execCommand('copy');
-      message.success('链接已复制到剪贴板');
-    } catch {
-      message.error('复制失败，请手动复制');
-    }
-    document.body.removeChild(textarea);
-  }
-}
 
 const storageTypeLabels: Record<string, { label: string; color: string }> = {
   local: { label: '本地', color: 'default' },

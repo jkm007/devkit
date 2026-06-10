@@ -33,6 +33,7 @@ import {
   deleteShare,
 } from '#/api/file';
 import type { ShareListItem } from '#/api/file';
+import { getFileIcon, formatFileSize, fallbackCopy } from '#/utils/file-utils';
 
 defineOptions({ name: 'ShareList' });
 
@@ -142,42 +143,7 @@ function getFullShareUrl(share: any) {
   return `${window.location.origin}${url.startsWith('/') ? '' : '/'}${url}`;
 }
 
-function fallbackCopy(text: string) {
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text).then(
-      () => message.success('链接已复制'),
-      () => {
-        const textarea = document.createElement('textarea');
-        textarea.value = text;
-        textarea.style.position = 'fixed';
-        textarea.style.opacity = '0';
-        document.body.appendChild(textarea);
-        textarea.select();
-        try {
-          document.execCommand('copy');
-          message.success('链接已复制');
-        } catch {
-          message.error('复制失败，请手动复制');
-        }
-        document.body.removeChild(textarea);
-      },
-    );
-  } else {
-    const textarea = document.createElement('textarea');
-    textarea.value = text;
-    textarea.style.position = 'fixed';
-    textarea.style.opacity = '0';
-    document.body.appendChild(textarea);
-    textarea.select();
-    try {
-      document.execCommand('copy');
-      message.success('链接已复制');
-    } catch {
-      message.error('复制失败，请手动复制');
-    }
-    document.body.removeChild(textarea);
-  }
-}
+// fallbackCopy is imported from '#/utils/file-utils'
 
 // 菜单操作处理
 function handleMenuAction(key: string, record: any) {
@@ -278,14 +244,23 @@ async function handleEnable(id: number) {
 }
 
 // 删除分享
-async function handleDelete(id: number) {
-  try {
-    await deleteShare(id);
-    message.success('已删除');
-    loadShareList();
-  } catch (err: any) {
-    message.error(err.message || '删除失败');
-  }
+function handleDelete(id: number) {
+  Modal.confirm({
+    title: '删除分享',
+    content: '确定删除此分享链接吗？删除后将无法恢复。',
+    okText: '确定删除',
+    okType: 'danger',
+    cancelText: '取消',
+    onOk: async () => {
+      try {
+        await deleteShare(id);
+        message.success('已删除');
+        loadShareList();
+      } catch (err: any) {
+        message.error(err.message || '删除失败');
+      }
+    },
+  });
 }
 
 // 批量删除
@@ -373,13 +348,7 @@ function openBatchStatusModal(status: number) {
 
 // ==================== 工具函数 ====================
 
-function formatFileSize(size: number | undefined | null) {
-  if (size === undefined || size === null || isNaN(size)) return '-';
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  if (size < 1024 * 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)} MB`;
-  return `${(size / 1024 / 1024 / 1024).toFixed(1)} GB`;
-}
+// formatFileSize is imported from '#/utils/file-utils'
 
 function formatDate(date: string | undefined | null) {
   if (!date) return '永久';
@@ -399,17 +368,7 @@ function getStatusTag(status: number) {
   }
 }
 
-function getFileIcon(type: string | undefined) {
-  if (!type) return 'i-ant-design:file-outlined';
-  if (type.startsWith('image/')) return 'i-ant-design:file-image-outlined';
-  if (type.startsWith('video/')) return 'i-ant-design:file-video-outlined';
-  if (type.startsWith('audio/')) return 'i-ant-design:sound-outlined';
-  if (type.includes('pdf')) return 'i-ant-design:file-pdf-outlined';
-  if (type.includes('word') || type.includes('document')) return 'i-ant-design:file-word-outlined';
-  if (type.includes('excel') || type.includes('spreadsheet')) return 'i-ant-design:file-excel-outlined';
-  if (type.includes('zip') || type.includes('rar')) return 'i-ant-design:file-zip-outlined';
-  return 'i-ant-design:file-outlined';
-}
+// getFileIcon is imported from '#/utils/file-utils'
 
 // @ts-ignore - 暂时未使用，保留以备将来使用
 function getShareUrl(share: any) {

@@ -28,6 +28,7 @@ import {
   restoreFile,
 } from '#/api/file';
 import type { RecycleBinItem } from '#/api/file';
+import { getFileIcon, formatFileSize } from '#/utils/file-utils';
 
 defineOptions({ name: 'FileRecycle' });
 
@@ -54,24 +55,7 @@ const recycleCount = ref(0);
 
 // ==================== 工具函数 ====================
 
-function getFileIcon(type: string) {
-  if (type?.startsWith('image/')) return 'i-ant-design:file-image-outlined';
-  if (type?.startsWith('video/')) return 'i-ant-design:file-video-outlined';
-  if (type?.startsWith('audio/')) return 'i-ant-design:sound-outlined';
-  if (type?.includes('pdf')) return 'i-ant-design:file-pdf-outlined';
-  if (type?.includes('word') || type?.includes('document')) return 'i-ant-design:file-word-outlined';
-  if (type?.includes('excel') || type?.includes('spreadsheet')) return 'i-ant-design:file-excel-outlined';
-  if (type?.includes('zip') || type?.includes('rar')) return 'i-ant-design:file-zip-outlined';
-  return 'i-ant-design:file-outlined';
-}
-
-function formatFileSize(size: number | undefined | null) {
-  if (size === undefined || size === null || isNaN(size)) return '-';
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  if (size < 1024 * 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)} MB`;
-  return `${(size / 1024 / 1024 / 1024).toFixed(1)} GB`;
-}
+// formatFileSize, getFileIcon are imported from '#/utils/file-utils'
 
 function formatDate(date: string | undefined) {
   if (!date) return '-';
