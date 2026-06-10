@@ -24,7 +24,7 @@ func NewScheduledTaskHandler() *ScheduledTaskHandler {
 // CreateRequest 创建任务请求
 type CreateRequest struct {
 	Name     string        `json:"name" binding:"required"`
-	TaskType string        `json:"taskType" binding:"required"`
+	TaskType string        `json:"taskType" binding:"required,oneof=recycle_cleanup"`
 	CronExpr string        `json:"cronExpr" binding:"required"`
 	Config   model.JSONMap `json:"config"`
 }

@@ -27,6 +27,15 @@ func (h *RecycleBinHandler) List(c *gin.Context) {
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
+	if pageSize > 100 {
+		pageSize = 100
+	}
+	if pageSize < 1 {
+		pageSize = 20
+	}
+	if page < 1 {
+		page = 1
+	}
 	scope := c.DefaultQuery("scope", "own")
 
 	// 检查是否有查看所有文件的权限

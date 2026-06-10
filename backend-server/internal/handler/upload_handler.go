@@ -82,6 +82,17 @@ func (h *UploadHandler) InitUpload(c *gin.Context) {
 		return
 	}
 
+	// 文件大小上限检查：10GB
+	const maxFileSize int64 = 10 * 1024 * 1024 * 1024
+	if req.FileSize <= 0 {
+		response.BadRequest(c, "文件大小必须大于0")
+		return
+	}
+	if req.FileSize > maxFileSize {
+		response.BadRequest(c, "文件大小超过上限（最大10GB）")
+		return
+	}
+
 	userID := middleware.GetCurrentUserID(c)
 	result, err := h.uploadService.InitUpload(userID, req.FileName, req.FileSize, req.FileHash, req.ContentType, req.TotalParts, req.FolderID)
 	if err != nil {
