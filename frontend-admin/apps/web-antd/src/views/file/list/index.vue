@@ -297,8 +297,8 @@ async function loadFolderTree() {
 
 async function loadAvailableTags() {
   try {
-    const { getAllTags } = await import('#/api/system/tag');
-    const tags = await getAllTags();
+    const { getTagsForUser } = await import('#/api/system/tag');
+    const tags = await getTagsForUser();
     availableTags.value = tags.map(tag => ({
       id: tag.id,
       key: tag.tagKey,

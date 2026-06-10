@@ -53,9 +53,14 @@ export interface TagRouting {
 
 // API 函数
 
-// 标签管理
+// 标签管理（管理员接口，需要 storage:bucket:view 权限）
 export function getAllTags() {
   return requestClient.get<Tag[]>('/system/tags');
+}
+
+// 标签查询（普通用户接口，用于文件管理的标签筛选）
+export function getTagsForUser() {
+  return requestClient.get<Tag[]>('/tags');
 }
 
 export function getGroupedTags() {

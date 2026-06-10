@@ -155,6 +155,11 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		// 密码历史
 		authorized.POST("/auth/password-history/check", passwordHistoryHandler.Check)
 
+		// 标签查询（所有认证用户可用，用于文件管理的标签筛选）
+		authorized.GET("/tags", tagHandler.GetAllTags)
+		authorized.GET("/tags/grouped", tagHandler.GetGroupedTags)
+		authorized.GET("/tags/key/:key", tagHandler.GetTagsByKey)
+
 		// 角色申请（用户端）
 		authorized.POST("/auth/role-applications", roleApplicationHandler.Create)
 		authorized.GET("/auth/role-applications", roleApplicationHandler.GetMyList)
