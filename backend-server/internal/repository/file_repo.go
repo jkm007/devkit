@@ -266,6 +266,14 @@ func (r *FileRepo) GetExpiredRecycleBinEntries() ([]model.FileEntry, error) {
 	return entries, err
 }
 
+// GetExpiredRecycleBinEntriesByRetentionDays 根据保留天数获取过期的回收站文件
+func (r *FileRepo) GetExpiredRecycleBinEntriesByRetentionDays(retentionDays int) ([]model.FileEntry, error) {
+	var entries []model.FileEntry
+	expireAt := time.Now().Add(-time.Duration(retentionDays) * 24 * time.Hour)
+	err := r.db.Where("deleted_at IS NOT NULL AND deleted_at <= ?", expireAt).Find(&entries).Error
+	return entries, err
+}
+
 // HardDeleteEntry 永久删除文件条目
 func (r *FileRepo) HardDeleteEntry(id uint) error {
 	return r.db.Unscoped().Delete(&model.FileEntry{}, id).Error

@@ -178,9 +178,28 @@ func (s *RecycleBinService) EmptyRecycleBin(userID uint) error {
 	return s.fileRepo.EmptyRecycleBin(userID)
 }
 
-// CleanupExpiredFiles 清理过期文件（定时任务调用）
+// CleanupExpiredFiles 清理过期文件（定时任务调用，使用默认过期策略）
 func (s *RecycleBinService) CleanupExpiredFiles() (int, error) {
 	entries, err := s.fileRepo.GetExpiredRecycleBinEntries()
+	if err != nil {
+		return 0, fmt.Errorf("获取过期文件失败: %w", err)
+	}
+
+	deleted := 0
+	for _, entry := range entries {
+		if err := s.permanentDeleteEntry(&entry); err != nil {
+			fmt.Printf("永久删除文件失败: id=%d, err=%v\n", entry.ID, err)
+			continue
+		}
+		deleted++
+	}
+
+	return deleted, nil
+}
+
+// CleanupExpiredFilesWithRetention 根据保留天数清理过期文件
+func (s *RecycleBinService) CleanupExpiredFilesWithRetention(retentionDays int) (int, error) {
+	entries, err := s.fileRepo.GetExpiredRecycleBinEntriesByRetentionDays(retentionDays)
 	if err != nil {
 		return 0, fmt.Errorf("获取过期文件失败: %w", err)
 	}

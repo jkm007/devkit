@@ -159,12 +159,29 @@ func (s *ScheduledTaskService) executeTask(task *model.ScheduledTask) error {
 func (s *ScheduledTaskService) executeRecycleCleanup(task *model.ScheduledTask) (string, error) {
 	recycleService := NewRecycleBinService()
 
-	deleted, err := recycleService.CleanupExpiredFiles()
+	// 从任务配置中读取 retention_days
+	retentionDays := 7 // 默认保留 7 天
+	if task.Config != nil {
+		if val, ok := task.Config["retention_days"]; ok {
+			switch v := val.(type) {
+			case float64:
+				retentionDays = int(v)
+			case int:
+				retentionDays = v
+			case string:
+				if d, err := strconv.Atoi(v); err == nil && d > 0 {
+					retentionDays = d
+				}
+			}
+		}
+	}
+
+	deleted, err := recycleService.CleanupExpiredFilesWithRetention(retentionDays)
 	if err != nil {
 		return "", err
 	}
 
-	return fmt.Sprintf("已清理 %d 个过期文件", deleted), nil
+	return fmt.Sprintf("已清理 %d 个过期文件（保留天数: %d）", deleted, retentionDays), nil
 }
 
 // calculateNextRun 计算下次执行时间（支持 * 和具体数字，找到下一个大于当前时间的执行时间）

@@ -97,20 +97,25 @@ func GetStorageDriver() string {
 // 用于访问历史文件（切换存储后旧文件仍需可访问）
 func GetStorageByDriver(driver string) Storage {
 	storageMutex.RLock()
-	defer storageMutex.RUnlock()
+	if s, ok := storageCache[driver]; ok {
+		storageMutex.RUnlock()
+		return s
+	}
+	storageMutex.RUnlock()
 
-	// 先从缓存中获取
+	// 缓存中没有，尝试初始化该驱动（需要写锁）
+	storageMutex.Lock()
+	defer storageMutex.Unlock()
+
+	// 双重检查：其他 goroutine 可能已经初始化了
 	if s, ok := storageCache[driver]; ok {
 		return s
 	}
 
-	// 缓存中没有，尝试初始化该驱动
-	storageMutex.RUnlock()
 	if s := tryInitDriver(driver); s != nil {
-		storageMutex.RLock()
+		storageCache[driver] = s
 		return s
 	}
-	storageMutex.RLock()
 
 	// 仍然没有，使用当前存储
 	log.Printf("[WARN] 驱动 %s 未缓存，回退到当前存储", driver)
@@ -174,9 +179,7 @@ func tryInitDriver(driver string) Storage {
 		return nil
 	}
 
-	storageMutex.Lock()
-	storageCache[driver] = s
-	storageMutex.Unlock()
+	// 注意：调用方应持有写锁并负责设置 storageCache
 	log.Printf("[INFO] 按需初始化 %s 驱动成功", driver)
 	return s
 }
