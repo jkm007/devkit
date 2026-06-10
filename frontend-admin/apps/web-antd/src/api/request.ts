@@ -91,15 +91,33 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
       const data = response?.data;
       if (data?.code === 403001) {
         try {
-          const result = await showCaptchaVerify();
-          const config = { ...response.config, responseReturn: 'raw' };
-          config.headers = {
-            ...config.headers,
-            'X-Captcha-Id': result.captchaId,
-            'X-Captcha-Code': result.captchaCode,
-            'X-Captcha-Start-Time': result.startTime ? String(result.startTime) : '',
-          };
-          return client.instance.request(config);
+          // 循环：验证码错误时重新弹出验证框，直到成功或用户取消
+          let currentConfig = { ...response.config };
+          while (true) {
+            const result = await showCaptchaVerify();
+            currentConfig = {
+              ...currentConfig,
+              headers: {
+                ...currentConfig.headers,
+                'X-Captcha-Id': result.captchaId,
+                'X-Captcha-Code': result.captchaCode,
+                'X-Captcha-Start-Time': result.startTime ? String(result.startTime) : '',
+              },
+            };
+            // 用 axios 原始实例请求，避免拦截器重复处理
+            const retryResponse = await client.instance.request(currentConfig);
+            const retryData = retryResponse?.data;
+            if (retryData?.code === 0) {
+              // 验证成功，返回已解包的数据
+              return retryData.data;
+            }
+            if (retryData?.code === 403001) {
+              // 验证码错误，继续循环弹出验证框
+              continue;
+            }
+            // 其他错误，抛出
+            throw Object.assign({}, retryResponse, { response: retryResponse });
+          }
         } catch {
           message.warning('操作已取消');
           return Promise.reject(new Error('验证码验证已取消'));
