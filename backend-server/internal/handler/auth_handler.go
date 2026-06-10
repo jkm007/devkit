@@ -102,7 +102,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	result, err := h.authService.Login(&req, c.ClientIP())
 	if err != nil {
 		// 记录登录失败日志
-		h.authService.RecordSecurityLog(0, "login_fail", err.Error(), c.ClientIP(), c.GetHeader("User-Agent"), 0)
+		h.authService.RecordSecurityLog(0, "login_fail", fmt.Sprintf("用户[%s]登录失败: %s", req.Username, err.Error()), c.ClientIP(), c.GetHeader("User-Agent"), 0)
 		response.Forbidden(c, err.Error())
 		return
 	}
@@ -365,7 +365,7 @@ func (h *AuthHandler) LoginByEmail(c *gin.Context) {
 
 	result, err := h.authService.LoginByEmail(req.Email, req.Code, c.ClientIP())
 	if err != nil {
-		h.authService.RecordSecurityLog(0, "login_fail", "邮箱登录失败: "+err.Error(), c.ClientIP(), c.GetHeader("User-Agent"), 0)
+		h.authService.RecordSecurityLog(0, "login_fail", fmt.Sprintf("邮箱[%s]登录失败: %s", req.Email, err.Error()), c.ClientIP(), c.GetHeader("User-Agent"), 0)
 		response.BadRequest(c, err.Error())
 		return
 	}
@@ -417,7 +417,7 @@ func (h *AuthHandler) LoginByPhone(c *gin.Context) {
 
 	result, err := h.authService.LoginByPhone(req.Phone, req.Code, c.ClientIP())
 	if err != nil {
-		h.authService.RecordSecurityLog(0, "login_fail", "手机号登录失败: "+err.Error(), c.ClientIP(), c.GetHeader("User-Agent"), 0)
+		h.authService.RecordSecurityLog(0, "login_fail", fmt.Sprintf("手机号[%s]登录失败: %s", req.Phone, err.Error()), c.ClientIP(), c.GetHeader("User-Agent"), 0)
 		response.BadRequest(c, err.Error())
 		return
 	}

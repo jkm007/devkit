@@ -54,7 +54,7 @@ func CaptchaGuard() gin.HandlerFunc {
 		path := c.Request.URL.Path
 
 		// 跳过认证相关路径（它们有自己的验证码校验）
-		if strings.HasPrefix(path, "/auth/") || strings.HasPrefix(path, "/api/v1/auth/") {
+		if strings.HasPrefix(path, "/api/v1/auth/") {
 			c.Next()
 			return
 		}

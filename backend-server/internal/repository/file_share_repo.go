@@ -131,3 +131,23 @@ func (r *FileShareRepo) CountActiveByFileID(fileID uint) (int64, error) {
 func (r *FileShareRepo) DeleteByFileID(fileID uint) error {
 	return r.db.Where("file_id = ?", fileID).Delete(&model.FileShare{}).Error
 }
+
+// GetSharedFileIDs 批量获取有活跃分享的文件 ID 集合
+func (r *FileShareRepo) GetSharedFileIDs(fileIDs []uint) (map[uint]bool, error) {
+	if len(fileIDs) == 0 {
+		return nil, nil
+	}
+	var ids []uint
+	err := r.db.Model(&model.FileShare{}).
+		Where("file_id IN ? AND status = 1", fileIDs).
+		Distinct("file_id").
+		Pluck("file_id", &ids).Error
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[uint]bool, len(ids))
+	for _, id := range ids {
+		result[id] = true
+	}
+	return result, nil
+}

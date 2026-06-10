@@ -420,7 +420,10 @@ function openRenameFolderModal(id: number, name: string) {
 }
 
 async function handleRenameFolder() {
-  if (!renameFolderName.value.trim()) return;
+  if (!renameFolderName.value.trim()) {
+    message.warning('请输入文件夹名称');
+    return;
+  }
   try {
     await renameFolder(renameFolderId.value!, { name: renameFolderName.value.trim() });
     message.success('重命名成功');

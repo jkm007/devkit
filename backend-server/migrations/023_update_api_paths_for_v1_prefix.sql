@@ -1,19 +1,10 @@
--- 迁移：更新所有 API 路径加上 /api/v1 前缀
--- 背景：后端路由统一添加了 /api/v1 前缀，数据库中存储的路径需要同步更新
-
--- 1. 更新限流规则路径
-UPDATE sys_rate_limit_rules SET path_pattern = '/api/v1/auth/send-code' WHERE path_pattern = '/auth/send-code';
-UPDATE sys_rate_limit_rules SET path_pattern = '/api/v1/auth/send-sms-code' WHERE path_pattern = '/auth/send-sms-code';
-UPDATE sys_rate_limit_rules SET path_pattern = '/api/v1/auth/login-by-email' WHERE path_pattern = '/auth/login-by-email';
-UPDATE sys_rate_limit_rules SET path_pattern = '/api/v1/auth/login-by-phone' WHERE path_pattern = '/auth/login-by-phone';
-UPDATE sys_rate_limit_rules SET path_pattern = '/api/v1/auth/register' WHERE path_pattern = '/auth/register';
-UPDATE sys_rate_limit_rules SET path_pattern = '/api/v1/auth/reset-password' WHERE path_pattern = '/auth/reset-password';
-UPDATE sys_rate_limit_rules SET path_pattern = '/api/v1/auth/captcha' WHERE path_pattern = '/auth/captcha';
-UPDATE sys_rate_limit_rules SET path_pattern = '/api/v1/auth/verify-code' WHERE path_pattern = '/auth/verify-code';
-UPDATE sys_rate_limit_rules SET path_pattern = '/api/v1/auth/oauth/callback' WHERE path_pattern = '/auth/oauth/callback';
-UPDATE sys_rate_limit_rules SET path_pattern = '/api/v1/share/*' WHERE path_pattern = '/share/*';
-
--- 2. 更新风险评分保护路径（逗号分隔格式，与 parseStringList 函数匹配）
+-- =======================================================
+-- Migration 023: 更新风险防护路径为 /api/v1 前缀格式
+-- =======================================================
+-- 修复 risk_protected_paths 格式：从 JSON 数组改为逗号分隔
+-- （匹配 parseStringList 函数的解析逻辑：按逗号分割、trim 引号和空格）
+-- 注意：文件相关路径（/api/v1/files, /api/v1/shares）不纳入验证码防护，
+-- 因为这些是普通用户的正常操作，不是管理后台操作。
 UPDATE sys_system_settings
-SET value = '"/api/v1/system/user,/api/v1/system/role,/api/v1/system/group,/api/v1/system/menu,/api/v1/system/settings,/api/v1/system/storage-buckets,/api/v1/system/storage-configs,/api/v1/system/scheduled-tasks,/api/v1/files,/api/v1/files/recycle,/api/v1/shares"'
-WHERE `key` = 'risk_protected_paths' AND group_key = 'risk_score' AND deleted_at IS NULL;
+SET value = '/api/v1/system/user,/api/v1/system/role,/api/v1/system/group,/api/v1/system/menu,/api/v1/system/settings,/api/v1/system/storage-buckets,/api/v1/system/storage-configs,/api/v1/system/scheduled-tasks'
+WHERE group_key = 'risk_score' AND `key` = 'risk_protected_paths';

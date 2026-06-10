@@ -3,10 +3,10 @@ package service
 // 安全日志事件类型常量
 const (
 	// 认证相关
-	EventLogin         = "login"          // 登录成功
-	EventLoginFail     = "login_fail"     // 登录失败
+	EventLogin          = "login"           // 登录成功
+	EventLoginFail      = "login_fail"      // 登录失败
 	EventPasswordChange = "password_change" // 修改密码
-	EventLogout        = "logout"         // 退出登录
+	EventLogout         = "logout"          // 退出登录
 
 	// 用户管理
 	EventUserCreate = "user_create" // 创建用户
@@ -30,38 +30,39 @@ const (
 )
 
 // pathToEventType HTTP 方法+路径 映射到事件类型
+// 注意：路径包含 /api/v1 前缀（与 router.go 中的路由组一致）
 func PathToEventType(method, path string) (string, string) {
 	switch {
 	// 用户管理
-	case method == "POST" && path == "/system/user":
+	case method == "POST" && path == "/api/v1/system/user":
 		return EventUserCreate, "创建用户"
-	case method == "PUT" && len(path) > 13 && path[:13] == "/system/user/":
+	case method == "PUT" && len(path) > 19 && path[:19] == "/api/v1/system/user/":
 		return EventUserUpdate, "更新用户"
-	case method == "DELETE" && len(path) > 13 && path[:13] == "/system/user/":
+	case method == "DELETE" && len(path) > 19 && path[:19] == "/api/v1/system/user/":
 		return EventUserDelete, "删除用户"
 
 	// 角色管理
-	case method == "POST" && path == "/system/role":
+	case method == "POST" && path == "/api/v1/system/role":
 		return EventRoleCreate, "创建角色"
-	case method == "PUT" && len(path) > 13 && path[:13] == "/system/role/":
+	case method == "PUT" && len(path) > 19 && path[:19] == "/api/v1/system/role/":
 		return EventRoleUpdate, "更新角色"
-	case method == "DELETE" && len(path) > 13 && path[:13] == "/system/role/":
+	case method == "DELETE" && len(path) > 19 && path[:19] == "/api/v1/system/role/":
 		return EventRoleDelete, "删除角色"
 
 	// 菜单管理
-	case method == "POST" && path == "/system/menu":
+	case method == "POST" && path == "/api/v1/system/menu":
 		return EventMenuCreate, "创建菜单"
-	case method == "PUT" && len(path) > 13 && path[:13] == "/system/menu/":
+	case method == "PUT" && len(path) > 19 && path[:19] == "/api/v1/system/menu/":
 		return EventMenuUpdate, "更新菜单"
-	case method == "DELETE" && len(path) > 13 && path[:13] == "/system/menu/":
+	case method == "DELETE" && len(path) > 19 && path[:19] == "/api/v1/system/menu/":
 		return EventMenuDelete, "删除菜单"
 
 	// 分组管理
-	case method == "POST" && path == "/system/group":
+	case method == "POST" && path == "/api/v1/system/group":
 		return EventGroupCreate, "创建分组"
-	case method == "PUT" && len(path) > 14 && path[:14] == "/system/group/":
+	case method == "PUT" && len(path) > 20 && path[:20] == "/api/v1/system/group/":
 		return EventGroupUpdate, "更新分组"
-	case method == "DELETE" && len(path) > 14 && path[:14] == "/system/group/":
+	case method == "DELETE" && len(path) > 20 && path[:20] == "/api/v1/system/group/":
 		return EventGroupDelete, "删除分组"
 
 	default:

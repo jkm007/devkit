@@ -109,6 +109,9 @@ func (s *MenuService) buildMenuTree(menus []model.Menu, pid uint, includeButton 
 			children := s.buildMenuTree(menus, menu.ID, includeButton)
 			if len(children) > 0 {
 				item.Children = children
+			} else if menu.Type == "catalog" {
+				// 目录类型如果没有可见子菜单，不显示（避免空目录）
+				continue
 			}
 			trees = append(trees, item)
 		}

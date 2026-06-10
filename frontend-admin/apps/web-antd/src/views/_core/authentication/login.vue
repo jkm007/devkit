@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import type { VbenFormSchema } from '@vben/common-ui';
-import type { BasicOption } from '@vben/types';
 
 import { computed, defineAsyncComponent, markRaw, onMounted, ref, watch } from 'vue';
 
@@ -191,50 +190,13 @@ watch(shouldShowCaptcha, async (need) => {
   }
 });
 
-// ==================== Mock 用户 ====================
-const MOCK_USER_OPTIONS: BasicOption[] = import.meta.env.DEV ? [
-  { label: 'Super', value: 'vben' },
-  { label: 'Admin', value: 'admin' },
-  { label: 'User', value: 'jack' },
-] : [];
-
 // ==================== 表单 ====================
 const formSchema = computed((): VbenFormSchema[] => {
   const schema: VbenFormSchema[] = [
     {
-      component: 'VbenSelect',
-      componentProps: {
-        options: MOCK_USER_OPTIONS,
-        placeholder: $t('authentication.selectAccount'),
-      },
-      fieldName: 'selectAccount',
-      label: $t('authentication.selectAccount'),
-      rules: z
-        .string()
-        .min(1, { message: $t('authentication.selectAccount') })
-        .optional()
-        .default('vben'),
-    },
-    {
       component: 'VbenInput',
       componentProps: {
         placeholder: $t('authentication.usernameTip'),
-      },
-      dependencies: {
-        trigger(values, form) {
-          if (values.selectAccount) {
-            const findUser = MOCK_USER_OPTIONS.find(
-              (item) => item.value === values.selectAccount,
-            );
-            if (findUser) {
-              form.setValues({
-                password: '123456',
-                username: findUser.value,
-              });
-            }
-          }
-        },
-        triggerFields: ['selectAccount'],
       },
       fieldName: 'username',
       label: $t('authentication.username'),

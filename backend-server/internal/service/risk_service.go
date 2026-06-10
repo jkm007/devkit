@@ -205,7 +205,7 @@ func getDefaultRiskConfig() *RiskConfig {
 		BlockScore:   80,
 		DecayMinutes: 30,
 		DecayRate:    0.5,
-		Paths:        []string{"/system/user", "/system/role", "/system/group", "/system/menu", "/system/settings", "/system/storage-buckets", "/system/storage-configs", "/system/scheduled-tasks", "/files", "/files/recycle", "/shares"},
+		Paths:        []string{"/api/v1/system/user", "/api/v1/system/role", "/api/v1/system/group", "/api/v1/system/menu", "/api/v1/system/settings", "/api/v1/system/storage-buckets", "/api/v1/system/storage-configs", "/api/v1/system/scheduled-tasks", "/api/v1/files", "/api/v1/files/recycle", "/api/v1/shares"},
 		Rules: []RiskRule{
 			{Key: "frequency", Enabled: true, Score: 30, Threshold: 30},
 			{Key: "no_referer", Enabled: true, Score: 20},

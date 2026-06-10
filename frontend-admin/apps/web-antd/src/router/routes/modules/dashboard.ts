@@ -31,6 +31,15 @@ const routes: RouteRecordRaw[] = [
           title: $t('page.dashboard.workspace'),
         },
       },
+      {
+        name: 'UserHome',
+        path: '/user-home',
+        component: () => import('#/views/dashboard/user-home/index.vue'),
+        meta: {
+          icon: 'lucide:home',
+          title: '用户首页',
+        },
+      },
     ],
   },
 ];

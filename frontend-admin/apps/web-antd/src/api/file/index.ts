@@ -1,5 +1,9 @@
-import { requestClient } from '#/api/request';
 import { useAccessStore } from '@vben/stores';
+
+import { requestClient } from '#/api/request';
+
+// API 基础路径（开发环境由 Vite proxy 重写，生产环境直接使用）
+const apiBase = import.meta.env.VITE_GLOB_API_URL || '/api/v1';
 
 export interface UploadProgressEvent {
   loaded: number;
@@ -240,13 +244,13 @@ export async function uploadPart(data: {
       xhr.addEventListener('error', () => reject(new Error('上传失败')));
       xhr.addEventListener('abort', () => reject(new Error('上传已取消')));
 
-      xhr.open('POST', '/api/files/upload/part');
+      xhr.open('POST', `${apiBase}/files/upload/part`);
       xhr.setRequestHeader('Authorization', `Bearer ${token}`);
       xhr.send(formData);
     });
   }
 
-  const response = await fetch('/api/files/upload/part', {
+  const response = await fetch(`${apiBase}/files/upload/part`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -281,7 +285,7 @@ export async function completeUpload(data: { uploadId: string }): Promise<FileAp
   const accessStore = useAccessStore();
   const token = accessStore.accessToken || '';
 
-  const response = await fetch('/api/files/upload/complete', {
+  const response = await fetch(`${apiBase}/files/upload/complete`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

@@ -269,7 +269,24 @@ func (s *AuthService) generateLoginResponse(user *model.User, clientIP string) (
 		return nil, err
 	}
 	if len(roleNames) == 0 {
-		return nil, errors.New("User has no assigned roles")
+		// 自动分配默认 user 角色（与 OAuth 登录保持一致）
+		defaultRole, err := s.roleRepo.GetByName("user")
+		if err == nil && defaultRole != nil {
+			_ = s.userRepo.SyncUserRoles(user.ID, []uint{defaultRole.ID})
+			roleNames = []string{"user"}
+		}
+		if len(roleNames) == 0 {
+			return nil, errors.New("User has no assigned roles")
+		}
+	}
+
+	// 根据角色设置默认首页
+	homePath := "/user-home"
+	for _, name := range roleNames {
+		if name == "admin" || name == "super" {
+			homePath = "/analytics"
+			break
+		}
 	}
 
 	// 生成 Token
@@ -310,6 +327,7 @@ func (s *AuthService) generateLoginResponse(user *model.User, clientIP string) (
 		Bio:            user.Bio,
 		Roles:          roleNames,
 		RegisterSource: user.RegisterSource,
+		HomePath:       homePath,
 		AccessToken:    tokenPair.AccessToken,
 		RefreshToken:   tokenPair.RefreshToken,
 	}, nil
@@ -341,7 +359,15 @@ func (s *AuthService) RefreshToken(userID uint, refreshToken string) (*TokenRefr
 		return nil, err
 	}
 	if len(roleNames) == 0 {
-		return nil, errors.New("User has no assigned roles")
+		// 自动分配默认 user 角色
+		defaultRole, err := s.roleRepo.GetByName("user")
+		if err == nil && defaultRole != nil {
+			_ = s.userRepo.SyncUserRoles(user.ID, []uint{defaultRole.ID})
+			roleNames = []string{"user"}
+		}
+		if len(roleNames) == 0 {
+			return nil, errors.New("User has no assigned roles")
+		}
 	}
 
 	// 3. 生成新的 Token 对（轮换，包含所有角色）
@@ -555,6 +581,15 @@ func (s *AuthService) GetUserInfo(userID uint) (*LoginResponse, error) {
 		birthday = user.Birthday.Format("2006-01-02")
 	}
 
+	// 根据角色设置默认首页
+	homePath := "/user-home"
+	for _, name := range roleNames {
+		if name == "admin" || name == "super" {
+			homePath = "/analytics"
+			break
+		}
+	}
+
 	return &LoginResponse{
 		ID:       user.ID,
 		Username: user.Name,
@@ -567,6 +602,7 @@ func (s *AuthService) GetUserInfo(userID uint) (*LoginResponse, error) {
 		Birthday: birthday,
 		Bio:      user.Bio,
 		Roles:    roleNames,
+		HomePath: homePath,
 	}, nil
 }
 
@@ -689,8 +725,7 @@ func validateAvatarURL(url string) bool {
 	}
 	// 允许相对路径
 	if strings.HasPrefix(url, "/uploads/") ||
-		strings.HasPrefix(url, "/api/media/") ||
-		strings.HasPrefix(url, "/files/") {
+		strings.HasPrefix(url, "/api/v1/files/") {
 		return true
 	}
 	// 允许 http/https 开头的 URL（外部头像如 OAuth、云存储 presigned URL）

@@ -31,6 +31,18 @@ const passwordForm = ref({
 const changingPassword = ref(false);
 
 async function handleChangePassword() {
+  if (!passwordForm.value.oldPassword?.trim()) {
+    message.warning('请输入当前密码');
+    return;
+  }
+  if (!passwordForm.value.newPassword?.trim()) {
+    message.warning('请输入新密码');
+    return;
+  }
+  if (!passwordForm.value.confirmPassword?.trim()) {
+    message.warning('请输入确认密码');
+    return;
+  }
   if (passwordForm.value.newPassword !== passwordForm.value.confirmPassword) {
     message.warning($t('account.security.passwordMismatch'));
     return;

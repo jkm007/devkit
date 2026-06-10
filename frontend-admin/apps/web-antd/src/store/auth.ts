@@ -31,6 +31,7 @@ export const useAuthStore = defineStore('auth', () => {
   // 权限版本（内存中，不持久化，用于比对）
   const permissionVersion = ref('');
   let permissionCheckTimer: ReturnType<typeof setInterval> | null = null;
+  let isLoggingOut = false;
 
   /**
    * 登录后通用处理：存储 token、获取用户信息、跳转
@@ -144,25 +145,45 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function logout(redirect: boolean = true) {
+    // 防止重复调用
+    if (isLoggingOut) return;
+    isLoggingOut = true;
+
     try {
       await logoutApi();
     } catch {
       // 不做任何处理
     }
     stopPermissionCheck();
-    resetAllStores();
-    accessStore.setLoginExpired(false);
     permissionVersion.value = '';
 
-    // 回登录页带上当前路由地址
-    await router.replace({
-      path: LOGIN_PATH,
-      query: redirect
-        ? {
-            redirect: encodeURIComponent(router.currentRoute.value.fullPath),
-          }
-        : {},
-    });
+    // 构造目标路径
+    const fullPath = router.currentRoute.value.fullPath;
+    const targetPath =
+      fullPath && fullPath !== LOGIN_PATH
+        ? `${LOGIN_PATH}?redirect=${encodeURIComponent(fullPath)}`
+        : LOGIN_PATH;
+
+    // 先跳转，再重置所有 store，避免 resetAllStores 导致组件卸载取消导航
+    try {
+      await router.replace(targetPath);
+    } catch {
+      // router.replace 失败时用硬跳转兜底
+    }
+
+    // 跳转后再重置所有 store（不影响导航）
+    resetAllStores();
+    accessStore.setLoginExpired(false);
+
+    // 如果路由跳转未生效（组件已卸载等），用硬跳转兜底
+    if (router.currentRoute.value.fullPath !== LOGIN_PATH) {
+      window.location.href = targetPath;
+    }
+
+    // 延迟重置标志，允许后续登录后再 logout
+    setTimeout(() => {
+      isLoggingOut = false;
+    }, 1000);
   }
 
   async function fetchUserInfo() {

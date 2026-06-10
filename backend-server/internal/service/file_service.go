@@ -434,6 +434,9 @@ func (s *FileService) ListFiles(userID uint, req *ListFilesRequest) ([]FileEntry
 	}
 	fileTagsMap, _ := s.fileTagRepo.GetByFileIDs(fileIDs)
 
+	// 批量查询哪些文件有活跃分享（用于动态添加"公开"标签）
+	sharedFileIDs, _ := s.shareRepo.GetSharedFileIDs(fileIDs)
+
 	// 转换为带 URL 的结构
 	result := make([]FileEntryWithURL, len(entries))
 	for i, entry := range entries {
@@ -466,11 +469,15 @@ func (s *FileService) ListFiles(userID uint, req *ListFilesRequest) ([]FileEntry
 			result[i].StorageType = asset.StorageType
 		}
 
-		// 获取标签
+		// 获取标签（过滤掉存储的"公开"标签，改为动态判断）
 		if fileTags, ok := fileTagsMap[entry.ID]; ok {
 			tags := make([]TagInfo, 0, len(fileTags))
 			for _, ft := range fileTags {
 				if ft.Tag != nil {
+					// 跳过存储的"公开"标签，后面根据分享状态动态添加
+					if ft.Tag.TagKey == "sensitivity" && ft.Tag.TagValue == "public" {
+						continue
+					}
 					tags = append(tags, TagInfo{
 						ID:    ft.Tag.ID,
 						Key:   ft.Tag.TagKey,
@@ -482,6 +489,23 @@ func (s *FileService) ListFiles(userID uint, req *ListFilesRequest) ([]FileEntry
 				}
 			}
 			result[i].Tags = tags
+		}
+
+		// 根据分享状态动态添加"公开"标签
+		if sharedFileIDs != nil && sharedFileIDs[entry.ID] {
+			publicTag := TagInfo{
+				ID:    10,
+				Key:   "sensitivity",
+				Value: "public",
+				Name:  "公开",
+				Icon:  "🔓",
+				Color: "#52c41a",
+			}
+			if result[i].Tags == nil {
+				result[i].Tags = []TagInfo{publicTag}
+			} else {
+				result[i].Tags = append(result[i].Tags, publicTag)
+			}
 		}
 	}
 
