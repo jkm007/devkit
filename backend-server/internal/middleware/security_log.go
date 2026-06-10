@@ -100,11 +100,11 @@ func SecurityLogMiddleware() gin.HandlerFunc {
 // shouldSkipPath 判断是否跳过记录
 func shouldSkipPath(path string) bool {
 	// 跳过认证相关（已有专门记录）
-	if strings.HasPrefix(path, "/auth/") {
+	if strings.HasPrefix(path, "/auth/") || strings.HasPrefix(path, "/api/v1/auth/") {
 		return true
 	}
 	// 跳过文件上传等
-	if strings.HasPrefix(path, "/upload") {
+	if strings.HasPrefix(path, "/upload") || strings.HasPrefix(path, "/api/v1/upload") {
 		return true
 	}
 	return false

@@ -8,7 +8,7 @@ export default defineConfig(async () => {
         proxy: {
           '/api': {
             changeOrigin: true,
-            rewrite: (path) => path.replace(/^\/api/, ''),
+            rewrite: (path) => path.replace(/^\/api/, '/api/v1'),
             // 真实后端服务地址
             target: 'http://localhost:8080',
             ws: true,

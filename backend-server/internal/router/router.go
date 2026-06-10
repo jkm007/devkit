@@ -60,13 +60,7 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	recycleBinHandler := handler.NewRecycleBinHandler()
 	scheduledTaskHandler := handler.NewScheduledTaskHandler()
 
-	// 健康检查
-	// @Summary      健康检查
-	// @Description  检查服务是否正常运行
-	// @Tags         系统
-	// @Produce      json
-	// @Success      200  {object}  map[string]string "status: ok"
-	// @Router       /health [get]
+	// 健康检查（不需要 /api/v1 前缀）
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
@@ -81,11 +75,14 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		r.Static(cfg.Storage.Local.URLPrefix, cfg.Storage.Local.Path)
 	}
 
+	// ==================== API v1 路由组 ====================
+	apiV1 := r.Group("/api/v1")
+
 	// 公开接口（无需认证）
-	r.GET("/system/settings/public", systemSettingHandler.GetPublic)
+	apiV1.GET("/system/settings/public", systemSettingHandler.GetPublic)
 
 	// 分享访问（公开，限流由数据库规则管理）
-	sharePublic := r.Group("/share")
+	sharePublic := apiV1.Group("/share")
 	{
 		sharePublic.GET("/:code", shareHandler.GetShareInfo)
 		sharePublic.GET("/:code/files", shareHandler.GetShareFolderFiles)
@@ -96,7 +93,7 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	// 认证接口（无需认证，限流由数据库规则管理）
 	captchaHandler := handler.NewCaptchaHandler()
 	verifyCodeHandler := handler.NewVerifyCodeHandler()
-	auth := r.Group("/auth")
+	auth := apiV1.Group("/auth")
 	{
 		auth.GET("/captcha", captchaHandler.GetCaptcha)
 		auth.POST("/login", authHandler.Login)
@@ -124,7 +121,7 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	}
 
 	// 需要认证的接口
-	authorized := r.Group("")
+	authorized := apiV1.Group("")
 	authorized.Use(middleware.JWTAuth())
 	authorized.Use(middleware.SecurityLogMiddleware())
 	authorized.Use(middleware.CaptchaGuard())
@@ -207,29 +204,28 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		authorized.DELETE("/files/:id/tags/:tagId", tagHandler.RemoveFileTag)
 		authorized.PUT("/files/:id/tags", tagHandler.BatchUpdateFileTags)
 
+		// 分享管理
+		authorized.POST("/files/:id/share", shareHandler.CreateFileShare)
+		authorized.POST("/folders/:id/share", shareHandler.CreateFolderShare)
+		authorized.GET("/my-shares", shareHandler.GetMyShares)
+		authorized.DELETE("/shares/:id", shareHandler.DeleteShare)
+		authorized.GET("/files/shares", shareHandler.GetUserShares)
+		authorized.PUT("/files/shares/:id/renew", shareHandler.RenewShare)
+		authorized.PUT("/files/shares/:id/expire", shareHandler.ExpireShare)
+		authorized.PUT("/files/shares/:id/expiry", shareHandler.UpdateShareExpiry)
+		authorized.PUT("/files/shares/:id/disable", shareHandler.DisableShare)
+		authorized.PUT("/files/shares/:id/enable", shareHandler.EnableShare)
+
 		// 媒体文件
-			authorized.POST("/files/:id/share", shareHandler.CreateFileShare)
-			authorized.POST("/folders/:id/share", shareHandler.CreateFolderShare)
-			authorized.GET("/my-shares", shareHandler.GetMyShares)
-			authorized.DELETE("/shares/:id", shareHandler.DeleteShare)
-
-			// 分享管理
-			authorized.GET("/files/shares", shareHandler.GetUserShares)
-			authorized.PUT("/files/shares/:id/renew", shareHandler.RenewShare)
-			authorized.PUT("/files/shares/:id/expire", shareHandler.ExpireShare)
-			authorized.PUT("/files/shares/:id/expiry", shareHandler.UpdateShareExpiry)
-			authorized.PUT("/files/shares/:id/disable", shareHandler.DisableShare)
-			authorized.PUT("/files/shares/:id/enable", shareHandler.EnableShare)
-
 		authorized.GET("/files/:id/metadata", mediaHandler.GetMediaInfo)
 		authorized.GET("/files/:id/stream", mediaHandler.GetStream)
 		authorized.GET("/files/:id/download", mediaHandler.DownloadFile)
-			authorized.GET("/files/:id/view", mediaHandler.ViewFile)
-			authorized.GET("/files/:id/direct-url", mediaHandler.GetDirectURL)
-			authorized.GET("/files/:id/preview-url", mediaHandler.GetPreviewURL)
+		authorized.GET("/files/:id/view", mediaHandler.ViewFile)
+		authorized.GET("/files/:id/direct-url", mediaHandler.GetDirectURL)
+		authorized.GET("/files/:id/preview-url", mediaHandler.GetPreviewURL)
 
 		// 临时预览（使用 token 认证，支持 Range 请求）
-		r.GET("/files/:id/preview", mediaHandler.PreviewFile)
+		apiV1.GET("/files/:id/preview", mediaHandler.PreviewFile)
 
 		// 系统管理
 		system := authorized.Group("/system")

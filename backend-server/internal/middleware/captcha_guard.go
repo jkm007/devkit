@@ -7,6 +7,7 @@ import (
 	"log"
 	"math/big"
 	"strconv"
+	"strings"
 	"time"
 
 	"backend-server/pkg/captcha"
@@ -53,7 +54,7 @@ func CaptchaGuard() gin.HandlerFunc {
 		path := c.Request.URL.Path
 
 		// 跳过认证相关路径（它们有自己的验证码校验）
-		if len(path) >= 6 && path[:6] == "/auth/" {
+		if strings.HasPrefix(path, "/auth/") || strings.HasPrefix(path, "/api/v1/auth/") {
 			c.Next()
 			return
 		}
