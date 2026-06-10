@@ -113,12 +113,19 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
                 'X-Captcha-Start-Time': result.startTime ? String(result.startTime) : '',
               },
             });
-            const retryData = retryResp?.data;
-            if (retryData?.code === 0) {
-              // 验证成功，返回业务数据（与 defaultResponseInterceptor 解包后的格式一致）
-              return retryData.data;
+            const retryBody = retryResp?.data;
+            if (retryBody?.code === 0) {
+              // 验证成功：构造一个符合 axios 响应格式的伪响应对象
+              // 传给后续的 defaultResponseInterceptor 进行统一解包
+              return {
+                data: retryBody,
+                status: 200,
+                statusText: 'OK',
+                headers: retryResp.headers,
+                config: response.config,
+              };
             }
-            if (retryData?.code === 403001) {
+            if (retryBody?.code === 403001) {
               // 验证码错误，继续循环弹框
               continue;
             }
