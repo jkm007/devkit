@@ -13,7 +13,6 @@ import { Button, message } from 'ant-design-vue';
 
 import { useVbenVxeGrid, VbenTableAction } from '#/adapter/vxe-table';
 import { deleteMenu, getMenuList, SystemMenuApi } from '#/api/system/menu';
-import { showCaptchaVerify } from '#/utils/captcha-verify';
 
 import { useColumns } from './data';
 import Form from './modules/form.vue';
@@ -71,12 +70,6 @@ function onAppend(row: SystemMenuApi.SystemMenu) {
 }
 
 async function onDelete(row: SystemMenuApi.SystemMenu) {
-  try {
-    await showCaptchaVerify();
-  } catch {
-    return;
-  }
-
   const hideLoading = message.loading({
     content: $t('ui.actionMessage.deleting', [row.name]),
     duration: 0,

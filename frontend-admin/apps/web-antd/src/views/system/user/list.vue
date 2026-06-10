@@ -18,7 +18,6 @@ import { useAccess } from '@vben/access';
 import { useVbenVxeGrid, VbenTableAction } from '#/adapter/vxe-table';
 import { deleteUser, getGroupList, getUserList, updateUser } from '#/api';
 import { $t } from '#/locales';
-import { showCaptchaVerify } from '#/utils/captcha-verify';
 
 import { useColumns, useGridFormSchema } from './data';
 import Detail from './modules/detail.vue';
@@ -132,13 +131,6 @@ function onDetail(row: SystemUserApi.SystemUser) {
 }
 
 async function onDelete(row: SystemUserApi.SystemUser) {
-  // 先弹验证码
-  try {
-    await showCaptchaVerify();
-  } catch {
-    return; // 用户取消
-  }
-
   const hideLoading = message.loading({
     content: $t('ui.actionMessage.deleting', [row.name]),
     duration: 0,
