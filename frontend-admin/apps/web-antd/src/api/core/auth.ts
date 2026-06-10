@@ -66,6 +66,7 @@ export async function sendVerifyCodeApi(data: {
   purpose: 'login' | 'register' | 'reset_password';
   captchaId: string;
   captchaCode: string;
+  startTime?: number;
 }) {
   return requestClient.post('/auth/send-code', data);
 }
@@ -95,6 +96,7 @@ export async function sendSmsCodeApi(data: {
   purpose: 'login';
   captchaId: string;
   captchaCode: string;
+  startTime?: number;
 }) {
   return requestClient.post('/auth/send-sms-code', data);
 }

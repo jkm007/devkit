@@ -104,12 +104,13 @@ async function handleSendEmailCode() {
     return;
   }
   try {
-    const { captchaId, captchaCode } = await showCaptchaVerify();
+    const { captchaId, captchaCode, startTime } = await showCaptchaVerify();
     await sendVerifyCodeApi({
       email: emailForm.value.email,
       purpose: 'login',
       captchaId,
       captchaCode,
+      startTime,
     });
     message.success('验证码已发送到您的邮箱');
     startEmailCountdown();
@@ -127,12 +128,13 @@ async function handleSendSmsCode() {
     return;
   }
   try {
-    const { captchaId, captchaCode } = await showCaptchaVerify();
+    const { captchaId, captchaCode, startTime } = await showCaptchaVerify();
     await sendSmsCodeApi({
       phone: phoneForm.value.phone,
       purpose: 'login',
       captchaId,
       captchaCode,
+      startTime,
     });
     message.success('验证码已发送到您的手机');
     startPhoneCountdown();

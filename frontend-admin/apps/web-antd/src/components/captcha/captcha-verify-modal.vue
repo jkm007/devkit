@@ -15,7 +15,7 @@ import { Button, Input, Modal } from 'ant-design-vue';
 
 import BackendCaptcha from './backend-captcha.vue';
 import BackendRotateCaptcha from './backend-rotate-captcha.vue';
-import { getCaptcha, getPublicSettings } from '#/api/system/settings';
+import { getCaptcha } from '#/api/system/settings';
 
 // 弹窗状态
 const visible = ref(false);
@@ -64,18 +64,8 @@ async function handleShow(event?: Event) {
   const serverType = detail?.captchaType;
   if (serverType && ['numeric', 'slider', 'puzzle', 'rotation', 'point'].includes(serverType)) {
     captchaType.value = serverType as any;
-  } else {
-    // 没有指定类型时，从公开配置中获取
-    try {
-      const settings = await getPublicSettings();
-      const type = settings?.captcha?.captcha_type;
-      if (type && ['numeric', 'slider', 'puzzle', 'rotation', 'point'].includes(String(type).replace(/"/g, ''))) {
-        captchaType.value = String(type).replace(/"/g, '');
-      }
-    } catch {
-      // 使用默认类型
-    }
   }
+  // 没有指定类型时使用默认类型（slider），不调用 getPublicSettings 避免触发验证码守卫
   loadCaptcha();
 }
 

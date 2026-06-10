@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"encoding/json"
+
 	"backend-server/internal/service"
 	"backend-server/pkg/captcha"
 	"backend-server/pkg/response"
@@ -26,6 +28,7 @@ type SendCodeRequest struct {
 	Purpose     string `json:"purpose" binding:"required,oneof=register reset_password login"`
 	CaptchaID   string `json:"captchaId" binding:"required"`
 	CaptchaCode string `json:"captchaCode" binding:"required,min=1,max=256"`
+	StartTime   int64  `json:"startTime"` // 前端记录的验证码开始时间戳（毫秒）
 }
 
 // VerifyCodeRequest 验证验证码请求
@@ -51,8 +54,14 @@ func (h *VerifyCodeHandler) SendCode(c *gin.Context) {
 		return
 	}
 
+	// 解析点选验证码的坐标数据（captchaCode 为 JSON 数组时）
+	var points []captcha.Point
+	if len(req.CaptchaCode) > 0 && req.CaptchaCode[0] == '[' {
+		_ = json.Unmarshal([]byte(req.CaptchaCode), &points)
+	}
+
 	// 先校验图形验证码，防止接口被滥用
-	ok, msg := captcha.Verify(req.CaptchaID, req.CaptchaCode, 0, nil)
+	ok, msg := captcha.Verify(req.CaptchaID, req.CaptchaCode, req.StartTime, points)
 	if !ok {
 		response.BadRequest(c, msg)
 		return
@@ -103,6 +112,7 @@ type SendSMSCodeRequest struct {
 	Purpose     string `json:"purpose" binding:"required,oneof=login"`
 	CaptchaID   string `json:"captchaId" binding:"required"`
 	CaptchaCode string `json:"captchaCode" binding:"required,min=1,max=256"`
+	StartTime   int64  `json:"startTime"` // 前端记录的验证码开始时间戳（毫秒）
 }
 
 // SendSMSCode 发送短信验证码
@@ -121,8 +131,14 @@ func (h *VerifyCodeHandler) SendSMSCode(c *gin.Context) {
 		return
 	}
 
+	// 解析点选验证码的坐标数据（captchaCode 为 JSON 数组时）
+	var points []captcha.Point
+	if len(req.CaptchaCode) > 0 && req.CaptchaCode[0] == '[' {
+		_ = json.Unmarshal([]byte(req.CaptchaCode), &points)
+	}
+
 	// 先校验图形验证码，防止接口被滥用
-	ok, msg := captcha.Verify(req.CaptchaID, req.CaptchaCode, 0, nil)
+	ok, msg := captcha.Verify(req.CaptchaID, req.CaptchaCode, req.StartTime, points)
 	if !ok {
 		response.BadRequest(c, msg)
 		return

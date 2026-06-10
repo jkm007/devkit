@@ -49,12 +49,13 @@ async function handleSendCode() {
   }
   try {
     // 先弹出图形验证码
-    const { captchaId, captchaCode } = await showCaptchaVerify();
+    const { captchaId, captchaCode, startTime } = await showCaptchaVerify();
     await sendVerifyCodeApi({
       email: formData.value.email,
       purpose: 'reset_password',
       captchaId,
       captchaCode,
+      startTime,
     });
     message.success('验证码已发送到您的邮箱');
     startCountdown();
