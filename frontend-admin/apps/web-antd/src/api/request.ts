@@ -92,7 +92,7 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
       if (data?.code === 403001) {
         try {
           const result = await showCaptchaVerify();
-          const config = { ...response.config };
+          const config = { ...response.config, responseReturn: 'raw' };
           config.headers = {
             ...config.headers,
             'X-Captcha-Id': result.captchaId,
