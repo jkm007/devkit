@@ -75,6 +75,15 @@ func CaptchaGuard() gin.HandlerFunc {
 			return
 		}
 
+		// 检查验证码白名单（10分钟内已验证过则放行）
+		rdb := database.GetRedis()
+		ctx := context.Background()
+		whitelistKey := "captcha:whitelist:" + ip
+		if exists, _ := rdb.Exists(ctx, whitelistKey).Result(); exists > 0 {
+			c.Next()
+			return
+		}
+
 		// 高风险：检查请求头中是否携带验证码
 		captchaID := c.GetHeader("X-Captcha-Id")
 		captchaCode := c.GetHeader("X-Captcha-Code")
@@ -108,6 +117,9 @@ func CaptchaGuard() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+
+		// 验证成功，写入白名单（10分钟有效）
+		rdb.Set(ctx, whitelistKey, "1", 10*time.Minute)
 
 		// 验证通过，风险分减半而非清零
 		halveRiskScore(ip)
