@@ -98,7 +98,8 @@ func (s *VerifyCodeService) SendCode(to, purpose string) error {
 	// 渲染邮件模板
 	purposeText := PurposeText(purpose)
 
-	subject := fmt.Sprintf("【%s】%s验证码", siteName, purposeText)
+	now := time.Now()
+	subject := fmt.Sprintf("【%s】%s验证码 %d时%d分%d秒", siteName, purposeText, now.Hour(), now.Minute(), now.Second())
 	htmlBody := email.RenderVerifyCode(code, purposeText, verifyCodeExpireMinutes, siteName)
 
 	// 发送邮件
