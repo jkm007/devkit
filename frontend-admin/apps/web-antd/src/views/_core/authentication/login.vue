@@ -144,11 +144,10 @@ function openCaptchaModal() {
   captchaModalVisible.value = true;
 }
 
-// 弹框验证成功
+// 弹框验证完成（收集到验证码数据，准备提交登录）
 function onCaptchaModalSuccess(data: { captchaId: string; captchaCode: string; startTime?: number }) {
   captchaVerified.value = true;
   captchaResult.value = data;
-  message.success('验证通过');
 
   // 如果有待登录参数，自动继续登录
   if (pendingLoginParams.value) {
