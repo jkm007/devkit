@@ -115,8 +115,9 @@ async function handleSendEmailCode() {
     message.success('验证码已发送到您的邮箱');
     startEmailCountdown();
   } catch (e: any) {
-    if (e?.message !== '用户取消验证码验证') {
-      message.error(e?.message || '发送失败');
+    // 错误消息由 request.ts 的 errorMessageResponseInterceptor 统一显示
+    if (e?.message === '用户取消验证码验证') {
+      // 用户主动取消，不提示
     }
   }
 }
@@ -139,8 +140,9 @@ async function handleSendSmsCode() {
     message.success('验证码已发送到您的手机');
     startPhoneCountdown();
   } catch (e: any) {
-    if (e?.message !== '用户取消验证码验证') {
-      message.error(e?.message || '发送失败');
+    // 错误消息由 request.ts 的 errorMessageResponseInterceptor 统一显示
+    if (e?.message === '用户取消验证码验证') {
+      // 用户主动取消，不提示
     }
   }
 }

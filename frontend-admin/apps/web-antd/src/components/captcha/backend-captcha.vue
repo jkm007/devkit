@@ -47,12 +47,15 @@ const modelValue = defineModel<boolean>({ default: false });
 // 滑块拖动距离（滑块轨道上的像素值）
 const sliderMoveX = ref(0);
 const isVerified = ref(false);
+const isDragging = ref(false);
 
 // 用户开始操作的时间戳
 const startTime = ref(0);
 
 // 图片容器 ref
 const imageContainerRef = useTemplateRef<HTMLDivElement>('imageContainerRef');
+// 滑块缩略图 ref（用于直接 DOM 操作，避免 reactive 更新延迟）
+const thumbRef = useTemplateRef<HTMLImageElement>('thumbRef');
 
 // 点选验证码相关
 const clickPoints = ref<Array<{ x: number; y: number }>>([]);
@@ -95,17 +98,25 @@ const thumbLeft = computed(() => {
 // 处理滑块开始拖动
 function handleSliderStart() {
   startTime.value = Date.now();
+  isDragging.value = true;
 }
 
-// 处理滑块移动
+// 处理滑块移动（直接操作 DOM，避免 reactive 更新延迟导致卡顿）
 function handleSliderMove(data: { moveX: number }) {
   sliderMoveX.value = data.moveX;
+  // 直接更新缩略图位置，不等待 Vue re-render
+  if (thumbRef.value) {
+    thumbRef.value.style.left = `${Math.round(data.moveX)}px`;
+  }
 }
 
 // 处理滑块释放 - 自动验证
 function handleSliderEnd() {
+  isDragging.value = false;
   if (isVerified.value) return;
-  if (mappedX.value < 10) {
+  // 同步最终位置到 reactive（用于提交数据）
+  const finalX = sliderMoveX.value;
+  if (finalX < 10) {
     return; // 太小不提交
   }
   // 自动提交验证
@@ -115,7 +126,7 @@ function handleSliderEnd() {
   // 提交坐标：X=用户拖动位置，Y=缩略图初始位置（答案Y）
   emit('success', {
     captchaId: props.serverCaptchaId,
-    captchaCode: JSON.stringify({ x: mappedX.value, y: props.serverThumbY }),
+    captchaCode: JSON.stringify({ x: Math.round(finalX), y: props.serverThumbY }),
     startTime: startTime.value,
   });
 }
@@ -169,6 +180,7 @@ function undoLastPoint() {
 function handleRefresh() {
   sliderMoveX.value = 0;
   isVerified.value = false;
+  isDragging.value = false;
   modelValue.value = false;
   clickPoints.value = [];
   startTime.value = 0;
@@ -182,6 +194,7 @@ watch(
   () => {
     sliderMoveX.value = 0;
     isVerified.value = false;
+    isDragging.value = false;
     modelValue.value = false;
     clickPoints.value = [];
     startTime.value = 0;
@@ -215,10 +228,11 @@ defineExpose({ refresh: handleRefresh });
           :style="{
             top: `${serverThumbY}px`,
             left: `${thumbLeft}px`,
-            transition: isVerified ? 'none' : 'left 0.05s linear',
+            transition: (isVerified || isDragging) ? 'none' : 'left 0.05s linear',
           }"
         >
           <img
+            ref="thumbRef"
             :src="serverThumb"
             class="block"
             :style="{ maxHeight: `${IMAGE_HEIGHT_SLIDER}px` }"
