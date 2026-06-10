@@ -483,6 +483,9 @@ importers:
       '@iconify/json':
         specifier: 'catalog:'
         version: 2.2.480
+      axios:
+        specifier: 'catalog:'
+        version: 1.16.1
     devDependencies:
       '@changesets/changelog-github':
         specifier: 'catalog:'
@@ -640,6 +643,9 @@ importers:
       ant-design-vue:
         specifier: 'catalog:'
         version: 4.2.6(vue@3.5.35(typescript@6.0.3))
+      axios:
+        specifier: 'catalog:'
+        version: 1.16.1
       dayjs:
         specifier: 'catalog:'
         version: 1.11.21

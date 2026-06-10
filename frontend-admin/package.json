@@ -72,6 +72,7 @@
   },
   "packageManager": "pnpm@11.4.0",
   "dependencies": {
-    "@iconify/json": "catalog:"
+    "@iconify/json": "catalog:",
+    "axios": "catalog:"
   }
 }

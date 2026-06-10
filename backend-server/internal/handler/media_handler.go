@@ -216,6 +216,21 @@ func (h *MediaHandler) GetHLS(c *gin.Context) {
 		objectKey = hlsDir + "/" + hlsFile
 	}
 
+	// 安全校验：防止路径遍历攻击
+	// 仅允许字母、数字、下划线、点、连字符和正斜杠
+	for _, ch := range objectKey {
+		if !(ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z' || ch >= '0' && ch <= '9' ||
+			ch == '_' || ch == '.' || ch == '-' || ch == '/') {
+			response.BadRequest(c, "非法的 HLS 文件路径")
+			return
+		}
+	}
+	// 额外检查：防止 .. 遍历
+	if strings.Contains(objectKey, "..") {
+		response.BadRequest(c, "非法的 HLS 文件路径")
+		return
+	}
+
 	// 根据存储类型获取对应的存储实例
 	st := storage.GetStorageByDriver(asset.StorageType)
 
@@ -235,10 +250,14 @@ func (h *MediaHandler) GetHLS(c *gin.Context) {
 
 	c.Header("Content-Type", contentType)
 	c.Header("Cache-Control", "private, max-age=3600")
-	c.Header("Access-Control-Allow-Origin", "*")
 
 	buf := make([]byte, 32*1024)
-	io.CopyBuffer(c.Writer, reader, buf)
+	if _, err := io.CopyBuffer(c.Writer, reader, buf); err != nil {
+		// 记录传输错误（客户端断开连接是正常情况，不记录为错误）
+		if !strings.Contains(err.Error(), "broken pipe") && !strings.Contains(err.Error(), "connection reset") {
+			fmt.Printf("[HLS] 传输错误: id=%d, file=%s, err=%v\n", id, objectKey, err)
+		}
+	}
 }
 
 // DownloadFile 文件下载（直接返回文件内容）
@@ -663,6 +682,9 @@ func parseRange(rangeHeader string, fileSize int64) (start, end int64) {
 		n, err := strconv.ParseInt(parts[1], 10, 64)
 		if err != nil {
 			return -1, -1
+		}
+		if n > fileSize {
+			n = fileSize // 防止负数 start
 		}
 		return fileSize - n, fileSize - 1
 	}

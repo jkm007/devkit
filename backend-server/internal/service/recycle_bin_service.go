@@ -161,17 +161,30 @@ func (s *RecycleBinService) BatchPermanentDelete(userID uint, fileIDs []uint, ha
 	return deleted, errList
 }
 
-// EmptyRecycleBin 清空回收站
+// EmptyRecycleBin 清空回收站（使用游标分页，避免大量文件时内存溢出）
 func (s *RecycleBinService) EmptyRecycleBin(userID uint) error {
-	// 先获取所有回收站文件，删除存储对象
-	entries, _, err := s.fileRepo.ListRecycleBin(userID, 1, 10000)
-	if err != nil {
-		return fmt.Errorf("获取回收站文件失败: %w", err)
-	}
+	const pageSize = 500
+	page := 1
 
-	// 删除每个文件的存储对象和关联数据
-	for _, entry := range entries {
-		s.cleanupFileData(&entry)
+	for {
+		entries, _, err := s.fileRepo.ListRecycleBin(userID, page, pageSize)
+		if err != nil {
+			return fmt.Errorf("获取回收站文件失败: %w", err)
+		}
+		if len(entries) == 0 {
+			break
+		}
+
+		// 删除每个文件的存储对象和关联数据
+		for _, entry := range entries {
+			s.cleanupFileData(&entry)
+		}
+
+		// 如果返回数量少于 pageSize，说明已经是最后一页
+		if len(entries) < pageSize {
+			break
+		}
+		page++
 	}
 
 	// 永久删除所有回收站文件

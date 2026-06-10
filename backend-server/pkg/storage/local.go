@@ -106,9 +106,14 @@ func (s *LocalStorage) DownloadRange(ctx context.Context, objectKey string, offs
 	}
 
 	// 定位到指定偏移
-	if _, err := file.Seek(offset, io.SeekStart); err != nil {
+	actualOffset, err := file.Seek(offset, io.SeekStart)
+	if err != nil {
 		file.Close()
 		return nil, fmt.Errorf("定位文件失败: %w", err)
+	}
+	if actualOffset != offset {
+		file.Close()
+		return nil, fmt.Errorf("Seek 偏移量不匹配: 期望 %d, 实际 %d", offset, actualOffset)
 	}
 
 	// 返回限制长度的读取器

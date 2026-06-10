@@ -58,6 +58,10 @@ func JWTAuth() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+		// Redis 不可用时记录警告但不阻断（降级模式）
+		if err != nil {
+			fmt.Printf("[auth] Redis 黑名单检查失败(降级模式): err=%v\n", err)
+		}
 
 		// 检查设备是否被踢出
 		kickedKey := fmt.Sprintf("kicked_device:%d:%s", claims.UserID, deviceID)

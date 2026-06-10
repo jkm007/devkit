@@ -819,7 +819,10 @@ func (s *AuthService) ChangePassword(userID uint, req *ChangePasswordRequest, ip
 
 	// 保存旧密码到历史记录
 	phs := NewPasswordHistoryService()
-	_ = phs.SavePassword(userID, user.Password)
+	if err := phs.SavePassword(userID, user.Password); err != nil {
+		// 记录日志但不阻断密码修改流程
+		fmt.Printf("[auth] 保存密码历史记录失败: userID=%d, err=%v\n", userID, err)
+	}
 
 	// 加密新密码
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)

@@ -545,8 +545,16 @@ func (s *UploadService) GetTaskStatusResponse(task *model.UploadTask) *TaskStatu
 // generateObjectKey 生成存储路径
 func generateObjectKey(fileName string, fileHash string) string {
 	ext := strings.ToLower(filepath.Ext(fileName))
-	if len(fileHash) > 16 {
-		fileHash = fileHash[:16]
+	// 使用完整 hash 或至少 32 字符前缀以降低碰撞风险
+	hashLen := 32
+	if len(fileHash) < hashLen {
+		hashLen = len(fileHash)
+	}
+	if hashLen == 0 {
+		// 极端情况：无 hash，使用时间戳
+		fileHash = time.Now().Format("20060102150405")
+	} else {
+		fileHash = fileHash[:hashLen]
 	}
 	return fmt.Sprintf("files/%s/%s%s",
 		time.Now().Format("2006/01/02"),
