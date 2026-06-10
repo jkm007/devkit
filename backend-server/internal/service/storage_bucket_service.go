@@ -105,6 +105,14 @@ func (s *StorageBucketService) Update(bucket *model.StorageBucket) error {
 		return fmt.Errorf("存储桶名称 %s 已存在", bucket.Name)
 	}
 
+	// 敏感字段处理：如果传入的是空字符串或 ******，保留原值
+	if bucket.AccessKey == "" || bucket.AccessKey == "******" {
+		bucket.AccessKey = existing.AccessKey
+	}
+	if bucket.SecretKey == "" || bucket.SecretKey == "******" {
+		bucket.SecretKey = existing.SecretKey
+	}
+
 	// 保留不可修改的字段
 	bucket.CreatedAt = existing.CreatedAt
 

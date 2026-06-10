@@ -10,6 +10,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// maskBucketSensitiveFields 对存储桶中的敏感字段进行脱敏
+func maskBucketSensitiveFields(bucket *model.StorageBucket) {
+	bucket.AccessKey = "******"
+	bucket.SecretKey = "******"
+}
+
 // StorageBucketHandler 存储桶处理器
 type StorageBucketHandler struct {
 	service *service.StorageBucketService
@@ -26,6 +32,9 @@ func (h *StorageBucketHandler) GetAll(c *gin.Context) {
 	if err != nil {
 		response.InternalError(c, "获取存储桶列表失败")
 		return
+	}
+	for i := range buckets {
+		maskBucketSensitiveFields(&buckets[i])
 	}
 	response.Success(c, buckets)
 }
@@ -44,6 +53,7 @@ func (h *StorageBucketHandler) GetByID(c *gin.Context) {
 		response.NotFound(c, "存储桶不存在")
 		return
 	}
+	maskBucketSensitiveFields(bucket)
 	response.Success(c, bucket)
 }
 
@@ -69,6 +79,7 @@ func (h *StorageBucketHandler) Create(c *gin.Context) {
 		return
 	}
 
+	maskBucketSensitiveFields(&bucket)
 	response.SuccessWithMessage(c, "创建成功", bucket)
 }
 
@@ -93,6 +104,7 @@ func (h *StorageBucketHandler) Update(c *gin.Context) {
 		return
 	}
 
+	maskBucketSensitiveFields(&bucket)
 	response.SuccessWithMessage(c, "更新成功", bucket)
 }
 
@@ -143,6 +155,9 @@ func (h *StorageBucketHandler) GetByDriver(c *gin.Context) {
 		response.InternalError(c, "获取存储桶列表失败")
 		return
 	}
+	for i := range buckets {
+		maskBucketSensitiveFields(&buckets[i])
+	}
 	response.Success(c, buckets)
 }
 
@@ -159,6 +174,9 @@ func (h *StorageBucketHandler) GetByPurpose(c *gin.Context) {
 		response.InternalError(c, "获取存储桶列表失败")
 		return
 	}
+	for i := range buckets {
+		maskBucketSensitiveFields(&buckets[i])
+	}
 	response.Success(c, buckets)
 }
 
@@ -169,6 +187,7 @@ func (h *StorageBucketHandler) GetDefault(c *gin.Context) {
 		response.NotFound(c, "未配置默认存储桶")
 		return
 	}
+	maskBucketSensitiveFields(bucket)
 	response.Success(c, bucket)
 }
 

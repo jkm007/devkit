@@ -22,12 +22,21 @@ func NewStorageConfigHandler() *StorageConfigHandler {
 	}
 }
 
+// maskSensitiveFields 对存储配置中的敏感字段进行脱敏
+func maskSensitiveFields(config *model.StorageConfig) {
+	config.AccessKey = "******"
+	config.SecretKey = "******"
+}
+
 // GetAll 获取所有存储配置
 func (h *StorageConfigHandler) GetAll(c *gin.Context) {
 	configs, err := h.service.GetAll()
 	if err != nil {
 		response.InternalError(c, err.Error())
 		return
+	}
+	for i := range configs {
+		maskSensitiveFields(&configs[i])
 	}
 	response.Success(c, configs)
 }
@@ -45,6 +54,7 @@ func (h *StorageConfigHandler) GetByID(c *gin.Context) {
 		response.NotFound(c, "存储配置不存在")
 		return
 	}
+	maskSensitiveFields(config)
 	response.Success(c, config)
 }
 
@@ -111,6 +121,7 @@ func (h *StorageConfigHandler) Create(c *gin.Context) {
 		}
 		return
 	}
+	maskSensitiveFields(config)
 	response.Success(c, config)
 }
 
@@ -192,6 +203,7 @@ func (h *StorageConfigHandler) Update(c *gin.Context) {
 		}
 		return
 	}
+	maskSensitiveFields(config)
 	response.Success(c, config)
 }
 
