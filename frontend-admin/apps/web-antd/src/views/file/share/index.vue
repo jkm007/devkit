@@ -264,36 +264,45 @@ function handleDelete(id: number) {
 }
 
 // 批量删除
-async function handleBatchDelete() {
+function handleBatchDelete() {
   if (selectedRowKeys.value.length === 0) {
     message.warning('请先选择要删除的分享');
     return;
   }
 
-  try {
-    let successCount = 0;
-    let failCount = 0;
-
-    for (const id of selectedRowKeys.value) {
+  Modal.confirm({
+    title: '批量删除分享',
+    content: `确定删除选中的 ${selectedRowKeys.value.length} 个分享链接吗？删除后将无法恢复。`,
+    okText: '确定删除',
+    okType: 'danger',
+    cancelText: '取消',
+    onOk: async () => {
       try {
-        await deleteShare(id);
-        successCount++;
-      } catch {
-        failCount++;
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const id of selectedRowKeys.value) {
+          try {
+            await deleteShare(id);
+            successCount++;
+          } catch {
+            failCount++;
+          }
+        }
+
+        if (failCount > 0) {
+          message.warning(`已删除 ${successCount} 个，${failCount} 个失败`);
+        } else {
+          message.success(`已删除 ${successCount} 个分享`);
+        }
+
+        selectedRowKeys.value = [];
+        loadShareList();
+      } catch (err: any) {
+        message.error(err.message || '批量删除失败');
       }
-    }
-
-    if (failCount > 0) {
-      message.warning(`已删除 ${successCount} 个，${failCount} 个失败`);
-    } else {
-      message.success(`已删除 ${successCount} 个分享`);
-    }
-
-    selectedRowKeys.value = [];
-    loadShareList();
-  } catch (err: any) {
-    message.error(err.message || '批量删除失败');
-  }
+    },
+  });
 }
 
 // 批量修改状态
