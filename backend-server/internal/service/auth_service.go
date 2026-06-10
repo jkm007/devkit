@@ -1120,7 +1120,7 @@ func (s *AuthService) initDefaultMenus() error {
 	}
 
 	systemMenus := []model.Menu{
-		{PID: system.ID, Name: "SystemUser", Path: "/system/user", Component: "/system/user/list", Type: "menu", Status: 1, Icon: "lucide:users", AuthCode: "system:user:list", Meta: `{"order":1,"title":"用户管理"}`},
+		{PID: system.ID, Name: "SystemUser", Path: "/system/user", Component: "/system/user/list", Type: "menu", Status: 1, Icon: "lucide:users", AuthCode: "system:user:view", Meta: `{"order":1,"title":"用户管理"}`},
 		{PID: system.ID, Name: "SystemRole", Path: "/system/role", Component: "/system/role/list", Type: "menu", Status: 1, Icon: "lucide:shield", AuthCode: "system:role:list", Meta: `{"order":2,"title":"角色管理"}`},
 		{PID: system.ID, Name: "SystemMenu", Path: "/system/menu", Component: "/system/menu/list", Type: "menu", Status: 1, Icon: "lucide:list", AuthCode: "system:menu:list", Meta: `{"order":3,"title":"菜单管理"}`},
 		{PID: system.ID, Name: "SystemGroup", Path: "/system/group", Component: "/system/group/list", Type: "menu", Status: 1, Icon: "lucide:boxes", AuthCode: "system:group:list", Meta: `{"order":4,"title":"分组管理"}`},

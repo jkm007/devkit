@@ -102,6 +102,14 @@ func (s *ShareService) GetShareInfo(code string) (map[string]interface{}, error)
 		return nil, fmt.Errorf("分享不存在")
 	}
 
+	// 检查状态
+	if share.Status == 2 {
+		return nil, fmt.Errorf("分享已过期")
+	}
+	if share.Status == 3 {
+		return nil, fmt.Errorf("分享已被禁用")
+	}
+
 	// 检查过期
 	if share.ExpireAt != nil && time.Now().After(*share.ExpireAt) {
 		return nil, fmt.Errorf("分享已过期")

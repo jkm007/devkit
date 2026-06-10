@@ -18,12 +18,10 @@ import (
 )
 
 // intersectFileIDs 计算两个文件ID列表的交集
+// 当任一输入为 nil 时，交集结果为空（nil 表示"没有匹配"）
 func intersectFileIDs(a, b []uint) []uint {
-	if a == nil {
-		return b
-	}
-	if b == nil {
-		return a
+	if a == nil || b == nil {
+		return nil
 	}
 	set := make(map[uint]bool, len(a))
 	for _, id := range a {
@@ -529,14 +527,25 @@ func (s *FileService) DeleteFile(userID uint, fileID uint, hasPermission bool) e
 
 	// 软删除：移入回收站，7天后过期
 	expireAt := time.Now().Add(7 * 24 * time.Hour)
-	if err := s.fileRepo.SoftDeleteEntry(fileID, expireAt); err != nil {
-		return err
-	}
 
-	// 删除该文件的所有分享链接
-	_ = s.shareRepo.DeleteByFileID(fileID)
+	db := database.GetMySQL()
+	return db.Transaction(func(tx *gorm.DB) error {
+		// 软删除文件
+		now := time.Now()
+		if err := tx.Model(&model.FileEntry{}).Where("id = ?", fileID).Updates(map[string]interface{}{
+			"deleted_at":        now,
+			"recycle_expire_at": expireAt,
+		}).Error; err != nil {
+			return fmt.Errorf("软删除文件失败: %w", err)
+		}
 
-	return nil
+		// 删除该文件的所有分享链接
+		if err := tx.Where("file_id = ?", fileID).Delete(&model.FileShare{}).Error; err != nil {
+			return fmt.Errorf("删除分享链接失败: %w", err)
+		}
+
+		return nil
+	})
 }
 
 // BatchDeleteFiles 批量删除文件（移入回收站）

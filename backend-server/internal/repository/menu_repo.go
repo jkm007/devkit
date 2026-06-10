@@ -84,3 +84,26 @@ func (r *MenuRepo) GetChildren(pid uint) ([]model.Menu, error) {
 	}
 	return menus, nil
 }
+
+// DeleteWithChildren 递归删除菜单及其所有子菜单（事务保护）
+func (r *MenuRepo) DeleteWithChildren(id uint) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		return r.deleteWithChildrenTx(tx, id)
+	})
+}
+
+// deleteWithChildrenTx 递归删除菜单（在事务内）
+func (r *MenuRepo) deleteWithChildrenTx(tx *gorm.DB, id uint) error {
+	// 递归删除子菜单
+	var children []model.Menu
+	if err := tx.Where("pid = ?", id).Find(&children).Error; err != nil {
+		return err
+	}
+	for _, child := range children {
+		if err := r.deleteWithChildrenTx(tx, child.ID); err != nil {
+			return err
+		}
+	}
+	// 删除当前菜单
+	return tx.Where("id = ?", id).Delete(&model.Menu{}).Error
+}

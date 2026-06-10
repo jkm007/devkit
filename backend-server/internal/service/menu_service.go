@@ -80,10 +80,13 @@ func (s *MenuService) GetUserMenus(userID uint, userPermissionCodes []string) ([
 		codeSet[code] = true
 	}
 
-	// 过滤菜单：只保留用户有权限的菜单
+	// 过滤菜单：跳过禁用菜单（Status=0）和无权限菜单
 	// 没有 authCode 的菜单（如 Dashboard）对所有用户可见
 	var filteredMenus []model.Menu
 	for _, menu := range menus {
+		if menu.Status == 0 {
+			continue
+		}
 		if menu.AuthCode == "" || codeSet[menu.AuthCode] {
 			filteredMenus = append(filteredMenus, menu)
 		}
@@ -310,8 +313,24 @@ func (s *MenuService) metaToString(meta interface{}) string {
 	}
 }
 
-// Delete 删除菜单
+// Delete 删除菜单（级联删除子菜单）
 func (s *MenuService) Delete(id uint) error {
+	// 检查菜单是否存在
+	menu, err := s.menuRepo.GetByID(id)
+	if err != nil {
+		return fmt.Errorf("菜单不存在: %w", err)
+	}
+
+	// 查找所有子菜单
+	children, err := s.menuRepo.GetChildren(menu.ID)
+	if err != nil {
+		return fmt.Errorf("查询子菜单失败: %w", err)
+	}
+	if len(children) > 0 {
+		// 级联删除：递归删除当前菜单及其所有子菜单
+		return s.menuRepo.DeleteWithChildren(id)
+	}
+
 	return s.menuRepo.Delete(id)
 }
 

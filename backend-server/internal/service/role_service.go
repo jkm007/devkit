@@ -205,13 +205,30 @@ func (s *RoleService) invalidateCacheForRole(roleID uint) {
 
 // Delete 删除角色（同时清理关联数据和权限缓存）
 func (s *RoleService) Delete(id uint) error {
-	// 检查是否有用户正在使用该角色
+	// 检查是否有用户直接关联该角色
 	userIDs, err := s.userRepo.GetUserIDsByRoleID(id)
 	if err != nil {
 		return err
 	}
 	if len(userIDs) > 0 {
 		return fmt.Errorf("该角色下还有 %d 个用户，请先移除用户的角色关联", len(userIDs))
+	}
+
+	// 检查是否有用户通过分组继承该角色
+	groupIDs, err := s.groupRepo.GetGroupIDsByRoleID(id)
+	if err != nil {
+		return err
+	}
+	var inheritedUserCount int
+	for _, groupID := range groupIDs {
+		groupUserIDs, err := s.userRepo.GetUserIDsByGroupID(groupID)
+		if err != nil {
+			return err
+		}
+		inheritedUserCount += len(groupUserIDs)
+	}
+	if inheritedUserCount > 0 {
+		return fmt.Errorf("该角色通过分组继承关联了 %d 个用户，请先移除分组的角色关联", inheritedUserCount)
 	}
 
 	// 先清除拥有该角色的所有用户的权限缓存
