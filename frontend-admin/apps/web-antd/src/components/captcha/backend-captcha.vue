@@ -24,6 +24,8 @@ interface Props {
   serverCaptchaId: string;
   /** 点选验证码的点数 */
   pointCount?: number;
+  /** 点选验证码的提示文字（如：请依次点击【程，上，设，确】） */
+  hintText?: string;
   /** 刷新回调 */
   onRefresh?: () => void;
 }
@@ -32,6 +34,7 @@ const props = withDefaults(defineProps<Props>(), {
   serverThumb: '',
   serverThumbY: 0,
   pointCount: 4,
+  hintText: '',
 });
 
 const emit = defineEmits<{
@@ -285,7 +288,7 @@ defineExpose({ refresh: handleRefresh });
       <!-- 操作提示 -->
       <div class="mt-2 flex items-center justify-between text-sm" style="width: 320px;">
         <span class="text-foreground/80">
-          {{ $t('ui.captcha.clickInOrder') || '请依次点击文字' }}
+          {{ props.hintText || ($t('ui.captcha.clickInOrder') || '请依次点击文字') }}
           ({{ clickPoints.length }}/{{ props.pointCount }})
         </span>
         <button

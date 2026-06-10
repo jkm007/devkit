@@ -26,6 +26,7 @@ const captchaImage = ref('');
 const captchaThumb = ref('');
 const captchaThumbY = ref(0);
 const captchaType = ref<'point' | 'puzzle' | 'slider'>('slider');
+const captchaHintText = ref('');
 
 async function loadCaptcha() {
   loading.value = true;
@@ -36,6 +37,7 @@ async function loadCaptcha() {
       captchaImage.value = data.image;
       captchaThumb.value = data.thumb || '';
       captchaThumbY.value = (data as any).thumb_y || 0;
+      captchaHintText.value = (data as any).hint_text || '';
       // 使用后端返回的类型（如果有效）
       if (data.type && ['slider', 'puzzle', 'point'].includes(data.type)) {
         captchaType.value = data.type as 'point' | 'puzzle' | 'slider';
@@ -109,6 +111,7 @@ onUnmounted(() => {
         :server-thumb="captchaThumb"
         :server-thumb-y="captchaThumbY"
         :server-captcha-id="captchaId"
+        :hint-text="captchaHintText"
         @success="handleSuccess"
         @refresh="handleRefresh"
       />
