@@ -72,14 +72,7 @@ func CaptchaGuard() gin.HandlerFunc {
 		// 累加到 Redis 中的总分
 		totalScore := accumulateRiskScore(ip, requestScore, cfg)
 
-		// 检查是否需要直接拦截
-		if cfg.BlockScore > 0 && totalScore >= cfg.BlockScore {
-			response.Forbidden(c, "请求已被拦截，请稍后再试")
-			c.Abort()
-			return
-		}
-
-		// 检查是否需要验证码
+		// 低风险：直接放行
 		if totalScore < cfg.TriggerScore {
 			c.Next()
 			return
@@ -89,12 +82,15 @@ func CaptchaGuard() gin.HandlerFunc {
 		captchaID := c.GetHeader("X-Captcha-Id")
 		captchaCode := c.GetHeader("X-Captcha-Code")
 
+		// 没有验证码头的请求：返回 403001 要求验证码
+		// 验证码本身就是防护机制，前端会弹出验证框让用户验证
 		if captchaID == "" || captchaCode == "" {
 			response.CaptchaRequired(c, "当前操作需要验证码验证")
 			c.Abort()
 			return
 		}
 
+		// 携带验证码头：始终允许验证（无论分数多高，给用户验证的机会）
 		// 从 Header 读取 startTime（验证码渲染时刻）
 		var startTime int64
 		if startTimeStr := c.GetHeader("X-Captcha-Start-Time"); startTimeStr != "" {
@@ -104,16 +100,7 @@ func CaptchaGuard() gin.HandlerFunc {
 		// 验证验证码
 		valid, _ := captcha.Verify(captchaID, captchaCode, startTime, nil)
 		if !valid {
-			// 验证失败，累积风险分（使用配置中的最大单条规则分作为惩罚分）
-			punishScore := 0
-			for _, rule := range cfg.Rules {
-				if rule.Enabled && rule.Score > punishScore {
-					punishScore = rule.Score
-				}
-			}
-			if punishScore > 0 {
-				accumulateRiskScore(ip, punishScore, cfg)
-			}
+			// 验证失败，返回 403001 让前端重新获取验证码
 			response.CaptchaRequired(c, "验证码错误或已过期")
 			c.Abort()
 			return

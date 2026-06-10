@@ -283,8 +283,8 @@ defineExpose({ refresh: handleRefresh });
       </div>
 
       <!-- 操作提示 -->
-      <div class="mt-2 flex items-center justify-between text-sm">
-        <span class="text-foreground/60">
+      <div class="mt-2 flex items-center justify-between text-sm" style="width: 320px;">
+        <span class="text-foreground/80">
           {{ $t('ui.captcha.clickInOrder') || '请依次点击文字' }}
           ({{ clickPoints.length }}/{{ props.pointCount }})
         </span>

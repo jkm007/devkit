@@ -66,6 +66,9 @@ cors:
     - Authorization
     - Content-Type
     - X-Device-ID
+    - X-Captcha-Id
+    - X-Captcha-Code
+    - X-Captcha-Start-Time
   expose_headers:
     - Content-Disposition
   allow_credentials: true

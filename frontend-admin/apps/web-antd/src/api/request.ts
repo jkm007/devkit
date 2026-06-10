@@ -85,13 +85,14 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
   });
 
   // 风险评分拦截：处理 403001 需要验证码的情况（在数据解包之前拦截，保留原始 config）
+  // 验证码错误时后端仍返回 403001，需要重新弹出验证框，不设重试次数限制
   client.addResponseInterceptor({
     fulfilled: async (response: any) => {
       const data = response?.data;
-      if (data?.code === 403001 && !response.config?._captchaRetried) {
+      if (data?.code === 403001) {
         try {
           const result = await showCaptchaVerify();
-          const config = { ...response.config, _captchaRetried: true };
+          const config = { ...response.config };
           config.headers = {
             ...config.headers,
             'X-Captcha-Id': result.captchaId,

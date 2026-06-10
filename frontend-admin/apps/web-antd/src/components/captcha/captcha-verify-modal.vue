@@ -101,7 +101,7 @@ onUnmounted(() => {
     :footer="null"
     @cancel="handleCancel"
   >
-    <div style="min-height: 200px; display: flex; align-items: center; justify-content: center;">
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 12px 0;">
       <BackendCaptcha
         v-if="!loading && captchaImage"
         :captcha-type="captchaType"
@@ -112,8 +112,8 @@ onUnmounted(() => {
         @success="handleSuccess"
         @refresh="handleRefresh"
       />
-      <div v-else-if="loading" style="color: #999;">加载中...</div>
-      <div v-else style="color: #999;">验证码加载失败，点击
+      <div v-else-if="loading" style="color: #999; min-height: 200px; display: flex; align-items: center;">加载中...</div>
+      <div v-else style="color: #999; min-height: 200px; display: flex; align-items: center;">验证码加载失败，点击
         <a @click="loadCaptcha">重试</a>
       </div>
     </div>
