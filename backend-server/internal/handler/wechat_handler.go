@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"net/http"
 
 	"backend-server/config"
 	"backend-server/internal/service"
@@ -27,6 +28,19 @@ func NewWeChatHandler() *WeChatHandler {
 // cookieSecure 根据服务器模式决定 cookie 是否仅 HTTPS
 func (h *WeChatHandler) cookieSecure() bool {
 	return h.cfg.Server.Mode == "release"
+}
+
+// setCookie 设置 cookie（带 SameSite=Lax）
+func (h *WeChatHandler) setCookie(c *gin.Context, name, value string, maxAge int) {
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     name,
+		Value:    value,
+		Path:     "/",
+		MaxAge:   maxAge,
+		HttpOnly: true,
+		Secure:   h.cookieSecure(),
+		SameSite: http.SameSiteLaxMode,
+	})
 }
 
 // MiniAppLoginRequest 小程序登录请求
@@ -60,8 +74,8 @@ func (h *WeChatHandler) LoginByMiniProgram(c *gin.Context) {
 
 	h.wechatService.RecordSecurityLog(result.ID, "login", fmt.Sprintf("小程序登录成功, 来源: %s", result.RegisterSource), c.ClientIP(), c.GetHeader("User-Agent"), 1)
 
-	c.SetCookie("access_token", result.AccessToken, 30*24*3600, "/", "", h.cookieSecure(), true)
-	c.SetCookie("refresh_token", result.RefreshToken, 30*24*3600, "/", "", h.cookieSecure(), true)
+	h.setCookie(c, "access_token", result.AccessToken, 30*24*3600)
+	h.setCookie(c, "refresh_token", result.RefreshToken, 30*24*3600)
 
 	response.Success(c, result)
 }
@@ -122,8 +136,8 @@ func (h *WeChatHandler) LoginByOfficial(c *gin.Context) {
 
 	h.wechatService.RecordSecurityLog(result.ID, "login", fmt.Sprintf("公众号登录成功, 来源: %s", result.RegisterSource), c.ClientIP(), c.GetHeader("User-Agent"), 1)
 
-	c.SetCookie("access_token", result.AccessToken, 30*24*3600, "/", "", h.cookieSecure(), true)
-	c.SetCookie("refresh_token", result.RefreshToken, 30*24*3600, "/", "", h.cookieSecure(), true)
+	h.setCookie(c, "access_token", result.AccessToken, 30*24*3600)
+	h.setCookie(c, "refresh_token", result.RefreshToken, 30*24*3600)
 
 	response.Success(c, result)
 }
@@ -173,8 +187,8 @@ func (h *WeChatHandler) LoginByWeb(c *gin.Context) {
 
 	h.wechatService.RecordSecurityLog(result.ID, "login", fmt.Sprintf("微信扫码登录成功, 来源: %s", result.RegisterSource), c.ClientIP(), c.GetHeader("User-Agent"), 1)
 
-	c.SetCookie("access_token", result.AccessToken, 30*24*3600, "/", "", h.cookieSecure(), true)
-	c.SetCookie("refresh_token", result.RefreshToken, 30*24*3600, "/", "", h.cookieSecure(), true)
+	h.setCookie(c, "access_token", result.AccessToken, 30*24*3600)
+	h.setCookie(c, "refresh_token", result.RefreshToken, 30*24*3600)
 
 	response.Success(c, result)
 }

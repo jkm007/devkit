@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"net/http"
 
 	"backend-server/config"
 	"backend-server/internal/middleware"
@@ -30,6 +31,19 @@ func NewOAuthHandler() *OAuthHandler {
 // cookieSecure 根据服务器模式决定 cookie 是否仅 HTTPS
 func (h *OAuthHandler) cookieSecure() bool {
 	return h.cfg.Server.Mode == "release"
+}
+
+// setCookie 设置 cookie（带 SameSite=Lax）
+func (h *OAuthHandler) setCookie(c *gin.Context, name, value string, maxAge int) {
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     name,
+		Value:    value,
+		Path:     "/",
+		MaxAge:   maxAge,
+		HttpOnly: true,
+		Secure:   h.cookieSecure(),
+		SameSite: http.SameSiteLaxMode,
+	})
 }
 
 // GetBindings 获取当前用户的第三方绑定列表
@@ -113,8 +127,8 @@ func (h *OAuthHandler) Callback(c *gin.Context) {
 	h.authService.RecordSecurityLog(result.ID, "login", fmt.Sprintf("OAuth登录成功(%s), 来源: %s", provider, result.RegisterSource), c.ClientIP(), c.GetHeader("User-Agent"), 1)
 
 	// 设置 Cookie
-	c.SetCookie("access_token", result.AccessToken, 30*24*3600, "/", "", h.cookieSecure(), true)
-	c.SetCookie("refresh_token", result.RefreshToken, 30*24*3600, "/", "", h.cookieSecure(), true)
+	h.setCookie(c, "access_token", result.AccessToken, 30*24*3600)
+	h.setCookie(c, "refresh_token", result.RefreshToken, 30*24*3600)
 
 	response.Success(c, result)
 }

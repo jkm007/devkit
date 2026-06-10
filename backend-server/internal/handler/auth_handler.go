@@ -3,6 +3,7 @@ package handler
 import (
 	"crypto/sha256"
 	"fmt"
+	"net/http"
 	"sort"
 	"strings"
 	"time"
@@ -35,6 +36,19 @@ func NewAuthHandler() *AuthHandler {
 // cookieSecure 根据服务器模式决定 cookie 是否仅 HTTPS
 func (h *AuthHandler) cookieSecure() bool {
 	return h.cfg.Server.Mode == "release"
+}
+
+// setCookie 设置 cookie（带 SameSite=Lax）
+func (h *AuthHandler) setCookie(c *gin.Context, name, value string, maxAge int) {
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     name,
+		Value:    value,
+		Path:     "/",
+		MaxAge:   maxAge,
+		HttpOnly: true,
+		Secure:   h.cookieSecure(),
+		SameSite: http.SameSiteLaxMode,
+	})
 }
 
 // checkCaptchaForAltLogin 验证码校验（邮箱/短信登录共用）
@@ -114,8 +128,8 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	h.authService.RecordLoginDevice(result.ID, c.ClientIP(), c.GetHeader("User-Agent"), deviceID)
 
 	// 设置 AccessToken 和 RefreshToken 到独立的 Cookie
-	c.SetCookie("access_token", result.AccessToken, 30*24*3600, "/", "", h.cookieSecure(), true)
-	c.SetCookie("refresh_token", result.RefreshToken, 30*24*3600, "/", "", h.cookieSecure(), true)
+	h.setCookie(c, "access_token", result.AccessToken, 30*24*3600)
+	h.setCookie(c, "refresh_token", result.RefreshToken, 30*24*3600)
 
 	response.Success(c, result)
 }
@@ -162,8 +176,8 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	}
 
 	// 清除 Cookie
-	c.SetCookie("access_token", "", -1, "/", "", h.cookieSecure(), true)
-	c.SetCookie("refresh_token", "", -1, "/", "", h.cookieSecure(), true)
+	h.setCookie(c, "access_token", "", -1)
+	h.setCookie(c, "refresh_token", "", -1)
 
 	response.Success(c, "")
 }
@@ -199,7 +213,7 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	}
 
 	// 用新的 RefreshToken 更新 Cookie
-	c.SetCookie("refresh_token", result.RefreshToken, 30*24*3600, "/", "", h.cookieSecure(), true)
+	h.setCookie(c, "refresh_token", result.RefreshToken, 30*24*3600)
 
 	response.Success(c, result)
 }
@@ -376,8 +390,8 @@ func (h *AuthHandler) LoginByEmail(c *gin.Context) {
 	h.authService.RecordLoginDevice(result.ID, c.ClientIP(), c.GetHeader("User-Agent"), deviceID)
 
 	// 设置 Cookie
-	c.SetCookie("access_token", result.AccessToken, 30*24*3600, "/", "", h.cookieSecure(), true)
-	c.SetCookie("refresh_token", result.RefreshToken, 30*24*3600, "/", "", h.cookieSecure(), true)
+	h.setCookie(c, "access_token", result.AccessToken, 30*24*3600)
+	h.setCookie(c, "refresh_token", result.RefreshToken, 30*24*3600)
 
 	response.Success(c, result)
 }
@@ -428,8 +442,8 @@ func (h *AuthHandler) LoginByPhone(c *gin.Context) {
 	h.authService.RecordLoginDevice(result.ID, c.ClientIP(), c.GetHeader("User-Agent"), deviceID)
 
 	// 设置 Cookie
-	c.SetCookie("access_token", result.AccessToken, 30*24*3600, "/", "", h.cookieSecure(), true)
-	c.SetCookie("refresh_token", result.RefreshToken, 30*24*3600, "/", "", h.cookieSecure(), true)
+	h.setCookie(c, "access_token", result.AccessToken, 30*24*3600)
+	h.setCookie(c, "refresh_token", result.RefreshToken, 30*24*3600)
 
 	response.Success(c, result)
 }
