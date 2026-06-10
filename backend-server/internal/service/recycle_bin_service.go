@@ -134,6 +134,9 @@ func (s *RecycleBinService) PermanentDeleteFile(userID uint, fileID uint, hasPer
 	if err != nil {
 		return fmt.Errorf("文件不存在")
 	}
+	if entry.DeletedAt == nil {
+		return fmt.Errorf("文件不在回收站中")
+	}
 	if !hasPermission && entry.UserID != userID {
 		return fmt.Errorf("无权操作")
 	}
