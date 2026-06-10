@@ -6,6 +6,7 @@
 export interface CaptchaVerifyResult {
   captchaId: string;
   captchaCode: string;
+  startTime?: number;
 }
 
 /**

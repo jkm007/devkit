@@ -1,7 +1,12 @@
 package handler
 
 import (
+	"context"
+	"fmt"
+	"time"
+
 	"backend-server/pkg/captcha"
+	"backend-server/pkg/database"
 	"backend-server/pkg/response"
 
 	"github.com/gin-gonic/gin"
@@ -24,6 +29,20 @@ func NewCaptchaHandler() *CaptchaHandler {
 // @Success      200  {object}  response.Response{data=captcha.CaptchaData} "成功"
 // @Router       /auth/captcha [get]
 func (h *CaptchaHandler) GetCaptcha(c *gin.Context) {
+	// 基于 IP 的速率限制：每分钟最多 10 次请求
+	rdb := database.GetRedis()
+	ctx := context.Background()
+	rateLimitKey := fmt.Sprintf("captcha_rate:%s", c.ClientIP())
+
+	count, err := rdb.Incr(ctx, rateLimitKey).Result()
+	if err == nil && count == 1 {
+		rdb.Expire(ctx, rateLimitKey, time.Minute)
+	}
+	if count > 10 {
+		response.TooManyRequests(c, "验证码请求过于频繁，请稍后再试")
+		return
+	}
+
 	captchaType := c.DefaultQuery("type", "numeric")
 
 	data, err := captcha.Generate(captchaType)

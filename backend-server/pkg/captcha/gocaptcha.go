@@ -491,7 +491,7 @@ func verifySliderAnswer(answerStr, value string, tolerance int) (bool, string) {
 	if ok {
 		return true, "验证通过"
 	}
-	return false, fmt.Sprintf("验证失败，请重试 (X差:%d, 容差:%d)", abs(userAnswer.X-answer.X), tolerance)
+	return false, "验证失败，请重试"
 }
 
 // verifyPuzzleAnswer 验证拼图答案（使用配置容差）
@@ -518,7 +518,7 @@ func verifyPuzzleAnswer(answerStr, value string, tolerance int) (bool, string) {
 	if ok {
 		return true, "验证通过"
 	}
-	return false, fmt.Sprintf("验证失败，请重试 (X差:%d, Y差:%d)", abs(userAnswer.X-answer.X), abs(userAnswer.Y-answer.Y))
+	return false, "验证失败，请重试"
 }
 
 // verifyRotationAnswer 验证旋转答案（使用配置容差）
@@ -539,13 +539,11 @@ func verifyRotationAnswer(answerStr, value string, tolerance int) (bool, string)
 		return false, "提交数据格式错误"
 	}
 
-	angleDiff := abs(int(userAnswer.Angle) - int(answer.Angle))
-
 	ok := rotate.Validate(int(userAnswer.Angle), int(answer.Angle), tolerance)
 	if ok {
 		return true, "验证通过"
 	}
-	return false, fmt.Sprintf("角度偏差过大，请重试 (差值:%d°, 容差:%d°)", angleDiff, tolerance)
+	return false, "验证失败，请重试"
 }
 
 // verifyPointAnswer 验证点选答案（使用配置容差）
@@ -560,7 +558,7 @@ func verifyPointAnswer(answerStr string, points []Point, tolerance int) (bool, s
 	}
 
 	if len(points) != len(answer.Points) {
-		return false, fmt.Sprintf("验证点数不匹配 (提交:%d, 期望:%d)", len(points), len(answer.Points))
+		return false, "验证失败，请重试"
 	}
 
 	// 依次验证每个点击点
@@ -570,7 +568,7 @@ func verifyPointAnswer(answerStr string, points []Point, tolerance int) (bool, s
 		}
 		ok := click.Validate(p.X, p.Y, answer.Points[i].X, answer.Points[i].Y, 60, 60, tolerance)
 		if !ok {
-			return false, fmt.Sprintf("点击位置不正确 (第%d个点)", i+1)
+			return false, "验证失败，请重试"
 		}
 	}
 	return true, "验证通过"

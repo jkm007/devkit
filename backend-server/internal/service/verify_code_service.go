@@ -103,10 +103,10 @@ func (s *VerifyCodeService) SendCode(to, purpose string) error {
 
 	// 发送邮件
 	if err := email.SendHTMLEmail(to, subject, htmlBody); err != nil {
-		// 发送失败，删除已存储的验证码
+		// 发送失败，删除已存储的验证码和冷却标记
+		// 注意：不减少每日计数，因为发送确实被尝试过（防止滥用重试）
 		rdb.Del(ctx, codeKey)
 		rdb.Del(ctx, cooldownKey)
-		rdb.Decr(ctx, dailyKey)
 		return fmt.Errorf("发送邮件失败: %w", err)
 	}
 
@@ -231,18 +231,19 @@ func (s *VerifyCodeService) SendSMSCode(phone, purpose string) error {
 	// 获取短信发送器
 	sender, err := sms.GetSender()
 	if err != nil {
+		// 短信服务不可用，删除已存储的验证码和冷却标记
+		// 注意：不减少每日计数，防止滥用重试
 		rdb.Del(ctx, codeKey)
 		rdb.Del(ctx, cooldownKey)
-		rdb.Decr(ctx, dailyKey)
 		return fmt.Errorf("短信服务不可用: %w", err)
 	}
 
 	// 发送短信
 	if err := sender.Send(phone, code); err != nil {
-		// 发送失败，删除已存储的验证码
+		// 发送失败，删除已存储的验证码和冷却标记
+		// 注意：不减少每日计数，防止滥用重试
 		rdb.Del(ctx, codeKey)
 		rdb.Del(ctx, cooldownKey)
-		rdb.Decr(ctx, dailyKey)
 		return fmt.Errorf("发送短信失败: %w", err)
 	}
 

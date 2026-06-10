@@ -14,7 +14,7 @@ import { onMounted, onUnmounted, ref } from 'vue';
 import { Modal } from 'ant-design-vue';
 
 import BackendCaptcha from './backend-captcha.vue';
-import { getCaptcha } from '#/api/system/settings';
+import { getCaptcha, getPublicSettings } from '#/api/system/settings';
 
 // 弹窗状态
 const visible = ref(false);
@@ -25,16 +25,21 @@ const captchaId = ref('');
 const captchaImage = ref('');
 const captchaThumb = ref('');
 const captchaThumbY = ref(0);
+const captchaType = ref<'point' | 'puzzle' | 'slider'>('slider');
 
 async function loadCaptcha() {
   loading.value = true;
   try {
-    const data = await getCaptcha('slider');
+    const data = await getCaptcha(captchaType.value);
     if (data && data.captcha_id && data.image) {
       captchaId.value = data.captcha_id;
       captchaImage.value = data.image;
       captchaThumb.value = data.thumb || '';
       captchaThumbY.value = (data as any).thumb_y || 0;
+      // 使用后端返回的类型（如果有效）
+      if (data.type && ['slider', 'puzzle', 'point'].includes(data.type)) {
+        captchaType.value = data.type as 'point' | 'puzzle' | 'slider';
+      }
     }
   } catch {
     // ignore
@@ -43,16 +48,26 @@ async function loadCaptcha() {
   }
 }
 
-function handleShow() {
+async function handleShow() {
   visible.value = true;
+  // 从公开配置中获取验证码类型
+  try {
+    const settings = await getPublicSettings();
+    const type = settings?.captcha?.captcha_type;
+    if (type && ['slider', 'puzzle', 'point'].includes(String(type).replace(/"/g, ''))) {
+      captchaType.value = String(type).replace(/"/g, '') as 'point' | 'puzzle' | 'slider';
+    }
+  } catch {
+    // 使用默认类型
+  }
   loadCaptcha();
 }
 
-function handleSuccess(result: { captchaCode: string; captchaId: string }) {
+function handleSuccess(result: { captchaCode: string; captchaId: string; startTime: number }) {
   visible.value = false;
   window.dispatchEvent(
     new CustomEvent('captcha:verify-result', {
-      detail: { captchaId: result.captchaId, captchaCode: result.captchaCode },
+      detail: { captchaId: result.captchaId, captchaCode: result.captchaCode, startTime: result.startTime },
     }),
   );
 }
@@ -89,7 +104,7 @@ onUnmounted(() => {
     <div style="min-height: 200px; display: flex; align-items: center; justify-content: center;">
       <BackendCaptcha
         v-if="!loading && captchaImage"
-        captcha-type="slider"
+        :captcha-type="captchaType"
         :server-image="captchaImage"
         :server-thumb="captchaThumb"
         :server-thumb-y="captchaThumbY"

@@ -96,6 +96,7 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
             ...config.headers,
             'X-Captcha-Id': result.captchaId,
             'X-Captcha-Code': result.captchaCode,
+            'X-Captcha-Start-Time': result.startTime ? String(result.startTime) : '',
           };
           return client.instance.request(config);
         } catch {

@@ -35,7 +35,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const emit = defineEmits<{
-  success: [data: { captchaCode: string; captchaId: string }];
+  success: [data: { captchaCode: string; captchaId: string; startTime: number }];
   refresh: [];
 }>();
 
@@ -113,6 +113,7 @@ function handleSliderEnd() {
   emit('success', {
     captchaId: props.serverCaptchaId,
     captchaCode: JSON.stringify({ x: mappedX.value, y: props.serverThumbY }),
+    startTime: startTime.value,
   });
 }
 
@@ -149,6 +150,7 @@ function handleImageClick(e: MouseEvent) {
     emit('success', {
       captchaId: props.serverCaptchaId,
       captchaCode: JSON.stringify(clickPoints.value),
+      startTime: startTime.value,
     });
   }
 }
