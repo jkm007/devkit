@@ -85,16 +85,32 @@ func CaptchaGuard() gin.HandlerFunc {
 			return
 		}
 
+		// 从 Header 读取 startTime（验证码渲染时刻）
+		var startTime int64
+		if startTimeStr := c.GetHeader("X-Captcha-Start-Time"); startTimeStr != "" {
+			startTime, _ = strconv.ParseInt(startTimeStr, 10, 64)
+		}
+
 		// 验证验证码
-		valid, _ := captcha.Verify(captchaID, captchaCode, 0, nil)
+		valid, _ := captcha.Verify(captchaID, captchaCode, startTime, nil)
 		if !valid {
+			// 验证失败，累积风险分（使用配置中的最大单条规则分作为惩罚分）
+			punishScore := 0
+			for _, rule := range cfg.Rules {
+				if rule.Enabled && rule.Score > punishScore {
+					punishScore = rule.Score
+				}
+			}
+			if punishScore > 0 {
+				accumulateRiskScore(ip, punishScore, cfg)
+			}
 			response.CaptchaRequired(c, "验证码错误或已过期")
 			c.Abort()
 			return
 		}
 
-		// 验证通过，清零风险分
-		clearRiskScore(ip)
+		// 验证通过，风险分减半而非清零
+		halveRiskScore(ip)
 		c.Next()
 	}
 }
@@ -199,6 +215,25 @@ func clearRiskScore(ip string) {
 	rdb := database.GetRedis()
 	ctx := context.Background()
 	rdb.Del(ctx, riskScoreKeyPrefix+ip)
+}
+
+// halveRiskScore 风险分减半（验证通过时适度降低，而非直接清零）
+func halveRiskScore(ip string) {
+	rdb := database.GetRedis()
+	ctx := context.Background()
+	key := riskScoreKeyPrefix + ip
+
+	val, err := rdb.Get(ctx, key).Int64()
+	if err != nil || val <= 0 {
+		return
+	}
+
+	halved := val / 2
+	if halved <= 0 {
+		rdb.Del(ctx, key)
+	} else {
+		rdb.Set(ctx, key, halved, 0) // TTL 保持不变，由下次累加时刷新
+	}
 }
 
 // evalFrequencyRule 频率检测
