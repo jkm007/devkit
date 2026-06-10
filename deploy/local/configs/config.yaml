@@ -11,7 +11,7 @@ mysql:
   host: 10.0.50.108
   port: 3306
   user: root
-  password: "${MYSQL_PASSWORD}"
+  password: "root123456"
   database: backend_db
   max_open_conns: 100
   max_idle_conns: 10
@@ -21,12 +21,12 @@ mysql:
 redis:
   host: 10.0.50.108
   port: 6379
-  password: "${REDIS_PASSWORD}"
+  password: "redis123456"
   db: 0
   pool_size: 100
 
 jwt:
-  secret: "${JWT_SECRET}"
+  secret: "local-dev-jwt-secret-key"
   access_token_ttl: 168h
   refresh_token_ttl: 720h
   issuer: backend-server
@@ -74,7 +74,7 @@ storage:
     url_prefix: /uploads
 
 crypto:
-  aes_key: "${AES_KEY}"
+  aes_key: "local-dev-aes-32-byte-key-here!!!"
 
 captcha:
   width: 240
@@ -82,4 +82,4 @@ captcha:
   length: 4
   max_skew: 0.7
   dot_count: 80
-  secret: "${CAPTCHA_SECRET}"
+  secret: "local-dev-captcha-secret-key-32bytes!"
