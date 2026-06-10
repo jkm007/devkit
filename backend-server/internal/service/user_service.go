@@ -234,10 +234,18 @@ func (s *UserService) Update(id uint, req *UpdateUserRequest) error {
 	if req.Nickname != "" {
 		user.Nickname = req.Nickname
 	}
-	if req.Email != "" {
+	if req.Email != "" && req.Email != user.Email {
+		existing, _ := s.userRepo.GetByEmail(req.Email)
+		if existing != nil && existing.ID != id {
+			return fmt.Errorf("该邮箱已被其他用户使用")
+		}
 		user.Email = req.Email
 	}
-	if req.Phone != "" {
+	if req.Phone != "" && req.Phone != user.Phone {
+		existing, _ := s.userRepo.GetByPhone(req.Phone)
+		if existing != nil && existing.ID != id {
+			return fmt.Errorf("该手机号已被其他用户使用")
+		}
 		user.Phone = req.Phone
 	}
 	if req.Gender != 0 {

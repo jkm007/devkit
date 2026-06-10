@@ -21,6 +21,22 @@ type ShareHandler struct {
 	fileService  *service.FileService
 }
 
+// toUint 安全地将 interface{} 转换为 uint（JSON 反序列化数字为 float64）
+func toUint(v interface{}) (uint, error) {
+	switch val := v.(type) {
+	case uint:
+		return val, nil
+	case float64:
+		return uint(val), nil
+	case int:
+		return uint(val), nil
+	case int64:
+		return uint(val), nil
+	default:
+		return 0, fmt.Errorf("cannot convert %T to uint", v)
+	}
+}
+
 func NewShareHandler() *ShareHandler {
 	return &ShareHandler{
 		shareService: service.NewShareService(),
@@ -142,7 +158,11 @@ func (h *ShareHandler) GetShareFolderFiles(c *gin.Context) {
 		response.InternalError(c, "分享数据异常")
 		return
 	}
-	folderID := uint(folderIDVal.(uint))
+	folderID, err := toUint(folderIDVal)
+	if err != nil {
+		response.InternalError(c, "分享数据异常")
+		return
+	}
 
 	// 获取文件夹内的文件列表
 	files, err := h.shareService.GetShareFolderFiles(folderID)
@@ -197,7 +217,11 @@ func (h *ShareHandler) GetShareFile(c *gin.Context) {
 			response.InternalError(c, "分享数据异常")
 			return
 		}
-		folderID := uint(folderIDVal.(uint))
+		folderID, err := toUint(folderIDVal)
+		if err != nil {
+			response.InternalError(c, "分享数据异常")
+			return
+		}
 		fileInfo, err := h.shareService.GetFileInFolder(folderID, uint(fileID))
 		if err != nil {
 			response.NotFound(c, err.Error())

@@ -7,6 +7,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// 全局单例 AuthService（避免每次请求创建新实例）
+var authServiceInstance = service.NewAuthService()
+
 // Permission 权限码校验中间件
 // 检查当前用户是否拥有所需的权限码
 func Permission(requiredCode string) gin.HandlerFunc {
@@ -19,8 +22,7 @@ func Permission(requiredCode string) gin.HandlerFunc {
 		}
 
 		// 通过 Service 层获取用户权限码（自带 Redis 缓存）
-		authService := service.NewAuthService()
-		codes, err := authService.GetPermissionCodes(userID)
+		codes, err := authServiceInstance.GetPermissionCodes(userID)
 		if err != nil {
 			response.Forbidden(c, "获取权限信息失败")
 			c.Abort()
