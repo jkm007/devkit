@@ -42,12 +42,12 @@ async function loadShareInfo() {
 
 function viewFile(file: any) {
   // 文件夹分享的文件访问 URL
-  const url = `/api/share/${shareCode}/file/${file.fileId}`;
+  const url = `/api/v1/share/${shareCode}/file/${file.fileId}`;
   window.open(url, '_blank', 'noopener,noreferrer');
 }
 
 function downloadFile(file: any) {
-  const url = `/api/share/${shareCode}/file/${file.fileId}`;
+  const url = `/api/v1/share/${shareCode}/file/${file.fileId}`;
   const link = document.createElement('a');
   link.href = url;
   link.download = file.fileName;
@@ -57,7 +57,7 @@ function downloadFile(file: any) {
 
 // 文件分享的下载按钮
 function downloadSharedFile() {
-  const url = `/api/share/${shareCode}/file`;
+  const url = `/api/v1/share/${shareCode}/file`;
   const link = document.createElement('a');
   link.href = url;
   link.download = shareInfo.value?.fileName || 'download';
@@ -100,7 +100,7 @@ onMounted(() => {
           <!-- 图片预览 -->
           <div v-if="shareInfo.contentType?.startsWith('image/')">
             <Image
-              :src="`/api/share/${shareCode}/file`"
+              :src="`/api/v1/share/${shareCode}/file`"
               class="max-w-full"
               style="max-height: 400px"
             />
@@ -109,7 +109,7 @@ onMounted(() => {
           <!-- PDF 预览 -->
           <div v-else-if="shareInfo.contentType?.includes('pdf') || shareInfo.fileName?.toLowerCase().endsWith('.pdf')">
             <iframe
-              :src="`/api/share/${shareCode}/file`"
+              :src="`/api/v1/share/${shareCode}/file`"
               sandbox="allow-scripts allow-same-origin"
               referrerpolicy="no-referrer"
               style="width: 100%; height: 400px"
@@ -117,20 +117,31 @@ onMounted(() => {
             />
           </div>
 
-          <!-- 视频/音频预览 -->
+          <!-- 视频预览 -->
           <div v-else-if="shareInfo.contentType?.startsWith('video/')">
             <video
-              :src="`/api/share/${shareCode}/file`"
+              :src="`/api/v1/share/${shareCode}/file`"
               controls
-              style="max-width: 100%; max-height: 400px"
+              autoplay
+              preload="auto"
+              playsinline
+              style="max-width: 100%; max-height: 400px; display: block; background: #000;"
             />
           </div>
+
+          <!-- 音频预览 -->
           <div v-else-if="shareInfo.contentType?.startsWith('audio/')">
-            <audio
-              :src="`/api/share/${shareCode}/file`"
-              controls
-              style="width: 100%"
-            />
+            <div class="py-6 text-center">
+              <div class="mb-4 text-6xl text-blue-500">🎵</div>
+              <p class="mb-4 text-lg text-foreground">{{ shareInfo.fileName }}</p>
+              <audio
+                :src="`/api/v1/share/${shareCode}/file`"
+                controls
+                autoplay
+                preload="auto"
+                style="width: 100%; max-width: 500px; margin: 0 auto;"
+              />
+            </div>
           </div>
 
           <!-- 其他文件类型 -->

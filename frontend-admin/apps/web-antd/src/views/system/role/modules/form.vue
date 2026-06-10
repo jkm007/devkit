@@ -174,23 +174,33 @@ const [Drawer, drawerApi] = useVbenDrawer({
   },
 });
 
-/** 递归过滤：只保留有权限码的节点 */
+/** 递归过滤：只保留有权限码的节点，并确保 key 唯一 */
 function filterPermissionTree(nodes: any[]): any[] {
-  return nodes
-    .map((node) => {
-      const children = node.children
-        ? filterPermissionTree(node.children)
-        : [];
-      if (node.authCode || children.length > 0) {
-        return {
-          ...node,
-          authCode: node.authCode || `__catalog_${node.id}`,
-          children: children.length > 0 ? children : undefined,
-        };
-      }
-      return null;
-    })
-    .filter(Boolean);
+  const seen = new Set<string>();
+  function process(nodes: any[]): any[] {
+    return nodes
+      .map((node) => {
+        const children = node.children
+          ? process(node.children)
+          : [];
+        if (node.authCode || children.length > 0) {
+          let authCode = node.authCode || `__catalog_${node.id}`;
+          // 去重：相同 authCode 的节点只保留第一个
+          if (seen.has(authCode)) {
+            return null;
+          }
+          seen.add(authCode);
+          return {
+            ...node,
+            authCode,
+            children: children.length > 0 ? children : undefined,
+          };
+        }
+        return null;
+      })
+      .filter(Boolean);
+  }
+  return process(nodes);
 }
 
 async function loadPermissions() {
