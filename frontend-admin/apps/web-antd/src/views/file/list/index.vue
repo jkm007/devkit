@@ -595,7 +595,7 @@ async function handleBatchMove() {
 
 function handleDownload(row: any) {
   const token = useAccessStore().accessToken;
-  const url = `/api/files/${row.id}/download`;
+  const url = `/api/v1/files/${row.id}/download`;
 
   // 显示下载进度弹窗
   downloadFileName.value = row.name;
@@ -674,7 +674,7 @@ async function handlePreview(row: any) {
   if (isVideo || isPdf || isAudio) {
     previewType.value = isVideo ? 'video' : isAudio ? 'audio' : 'pdf';
     try {
-      const response = await fetch(`/api/files/${row.id}/preview-url?expires=300`, {
+      const response = await fetch(`/api/v1/files/${row.id}/preview-url?expires=300`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       if (response.ok) {
@@ -682,7 +682,7 @@ async function handlePreview(row: any) {
         if (result.code === 0) {
           const url = result.data.url;
           // 云存储 presigned URL 是完整地址，本地存储是相对路径
-          previewUrl.value = url.startsWith('http') ? url : `/api${url}`;
+          previewUrl.value = url.startsWith('http') ? url : `/api/v1${url}`;
           return;
         }
       }
@@ -694,7 +694,7 @@ async function handlePreview(row: any) {
 
   // 图片使用 blob URL
   try {
-    const response = await fetch(`/api/files/${row.id}/view`, {
+    const response = await fetch(`/api/v1/files/${row.id}/view`, {
       headers: { 'Authorization': `Bearer ${token}` },
     });
     if (response.ok) {
