@@ -13,6 +13,7 @@ func Run(db *gorm.DB) error {
 		&model.Role{},
 		&model.Menu{},
 		&model.Group{},
+		&model.GroupRole{},
 		&model.UserRole{},
 		&model.SecurityLog{},
 		&model.LoginDevice{},
@@ -33,5 +34,9 @@ func Run(db *gorm.DB) error {
 		&model.TagRouting{},
 		&model.FileTag{},
 		&model.StorageBucket{},
+		&model.StorageConfig{},
+		&model.FileTypeRule{},
+		&model.RateLimitRule{},
+		&model.ScheduledTask{},
 	)
 }

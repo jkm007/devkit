@@ -88,6 +88,7 @@ CREATE TABLE IF NOT EXISTS `sys_menus` (
     `auth_code`  VARCHAR(100) DEFAULT '' COMMENT '权限码',
     `icon`       VARCHAR(100) DEFAULT '' COMMENT '图标',
     `meta`       TEXT         DEFAULT NULL COMMENT '元数据(JSON)',
+    `sort`       INT          NOT NULL DEFAULT 0 COMMENT '排序',
     `created_at` DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
     `updated_at` DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
     `deleted_at` DATETIME(3)  DEFAULT NULL COMMENT '删除时间',
