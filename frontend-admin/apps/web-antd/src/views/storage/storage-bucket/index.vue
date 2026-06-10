@@ -367,7 +367,7 @@ const handleCancel = () => {
           <Space>
             <Button v-if="hasAccessByCodes(['storage:bucket:edit'])" type="link" size="small" @click="handleEdit(record)">编辑</Button>
             <Popconfirm
-              v-if="!record.isDefault && hasAccessByCodes(['storage:bucket:edit'])"
+              v-if="!record.isDefault && hasAccessByCodes(['storage:bucket:delete'])"
               title="确定删除?"
               @confirm="handleDelete(record)"
             >

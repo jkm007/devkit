@@ -193,11 +193,11 @@ watch(shouldShowCaptcha, async (need) => {
 });
 
 // ==================== Mock 用户 ====================
-const MOCK_USER_OPTIONS: BasicOption[] = [
+const MOCK_USER_OPTIONS: BasicOption[] = import.meta.env.DEV ? [
   { label: 'Super', value: 'vben' },
   { label: 'Admin', value: 'admin' },
   { label: 'User', value: 'jack' },
-];
+] : [];
 
 // ==================== 表单 ====================
 const formSchema = computed((): VbenFormSchema[] => {

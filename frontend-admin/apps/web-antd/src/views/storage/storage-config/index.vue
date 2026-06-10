@@ -422,7 +422,7 @@ const isCOS = computed(() => currentConfig.driver === 'cos');
               测试
             </Button>
             <Popconfirm
-              v-if="hasAccessByCodes(['storage:config:edit']) && record.driver !== 'local'"
+              v-if="hasAccessByCodes(['storage:config:delete']) && record.driver !== 'local'"
               title="确定删除此配置?"
               @confirm="handleDelete(record)"
             >

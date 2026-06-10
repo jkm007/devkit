@@ -44,8 +44,8 @@ const permissions = computed(() => accessStore.accessCodes || []);
 const hasViewAllPermission = computed(() => permissions.value.includes('file:view:all'));
 // @ts-ignore - 暂时未使用，保留以备将来使用
 const hasSharePermission = computed(() => permissions.value.includes('file:share'));
-const hasDeletePermission = computed(() => permissions.value.includes('file:delete'));
-const hasManagePermission = computed(() => permissions.value.includes('file:manage'));
+const hasDeletePermission = computed(() => permissions.value.includes('share:delete'));
+const hasManagePermission = computed(() => permissions.value.includes('share:manage'));
 
 // ==================== 状态 ====================
 
