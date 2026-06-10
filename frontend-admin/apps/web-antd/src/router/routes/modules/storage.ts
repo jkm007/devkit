@@ -37,6 +37,33 @@ const routes: RouteRecordRaw[] = [
         },
         component: () => import('#/views/storage/file-type-rule/index.vue'),
       },
+      {
+        name: 'StorageSettings',
+        path: '/storage/storage-settings',
+        component: () => import('#/views/storage/storage-settings/index.vue'),
+        meta: {
+          title: '存储设置',
+          icon: 'lucide:settings',
+        },
+      },
+      {
+        name: 'StorageManage',
+        path: '/storage/storage-manage',
+        component: () => import('#/views/storage/storage-manage/index.vue'),
+        meta: {
+          title: '存储管理',
+          icon: 'lucide:database',
+        },
+      },
+      {
+        name: 'StorageTagRouting',
+        path: '/storage/tag-routing',
+        component: () => import('#/views/storage/tag-routing/index.vue'),
+        meta: {
+          title: '标签路由',
+          icon: 'lucide:git-branch',
+        },
+      },
     ],
   },
 ];

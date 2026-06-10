@@ -37,6 +37,15 @@ const routes: RouteRecordRaw[] = [
         },
         component: () => import('#/views/security/risk/index.vue'),
       },
+      {
+        name: 'SecuritySettings',
+        path: '/security/security-settings',
+        component: () => import('#/views/security/security-settings/index.vue'),
+        meta: {
+          title: '安全设置',
+          icon: 'lucide:settings',
+        },
+      },
     ],
   },
 ];

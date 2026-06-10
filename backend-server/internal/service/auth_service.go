@@ -817,6 +817,10 @@ func (s *AuthService) ChangePassword(userID uint, req *ChangePasswordRequest, ip
 		return fmt.Errorf("旧密码错误")
 	}
 
+	// 保存旧密码到历史记录
+	phs := NewPasswordHistoryService()
+	_ = phs.SavePassword(userID, user.Password)
+
 	// 加密新密码
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
 	if err != nil {
@@ -1306,6 +1310,12 @@ func (s *AuthService) initDefaultMenus() error {
 			{Name: "FileDelete", AuthCode: "file:delete", Meta: `{"title":"删除文件"}`},
 			{Name: "FileShareCreate", AuthCode: "file:share", Meta: `{"title":"创建分享"}`},
 			{Name: "FileManage", AuthCode: "file:manage", Meta: `{"title":"文件管理（移动、重命名）"}`},
+			{Name: "FileRecycleDelete", AuthCode: "file:recycle:delete", Meta: `{"title":"永久删除（回收站）"}`},
+		}},
+		{&fileMenus[1], []model.Menu{
+			{Name: "ShareViewAll", AuthCode: "share:view:all", Meta: `{"title":"查看所有分享"}`},
+			{Name: "ShareDelete", AuthCode: "share:delete", Meta: `{"title":"删除分享"}`},
+			{Name: "ShareManage", AuthCode: "share:manage", Meta: `{"title":"管理分享（续期、过期等）"}`},
 		}},
 	}
 	for _, bg := range fileButtonGroups {

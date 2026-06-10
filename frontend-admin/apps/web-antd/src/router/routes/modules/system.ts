@@ -66,6 +66,15 @@ const routes: RouteRecordRaw[] = [
         },
         component: () => import('#/views/system/tag/index.vue'),
       },
+      {
+        name: 'SystemScheduledTask',
+        path: '/system/scheduled-task',
+        component: () => import('#/views/system/scheduled-task/index.vue'),
+        meta: {
+          title: '定时任务',
+          icon: 'lucide:clock',
+        },
+      },
     ],
   },
 ];

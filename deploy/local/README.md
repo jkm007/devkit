@@ -20,31 +20,31 @@ deploy/local/
 │   ├── devkit.conf           # DevKit 站点配置
 │   └── config.yaml           # 后端配置模板
 └── scripts/
-    ├── deploy-all.sh         # 一键部署
+    ├── deploy-all.sh         # 一键部署（备份+部署）
     ├── deploy-backend.sh     # 部署后端
     ├── deploy-frontend.sh    # 部署前端
     ├── deploy-nginx.sh       # 安装部署 Nginx
-    └── db-sync.sh            # 从阿里云同步数据库
+    ├── backup-db.sh          # 备份数据库
+    └── db-sync.sh            # 从阿里云同步数据库（首次使用）
 ```
 
 ## 快速开始
 
-### 从阿里云同步数据
+### 一键部署（推荐）
+
+每次部署自动备份数据库，然后部署 Nginx + 后端 + 前端：
 
 ```bash
 cd deploy/local
-bash scripts/db-sync.sh
-```
-
-### 一键部署
-
-```bash
 bash scripts/deploy-all.sh
 ```
 
 ### 单独部署
 
 ```bash
+# 备份数据库
+bash scripts/backup-db.sh
+
 # 安装配置 Nginx（首次）
 bash scripts/deploy-nginx.sh
 
@@ -55,18 +55,20 @@ bash scripts/deploy-backend.sh
 bash scripts/deploy-frontend.sh
 ```
 
-## 数据同步
-
-从阿里云同步数据库到本地：
+### 首次部署 - 从阿里云同步数据
 
 ```bash
 bash scripts/db-sync.sh
 ```
 
-同步内容：
-- 所有表结构和数据
-- 自动更新 MinIO 配置为本地地址
-- 自动创建 MinIO 桶并设置公开读取
+## 部署流程
+
+每次执行 `deploy-all.sh` 会按以下顺序执行：
+
+1. **备份数据库** — 备份到 `/opt/devkit/backups/`，保留最近 10 个备份
+2. **部署 Nginx** — 上传配置，重载 Nginx
+3. **部署后端** — 编译 Go 程序，上传并重启 systemd 服务
+4. **部署前端** — 编译 Vue 应用，上传到 `/opt/devkit/frontend/`
 
 ## 访问地址
 

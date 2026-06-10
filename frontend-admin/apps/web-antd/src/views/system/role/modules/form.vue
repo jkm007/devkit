@@ -53,6 +53,28 @@ function collectLeafKeys(node: any): string[] {
   return node.children.flatMap((c: any) => collectLeafKeys(c));
 }
 
+/** 为全选的父节点补上 authCode，让树组件显示完整勾选 */
+function enrichWithParentKeys(leafKeys: string[]): string[] {
+  const keySet = new Set(leafKeys);
+  const result = [...leafKeys];
+
+  function walk(nodes: any[]) {
+    for (const node of nodes) {
+      if (!node.children || node.children.length === 0) continue;
+      walk(node.children);
+      if (node.authCode && !keySet.has(node.authCode)) {
+        const leaves = collectLeafKeys(node);
+        if (leaves.length > 0 && leaves.every((k) => keySet.has(k))) {
+          keySet.add(node.authCode);
+          result.push(node.authCode);
+        }
+      }
+    }
+  }
+  walk(permissions.value);
+  return result;
+}
+
 // 判断父节点是否半选（部分子节点选中）
 function isIndeterminate(node: any): boolean {
   if (!node.children || node.children.length === 0) return false;
@@ -64,53 +86,12 @@ function isIndeterminate(node: any): boolean {
   return selectedCount > 0 && selectedCount < leafKeys.length;
 }
 
-// 处理选中变化
+// 处理选中变化 — 直接保留树组件返回的完整 keys（含父节点），保存时再过滤
 function handleUpdateValue(keys: string[]) {
-  // 找出本次操作的节点：在 keys 中但不在 selectedKeys 中的（新增），
-  // 或在 selectedKeys 中但不在 keys 中的（移除）
-  const oldSet = new Set(selectedKeys.value);
-  const newSet = new Set(keys);
-  let toggledKey = '';
-
-  for (const k of newSet) {
-    if (!oldSet.has(k)) {
-      toggledKey = k;
-      break;
-    }
-  }
-  if (!toggledKey) {
-    for (const k of oldSet) {
-      if (!newSet.has(k)) {
-        toggledKey = k;
-        break;
-      }
-    }
-  }
-
-  // 检查被操作的节点是否是父节点
-  const toggledNode = flatNodeMap.value.get(toggledKey);
-  if (toggledNode?.children?.length > 0) {
-    // 父节点：级联操作子节点
-    const leafKeys = collectLeafKeys(toggledNode);
-    const isNowSelected = newSet.has(toggledKey);
-
-    if (isNowSelected) {
-      // 选中父节点 → 添加所有叶子节点
-      const merged = [...new Set([...keys, ...leafKeys])];
-      selectedKeys.value = merged.filter((k) => !k.startsWith('__catalog_'));
-    } else {
-      // 取消父节点 → 移除所有叶子节点
-      selectedKeys.value = keys.filter(
-        (k) => !leafKeys.includes(k) && !k.startsWith('__catalog_'),
-      );
-    }
-  } else {
-    // 叶子节点：直接过滤
-    selectedKeys.value = keys.filter((k) => !k.startsWith('__catalog_'));
-  }
-
-  // 同步到表单
-  formApi.setValues({ permissions: selectedKeys.value });
+  selectedKeys.value = keys;
+  // 同步到表单（只存叶子节点权限码，不含 __catalog_ 前缀）
+  const leafOnly = keys.filter((k) => !k.startsWith('__catalog_'));
+  formApi.setValues({ permissions: leafOnly });
 }
 
 // 监听表单值变化（编辑时加载已有权限）
@@ -118,7 +99,7 @@ watch(
   () => formData.value?.permissions,
   (val) => {
     if (Array.isArray(val)) {
-      selectedKeys.value = [...val];
+      selectedKeys.value = enrichWithParentKeys(val);
     }
   },
   { immediate: true },
@@ -167,7 +148,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
       if (data) {
         formApi.setValues(data);
         if (Array.isArray(data.permissions)) {
-          selectedKeys.value = [...data.permissions];
+          selectedKeys.value = enrichWithParentKeys(data.permissions);
         }
       }
     }

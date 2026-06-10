@@ -87,7 +87,7 @@ type UpdateUserRequest struct {
 	Gender   int    `json:"gender"`
 	Birthday string `json:"birthday"`
 	Bio      string `json:"bio"`
-	Status   int    `json:"status"`
+	Status   *int   `json:"status"`
 	GroupID  uint   `json:"groupId"`
 	Remark   string `json:"remark"`
 	RoleIDs  []uint `json:"roleIds"` // 角色ID列表
@@ -251,8 +251,10 @@ func (s *UserService) Update(id uint, req *UpdateUserRequest) error {
 	if req.Bio != "" {
 		user.Bio = req.Bio
 	}
-	// Status 始终更新（0=禁用, 1=启用）
-	user.Status = req.Status
+	// Status 仅在请求中明确提供时更新（避免零值误覆盖）
+	if req.Status != nil {
+		user.Status = *req.Status
+	}
 	if req.GroupID != 0 {
 		user.GroupID = req.GroupID
 	}

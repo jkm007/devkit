@@ -6,7 +6,7 @@ import type { ClassType, Recordable } from '@vben-core/typings';
 
 import type { TreeProps } from './types';
 
-import { computed, onMounted, ref, watchEffect } from 'vue';
+import { computed, onMounted, ref, watch, watchEffect } from 'vue';
 
 import { ChevronRight, IconifyIcon } from '@vben-core/icons';
 import { cn, get } from '@vben-core/shared/utils';
@@ -84,6 +84,13 @@ onMounted(() => {
       ) {
         expandToLevel(props.defaultExpandedLevel);
       }
+    }
+  });
+
+  // 外部 modelValue 变化时同步内部状态
+  watch(modelValue, () => {
+    if (flattenData.value.length > 0) {
+      updateTreeValue();
     }
   });
 });

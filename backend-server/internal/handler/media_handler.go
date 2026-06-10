@@ -164,6 +164,83 @@ func (h *MediaHandler) GetStream(c *gin.Context) {
 	}
 }
 
+// GetHLS 获取 HLS 流（m3u8 播放列表和 ts 分片）
+// @Summary      获取 HLS 流
+// @Description  返回 HLS 播放列表或 TS 分片内容（需认证）
+// @Tags         媒体文件
+// @Produce      octet-stream
+// @Param        id    path  int     true  "文件ID"
+// @Param        file  query string  false  "HLS 文件路径（相对于 HLS 目录）"
+// @Success      200   {file}  binary
+// @Router       /files/{id}/hls [get]
+func (h *MediaHandler) GetHLS(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.BadRequest(c, "无效的ID")
+		return
+	}
+
+	// 获取当前用户ID
+	userID := middleware.GetCurrentUserID(c)
+
+	// 验证文件归属
+	entry, err := h.fileService.GetFileEntry(userID, uint(id))
+	if err != nil {
+		response.NotFound(c, "文件不存在或无权访问")
+		return
+	}
+
+	// 获取文件资产
+	asset, err := h.fileService.GetAssetByID(entry.FileAssetID)
+	if err != nil {
+		response.NotFound(c, "文件资产不存在")
+		return
+	}
+
+	// 获取媒体信息
+	media, err := h.mediaService.GetMediaInfo(asset.ID)
+	if err != nil || media.TranscodeStatus != "completed" || media.HLSPath == "" {
+		response.NotFound(c, "HLS 转码尚未完成")
+		return
+	}
+
+	// 确定要请求的 HLS 文件
+	hlsFile := c.Query("file")
+	var objectKey string
+	if hlsFile == "" {
+		// 默认返回播放列表
+		objectKey = media.HLSPath
+	} else {
+		// 返回指定的分片文件，构造路径: hls/{fileAssetID}/{segment}
+		hlsDir := fmt.Sprintf("hls/%d", asset.ID)
+		objectKey = hlsDir + "/" + hlsFile
+	}
+
+	// 根据存储类型获取对应的存储实例
+	st := storage.GetStorageByDriver(asset.StorageType)
+
+	// 下载 HLS 文件
+	reader, err := st.Download(c, objectKey)
+	if err != nil {
+		response.NotFound(c, "HLS 文件不存在")
+		return
+	}
+	defer reader.Close()
+
+	// 设置 Content-Type
+	contentType := "application/vnd.apple.mpegurl"
+	if strings.HasSuffix(objectKey, ".ts") {
+		contentType = "video/mp2t"
+	}
+
+	c.Header("Content-Type", contentType)
+	c.Header("Cache-Control", "private, max-age=3600")
+	c.Header("Access-Control-Allow-Origin", "*")
+
+	buf := make([]byte, 32*1024)
+	io.CopyBuffer(c.Writer, reader, buf)
+}
+
 // DownloadFile 文件下载（直接返回文件内容）
 // @Summary      下载文件
 // @Description  直接返回文件内容（需认证）

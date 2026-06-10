@@ -1,6 +1,7 @@
 #!/bin/bash
 # ============================================
-# 一键部署脚本（后端 + 前端 + Nginx）
+# 一键部署脚本（备份 + Nginx + 后端 + 前端）
+# 每次部署：备份数据 → 部署 Nginx → 部署后端 → 部署前端
 # ============================================
 set -e
 
@@ -23,16 +24,20 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     exit 0
 fi
 
-# 部署 Nginx（先安装）
-log_info "步骤 1/3: 安装配置 Nginx"
+# 步骤 1: 备份数据库
+log_info "步骤 1/4: 备份数据库"
+bash "$SCRIPT_DIR/backup-db.sh"
+
+# 步骤 2: 部署 Nginx
+log_info "步骤 2/4: 部署 Nginx"
 bash "$SCRIPT_DIR/deploy-nginx.sh"
 
-# 部署后端
-log_info "步骤 2/3: 部署后端"
+# 步骤 3: 部署后端
+log_info "步骤 3/4: 部署后端"
 bash "$SCRIPT_DIR/deploy-backend.sh"
 
-# 部署前端
-log_info "步骤 3/3: 部署前端"
+# 步骤 4: 部署前端
+log_info "步骤 4/4: 部署前端"
 bash "$SCRIPT_DIR/deploy-frontend.sh"
 
 echo ""
