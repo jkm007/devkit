@@ -10,6 +10,7 @@ import (
 	"backend-server/pkg/response"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 )
 
 const riskScoreKeyPrefix = "risk:score:"
@@ -49,6 +50,15 @@ func CaptchaGuard() gin.HandlerFunc {
 
 		ip := c.ClientIP()
 
+		// 检查验证码白名单（10分钟内已验证过则直接放行，不累加风险分）
+		rdb := database.GetRedis()
+		ctx := context.Background()
+		whitelistKey := "captcha:whitelist:" + ip
+		if exists, _ := rdb.Exists(ctx, whitelistKey).Result(); exists > 0 {
+			c.Next()
+			return
+		}
+
 		// 构建请求头 map
 		headers := map[string]string{
 			"Referer":          c.GetHeader("Referer"),
@@ -71,15 +81,6 @@ func CaptchaGuard() gin.HandlerFunc {
 
 		// 检查是否需要验证码
 		if totalScore < cfg.TriggerScore {
-			c.Next()
-			return
-		}
-
-		// 检查验证码白名单（10分钟内已验证过则放行）
-		rdb := database.GetRedis()
-		ctx := context.Background()
-		whitelistKey := "captcha:whitelist:" + ip
-		if exists, _ := rdb.Exists(ctx, whitelistKey).Result(); exists > 0 {
 			c.Next()
 			return
 		}
@@ -222,12 +223,24 @@ func accumulateRiskScore(ip string, addScore int, cfg *RiskConfigGetter) int {
 	return int(total)
 }
 
-// clearRiskScore 清零风险分
-func clearRiskScore(ip string) {
-	rdb := database.GetRedis()
-	ctx := context.Background()
-	rdb.Del(ctx, riskScoreKeyPrefix+ip)
-}
+// halveScript Lua 脚本：原子地获取值、TTL，减半后写回（Bug 2/3 修复）
+var halveScript = redis.NewScript(`
+local val = tonumber(redis.call('GET', KEYS[1]))
+if not val or val <= 0 then
+    return 0
+end
+local ttl = redis.call('TTL', KEYS[1])
+if ttl <= 0 then
+    ttl = 1800
+end
+local halved = math.floor(val / 2)
+if halved <= 0 then
+    redis.call('DEL', KEYS[1])
+else
+    redis.call('SET', KEYS[1], halved, 'EX', ttl)
+end
+return halved
+`)
 
 // halveRiskScore 风险分减半（验证通过时适度降低，而非直接清零）
 func halveRiskScore(ip string) {
@@ -235,17 +248,7 @@ func halveRiskScore(ip string) {
 	ctx := context.Background()
 	key := riskScoreKeyPrefix + ip
 
-	val, err := rdb.Get(ctx, key).Int64()
-	if err != nil || val <= 0 {
-		return
-	}
-
-	halved := val / 2
-	if halved <= 0 {
-		rdb.Del(ctx, key)
-	} else {
-		rdb.Set(ctx, key, halved, 0) // TTL 保持不变，由下次累加时刷新
-	}
+	halveScript.Run(ctx, rdb, []string{key})
 }
 
 // evalFrequencyRule 频率检测
