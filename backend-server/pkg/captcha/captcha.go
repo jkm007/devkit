@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image"
 	"image/png"
@@ -17,6 +18,7 @@ import (
 	"time"
 
 	"backend-server/pkg/database"
+	"backend-server/pkg/logger"
 )
 
 // CaptchaConfig 验证码配置（从数据库加载）
@@ -78,17 +80,26 @@ type CaptchaStore struct {
 	Type      string `json:"type"`
 	Answer    string `json:"answer"`     // JSON 格式的答案（加密）
 	StartTime int64  `json:"start_time"` // 生成时间戳（毫秒）
-	Used      bool   `json:"used"`       // 是否已使用
 }
 
 // AES 加密密钥（固定 32 字节，通过 SetSecret 在启动时从配置加载）
-var captchaSecret = []byte("captcha_secret_key_32bytes!!!!!1")
+// 默认为空，必须在启动时通过 SetSecret 设置有效密钥，否则加密/解密操作将失败
+var captchaSecret []byte
+
+// errSecretNotSet 密钥未设置错误
+var errSecretNotSet = errors.New("captcha AES secret key is not configured; call SetSecret at startup")
 
 // SetSecret 设置验证码加密密钥（应在启动时调用，使用配置文件或环境变量中的值）
 func SetSecret(key []byte) {
-	if len(key) >= 32 {
-		captchaSecret = key[:32]
+	if len(key) == 0 {
+		logger.Warn("captcha: SetSecret called with empty key; encryption will fail until a valid key is configured")
+		return
 	}
+	if len(key) < 32 {
+		logger.Warn("captcha: SetSecret called with key shorter than 32 bytes (got " + fmt.Sprintf("%d", len(key)) + "); key not applied, encryption will fail")
+		return
+	}
+	captchaSecret = key[:32]
 }
 
 const captchaKeyPrefix = "captcha:"
@@ -310,11 +321,6 @@ func Verify(captchaID, captchaCode string, startTime int64, points []Point) (boo
 		return false, "验证码数据异常"
 	}
 
-	// 一次性校验
-	if store.Used {
-		return false, "验证码已使用"
-	}
-
 	// 时间检测：使用配置的最短操作时间
 	if startTime > 0 && config.MinDuration > 0 {
 		elapsed := startTime - store.StartTime
@@ -361,7 +367,6 @@ func saveToRedis(captchaID, captchaType, answer string) (int64, error) {
 		Type:      captchaType,
 		Answer:    encrypted,
 		StartTime: startTime,
-		Used:      false,
 	}
 	data, _ := json.Marshal(store)
 
@@ -374,6 +379,9 @@ func saveToRedis(captchaID, captchaType, answer string) (int64, error) {
 
 // encryptAnswer 使用 AES-GCM 加密答案
 func encryptAnswer(plaintext string) (string, error) {
+	if len(captchaSecret) == 0 {
+		return "", errSecretNotSet
+	}
 	block, err := aes.NewCipher(captchaSecret)
 	if err != nil {
 		return "", fmt.Errorf("create AES cipher: %w", err)
@@ -392,6 +400,9 @@ func encryptAnswer(plaintext string) (string, error) {
 
 // decryptAnswer 使用 AES-GCM 解密答案
 func decryptAnswer(encoded string) (string, error) {
+	if len(captchaSecret) == 0 {
+		return "", errSecretNotSet
+	}
 	data, err := base64.StdEncoding.DecodeString(encoded)
 	if err != nil {
 		return "", fmt.Errorf("base64 decode: %w", err)

@@ -89,7 +89,10 @@ func generateGoSlide(config *CaptchaConfig) (*CaptchaData, error) {
 		return nil, fmt.Errorf("slide tile image: %w", err)
 	}
 
-	captchaID, _ := generateID()
+	captchaID, err := generateID()
+	if err != nil {
+		return nil, fmt.Errorf("generate captcha ID: %w", err)
+	}
 	answer := GoSlideAnswer{X: int(blockData.X), Y: int(blockData.Y)}
 	answerJSON, _ := json.Marshal(answer)
 	startTime, err := saveToRedis(captchaID, "slider", string(answerJSON))
@@ -168,7 +171,10 @@ func generateGoPuzzle(config *CaptchaConfig) (*CaptchaData, error) {
 		return nil, fmt.Errorf("puzzle tile image: %w", err)
 	}
 
-	captchaID, _ := generateID()
+	captchaID, err := generateID()
+	if err != nil {
+		return nil, fmt.Errorf("generate captcha ID: %w", err)
+	}
 	answer := GoSlideAnswer{X: int(blockData.X), Y: int(blockData.Y)}
 	answerJSON, _ := json.Marshal(answer)
 	startTime, err := saveToRedis(captchaID, "puzzle", string(answerJSON))
@@ -232,7 +238,10 @@ func generateGoRotation(config *CaptchaConfig) (*CaptchaData, error) {
 		return nil, fmt.Errorf("rotate thumb image: %w", err)
 	}
 
-	captchaID, _ := generateID()
+	captchaID, err := generateID()
+	if err != nil {
+		return nil, fmt.Errorf("generate captcha ID: %w", err)
+	}
 	answer := RotationAnswer{Angle: float64(blockData.Angle)}
 	answerJSON, _ := json.Marshal(answer)
 	startTime, err := saveToRedis(captchaID, "rotation", string(answerJSON))
@@ -314,7 +323,10 @@ func generateGoClick(config *CaptchaConfig) (*CaptchaData, error) {
 
 	hintText := "请依次点击【" + strings.Join(chars, "，") + "】"
 
-	captchaID, _ := generateID()
+	captchaID, err := generateID()
+	if err != nil {
+		return nil, fmt.Errorf("generate captcha ID: %w", err)
+	}
 	answer := PointAnswer{Points: points, Chars: chars}
 	answerJSON, _ := json.Marshal(answer)
 	startTime, err := saveToRedis(captchaID, "point", string(answerJSON))
@@ -399,7 +411,10 @@ func generateGoNumeric(config *CaptchaConfig) (*CaptchaData, error) {
 		code += dot.Text
 	}
 
-	captchaID, _ := generateID()
+	captchaID, err := generateID()
+	if err != nil {
+		return nil, fmt.Errorf("generate captcha ID: %w", err)
+	}
 	startTime, err := saveToRedis(captchaID, "numeric", code)
 	if err != nil {
 		return nil, err
