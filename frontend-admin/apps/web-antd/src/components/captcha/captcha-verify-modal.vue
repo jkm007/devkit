@@ -11,7 +11,7 @@
  */
 import { onMounted, onUnmounted, ref } from 'vue';
 
-import { Modal } from 'ant-design-vue';
+import { Button, Input, Modal } from 'ant-design-vue';
 
 import BackendCaptcha from './backend-captcha.vue';
 import BackendRotateCaptcha from './backend-rotate-captcha.vue';
@@ -137,16 +137,16 @@ onUnmounted(() => {
           @click="loadCaptcha"
         />
         <div style="margin-top: 12px; display: flex; gap: 8px; align-items: center;">
-          <a-input
+          <Input
             v-model:value="numericCode"
             :maxlength="captchaLength"
             :placeholder="`请输入 ${captchaLength} 位验证码`"
             style="width: 180px;"
             @press-enter="handleNumericSubmit"
           />
-          <a-button type="primary" :disabled="numericCode.length !== captchaLength" @click="handleNumericSubmit">
+          <Button type="primary" :disabled="numericCode.length !== captchaLength" @click="handleNumericSubmit">
             确认
-          </a-button>
+          </Button>
         </div>
       </div>
 
