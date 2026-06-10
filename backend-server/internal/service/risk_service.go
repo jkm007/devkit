@@ -138,7 +138,9 @@ func loadRiskConfigFromDB() *RiskConfig {
 func (c *RiskConfig) IsProtectedPath(path string) bool {
 	for _, prefix := range c.Paths {
 		if strings.HasPrefix(path, prefix) {
-			return true
+			if len(path) == len(prefix) || path[len(prefix)] == '/' {
+				return true
+			}
 		}
 	}
 	return false
