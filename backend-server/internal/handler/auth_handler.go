@@ -84,23 +84,30 @@ func (h *AuthHandler) Login(c *gin.Context) {
 // @Router       /auth/logout [post]
 func (h *AuthHandler) Logout(c *gin.Context) {
 	// 获取当前 Token 并加入黑名单
+	// 优先从 Authorization header 读取，如果为空则从 Cookie 中读取
+	tokenStr := ""
 	authHeader := c.GetHeader("Authorization")
 	if authHeader != "" {
 		parts := strings.SplitN(authHeader, " ", 2)
 		if len(parts) == 2 && parts[0] == "Bearer" {
-			tokenStr := parts[1]
-			// 将 Token 加入 Redis 黑名单，TTL 与 access token 一致
-			claims, err := jwt.Parse(tokenStr)
-			ttl := h.cfg.JWT.AccessTokenTTL
-			if err == nil && claims.ExpiresAt != nil {
-				remaining := time.Until(claims.ExpiresAt.Time)
-				if remaining > 0 {
-					ttl = remaining
-				}
-			}
-			blacklistKey := fmt.Sprintf("token_blacklist:%s", tokenStr)
-			database.GetRedis().Set(c, blacklistKey, "1", ttl)
+			tokenStr = parts[1]
 		}
+	}
+	if tokenStr == "" {
+		tokenStr, _ = c.Cookie("access_token")
+	}
+	if tokenStr != "" {
+		// 将 Token 加入 Redis 黑名单，TTL 与 access token 一致
+		claims, err := jwt.Parse(tokenStr)
+		ttl := h.cfg.JWT.AccessTokenTTL
+		if err == nil && claims.ExpiresAt != nil {
+			remaining := time.Until(claims.ExpiresAt.Time)
+			if remaining > 0 {
+				ttl = remaining
+			}
+		}
+		blacklistKey := fmt.Sprintf("token_blacklist:%s", tokenStr)
+		database.GetRedis().Set(c, blacklistKey, "1", ttl)
 	}
 
 	// 同时清除 refresh token

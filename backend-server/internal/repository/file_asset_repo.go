@@ -39,6 +39,15 @@ func (r *FileAssetRepo) DecrementRefCount(id uint) error {
 	return r.db.Model(&model.FileAsset{}).Where("id = ?", id).Update("ref_count", gorm.Expr("ref_count - 1")).Error
 }
 
+// DecrementRefCountAtomic 原子递减引用计数，仅在 ref_count > 0 时生效。
+// 返回 affected rows：0 表示 ref_count 已经 <= 0，无需再递减。
+func (r *FileAssetRepo) DecrementRefCountAtomic(id uint) (int64, error) {
+	result := r.db.Model(&model.FileAsset{}).
+		Where("id = ? AND ref_count > 0", id).
+		Update("ref_count", gorm.Expr("ref_count - 1"))
+	return result.RowsAffected, result.Error
+}
+
 // GetByID 根据 ID 获取文件资产
 func (r *FileAssetRepo) GetByID(id uint) (*model.FileAsset, error) {
 	var asset model.FileAsset
