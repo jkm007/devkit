@@ -95,11 +95,13 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
       const data = response?.data;
       if (data?.code === 403001) {
         try {
+          // 从后端响应中读取指定的验证码类型（随机类型）
+          let currentCaptchaType = data?.data?.captcha_type || '';
           // 保留原始请求头（含 Authorization、Accept-Language 等）
           const originalHeaders = { ...response.config.headers };
           // 循环：验证码错误时重新弹出验证框，直到成功或用户取消
           while (true) {
-            const result = await showCaptchaVerify();
+            const result = await showCaptchaVerify(currentCaptchaType);
             // 用干净的 axios 实例重试（无拦截器），避免响应被二次处理
             const retryResp = await captchaRetryAxios.request({
               url: response.config.url,
@@ -126,7 +128,8 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
               };
             }
             if (retryBody?.code === 403001) {
-              // 验证码错误，继续循环弹框
+              // 验证码错误，更新为后端返回的新随机类型，继续循环弹框
+              currentCaptchaType = retryBody?.data?.captcha_type || currentCaptchaType;
               continue;
             }
             // 其他业务错误

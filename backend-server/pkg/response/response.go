@@ -107,3 +107,15 @@ func CaptchaRequired(c *gin.Context, msg string) {
 		Message: msg,
 	})
 }
+
+// CaptchaRequiredWithType 需要指定类型的验证码验证 (HTTP 200, code=403001)
+func CaptchaRequiredWithType(c *gin.Context, msg, captchaType string) {
+	c.JSON(http.StatusOK, Response{
+		Code: 403001,
+		Data: map[string]string{
+			"captcha_type": captchaType,
+		},
+		Error:   nil,
+		Message: msg,
+	})
+}

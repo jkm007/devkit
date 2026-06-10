@@ -2,8 +2,10 @@ package middleware
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"log"
+	"math/big"
 	"strconv"
 	"time"
 
@@ -14,6 +16,18 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 )
+
+// 所有可用的验证码类型（随机选择）
+var captchaTypes = []string{"numeric", "slider", "puzzle", "rotation", "point"}
+
+// randomCaptchaType 随机返回一种验证码类型
+func randomCaptchaType() string {
+	n, err := rand.Int(rand.Reader, big.NewInt(int64(len(captchaTypes))))
+	if err != nil {
+		return captchaTypes[0]
+	}
+	return captchaTypes[n.Int64()]
+}
 
 const riskScoreKeyPrefix = "risk:score:"
 
@@ -88,10 +102,10 @@ func CaptchaGuard() gin.HandlerFunc {
 		captchaID := c.GetHeader("X-Captcha-Id")
 		captchaCode := c.GetHeader("X-Captcha-Code")
 
-		// 没有验证码头的请求：返回 403001 要求验证码
-		// 验证码本身就是防护机制，前端会弹出验证框让用户验证
+		// 没有验证码头的请求：返回 403001 要求验证码（随机类型）
 		if captchaID == "" || captchaCode == "" {
-			response.CaptchaRequired(c, "当前操作需要验证码验证")
+			captchaType := randomCaptchaType()
+			response.CaptchaRequiredWithType(c, "当前操作需要验证码验证", captchaType)
 			c.Abort()
 			return
 		}
@@ -112,8 +126,9 @@ func CaptchaGuard() gin.HandlerFunc {
 		// 验证验证码
 		valid, _ := captcha.Verify(captchaID, captchaCode, startTime, points)
 		if !valid {
-			// 验证失败，返回 403001 让前端重新获取验证码
-			response.CaptchaRequired(c, "验证码错误或已过期")
+			// 验证失败，返回 403001（随机新类型）让前端重新获取验证码
+			captchaType := randomCaptchaType()
+			response.CaptchaRequiredWithType(c, "验证码错误或已过期", captchaType)
 			c.Abort()
 			return
 		}

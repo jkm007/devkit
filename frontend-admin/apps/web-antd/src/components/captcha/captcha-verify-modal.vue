@@ -14,6 +14,7 @@ import { onMounted, onUnmounted, ref } from 'vue';
 import { Modal } from 'ant-design-vue';
 
 import BackendCaptcha from './backend-captcha.vue';
+import BackendRotateCaptcha from './backend-rotate-captcha.vue';
 import { getCaptcha, getPublicSettings } from '#/api/system/settings';
 
 // 弹窗状态
@@ -25,11 +26,16 @@ const captchaId = ref('');
 const captchaImage = ref('');
 const captchaThumb = ref('');
 const captchaThumbY = ref(0);
-const captchaType = ref<'point' | 'puzzle' | 'slider'>('slider');
+const captchaType = ref<string>('slider');
 const captchaHintText = ref('');
+const captchaLength = ref(4); // 数字验证码长度
+
+// 数字验证码输入
+const numericCode = ref('');
 
 async function loadCaptcha() {
   loading.value = true;
+  numericCode.value = '';
   try {
     const data = await getCaptcha(captchaType.value);
     if (data && data.captcha_id && data.image) {
@@ -38,9 +44,10 @@ async function loadCaptcha() {
       captchaThumb.value = data.thumb || '';
       captchaThumbY.value = (data as any).thumb_y || 0;
       captchaHintText.value = (data as any).hint_text || '';
+      captchaLength.value = (data as any).length || 4;
       // 使用后端返回的类型（如果有效）
-      if (data.type && ['slider', 'puzzle', 'point'].includes(data.type)) {
-        captchaType.value = data.type as 'point' | 'puzzle' | 'slider';
+      if (data.type && ['numeric', 'slider', 'puzzle', 'rotation', 'point'].includes(data.type)) {
+        captchaType.value = data.type;
       }
     }
   } catch {
@@ -50,17 +57,24 @@ async function loadCaptcha() {
   }
 }
 
-async function handleShow() {
+async function handleShow(event?: Event) {
   visible.value = true;
-  // 从公开配置中获取验证码类型
-  try {
-    const settings = await getPublicSettings();
-    const type = settings?.captcha?.captcha_type;
-    if (type && ['slider', 'puzzle', 'point'].includes(String(type).replace(/"/g, ''))) {
-      captchaType.value = String(type).replace(/"/g, '') as 'point' | 'puzzle' | 'slider';
+  // 优先使用后端指定的验证码类型（随机类型）
+  const detail = (event as CustomEvent)?.detail;
+  const serverType = detail?.captchaType;
+  if (serverType && ['numeric', 'slider', 'puzzle', 'rotation', 'point'].includes(serverType)) {
+    captchaType.value = serverType as any;
+  } else {
+    // 没有指定类型时，从公开配置中获取
+    try {
+      const settings = await getPublicSettings();
+      const type = settings?.captcha?.captcha_type;
+      if (type && ['slider', 'puzzle', 'point'].includes(String(type).replace(/"/g, ''))) {
+        captchaType.value = String(type).replace(/"/g, '') as 'point' | 'puzzle' | 'slider';
+      }
+    } catch {
+      // 使用默认类型
     }
-  } catch {
-    // 使用默认类型
   }
   loadCaptcha();
 }
@@ -70,6 +84,16 @@ function handleSuccess(result: { captchaCode: string; captchaId: string; startTi
   window.dispatchEvent(
     new CustomEvent('captcha:verify-result', {
       detail: { captchaId: result.captchaId, captchaCode: result.captchaCode, startTime: result.startTime },
+    }),
+  );
+}
+
+function handleNumericSubmit() {
+  if (!numericCode.value || numericCode.value.length !== captchaLength.value) return;
+  visible.value = false;
+  window.dispatchEvent(
+    new CustomEvent('captcha:verify-result', {
+      detail: { captchaId: captchaId.value, captchaCode: numericCode.value, startTime: Date.now() },
     }),
   );
 }
@@ -104,9 +128,42 @@ onUnmounted(() => {
     @cancel="handleCancel"
   >
     <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 12px 0;">
+      <!-- 数字验证码 -->
+      <div v-if="!loading && captchaImage && captchaType === 'numeric'" style="display: flex; flex-direction: column; align-items: center;">
+        <img
+          :src="captchaImage"
+          alt="captcha"
+          style="cursor: pointer; border: 1px solid #eee; border-radius: 4px;"
+          @click="loadCaptcha"
+        />
+        <div style="margin-top: 12px; display: flex; gap: 8px; align-items: center;">
+          <a-input
+            v-model:value="numericCode"
+            :maxlength="captchaLength"
+            :placeholder="`请输入 ${captchaLength} 位验证码`"
+            style="width: 180px;"
+            @press-enter="handleNumericSubmit"
+          />
+          <a-button type="primary" :disabled="numericCode.length !== captchaLength" @click="handleNumericSubmit">
+            确认
+          </a-button>
+        </div>
+      </div>
+
+      <!-- 旋转验证码 -->
+      <BackendRotateCaptcha
+        v-else-if="!loading && captchaImage && captchaType === 'rotation'"
+        :server-image="captchaImage"
+        :server-thumb="captchaThumb"
+        :server-captcha-id="captchaId"
+        @success="handleSuccess"
+        @refresh="handleRefresh"
+      />
+
+      <!-- 滑块/拼图/点选验证码 -->
       <BackendCaptcha
-        v-if="!loading && captchaImage"
-        :captcha-type="captchaType"
+        v-else-if="!loading && captchaImage"
+        :captcha-type="captchaType as 'point' | 'puzzle' | 'slider'"
         :server-image="captchaImage"
         :server-thumb="captchaThumb"
         :server-thumb-y="captchaThumbY"
@@ -115,6 +172,7 @@ onUnmounted(() => {
         @success="handleSuccess"
         @refresh="handleRefresh"
       />
+
       <div v-else-if="loading" style="color: #999; min-height: 200px; display: flex; align-items: center;">加载中...</div>
       <div v-else style="color: #999; min-height: 200px; display: flex; align-items: center;">验证码加载失败，点击
         <a @click="loadCaptcha">重试</a>
