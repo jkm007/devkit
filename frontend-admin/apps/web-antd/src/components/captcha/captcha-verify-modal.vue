@@ -42,9 +42,9 @@ async function loadCaptcha() {
       captchaId.value = data.captcha_id;
       captchaImage.value = data.image;
       captchaThumb.value = data.thumb || '';
-      captchaThumbY.value = (data as any).thumb_y || 0;
-      captchaHintText.value = (data as any).hint_text || '';
-      captchaLength.value = (data as any).length || 4;
+      captchaThumbY.value = data.thumb_y || 0;
+      captchaHintText.value = data.hint_text || '';
+      captchaLength.value = data.length || 4;
       // 使用后端返回的类型（如果有效）
       if (data.type && ['numeric', 'slider', 'puzzle', 'rotation', 'point'].includes(data.type)) {
         captchaType.value = data.type;
@@ -69,8 +69,8 @@ async function handleShow(event?: Event) {
     try {
       const settings = await getPublicSettings();
       const type = settings?.captcha?.captcha_type;
-      if (type && ['slider', 'puzzle', 'point'].includes(String(type).replace(/"/g, ''))) {
-        captchaType.value = String(type).replace(/"/g, '') as 'point' | 'puzzle' | 'slider';
+      if (type && ['numeric', 'slider', 'puzzle', 'rotation', 'point'].includes(String(type).replace(/"/g, ''))) {
+        captchaType.value = String(type).replace(/"/g, '');
       }
     } catch {
       // 使用默认类型

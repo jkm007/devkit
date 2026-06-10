@@ -34,7 +34,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const emit = defineEmits<{
-  success: [data: { captchaCode: string; captchaId: string }];
+  success: [data: { captchaCode: string; captchaId: string; startTime: number }];
   refresh: [];
 }>();
 
@@ -86,6 +86,7 @@ function handleSliderEnd() {
   emit('success', {
     captchaId: props.serverCaptchaId,
     captchaCode: JSON.stringify({ angle: currentAngle.value }),
+    startTime: startTime.value,
   });
 }
 

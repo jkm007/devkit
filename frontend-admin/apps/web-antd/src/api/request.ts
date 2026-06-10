@@ -89,7 +89,7 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
   });
 
   // 风险评分拦截：处理 403001 需要验证码的情况（在数据解包之前拦截，保留原始 config）
-  // 验证码错误时后端仍返回 403001，需要重新弹出验证框，不设重试次数限制
+  // 验证码错误时后端仍返回 403001，需要重新弹出验证框，最多重试 5 次
   client.addResponseInterceptor({
     fulfilled: async (response: any) => {
       const data = response?.data;
@@ -99,8 +99,9 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
           let currentCaptchaType = data?.data?.captcha_type || '';
           // 保留原始请求头（含 Authorization、Accept-Language 等）
           const originalHeaders = { ...response.config.headers };
-          // 循环：验证码错误时重新弹出验证框，直到成功或用户取消
-          while (true) {
+          const maxRetries = 5;
+          // 循环：验证码错误时重新弹出验证框，直到成功或达到上限
+          for (let retry = 0; retry < maxRetries; retry++) {
             const result = await showCaptchaVerify(currentCaptchaType);
             // 用干净的 axios 实例重试（无拦截器），避免响应被二次处理
             const retryResp = await captchaRetryAxios.request({
@@ -135,8 +136,17 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
             // 其他业务错误
             throw Object.assign({}, retryResp, { response: retryResp });
           }
-        } catch {
-          message.warning('操作已取消');
+          // 达到重试上限
+          message.warning('验证码验证次数过多，请稍后再试');
+          return Promise.reject(new Error('验证码验证次数超限'));
+        } catch (e: any) {
+          // 区分用户取消和真实错误
+          if (e?.message === '用户取消验证码验证') {
+            message.warning('操作已取消');
+          } else {
+            console.error('验证码验证异常:', e);
+            message.warning('操作已取消');
+          }
           return Promise.reject(new Error('验证码验证已取消'));
         }
       }

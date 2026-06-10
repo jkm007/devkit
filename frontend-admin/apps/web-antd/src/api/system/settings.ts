@@ -97,7 +97,15 @@ async function getCaptcha(type: string = 'numeric') {
     captcha_id: string;
     image: string;
     thumb?: string;
+    thumb_x?: number;
+    thumb_y?: number;
     type: string;
+    hint_text?: string;
+    chars?: string[];
+    width?: number;
+    height?: number;
+    length?: number;
+    start_time?: number;
   }>('/auth/captcha', { params: { type } });
 }
 
@@ -110,7 +118,15 @@ async function testCaptcha(type: string = 'numeric') {
     captcha_id: string;
     image: string;
     thumb?: string;
+    thumb_x?: number;
+    thumb_y?: number;
     type: string;
+    hint_text?: string;
+    chars?: string[];
+    width?: number;
+    height?: number;
+    length?: number;
+    start_time?: number;
   }>('/system/captcha/test', { params: { type } });
 }
 
