@@ -13,6 +13,7 @@ import {
 } from '@vben/request';
 import { useAccessStore } from '@vben/stores';
 
+import axios from 'axios';
 import { message } from 'ant-design-vue';
 
 import { useAuthStore } from '#/store';
@@ -22,6 +23,9 @@ import { showCaptchaVerify } from '#/utils/captcha-verify';
 import { refreshTokenApi } from './core';
 
 const { apiURL } = useAppConfig(import.meta.env, import.meta.env.PROD);
+
+// 干净的 axios 实例（无拦截器），专门用于验证码重试请求
+const captchaRetryAxios = axios.create({ baseURL: apiURL, timeout: 10_000 });
 
 function createRequestClient(baseURL: string, options?: RequestClientOptions) {
   const client = new RequestClient({
@@ -91,46 +95,35 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
       const data = response?.data;
       if (data?.code === 403001) {
         try {
+          // 保留原始请求头（含 Authorization、Accept-Language 等）
+          const originalHeaders = { ...response.config.headers };
           // 循环：验证码错误时重新弹出验证框，直到成功或用户取消
-          let currentConfig = { ...response.config };
           while (true) {
             const result = await showCaptchaVerify();
-            currentConfig = {
-              ...currentConfig,
+            // 用干净的 axios 实例重试（无拦截器），避免响应被二次处理
+            const retryResp = await captchaRetryAxios.request({
+              url: response.config.url,
+              method: response.config.method,
+              params: response.config.params,
+              data: response.config.data,
               headers: {
-                ...currentConfig.headers,
+                ...originalHeaders,
                 'X-Captcha-Id': result.captchaId,
                 'X-Captcha-Code': result.captchaCode,
                 'X-Captcha-Start-Time': result.startTime ? String(result.startTime) : '',
               },
-            };
-            // 用原始 axios 实例发起重试，请求头已包含验证码信息
-            // 注意：重试响应会再次经过拦截器链，defaultResponseInterceptor
-            // 可能已将数据解包，需要同时处理两种情况
-            let retryResult: any;
-            try {
-              retryResult = await client.instance.request(currentConfig);
-            } catch (retryErr: any) {
-              // defaultResponseInterceptor 在 code≠0 时 throw，检查是否是 403001
-              const errData = retryErr?.response?.data ?? retryErr?.data;
-              if (errData?.code === 403001) {
-                continue; // 验证码错误，重新弹框
-              }
-              throw retryErr; // 其他错误，抛出
+            });
+            const retryData = retryResp?.data;
+            if (retryData?.code === 0) {
+              // 验证成功，返回业务数据（与 defaultResponseInterceptor 解包后的格式一致）
+              return retryData.data;
             }
-
-            // retryResult 可能是完整的 axios response，也可能是被解包后的数据
-            const retryResponseData = retryResult?.data ?? retryResult;
-            const code = retryResponseData?.code;
-            if (code === 0) {
-              // 验证成功，返回业务数据
-              return retryResponseData?.data ?? retryResult;
+            if (retryData?.code === 403001) {
+              // 验证码错误，继续循环弹框
+              continue;
             }
-            if (code === 403001) {
-              continue; // 验证码错误，重新弹框
-            }
-            // 其他错误
-            throw Object.assign({}, retryResult, { response: retryResult });
+            // 其他业务错误
+            throw Object.assign({}, retryResp, { response: retryResp });
           }
         } catch {
           message.warning('操作已取消');
