@@ -104,19 +104,33 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
                 'X-Captcha-Start-Time': result.startTime ? String(result.startTime) : '',
               },
             };
-            // 用 axios 原始实例请求，避免拦截器重复处理
-            const retryResponse = await client.instance.request(currentConfig);
-            const retryData = retryResponse?.data;
-            if (retryData?.code === 0) {
-              // 验证成功，返回已解包的数据
-              return retryData.data;
+            // 用原始 axios 实例发起重试，请求头已包含验证码信息
+            // 注意：重试响应会再次经过拦截器链，defaultResponseInterceptor
+            // 可能已将数据解包，需要同时处理两种情况
+            let retryResult: any;
+            try {
+              retryResult = await client.instance.request(currentConfig);
+            } catch (retryErr: any) {
+              // defaultResponseInterceptor 在 code≠0 时 throw，检查是否是 403001
+              const errData = retryErr?.response?.data ?? retryErr?.data;
+              if (errData?.code === 403001) {
+                continue; // 验证码错误，重新弹框
+              }
+              throw retryErr; // 其他错误，抛出
             }
-            if (retryData?.code === 403001) {
-              // 验证码错误，继续循环弹出验证框
-              continue;
+
+            // retryResult 可能是完整的 axios response，也可能是被解包后的数据
+            const retryResponseData = retryResult?.data ?? retryResult;
+            const code = retryResponseData?.code;
+            if (code === 0) {
+              // 验证成功，返回业务数据
+              return retryResponseData?.data ?? retryResult;
             }
-            // 其他错误，抛出
-            throw Object.assign({}, retryResponse, { response: retryResponse });
+            if (code === 403001) {
+              continue; // 验证码错误，重新弹框
+            }
+            // 其他错误
+            throw Object.assign({}, retryResult, { response: retryResult });
           }
         } catch {
           message.warning('操作已取消');
