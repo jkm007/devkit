@@ -4,18 +4,20 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
-	"log"
 	"math/big"
+	"net"
 	"strconv"
 	"strings"
 	"time"
 
 	"backend-server/pkg/captcha"
 	"backend-server/pkg/database"
+	"backend-server/pkg/logger"
 	"backend-server/pkg/response"
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 )
 
 // 所有可用的验证码类型（随机选择）
@@ -72,7 +74,10 @@ func CaptchaGuard() gin.HandlerFunc {
 		ctx := context.Background()
 		whitelistKey := "captcha:whitelist:" + ip
 		if exists, _ := rdb.Exists(ctx, whitelistKey).Result(); exists > 0 {
-			log.Printf("[RiskScore] ip=%s path=%s | 白名单放行", ip, path)
+			logger.Info("风险评分：白名单放行",
+				zap.String("ip", maskIP(ip)),
+				zap.String("path", path),
+			)
 			c.Next()
 			return
 		}
@@ -90,8 +95,14 @@ func CaptchaGuard() gin.HandlerFunc {
 		// 累加到 Redis 中的总分
 		totalScore := accumulateRiskScore(ip, requestScore, cfg)
 
-		log.Printf("[RiskScore] ip=%s path=%s | 本次=%d(%s) 累计=%d 阈值=%d",
-			ip, path, requestScore, details, totalScore, cfg.TriggerScore)
+		logger.Info("风险评分：请求评估",
+			zap.String("ip", maskIP(ip)),
+			zap.String("path", path),
+			zap.Int("request_score", requestScore),
+			zap.String("details", details),
+			zap.Int("total_score", totalScore),
+			zap.Int("trigger_score", cfg.TriggerScore),
+		)
 
 		// 低风险：直接放行
 		if totalScore < cfg.TriggerScore {
@@ -139,7 +150,10 @@ func CaptchaGuard() gin.HandlerFunc {
 
 		// 验证通过，风险分减半而非清零
 		halveRiskScore(ip)
-		log.Printf("[RiskScore] ip=%s | 验证码通过，写入白名单(10min)，风险分减半", ip)
+		logger.Info("风险评分：验证码通过",
+			zap.String("ip", maskIP(ip)),
+			zap.String("action", "写入白名单(10min)，风险分减半"),
+		)
 		c.Next()
 	}
 }
@@ -370,6 +384,35 @@ func evalIntervalRule(rule RiskRuleItem, ip string) int {
 		return rule.Score
 	}
 	return 0
+}
+
+// maskIP 对 IP 地址进行部分掩码，保护用户隐私
+// IPv4: 192.168.1.100 -> 192.168.1.***
+// IPv6: 将最后一组替换为 ****
+// 其他格式: 直接返回 ***
+func maskIP(ip string) string {
+	parsed := net.ParseIP(ip)
+	if parsed == nil {
+		return "***"
+	}
+
+	// IPv4 地址
+	if v4 := parsed.To4(); v4 != nil {
+		parts := strings.Split(ip, ".")
+		if len(parts) == 4 {
+			parts[3] = "***"
+			return strings.Join(parts, ".")
+		}
+	}
+
+	// IPv6 地址：掩码最后一组
+	parts := strings.Split(ip, ":")
+	if len(parts) > 1 {
+		parts[len(parts)-1] = "****"
+		return strings.Join(parts, ":")
+	}
+
+	return "***"
 }
 
 // containsIgnoreCase 忽略大小写检查子串（使用标准库实现）
