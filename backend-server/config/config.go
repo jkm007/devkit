@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/spf13/viper"
@@ -251,9 +252,13 @@ type OAuthProviderConfig struct {
 	RedirectURL  string `mapstructure:"redirect_url"`
 }
 
-var globalConfig *Config
+// configMu 保护 globalConfig 的并发读写
+var (
+	configMu     sync.RWMutex
+	globalConfig *Config
+)
 
-// Load 加载配置文件
+// Load 加载配置文件，并更新全局配置（线程安全）
 func Load(configPath string) (*Config, error) {
 	v := viper.New()
 	v.SetConfigFile(configPath)
@@ -270,13 +275,20 @@ func Load(configPath string) (*Config, error) {
 		return nil, err
 	}
 
+	configMu.Lock()
 	globalConfig = cfg
+	configMu.Unlock()
+
 	return cfg, nil
 }
 
-// Get 获取全局配置
+// Get 获取全局配置（线程安全，支持并发读取）
+// 注意：返回的是指针，若外部缓存了返回值，在调用 Load 重新加载后缓存值不会更新。
 func Get() *Config {
-	return globalConfig
+	configMu.RLock()
+	cfg := globalConfig
+	configMu.RUnlock()
+	return cfg
 }
 
 func intToStr(i int) string {
