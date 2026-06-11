@@ -246,7 +246,9 @@ function onSelect(item: FlattenedItem<Recordable<any>>, isSelected: boolean) {
     return;
   }
 
-  // check-strictly 模式：手动处理选中/取消
+  // check-strictly 模式：手动处理父子联动
+  // reka-ui 的 rootContext.onSelect 已通过 @select 事件更新了 proxy（点击的节点）
+  // 这里只负责父子联动 + 同步到 modelValue
   if (props.checkStrictly && props.multiple) {
     const nodeKey = get(item.value, props.valueField);
     const leaves = getNodeLeafKeys(nodeKey);
@@ -256,14 +258,16 @@ function onSelect(item: FlattenedItem<Recordable<any>>, isSelected: boolean) {
       // 父节点：向下传播到所有叶子
       const allSelected = leaves.every((leaf) => currentSet.has(leaf));
       if (allSelected) {
+        // 全选 → 全部取消
         leaves.forEach((leaf) => currentSet.delete(leaf));
         currentSet.delete(nodeKey);
       } else {
+        // 部分/未选 → 全部选中
         leaves.forEach((leaf) => currentSet.add(leaf));
         currentSet.delete(nodeKey);
       }
     } else {
-      // 叶子节点：切换自身选中状态
+      // 叶子节点：reka-ui 已通过 proxy 处理，这里只同步 selectedKeysSet
       if (currentSet.has(nodeKey)) {
         currentSet.delete(nodeKey);
       } else {
@@ -273,9 +277,8 @@ function onSelect(item: FlattenedItem<Recordable<any>>, isSelected: boolean) {
 
     // 立即更新本地状态（checkbox 立即响应）
     selectedKeysSet.value = currentSet;
-    const newKeys = [...currentSet];
-    modelValue.value = newKeys;
-    updateTreeValue();
+    modelValue.value = [...currentSet];
+    // 不调用 updateTreeValue()！proxy 已由 reka-ui 更新，调用会用旧数据覆盖 proxy
     emits('select', item);
     return;
   }
@@ -465,7 +468,9 @@ defineExpose({
               event.stopPropagation();
               return;
             }
-            if (event.detail.originalEvent.type === 'click') {
+            // checkStrictly 模式：不阻止 reka-ui 的默认处理，避免双路径竞争
+            // 非 checkStrictly 模式：阻止 reka-ui 的默认处理，由 updateTreeValue 处理
+            if (!checkStrictly && event.detail.originalEvent.type === 'click') {
               event.preventDefault();
             }
             onSelect(item, event.detail.isSelected);
@@ -510,7 +515,11 @@ defineExpose({
                   event.stopPropagation();
                   return;
                 }
-                handleSelect();
+                // checkStrictly 模式：不调用 handleSelect，避免与 reka-ui proxy 竞争
+                // 由 TreeItem 的 @select 事件 → onSelect 统一处理
+                if (!checkStrictly) {
+                  handleSelect();
+                }
               }
             "
           />
@@ -524,7 +533,9 @@ defineExpose({
                   event.stopPropagation();
                   return;
                 }
-                handleSelect();
+                if (!checkStrictly) {
+                  handleSelect();
+                }
               }
             "
           >
