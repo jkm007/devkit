@@ -29,13 +29,13 @@ func NewShareService() *ShareService {
 }
 
 // generateShareCode 生成分享码（128 位，32 字符 hex）
-func generateShareCode() string {
+// crypto/rand 失败时直接返回错误，不使用可预测的时间戳 fallback
+func generateShareCode() (string, error) {
 	b := make([]byte, 16) // 128 bits of entropy
 	if _, err := rand.Read(b); err != nil {
-		// 极小概率失败，fallback 到时间戳
-		return fmt.Sprintf("%x", time.Now().UnixNano())
+		return "", fmt.Errorf("生成分享码失败: %w", err)
 	}
-	return hex.EncodeToString(b)
+	return hex.EncodeToString(b), nil
 }
 
 // CreateFileShare 创建文件分享
@@ -47,9 +47,13 @@ func (s *ShareService) CreateFileShare(userID, fileID uint, expireHours int, max
 	}
 
 	// 创建分享
+	code, err := generateShareCode()
+	if err != nil {
+		return nil, err
+	}
 	share := &model.FileShare{
 		FileID:    fileID,
-		ShareCode: generateShareCode(),
+		ShareCode: code,
 		UserID:    userID,
 		MaxAccess: maxAccess,
 		IsPublic:  true,
@@ -75,9 +79,13 @@ func (s *ShareService) CreateFolderShare(userID, folderID uint, expireHours int,
 		return nil, fmt.Errorf("文件夹不存在或无权分享")
 	}
 
+	code, err := generateShareCode()
+	if err != nil {
+		return nil, err
+	}
 	share := &model.FileShare{
 		FolderID:  folderID,
-		ShareCode: generateShareCode(),
+		ShareCode: code,
 		UserID:    userID,
 		MaxAccess: maxAccess,
 		IsPublic:  true,
