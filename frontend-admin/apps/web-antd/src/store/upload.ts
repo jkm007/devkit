@@ -139,7 +139,6 @@ export const useUploadStore = defineStore('upload', () => {
 
     try {
       const result = await simpleUpload(file, onProgress, onPartProgress, folderId);
-      console.log('上传成功:', result);
 
       const endTime = Date.now();
       updateTask(`temp-${tempId}`, {
