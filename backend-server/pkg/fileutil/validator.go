@@ -190,7 +190,7 @@ var mimeExtMapping = map[string][]string{
 	".mov":  {"video/quicktime"},
 	".wmv":  {"video/x-ms-wmv"},
 	".flv":  {"video/x-flv"},
-	".mkv":  {"video/x-matroska"},
+	".mkv":  {"video/x-matroska", "video/webm"},
 	".webm": {"video/webm"},
 	".doc":  {"application/msword"},
 	".docx": {"application/vnd.openxmlformats-officedocument.wordprocessingml.document"},

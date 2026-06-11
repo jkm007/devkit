@@ -153,7 +153,7 @@ func (h *UploadHandler) UploadPart(c *gin.Context) {
 
 	result, err := h.uploadService.UploadPart(uploadID, partNumber, file, size)
 	if err != nil {
-		response.InternalError(c, "上传分片失败")
+		response.InternalError(c, "上传分片失败: "+err.Error())
 		return
 	}
 
