@@ -82,9 +82,14 @@ type LoginResponse struct {
 	MustChangePassword bool     `json:"mustChangePassword,omitempty"` // 首次登录或管理员重置密码后需强制修改
 }
 
-// loginFailCountKey 生成登录失败计数的 Redis key
-func loginFailCountKey(clientIP string) string {
-	return fmt.Sprintf("login_fail:%s", clientIP)
+// loginFailCountKeyByIP 生成基于 IP 维度的登录失败计数 Redis key
+func loginFailCountKeyByIP(clientIP string) string {
+	return fmt.Sprintf("login_fail:ip:%s", clientIP)
+}
+
+// loginFailCountKeyByUsername 生成基于账号维度的登录失败计数 Redis key
+func loginFailCountKeyByUsername(username string) string {
+	return fmt.Sprintf("login_fail:user:%s", username)
 }
 
 // captchaSettingsCacheItem 验证码配置内存缓存项
@@ -159,19 +164,33 @@ func (s *AuthService) checkCaptcha(req *LoginRequest, clientIP string) error {
 		return nil
 	}
 
-	// 判断是否需要验证码
+	// 判断是否需要验证码（IP 和账号任一维度达到阈值即触发）
 	needCaptcha := false
 	if trigger == 0 {
 		needCaptcha = true
 	} else {
 		rdb := database.GetRedis()
 		ctx := context.Background()
-		key := loginFailCountKey(clientIP)
-		countStr, err := rdb.Get(ctx, key).Result()
+
+		// IP 维度检查
+		ipKey := loginFailCountKeyByIP(clientIP)
+		countStr, err := rdb.Get(ctx, ipKey).Result()
 		if err == nil {
 			count, _ := strconv.Atoi(countStr)
 			if count >= trigger {
 				needCaptcha = true
+			}
+		}
+
+		// 账号维度检查（如果 IP 维度未触发）
+		if !needCaptcha && req.Username != "" {
+			userKey := loginFailCountKeyByUsername(req.Username)
+			countStr, err = rdb.Get(ctx, userKey).Result()
+			if err == nil {
+				count, _ := strconv.Atoi(countStr)
+				if count >= trigger {
+					needCaptcha = true
+				}
 			}
 		}
 	}
@@ -194,20 +213,32 @@ func (s *AuthService) checkCaptcha(req *LoginRequest, clientIP string) error {
 	return nil
 }
 
-// recordLoginFail 记录登录失败（IP 维度）
-func (s *AuthService) recordLoginFail(clientIP string) {
+// recordLoginFail 记录登录失败（IP + 账号双维度）
+func (s *AuthService) recordLoginFail(clientIP, username string) {
 	rdb := database.GetRedis()
 	ctx := context.Background()
-	key := loginFailCountKey(clientIP)
-	rdb.Incr(ctx, key)
-	rdb.Expire(ctx, key, 30*time.Minute) // 30 分钟后自动清除
+
+	// IP 维度
+	ipKey := loginFailCountKeyByIP(clientIP)
+	rdb.Incr(ctx, ipKey)
+	rdb.Expire(ctx, ipKey, 30*time.Minute)
+
+	// 账号维度
+	if username != "" {
+		userKey := loginFailCountKeyByUsername(username)
+		rdb.Incr(ctx, userKey)
+		rdb.Expire(ctx, userKey, 30*time.Minute)
+	}
 }
 
-// clearLoginFail 清除登录失败计数
-func (s *AuthService) clearLoginFail(clientIP string) {
+// clearLoginFail 清除登录失败计数（IP + 账号双维度）
+func (s *AuthService) clearLoginFail(clientIP, username string) {
 	rdb := database.GetRedis()
 	ctx := context.Background()
-	rdb.Del(ctx, loginFailCountKey(clientIP))
+	rdb.Del(ctx, loginFailCountKeyByIP(clientIP))
+	if username != "" {
+		rdb.Del(ctx, loginFailCountKeyByUsername(username))
+	}
 }
 
 // Login 用户登录
@@ -221,7 +252,7 @@ func (s *AuthService) Login(req *LoginRequest, clientIP string) (*LoginResponse,
 	user, err := s.userRepo.GetByName(req.Username)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			s.recordLoginFail(clientIP)
+			s.recordLoginFail(clientIP, req.Username)
 			return nil, errors.New("Username or password is incorrect.")
 		}
 		logger.Error("登录时数据库查询失败", zap.Error(err))
@@ -230,7 +261,7 @@ func (s *AuthService) Login(req *LoginRequest, clientIP string) (*LoginResponse,
 
 	// 验证密码
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		s.recordLoginFail(clientIP)
+		s.recordLoginFail(clientIP, req.Username)
 		return nil, errors.New("Username or password is incorrect.")
 	}
 
@@ -238,6 +269,9 @@ func (s *AuthService) Login(req *LoginRequest, clientIP string) (*LoginResponse,
 	if user.Status != 1 {
 		return nil, errors.New("Account is disabled")
 	}
+
+	// 登录成功，清除 IP + 账号双维度的失败计数
+	s.clearLoginFail(clientIP, req.Username)
 
 	return s.generateLoginResponse(user, clientIP)
 }
