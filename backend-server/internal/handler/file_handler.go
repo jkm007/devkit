@@ -13,18 +13,20 @@ import (
 // FileHandler 文件管理处理器
 type FileHandler struct {
 	fileService *service.FileService
+	authService *service.AuthService
 }
 
+// NewFileHandler 创建文件处理器（依赖注入）
 func NewFileHandler() *FileHandler {
 	return &FileHandler{
 		fileService: service.NewFileService(),
+		authService: service.NewAuthService(),
 	}
 }
 
 // hasFilePermission 检查用户是否有指定的文件权限
 func (h *FileHandler) hasFilePermission(userID uint, permission string) bool {
-	authService := service.NewAuthService()
-	codes, err := authService.GetPermissionCodes(userID)
+	codes, err := h.authService.GetPermissionCodes(userID)
 	if err != nil {
 		return false
 	}
@@ -171,8 +173,7 @@ func (h *FileHandler) ListFiles(c *gin.Context) {
 	scope := c.DefaultQuery("scope", "own")
 	if scope == "all" {
 		// 验证权限
-		authService := service.NewAuthService()
-		permissions, err := authService.GetPermissionCodes(userID)
+		permissions, err := h.authService.GetPermissionCodes(userID)
 		if err != nil || !containsPermission(permissions, "file:view:all") {
 			response.Forbidden(c, "无权查看所有文件")
 			return
