@@ -372,28 +372,7 @@ func evalIntervalRule(rule RiskRuleItem, ip string) int {
 	return 0
 }
 
-// containsIgnoreCase 忽略大小写检查子串
+// containsIgnoreCase 忽略大小写检查子串（使用标准库实现）
 func containsIgnoreCase(s, substr string) bool {
-	return len(s) >= len(substr) && containsLower(toLower(s), toLower(substr))
-}
-
-func toLower(s string) string {
-	b := make([]byte, len(s))
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if c >= 'A' && c <= 'Z' {
-			c += 'a' - 'A'
-		}
-		b[i] = c
-	}
-	return string(b)
-}
-
-func containsLower(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
+	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
 }
