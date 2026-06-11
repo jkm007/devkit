@@ -343,7 +343,8 @@ onMounted(() => {
         }"
         :row-selection="{
           selectedRowKeys: selectedRowKeys,
-          onChange: (keys: (string | number)[]) => (selectedRowKeys = keys as number[]),
+          onChange: (keys: (string | number)[]) =>
+            (selectedRowKeys = keys as number[]),
         }"
         row-key="id"
         :scroll="{ x: 1000 }"
@@ -370,11 +371,15 @@ onMounted(() => {
               <Progress
                 :percent="((record as RecycleBinItem).daysRemaining / 7) * 100"
                 :show-info="false"
-                :stroke-color="getDaysColor((record as RecycleBinItem).daysRemaining)"
+                :stroke-color="
+                  getDaysColor((record as RecycleBinItem).daysRemaining)
+                "
                 size="small"
                 style="width: 60px"
               />
-              <Tag :color="getDaysColor((record as RecycleBinItem).daysRemaining)">
+              <Tag
+                :color="getDaysColor((record as RecycleBinItem).daysRemaining)"
+              >
                 {{ (record as RecycleBinItem).daysRemaining }} 天
               </Tag>
             </div>
