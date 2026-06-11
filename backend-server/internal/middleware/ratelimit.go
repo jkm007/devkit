@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -19,27 +20,32 @@ type ipLimiter struct {
 }
 
 // RateLimiter 限流中间件（令牌桶算法）
-func RateLimiter(cfg config.RateLimitConfig) gin.HandlerFunc {
-	return NewIPRateLimiter(rate.Limit(cfg.Rate), cfg.Burst)
+func RateLimiter(ctx context.Context, cfg config.RateLimitConfig) gin.HandlerFunc {
+	return NewIPRateLimiter(ctx, rate.Limit(cfg.Rate), cfg.Burst)
 }
 
 // NewIPRateLimiter 创建基于 IP 的限流中间件
-func NewIPRateLimiter(r rate.Limit, burst int) gin.HandlerFunc {
+func NewIPRateLimiter(ctx context.Context, r rate.Limit, burst int) gin.HandlerFunc {
 	limiters := &sync.Map{}
 
 	// 后台清理过期的 IP 记录，防止内存泄漏
 	go func() {
 		ticker := time.NewTicker(5 * time.Minute)
 		defer ticker.Stop()
-		for range ticker.C {
-			now := time.Now()
-			limiters.Range(func(key, value interface{}) bool {
-				entry := value.(*ipLimiter)
-				if now.Sub(time.Unix(0, entry.lastSeen.Load())) > 10*time.Minute {
-					limiters.Delete(key)
-				}
-				return true
-			})
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				now := time.Now()
+				limiters.Range(func(key, value interface{}) bool {
+					entry := value.(*ipLimiter)
+					if now.Sub(time.Unix(0, entry.lastSeen.Load())) > 10*time.Minute {
+						limiters.Delete(key)
+					}
+					return true
+				})
+			}
 		}
 	}()
 
