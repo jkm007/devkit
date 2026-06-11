@@ -3,7 +3,7 @@ import type { BasicOption } from '@vben/types';
 
 import type { VbenFormSchema } from '#/adapter/form';
 
-import { computed, onMounted, ref } from 'vue';
+import { onMounted, ref } from 'vue';
 
 import { ProfileBaseSetting } from '@vben/common-ui';
 
@@ -26,34 +26,33 @@ const MOCK_ROLES_OPTIONS: BasicOption[] = [
   },
 ];
 
-const formSchema = computed((): VbenFormSchema[] => {
-  return [
-    {
-      fieldName: 'realName',
-      component: 'Input',
-      label: '姓名',
+// 表单配置，无需使用 computed 包裹，因为 schema 内容是静态的
+const formSchema: VbenFormSchema[] = [
+  {
+    fieldName: 'realName',
+    component: 'Input',
+    label: '姓名',
+  },
+  {
+    fieldName: 'username',
+    component: 'Input',
+    label: '用户名',
+  },
+  {
+    fieldName: 'roles',
+    component: 'Select',
+    componentProps: {
+      mode: 'tags',
+      options: MOCK_ROLES_OPTIONS,
     },
-    {
-      fieldName: 'username',
-      component: 'Input',
-      label: '用户名',
-    },
-    {
-      fieldName: 'roles',
-      component: 'Select',
-      componentProps: {
-        mode: 'tags',
-        options: MOCK_ROLES_OPTIONS,
-      },
-      label: '角色',
-    },
-    {
-      fieldName: 'introduction',
-      component: 'Textarea',
-      label: '个人简介',
-    },
-  ];
-});
+    label: '角色',
+  },
+  {
+    fieldName: 'introduction',
+    component: 'Textarea',
+    label: '个人简介',
+  },
+];
 
 onMounted(async () => {
   const data = await getUserInfoApi();
