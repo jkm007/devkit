@@ -18,6 +18,8 @@ import {
   Tooltip,
 } from 'ant-design-vue';
 
+import type { ColumnType } from 'ant-design-vue/es/table/interface';
+
 import {
   batchPermanentDeleteFiles,
   batchRestoreFiles,
@@ -31,6 +33,15 @@ import type { RecycleBinItem } from '#/api/file';
 import { getFileIcon, formatFileSize } from '#/utils/file-utils';
 
 defineOptions({ name: 'FileRecycle' });
+
+/**
+ * 将 Table bodyCell slot 中的 record 安全转换为 RecycleBinItem
+ * ant-design-vue 的 bodyCell slot 将 record 类型定义为 Record<string, any>，
+ * 实际运行时 record 即为 RecycleBinItem 实例，此处通过 unknown 做安全类型收窄
+ */
+function toRecycleBinItem(record: Record<string, unknown>): RecycleBinItem {
+  return record as unknown as RecycleBinItem;
+}
 
 const accessStore = useAccessStore();
 
@@ -78,7 +89,7 @@ function getDaysColor(days: number) {
 
 // ==================== 表格列定义 ====================
 
-const columns = [
+const columns: ColumnType<RecycleBinItem>[] = [
   {
     title: '',
     dataIndex: 'id',
@@ -349,17 +360,17 @@ onMounted(() => {
         row-key="id"
         :scroll="{ x: 1000 }"
       >
-        <template #bodyCell="{ column, record }">
-          <!-- 文件名列 -->
+        <template #bodyCell="{ column, record: rawRecord }">
+          <!-- 使用辅助函数将 slot 的 any record 收窄为 RecycleBinItem -->
           <template v-if="column.dataIndex === 'name'">
             <div class="flex items-center gap-2">
               <span
-                :class="getFileIcon((record as RecycleBinItem).contentType)"
+                :class="getFileIcon(toRecycleBinItem(rawRecord).contentType)"
                 class="text-lg text-gray-500"
               />
-              <Tooltip :title="(record as RecycleBinItem).name">
+              <Tooltip :title="toRecycleBinItem(rawRecord).name">
                 <span class="truncate max-w-[200px]">{{
-                  (record as RecycleBinItem).name
+                  toRecycleBinItem(rawRecord).name
                 }}</span>
               </Tooltip>
             </div>
@@ -369,18 +380,18 @@ onMounted(() => {
           <template v-if="column.dataIndex === 'daysRemaining'">
             <div class="flex items-center gap-2">
               <Progress
-                :percent="((record as RecycleBinItem).daysRemaining / 7) * 100"
+                :percent="(toRecycleBinItem(rawRecord).daysRemaining / 7) * 100"
                 :show-info="false"
                 :stroke-color="
-                  getDaysColor((record as RecycleBinItem).daysRemaining)
+                  getDaysColor(toRecycleBinItem(rawRecord).daysRemaining)
                 "
                 size="small"
                 style="width: 60px"
               />
               <Tag
-                :color="getDaysColor((record as RecycleBinItem).daysRemaining)"
+                :color="getDaysColor(toRecycleBinItem(rawRecord).daysRemaining)"
               >
-                {{ (record as RecycleBinItem).daysRemaining }} 天
+                {{ toRecycleBinItem(rawRecord).daysRemaining }} 天
               </Tag>
             </div>
           </template>
@@ -392,7 +403,7 @@ onMounted(() => {
                 v-if="hasRestorePermission"
                 type="link"
                 size="small"
-                @click="handleRestore(record as RecycleBinItem)"
+                @click="handleRestore(toRecycleBinItem(rawRecord))"
               >
                 恢复
               </Button>
@@ -401,7 +412,7 @@ onMounted(() => {
                 type="link"
                 size="small"
                 danger
-                @click="handlePermanentDelete(record as RecycleBinItem)"
+                @click="handlePermanentDelete(toRecycleBinItem(rawRecord))"
               >
                 永久删除
               </Button>
