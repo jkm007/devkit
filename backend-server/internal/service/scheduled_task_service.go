@@ -2,7 +2,6 @@ package service
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 	"sync"
@@ -11,6 +10,9 @@ import (
 	"backend-server/internal/model"
 	"backend-server/internal/repository"
 	"backend-server/pkg/database"
+	"backend-server/pkg/logger"
+
+	"go.uber.org/zap"
 )
 
 const (
@@ -116,7 +118,7 @@ func (s *ScheduledTaskService) RunTask(id uint) error {
 func (s *ScheduledTaskService) CheckAndRunDueTasks() {
 	tasks, err := s.taskRepo.GetDueTasks()
 	if err != nil {
-		log.Printf("[ERROR] 获取到期任务失败: %v", err)
+		logger.Error("获取到期任务失败", zap.Error(err))
 		return
 	}
 
@@ -145,7 +147,7 @@ func (s *ScheduledTaskService) CheckAndRunDueTasks() {
 
 // executeTask 执行单个任务
 func (s *ScheduledTaskService) executeTask(task *model.ScheduledTask) error {
-	log.Printf("[INFO] 执行定时任务: %s (type=%s)", task.Name, task.TaskType)
+	logger.Info("执行定时任务", zap.String("name", task.Name), zap.String("type", task.TaskType))
 
 	// 更新状态为运行中
 	s.taskRepo.UpdateStatus(task.ID, "running", "")
@@ -163,7 +165,7 @@ func (s *ScheduledTaskService) executeTask(task *model.ScheduledTask) error {
 
 	if err != nil {
 		s.taskRepo.UpdateStatus(task.ID, "failed", fmt.Sprintf("执行失败: %v", err))
-		log.Printf("[ERROR] 任务执行失败: %s, error=%v", task.Name, err)
+		logger.Error("任务执行失败", zap.String("name", task.Name), zap.Error(err))
 		return err
 	}
 
@@ -176,7 +178,7 @@ func (s *ScheduledTaskService) executeTask(task *model.ScheduledTask) error {
 		s.taskRepo.UpdateNextRun(task.ID, *nextRun)
 	}
 
-	log.Printf("[INFO] 任务执行成功: %s, result=%s", task.Name, result)
+	logger.Info("任务执行成功", zap.String("name", task.Name), zap.String("result", result))
 	return nil
 }
 
@@ -310,7 +312,7 @@ func InitScheduledTasks() {
 	// 计算所有启用任务的下次执行时间
 	tasks, err := taskService.GetAll()
 	if err != nil {
-		log.Printf("[WARN] 初始化定时任务失败: %v", err)
+		logger.Warn("初始化定时任务失败", zap.Error(err))
 		return
 	}
 
@@ -332,5 +334,5 @@ func InitScheduledTasks() {
 		}
 	}()
 
-	log.Printf("[INFO] 定时任务服务已启动")
+	logger.Info("定时任务服务已启动")
 }
