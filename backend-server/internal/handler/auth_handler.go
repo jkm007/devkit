@@ -33,9 +33,9 @@ func NewAuthHandler() *AuthHandler {
 	}
 }
 
-// cookieSecure 根据服务器模式决定 cookie 是否仅 HTTPS
+// cookieSecure 始终启用 Secure 标志，确保 Cookie 仅通过 HTTPS 传输
 func (h *AuthHandler) cookieSecure() bool {
-	return h.cfg.Server.Mode == "release"
+	return true
 }
 
 // setCookie 设置 cookie（带 SameSite=Lax）
