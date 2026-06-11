@@ -251,7 +251,7 @@ const handleSave = async () => {
       }
       delete updateData._editId;
       await updateStorageConfigApi(
-        currentConfig._editId ?? '',
+        currentConfig._editId ?? 0,
         updateData as any,
       );
       message.success('更新成功');
