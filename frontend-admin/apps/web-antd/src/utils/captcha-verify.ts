@@ -15,12 +15,25 @@ export interface CaptchaVerifyResult {
  * @param captchaType 后端指定的验证码类型（可选，如 numeric/slider/puzzle/rotation/point）
  * 返回 captchaId 和 captchaCode，用于请求头
  */
-export function showCaptchaVerify(captchaType?: string): Promise<CaptchaVerifyResult> {
+export function showCaptchaVerify(
+  captchaType?: string,
+): Promise<CaptchaVerifyResult> {
   return new Promise((resolve, reject) => {
+    // 验证完成或取消时，手动移除所有相关监听，避免冗余
+    function cleanup() {
+      window.removeEventListener(
+        'captcha:verify-result',
+        onResult as EventListener,
+      );
+      window.removeEventListener(
+        'captcha:verify-cancel',
+        onCancel as EventListener,
+      );
+    }
+
     // 监听验证结果
     function onResult(event: CustomEvent) {
-      window.removeEventListener('captcha:verify-result', onResult as EventListener);
-      window.removeEventListener('captcha:verify-cancel', onCancel as EventListener);
+      cleanup();
       if (event.detail) {
         resolve(event.detail);
       } else {
@@ -29,17 +42,18 @@ export function showCaptchaVerify(captchaType?: string): Promise<CaptchaVerifyRe
     }
 
     function onCancel() {
-      window.removeEventListener('captcha:verify-result', onResult as EventListener);
-      window.removeEventListener('captcha:verify-cancel', onCancel as EventListener);
+      cleanup();
       reject(new Error('用户取消验证码验证'));
     }
 
-    window.addEventListener('captcha:verify-result', onResult as EventListener, { once: true });
-    window.addEventListener('captcha:verify-cancel', onCancel as EventListener, { once: true });
+    window.addEventListener('captcha:verify-result', onResult as EventListener);
+    window.addEventListener('captcha:verify-cancel', onCancel as EventListener);
 
     // 触发弹窗显示，携带验证码类型
-    window.dispatchEvent(new CustomEvent('captcha:show-verify', {
-      detail: { captchaType: captchaType || '' },
-    }));
+    window.dispatchEvent(
+      new CustomEvent('captcha:show-verify', {
+        detail: { captchaType: captchaType || '' },
+      }),
+    );
   });
 }
