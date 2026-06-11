@@ -40,15 +40,15 @@ func intersectFileIDs(a, b []uint) []uint {
 }
 
 // sanitizeFolderName 清理文件夹名称
-// 策略：白名单方式，仅保留安全字符；过滤空字节和控制字符；限制名称长度
+// 策略：白名单方式，仅保留安全字符；过滤空字节和所有控制字符；限制名称长度；防止路径遍历
 func sanitizeFolderName(name string) (string, error) {
 	const maxFolderNameLen = 255
 
-	// 第一步：过滤空字节和控制字符（ASCII < 0x20 的不可见字符，保留普通空格和制表符）
+	// 第一步：过滤空字节和所有控制字符（包括 ASCII 控制字符、DEL 0x7F、Unicode 控制字符）
 	var buf strings.Builder
 	buf.Grow(len(name))
 	for _, r := range name {
-		if r == 0 || (r < 0x20 && r != '\t' && r != ' ') {
+		if r == 0 || unicode.IsControl(r) {
 			continue
 		}
 		buf.WriteRune(r)
@@ -60,8 +60,7 @@ func sanitizeFolderName(name string) (string, error) {
 	for _, r := range name {
 		if unicode.IsLetter(r) || unicode.IsDigit(r) ||
 			r == ' ' || r == '-' || r == '_' || r == '.' ||
-			r == '(' || r == ')' || r == '[' || r == ']' ||
-			r == '\t' {
+			r == '(' || r == ')' || r == '[' || r == ']' {
 			buf.WriteRune(r)
 		}
 	}
@@ -71,7 +70,12 @@ func sanitizeFolderName(name string) (string, error) {
 		return "", fmt.Errorf("文件夹名称不能为空")
 	}
 
-	// 第三步：限制名称长度
+	// 第三步：防止路径遍历（"." 和 ".." 是特殊目录名，不允许作为文件夹名称）
+	if name == "." || name == ".." {
+		return "", fmt.Errorf("文件夹名称不能为 \".\" 或 \"..\"")
+	}
+
+	// 第四步：限制名称长度
 	if len([]rune(name)) > maxFolderNameLen {
 		return "", fmt.Errorf("文件夹名称不能超过 %d 个字符", maxFolderNameLen)
 	}
