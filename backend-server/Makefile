@@ -1,4 +1,4 @@
-.PHONY: run build clean test lint docker-up docker-down
+.PHONY: run build clean test lint vuln-check docker-up docker-down
 
 # 变量
 APP_NAME = backend-server
@@ -27,6 +27,10 @@ lint:
 # 格式化
 fmt:
 	gofmt -w .
+
+# 依赖漏洞扫描
+vuln-check:
+	govulncheck ./...
 
 # 启动依赖服务
 docker-up:
@@ -66,3 +70,4 @@ help:
 	@echo "  make docker-build - 构建 Docker 镜像"
 	@echo "  make docker-run   - 运行 Docker 容器"
 	@echo "  make swagger      - 生成 Swagger 文档"
+	@echo "  make vuln-check   - 依赖漏洞扫描"
