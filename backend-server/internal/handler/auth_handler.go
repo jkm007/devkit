@@ -127,9 +127,12 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	deviceID := c.GetHeader("X-Device-ID")
 	h.authService.RecordLoginDevice(result.ID, c.ClientIP(), c.GetHeader("User-Agent"), deviceID)
 
-	// 设置 AccessToken 和 RefreshToken 到独立的 Cookie
-	h.setCookie(c, "access_token", result.AccessToken, 30*24*3600)
-	h.setCookie(c, "refresh_token", result.RefreshToken, 30*24*3600)
+	// 双重返回 Token：Cookie 用于浏览器自动携带认证，响应体用于前端显式管理（如存入内存或 localStorage）
+	// Cookie MaxAge 与对应 Token TTL 保持一致，避免 Cookie 存活超过 Token 有效期
+	accessTokenMaxAge := int(h.cfg.JWT.AccessTokenTTL.Seconds())
+	refreshTokenMaxAge := int(h.cfg.JWT.RefreshTokenTTL.Seconds())
+	h.setCookie(c, "access_token", result.AccessToken, accessTokenMaxAge)
+	h.setCookie(c, "refresh_token", result.RefreshToken, refreshTokenMaxAge)
 
 	response.Success(c, result)
 }
@@ -213,8 +216,9 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	// 用新的 RefreshToken 更新 Cookie
-	h.setCookie(c, "refresh_token", result.RefreshToken, 30*24*3600)
+	// 用新的 RefreshToken 更新 Cookie，MaxAge 与 Refresh Token TTL 保持一致
+	refreshTokenMaxAge := int(h.cfg.JWT.RefreshTokenTTL.Seconds())
+	h.setCookie(c, "refresh_token", result.RefreshToken, refreshTokenMaxAge)
 
 	response.Success(c, result)
 }
@@ -390,9 +394,11 @@ func (h *AuthHandler) LoginByEmail(c *gin.Context) {
 	deviceID := c.GetHeader("X-Device-ID")
 	h.authService.RecordLoginDevice(result.ID, c.ClientIP(), c.GetHeader("User-Agent"), deviceID)
 
-	// 设置 Cookie
-	h.setCookie(c, "access_token", result.AccessToken, 30*24*3600)
-	h.setCookie(c, "refresh_token", result.RefreshToken, 30*24*3600)
+	// 双重返回 Token：Cookie 用于浏览器自动携带认证，响应体用于前端显式管理
+	accessTokenMaxAge := int(h.cfg.JWT.AccessTokenTTL.Seconds())
+	refreshTokenMaxAge := int(h.cfg.JWT.RefreshTokenTTL.Seconds())
+	h.setCookie(c, "access_token", result.AccessToken, accessTokenMaxAge)
+	h.setCookie(c, "refresh_token", result.RefreshToken, refreshTokenMaxAge)
 
 	response.Success(c, result)
 }
@@ -442,9 +448,11 @@ func (h *AuthHandler) LoginByPhone(c *gin.Context) {
 	deviceID := c.GetHeader("X-Device-ID")
 	h.authService.RecordLoginDevice(result.ID, c.ClientIP(), c.GetHeader("User-Agent"), deviceID)
 
-	// 设置 Cookie
-	h.setCookie(c, "access_token", result.AccessToken, 30*24*3600)
-	h.setCookie(c, "refresh_token", result.RefreshToken, 30*24*3600)
+	// 双重返回 Token：Cookie 用于浏览器自动携带认证，响应体用于前端显式管理
+	accessTokenMaxAge := int(h.cfg.JWT.AccessTokenTTL.Seconds())
+	refreshTokenMaxAge := int(h.cfg.JWT.RefreshTokenTTL.Seconds())
+	h.setCookie(c, "access_token", result.AccessToken, accessTokenMaxAge)
+	h.setCookie(c, "refresh_token", result.RefreshToken, refreshTokenMaxAge)
 
 	response.Success(c, result)
 }
