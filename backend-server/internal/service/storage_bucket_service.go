@@ -205,14 +205,8 @@ func SyncDefaultBuckets() error {
 		}
 
 		if !enabled {
-			// 未启用：如果存在默认桶，标记为禁用
-			if existing != nil && existing.Status == 1 {
-				existing.Status = 0
-				existing.Description = fmt.Sprintf("%s 未启用，请在存储配置中启用", d.label)
-				if err := repo.Update(existing); err != nil {
-					log.Printf("[ERROR] 禁用 %s 默认桶失败: %v", d.name, err)
-				}
-			}
+			// 未启用：跳过同步，不覆盖用户手动设置的桶状态
+			log.Printf("[INFO] %s 存储配置未启用，跳过桶同步（保留用户手动设置的状态）", d.label)
 			continue
 		}
 
