@@ -8,7 +8,10 @@ import (
 	"backend-server/internal/model"
 	"backend-server/internal/repository"
 	"backend-server/pkg/database"
+	"backend-server/pkg/logger"
 	"backend-server/pkg/storage"
+
+	"go.uber.org/zap"
 )
 
 // RecycleBinService 回收站服务
@@ -201,7 +204,7 @@ func (s *RecycleBinService) CleanupExpiredFiles() (int, error) {
 	deleted := 0
 	for _, entry := range entries {
 		if err := s.permanentDeleteEntry(&entry); err != nil {
-			fmt.Printf("永久删除文件失败: id=%d, err=%v\n", entry.ID, err)
+			logger.Error("永久删除文件失败", zap.Uint("id", entry.ID), zap.Error(err))
 			continue
 		}
 		deleted++
@@ -220,7 +223,7 @@ func (s *RecycleBinService) CleanupExpiredFilesWithRetention(retentionDays int) 
 	deleted := 0
 	for _, entry := range entries {
 		if err := s.permanentDeleteEntry(&entry); err != nil {
-			fmt.Printf("永久删除文件失败: id=%d, err=%v\n", entry.ID, err)
+			logger.Error("永久删除文件失败", zap.Uint("id", entry.ID), zap.Error(err))
 			continue
 		}
 		deleted++
@@ -242,22 +245,22 @@ func (s *RecycleBinService) permanentDeleteEntry(entry *model.FileEntry) error {
 func (s *RecycleBinService) cleanupFileData(entry *model.FileEntry) {
 	// 删除分享记录
 	if err := s.shareRepo.DeleteByFileID(entry.ID); err != nil {
-		fmt.Printf("删除分享记录失败: fileID=%d, err=%v\n", entry.ID, err)
+		logger.Warn("删除分享记录失败", zap.Uint("fileID", entry.ID), zap.Error(err))
 	}
 
 	// 删除文件标签
 	if err := s.fileTagRepo.DeleteByFileID(entry.ID); err != nil {
-		fmt.Printf("删除文件标签失败: fileID=%d, err=%v\n", entry.ID, err)
+		logger.Warn("删除文件标签失败", zap.Uint("fileID", entry.ID), zap.Error(err))
 	}
 
 	// 处理文件资产（使用原子递减避免并发竞态）
 	if entry.FileAssetID > 0 {
 		affected, err := s.assetRepo.DecrementRefCountAtomic(entry.FileAssetID)
 		if err != nil {
-			fmt.Printf("原子递减引用计数失败: assetID=%d, err=%v\n", entry.FileAssetID, err)
+			logger.Error("原子递减引用计数失败", zap.Uint("assetID", entry.FileAssetID), zap.Error(err))
 		} else if affected == 0 {
 			// ref_count 已经 <= 0，无需删除存储对象（已被其他协程处理）
-			fmt.Printf("资产引用计数已为0，跳过: assetID=%d\n", entry.FileAssetID)
+			logger.Debug("资产引用计数已为0，跳过", zap.Uint("assetID", entry.FileAssetID))
 		} else {
 			// 递减成功，检查递减后的 ref_count 是否为 0
 			asset, err := s.assetRepo.GetByID(entry.FileAssetID)
@@ -266,11 +269,11 @@ func (s *RecycleBinService) cleanupFileData(entry *model.FileEntry) {
 				if asset.ObjectKey != "" {
 					st := storage.GetStorageByDriver(asset.StorageType)
 					if err := st.Delete(context.Background(), asset.ObjectKey); err != nil {
-						fmt.Printf("删除存储对象失败: objectKey=%s, err=%v\n", asset.ObjectKey, err)
+						logger.Error("删除存储对象失败", zap.String("objectKey", asset.ObjectKey), zap.Error(err))
 					}
 				}
 				if err := s.assetRepo.DeleteByID(entry.FileAssetID); err != nil {
-					fmt.Printf("删除资产记录失败: assetID=%d, err=%v\n", entry.FileAssetID, err)
+					logger.Error("删除资产记录失败", zap.Uint("assetID", entry.FileAssetID), zap.Error(err))
 				}
 			}
 		}

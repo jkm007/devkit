@@ -7,10 +7,12 @@ import (
 
 	"backend-server/pkg/database"
 	"backend-server/pkg/jwt"
+	"backend-server/pkg/logger"
 	"backend-server/pkg/response"
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 )
 
 // JWTAuth JWT 认证中间件
@@ -62,7 +64,7 @@ func JWTAuth() gin.HandlerFunc {
 		}
 		// redis.Nil 表示 key 不存在（正常情况），其他错误表示 Redis 故障
 		if err != nil && err != redis.Nil {
-			fmt.Printf("[auth] Redis 黑名单检查失败(fail-closed): err=%v\n", err)
+			logger.Error("Redis 黑名单检查失败(fail-closed)", zap.Error(err))
 			response.InternalError(c, "服务暂时不可用，请稍后重试")
 			c.Abort()
 			return
@@ -77,7 +79,7 @@ func JWTAuth() gin.HandlerFunc {
 			return
 		}
 		if err != nil && err != redis.Nil {
-			fmt.Printf("[auth] Redis 设备踢出检查失败(fail-closed): err=%v\n", err)
+			logger.Error("Redis 设备踢出检查失败(fail-closed)", zap.Error(err))
 			response.InternalError(c, "服务暂时不可用，请稍后重试")
 			c.Abort()
 			return

@@ -12,8 +12,10 @@ import (
 	"backend-server/internal/model"
 	"backend-server/internal/repository"
 	"backend-server/pkg/database"
+	"backend-server/pkg/logger"
 	"backend-server/pkg/storage"
 
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -249,12 +251,12 @@ func (s *FileService) DeleteFolder(userID uint, folderID uint) error {
 	for _, entry := range entries {
 		// 删除文件的分享记录
 		if err := s.shareRepo.DeleteByFileID(entry.ID); err != nil {
-			fmt.Printf("删除分享记录失败: fileID=%d, err=%v\n", entry.ID, err)
+			logger.Warn("删除分享记录失败", zap.Uint("fileID", entry.ID), zap.Error(err))
 		}
 
 		// 删除文件标签
 		if err := s.fileTagRepo.DeleteByFileID(entry.ID); err != nil {
-			fmt.Printf("删除文件标签失败: fileID=%d, err=%v\n", entry.ID, err)
+			logger.Warn("删除文件标签失败", zap.Uint("fileID", entry.ID), zap.Error(err))
 		}
 
 		// 处理文件资产
@@ -266,16 +268,16 @@ func (s *FileService) DeleteFolder(userID uint, folderID uint) error {
 					if asset.ObjectKey != "" {
 						st := storage.GetStorageByDriver(asset.StorageType)
 						if err := st.Delete(context.Background(), asset.ObjectKey); err != nil {
-							fmt.Printf("删除存储对象失败: objectKey=%s, err=%v\n", asset.ObjectKey, err)
+							logger.Error("删除存储对象失败", zap.String("objectKey", asset.ObjectKey), zap.Error(err))
 						}
 					}
 					if err := s.assetRepo.DeleteByID(entry.FileAssetID); err != nil {
-						fmt.Printf("删除资产记录失败: assetID=%d, err=%v\n", entry.FileAssetID, err)
+						logger.Error("删除资产记录失败", zap.Uint("assetID", entry.FileAssetID), zap.Error(err))
 					}
 				} else {
 					// 引用计数减 1
 					if err := s.assetRepo.DecrementRefCount(entry.FileAssetID); err != nil {
-						fmt.Printf("递减引用计数失败: fileAssetID=%d, err=%v\n", entry.FileAssetID, err)
+						logger.Warn("递减引用计数失败", zap.Uint("fileAssetID", entry.FileAssetID), zap.Error(err))
 					}
 				}
 			}
