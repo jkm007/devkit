@@ -58,7 +58,7 @@ export const useUploadStore = defineStore('upload', () => {
 
   // 更新任务
   function updateTask(uploadId: string, updates: Partial<UploadTaskItem>) {
-    const task = tasks.value.find(t => t.uploadId === uploadId);
+    const task = tasks.value.find((t) => t.uploadId === uploadId);
     if (task) {
       Object.assign(task, updates);
     }
@@ -66,7 +66,7 @@ export const useUploadStore = defineStore('upload', () => {
 
   // 移除任务
   function removeTask(uploadId: string) {
-    const index = tasks.value.findIndex(t => t.uploadId === uploadId);
+    const index = tasks.value.findIndex((t) => t.uploadId === uploadId);
     if (index !== -1) {
       tasks.value.splice(index, 1);
     }
@@ -74,7 +74,7 @@ export const useUploadStore = defineStore('upload', () => {
 
   // 获取任务
   function getTask(uploadId: string): UploadTaskItem | undefined {
-    return tasks.value.find(t => t.uploadId === uploadId);
+    return tasks.value.find((t) => t.uploadId === uploadId);
   }
 
   // 执行上传
@@ -85,10 +85,13 @@ export const useUploadStore = defineStore('upload', () => {
     const totalParts = Math.ceil(file.size / CHUNK_SIZE);
 
     // 初始化分片详情
-    const partDetails: UploadPartDetail[] = Array.from({ length: totalParts }, (_, i) => ({
-      partNumber: i + 1,
-      status: 'pending' as const,
-    }));
+    const partDetails: UploadPartDetail[] = Array.from(
+      { length: totalParts },
+      (_, i) => ({
+        partNumber: i + 1,
+        status: 'pending' as const,
+      }),
+    );
 
     const onProgress: UploadProgressCallback = (event) => {
       updateTask(`temp-${tempId}`, {
@@ -108,11 +111,13 @@ export const useUploadStore = defineStore('upload', () => {
           } else if (event.status === 'completed') {
             part.status = 'completed';
             part.endTime = event.endTime;
-            part.duration = event.duration!;
+            part.duration = event.duration ?? 0;
           }
         }
       }
-      const uploadedCount = partDetails.filter(p => p.status === 'completed').length;
+      const uploadedCount = partDetails.filter(
+        (p) => p.status === 'completed',
+      ).length;
       updateTask(`temp-${tempId}`, {
         uploadedParts: uploadedCount,
         partDetails: [...partDetails],
@@ -138,7 +143,12 @@ export const useUploadStore = defineStore('upload', () => {
     uploadingCount.value++;
 
     try {
-      const result = await simpleUpload(file, onProgress, onPartProgress, folderId);
+      const result = await simpleUpload(
+        file,
+        onProgress,
+        onPartProgress,
+        folderId,
+      );
 
       const endTime = Date.now();
       updateTask(`temp-${tempId}`, {

@@ -9,9 +9,12 @@ export function getFileIcon(type: string | undefined): string {
   if (type.startsWith('video/')) return 'i-ant-design:file-video-outlined';
   if (type.startsWith('audio/')) return 'i-ant-design:sound-outlined';
   if (type.includes('pdf')) return 'i-ant-design:file-pdf-outlined';
-  if (type.includes('word') || type.includes('document')) return 'i-ant-design:file-word-outlined';
-  if (type.includes('excel') || type.includes('spreadsheet')) return 'i-ant-design:file-excel-outlined';
-  if (type.includes('zip') || type.includes('rar')) return 'i-ant-design:file-zip-outlined';
+  if (type.includes('word') || type.includes('document'))
+    return 'i-ant-design:file-word-outlined';
+  if (type.includes('excel') || type.includes('spreadsheet'))
+    return 'i-ant-design:file-excel-outlined';
+  if (type.includes('zip') || type.includes('rar'))
+    return 'i-ant-design:file-zip-outlined';
   return 'i-ant-design:file-outlined';
 }
 
@@ -49,7 +52,10 @@ function textareaCopy(text: string, successMsg: string): void {
 /**
  * 复制文本到剪贴板，支持降级方案
  */
-export function fallbackCopy(text: string, successMsg = '链接已复制到剪贴板'): void {
+export function fallbackCopy(
+  text: string,
+  successMsg = '链接已复制到剪贴板',
+): void {
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text).then(
       () => message.success(successMsg),

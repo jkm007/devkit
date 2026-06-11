@@ -10,10 +10,30 @@ const router = useRouter();
 
 // 快捷入口
 const quickLinks = ref([
-  { icon: '📁', title: '文件管理', desc: '查看和管理您的文件', path: '/file/list' },
-  { icon: '🔗', title: '分享管理', desc: '管理您分享的文件', path: '/file/share' },
-  { icon: '🗑️', title: '回收站', desc: '查看已删除的文件', path: '/file/recycle' },
-  { icon: '👤', title: '个人中心', desc: '管理您的账户信息', path: '/account/profile' },
+  {
+    icon: '📁',
+    title: '文件管理',
+    desc: '查看和管理您的文件',
+    path: '/file/list',
+  },
+  {
+    icon: '🔗',
+    title: '分享管理',
+    desc: '管理您分享的文件',
+    path: '/file/share',
+  },
+  {
+    icon: '🗑️',
+    title: '回收站',
+    desc: '查看已删除的文件',
+    path: '/file/recycle',
+  },
+  {
+    icon: '👤',
+    title: '个人中心',
+    desc: '管理您的账户信息',
+    path: '/account/profile',
+  },
 ]);
 
 function navigateTo(path: string) {
@@ -37,7 +57,12 @@ function navigateTo(path: string) {
         />
         <div>
           <h1 class="text-2xl font-bold">
-            你好, {{ userStore.userInfo?.realName || userStore.userInfo?.nickname || '用户' }}
+            你好,
+            {{
+              userStore.userInfo?.realName ||
+              userStore.userInfo?.nickname ||
+              '用户'
+            }}
           </h1>
           <p class="mt-1 text-white/80">欢迎使用 DevKit 文件管理系统</p>
         </div>
@@ -55,7 +80,9 @@ function navigateTo(path: string) {
           @click="navigateTo(link.path)"
         >
           <div class="mb-3 text-3xl">{{ link.icon }}</div>
-          <h3 class="text-base font-medium text-foreground">{{ link.title }}</h3>
+          <h3 class="text-base font-medium text-foreground">
+            {{ link.title }}
+          </h3>
           <p class="mt-1 text-sm text-muted-foreground">{{ link.desc }}</p>
         </div>
       </div>
@@ -67,15 +94,24 @@ function navigateTo(path: string) {
       <ul class="space-y-2 text-sm text-muted-foreground">
         <li class="flex items-start gap-2">
           <span class="mt-0.5 text-blue-500">💡</span>
-          <span>您可以在<strong class="text-foreground">文件管理</strong>中上传、下载和管理您的文件。</span>
+          <span
+            >您可以在<strong class="text-foreground">文件管理</strong
+            >中上传、下载和管理您的文件。</span
+          >
         </li>
         <li class="flex items-start gap-2">
           <span class="mt-0.5 text-blue-500">💡</span>
-          <span>通过<strong class="text-foreground">分享管理</strong>可以创建文件分享链接，方便与他人共享文件。</span>
+          <span
+            >通过<strong class="text-foreground">分享管理</strong
+            >可以创建文件分享链接，方便与他人共享文件。</span
+          >
         </li>
         <li class="flex items-start gap-2">
           <span class="mt-0.5 text-blue-500">💡</span>
-          <span>删除的文件会进入<strong class="text-foreground">回收站</strong>，您可以在回收站中恢复或彻底删除文件。</span>
+          <span
+            >删除的文件会进入<strong class="text-foreground">回收站</strong
+            >，您可以在回收站中恢复或彻底删除文件。</span
+          >
         </li>
         <li class="flex items-start gap-2">
           <span class="mt-0.5 text-blue-500">💡</span>

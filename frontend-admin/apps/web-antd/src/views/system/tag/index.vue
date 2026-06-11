@@ -24,8 +24,6 @@ import {
 } from 'ant-design-vue';
 import { IconifyIcon, Plus } from '@vben/icons';
 import { $t } from '#/locales';
-
-const { hasAccessByCodes } = useAccess();
 import {
   getAllTags,
   createTag,
@@ -48,6 +46,7 @@ import { getAllFileTypeRules } from '#/api/system/file-type-rule';
 import { getAllStorageBucketsApi } from '#/api/system/storage-bucket';
 import type { StorageBucketApi } from '#/api/system/storage-bucket';
 
+const { hasAccessByCodes } = useAccess();
 const t = $t;
 
 // 标签管理相关

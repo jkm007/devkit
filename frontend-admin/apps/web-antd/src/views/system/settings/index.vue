@@ -3,11 +3,7 @@ import type { SystemSettingsApi } from '#/api/system/settings';
 
 import { computed, onMounted, reactive, ref } from 'vue';
 
-import {
-  NumericCaptcha,
-  Page,
-  PointSelectionCaptcha,
-} from '@vben/common-ui';
+import { NumericCaptcha, Page, PointSelectionCaptcha } from '@vben/common-ui';
 import { updatePreferences } from '@vben/preferences';
 
 import {

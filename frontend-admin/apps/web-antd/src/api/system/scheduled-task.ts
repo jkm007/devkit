@@ -44,18 +44,23 @@ export function getScheduledTaskById(id: number) {
 }
 
 /** 更新任务 */
-export function updateScheduledTask(id: number, data: {
-  name: string;
-  cronExpr: string;
-  config?: TaskConfig;
-  enabled?: boolean;
-}) {
+export function updateScheduledTask(
+  id: number,
+  data: {
+    name: string;
+    cronExpr: string;
+    config?: TaskConfig;
+    enabled?: boolean;
+  },
+) {
   return requestClient.put(`/system/scheduled-tasks/${id}`, data);
 }
 
 /** 更新任务启用状态 */
 export function updateScheduledTaskEnabled(id: number, enabled: boolean) {
-  return requestClient.put(`/system/scheduled-tasks/${id}/enabled`, { enabled });
+  return requestClient.put(`/system/scheduled-tasks/${id}/enabled`, {
+    enabled,
+  });
 }
 
 /** 删除任务 */

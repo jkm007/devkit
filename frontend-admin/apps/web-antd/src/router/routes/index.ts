@@ -9,7 +9,9 @@ const dynamicRouteFiles = import.meta.glob('./modules/**/*.ts', {
 });
 
 // 外部路由（分享页面等，不需要登录）
-const externalRouteFiles = import.meta.glob('./external/**/*.ts', { eager: true });
+const externalRouteFiles = import.meta.glob('./external/**/*.ts', {
+  eager: true,
+});
 // const staticRouteFiles = import.meta.glob('./static/**/*.ts', { eager: true });
 
 /** 动态路由 */
@@ -32,7 +34,10 @@ const routes: RouteRecordRaw[] = [
 const coreRouteNames = traverseTreeValues(coreRoutes, (route) => route.name);
 
 /** 外部路由名称列表（不需要权限拦截） */
-const externalRouteNames = traverseTreeValues(externalRoutes, (route) => route.name);
+const externalRouteNames = traverseTreeValues(
+  externalRoutes,
+  (route) => route.name,
+);
 
 /** 所有不需要权限拦截的路由名称 */
 const publicRouteNames = [...coreRouteNames, ...externalRouteNames];
@@ -48,4 +53,10 @@ const componentKeys = traverseTreeValues(accessRoutes, (route: any) => {
   return null;
 }).filter(Boolean) as string[];
 
-export { accessRoutes, componentKeys, coreRouteNames, publicRouteNames, routes };
+export {
+  accessRoutes,
+  componentKeys,
+  coreRouteNames,
+  publicRouteNames,
+  routes,
+};

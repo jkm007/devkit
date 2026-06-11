@@ -2,7 +2,16 @@
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { Button, Form, FormItem, Input, message, Space, TabPane, Tabs } from 'ant-design-vue';
+import {
+  Button,
+  Form,
+  FormItem,
+  Input,
+  message,
+  Space,
+  TabPane,
+  Tabs,
+} from 'ant-design-vue';
 
 import { sendSmsCodeApi, sendVerifyCodeApi } from '#/api/core/auth';
 import { getPublicSettings } from '#/api/system/settings';
@@ -199,7 +208,10 @@ function goToLogin() {
     </p>
 
     <!-- 都未启用：提示 -->
-    <div v-if="settingsLoaded && !loginEmailEnabled && !loginPhoneEnabled" class="text-center text-muted-foreground">
+    <div
+      v-if="settingsLoaded && !loginEmailEnabled && !loginPhoneEnabled"
+      class="text-center text-muted-foreground"
+    >
       <p>验证码登录功能未启用</p>
       <p class="mt-2">
         <a class="text-sm text-primary cursor-pointer" @click="goToLogin">
@@ -221,13 +233,13 @@ function goToLogin() {
         </FormItem>
 
         <FormItem label="验证码" name="code" required>
-          <Space style="width: 100%;">
+          <Space style="width: 100%">
             <Input
               v-model:value="emailForm.code"
               placeholder="请输入6位验证码"
               :maxlength="6"
               size="large"
-              style="flex: 1;"
+              style="flex: 1"
             />
             <Button
               type="primary"
@@ -273,13 +285,13 @@ function goToLogin() {
         </FormItem>
 
         <FormItem label="验证码" name="code" required>
-          <Space style="width: 100%;">
+          <Space style="width: 100%">
             <Input
               v-model:value="phoneForm.code"
               placeholder="请输入6位验证码"
               :maxlength="6"
               size="large"
-              style="flex: 1;"
+              style="flex: 1"
             />
             <Button
               type="primary"
@@ -313,7 +325,11 @@ function goToLogin() {
     </div>
 
     <!-- 都启用：显示 Tabs -->
-    <Tabs v-else-if="settingsLoaded && loginEmailEnabled && loginPhoneEnabled" v-model:active-key="activeTab" centered>
+    <Tabs
+      v-else-if="settingsLoaded && loginEmailEnabled && loginPhoneEnabled"
+      v-model:active-key="activeTab"
+      centered
+    >
       <!-- 邮箱登录 -->
       <TabPane key="email" tab="邮箱登录">
         <Form layout="vertical" :model="emailForm" @finish="handleEmailLogin">
@@ -327,13 +343,13 @@ function goToLogin() {
           </FormItem>
 
           <FormItem label="验证码" name="code" required>
-            <Space style="width: 100%;">
+            <Space style="width: 100%">
               <Input
                 v-model:value="emailForm.code"
                 placeholder="请输入6位验证码"
                 :maxlength="6"
                 size="large"
-                style="flex: 1;"
+                style="flex: 1"
               />
               <Button
                 type="primary"
@@ -373,13 +389,13 @@ function goToLogin() {
           </FormItem>
 
           <FormItem label="验证码" name="code" required>
-            <Space style="width: 100%;">
+            <Space style="width: 100%">
               <Input
                 v-model:value="phoneForm.code"
                 placeholder="请输入6位验证码"
                 :maxlength="6"
                 size="large"
-                style="flex: 1;"
+                style="flex: 1"
               />
               <Button
                 type="primary"
@@ -407,7 +423,10 @@ function goToLogin() {
       </TabPane>
     </Tabs>
 
-    <div v-if="settingsLoaded && loginEmailEnabled && loginPhoneEnabled" class="mt-4 text-center">
+    <div
+      v-if="settingsLoaded && loginEmailEnabled && loginPhoneEnabled"
+      class="mt-4 text-center"
+    >
       <a class="text-sm text-primary cursor-pointer" @click="goToLogin">
         ← 返回密码登录
       </a>

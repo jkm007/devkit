@@ -35,9 +35,7 @@ export namespace RateLimitRuleApi {
 
 /** 获取所有限流规则 */
 export function getRateLimitRules() {
-  return requestClient.get<RateLimitRuleApi.Rule[]>(
-    '/system/rate-limit-rules',
-  );
+  return requestClient.get<RateLimitRuleApi.Rule[]>('/system/rate-limit-rules');
 }
 
 /** 获取单个规则 */

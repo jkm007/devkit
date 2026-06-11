@@ -498,13 +498,13 @@ function showFolderMenu(nodeData: FolderTreeNode) {
 
 function folderMenuAction(action: string) {
   folderMenuVisible.value = false;
-  if (action === 'new') openNewFolderModal(folderMenuId.value!);
+  if (action === 'new') openNewFolderModal(folderMenuId.value ?? 0);
   else if (action === 'rename')
-    openRenameFolderModal(folderMenuId.value!, folderMenuName.value);
+    openRenameFolderModal(folderMenuId.value ?? 0, folderMenuName.value);
   else if (action === 'delete')
-    openDeleteFolderModal(folderMenuId.value!, folderMenuName.value);
+    openDeleteFolderModal(folderMenuId.value ?? 0, folderMenuName.value);
   else if (action === 'share')
-    openFolderShareModal(folderMenuId.value!, folderMenuName.value);
+    openFolderShareModal(folderMenuId.value ?? 0, folderMenuName.value);
 }
 
 function openFolderShareModal(id: number, name: string) {
@@ -517,7 +517,7 @@ function openFolderShareModal(id: number, name: string) {
 
 async function confirmFolderShare() {
   try {
-    const result = await createFolderShare(folderShareId.value!, {
+    const result = await createFolderShare(folderShareId.value ?? 0, {
       expireHours: folderShareExpireHours.value || undefined,
     });
     folderShareResult.value = result;
@@ -572,7 +572,7 @@ async function handleRenameFolder() {
     return;
   }
   try {
-    await renameFolder(renameFolderId.value!, {
+    await renameFolder(renameFolderId.value ?? 0, {
       name: renameFolderName.value.trim(),
     });
     message.success('重命名成功');
@@ -591,7 +591,7 @@ function openDeleteFolderModal(id: number, name: string) {
 
 async function handleDeleteFolder() {
   try {
-    await deleteFolder(deleteFolderId.value!);
+    await deleteFolder(deleteFolderId.value ?? 0);
     message.success('删除成功');
     deleteFolderModalVisible.value = false;
     if (currentFolderId.value === deleteFolderId.value)
@@ -614,7 +614,7 @@ function openMoveFileModal(id: number) {
 async function handleMoveFile() {
   try {
     await moveFile({
-      fileId: moveFileId.value!,
+      fileId: moveFileId.value ?? 0,
       targetFolderId: moveTargetFolderId.value || undefined,
     });
     message.success('移动成功');
@@ -929,7 +929,7 @@ async function confirmShare() {
   }
   shareLoading.value = true;
   try {
-    const result = await createFileShare(shareFileId.value!, {
+    const result = await createFileShare(shareFileId.value ?? 0, {
       expireHours: shareExpireHours.value || undefined,
     });
     shareResult.value = { ...result };

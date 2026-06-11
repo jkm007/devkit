@@ -14,8 +14,8 @@ export namespace AuthApi {
   }
 
   export interface RefreshTokenResult {
-    data: string;
-    status: number;
+    accessToken: string;
+    refreshToken?: string;
   }
 }
 
@@ -30,7 +30,9 @@ export async function loginApi(data: AuthApi.LoginParams) {
  * 刷新accessToken
  */
 export async function refreshTokenApi() {
-  return baseRequestClient.post<AuthApi.RefreshTokenResult>('/auth/refresh', {
+  // baseRequestClient 不解包响应，返回原始 AxiosResponse
+  // resp.data = { code, data: { accessToken, refreshToken }, message }
+  return baseRequestClient.post('/auth/refresh', {
     withCredentials: true,
   });
 }
@@ -74,17 +76,18 @@ export async function sendVerifyCodeApi(data: {
 /**
  * 验证邮箱验证码
  */
-export async function verifyEmailCodeApi(email: string, code: string, purpose: 'login' | 'register' | 'reset_password') {
+export async function verifyEmailCodeApi(
+  email: string,
+  code: string,
+  purpose: 'login' | 'register' | 'reset_password',
+) {
   return requestClient.post('/auth/verify-code', { email, code, purpose });
 }
 
 /**
  * 邮箱验证码登录
  */
-export async function loginByEmailApi(data: {
-  email: string;
-  code: string;
-}) {
+export async function loginByEmailApi(data: { email: string; code: string }) {
   return requestClient.post<AuthApi.LoginResult>('/auth/login-by-email', data);
 }
 
@@ -104,10 +107,7 @@ export async function sendSmsCodeApi(data: {
 /**
  * 手机号验证码登录
  */
-export async function loginByPhoneApi(data: {
-  phone: string;
-  code: string;
-}) {
+export async function loginByPhoneApi(data: { phone: string; code: string }) {
   return requestClient.post<AuthApi.LoginResult>('/auth/login-by-phone', data);
 }
 
@@ -148,7 +148,11 @@ export async function getOAuthUrl(provider: string) {
 /**
  * 处理第三方登录回调
  */
-export async function handleOAuthCallback(provider: string, code: string, state: string) {
+export async function handleOAuthCallback(
+  provider: string,
+  code: string,
+  state: string,
+) {
   return requestClient.get<AuthApi.LoginResult>('/auth/oauth/callback', {
     params: { provider, code, state },
   });

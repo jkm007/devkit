@@ -12,7 +12,10 @@ const captchaModalVisible = ref(false);
 const captchaType = ref('slider'); // slider/puzzle/rotation/point
 
 // 验证成功后获得的验证数据
-const verifiedCaptchaData = ref<{ captchaId: string; captchaCode: string } | null>(null);
+const verifiedCaptchaData = ref<{
+  captchaId: string;
+  captchaCode: string;
+} | null>(null);
 
 // 打开验证码弹框
 function openCaptcha() {
@@ -27,7 +30,7 @@ function onCaptchaSuccess(data: { captchaId: string; captchaCode: string }) {
   // 这里可以继续业务逻辑，比如：
   // - 提交表单时带上 captchaId 和 captchaCode
   // - 调用需要验证码保护的 API
-  console.log('验证码数据:', data);
+  // 验证码数据: data
 }
 
 // 验证失败回调
@@ -36,7 +39,7 @@ function onCaptchaFail(msg: string) {
 }
 
 // 提交业务表单（示例）
-// @ts-ignore - 示例代码，暂时未使用
+// @ts-expect-error - 示例代码，暂时未使用
 async function submitForm() {
   if (!verifiedCaptchaData.value) {
     message.warning('请先完成安全验证');
@@ -45,7 +48,7 @@ async function submitForm() {
   }
 
   // 提交时带上验证码数据
-  // @ts-ignore - 示例代码，暂时未使用
+  // @ts-expect-error - 示例代码，暂时未使用
   const params = {
     // ...其他表单数据
     captchaId: verifiedCaptchaData.value.captchaId,
@@ -61,9 +64,7 @@ async function submitForm() {
     <h3 class="mb-4 text-lg font-bold">验证码弹框使用示例</h3>
 
     <!-- 触发按钮 -->
-    <Button type="primary" @click="openCaptcha">
-      安全验证
-    </Button>
+    <Button type="primary" @click="openCaptcha"> 安全验证 </Button>
 
     <!-- 验证码弹框组件 -->
     <CaptchaModal

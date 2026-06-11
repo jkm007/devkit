@@ -20,7 +20,9 @@ export interface RiskStats {
 /**
  * 获取风险评分列表
  */
-export async function getRiskScores(limit: number = 100): Promise<RiskScoreItem[]> {
+export async function getRiskScores(
+  limit: number = 100,
+): Promise<RiskScoreItem[]> {
   return requestClient.get('/system/risk/scores', { params: { limit } });
 }
 

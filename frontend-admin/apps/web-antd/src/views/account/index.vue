@@ -20,9 +20,21 @@ const userInfo = ref<AccountApi.UserInfo>({} as AccountApi.UserInfo);
 
 const menuItems = computed(() => [
   { key: 'profile', label: $t('account.profile.title'), icon: 'lucide:user' },
-  { key: 'security', label: $t('account.security.changePassword'), icon: 'lucide:shield' },
-  { key: 'oauth', label: $t('account.security.oauthBindings'), icon: 'lucide:link' },
-  { key: 'securityLog', label: $t('account.security.securityLogs'), icon: 'lucide:file-text' },
+  {
+    key: 'security',
+    label: $t('account.security.changePassword'),
+    icon: 'lucide:shield',
+  },
+  {
+    key: 'oauth',
+    label: $t('account.security.oauthBindings'),
+    icon: 'lucide:link',
+  },
+  {
+    key: 'securityLog',
+    label: $t('account.security.securityLogs'),
+    icon: 'lucide:file-text',
+  },
   { key: 'privacy', label: $t('account.privacy.title'), icon: 'lucide:lock' },
 ]);
 

@@ -20,8 +20,6 @@ import {
   Tooltip,
 } from 'ant-design-vue';
 import { IconifyIcon, Plus } from '@vben/icons';
-
-const { hasAccessByCodes } = useAccess();
 import {
   getAllFileTypeRules,
   createFileTypeRule,
@@ -31,6 +29,7 @@ import {
 } from '#/api/system/file-type-rule';
 import type { FileTypeRule } from '#/api/system/file-type-rule';
 
+const { hasAccessByCodes } = useAccess();
 const rules = ref<FileTypeRule[]>([]);
 const loading = ref(false);
 const modalVisible = ref(false);
@@ -87,7 +86,8 @@ const fileTypeColors = computed(() => {
   let index = 0;
   rules.value.forEach((r) => {
     if (!colors[r.fileType]) {
-      colors[r.fileType] = customColors[index % customColors.length]!;
+      colors[r.fileType] =
+        customColors[index % customColors.length] ?? '#1890ff';
       index++;
     }
   });

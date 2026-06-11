@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"backend-server/internal/middleware"
+	"backend-server/internal/repository"
 	"backend-server/internal/service"
 	"backend-server/pkg/response"
 	"backend-server/pkg/storage"
@@ -136,7 +137,7 @@ func (h *ShareHandler) GetShareInfo(c *gin.Context) {
 	response.Success(c, info)
 }
 
-// GetShareFolderFiles 获取分享文件夹内的文件列表（公开）
+// GetShareFolderFiles 获取分享文件夹内的文件列表（公开，支持分页和搜索）
 // @Router /share/:code/files [get]
 func (h *ShareHandler) GetShareFolderFiles(c *gin.Context) {
 	code := c.Param("code")
@@ -163,14 +164,29 @@ func (h *ShareHandler) GetShareFolderFiles(c *gin.Context) {
 		return
 	}
 
-	// 获取文件夹内的文件列表
-	files, err := h.shareService.GetShareFolderFiles(folderID)
+	// 解析分页参数
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
+	keyword := c.Query("keyword")
+
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+
+	// 获取文件夹内的文件列表（分页）
+	files, total, err := h.shareService.GetShareFolderFiles(folderID, page, pageSize, keyword)
 	if err != nil {
 		response.InternalError(c, err.Error())
 		return
 	}
 
-	response.Success(c, files)
+	response.Success(c, gin.H{
+		"items": files,
+		"total": total,
+	})
 }
 
 // GetShareFile 获取分享的文件内容（公开，支持 Range 请求）
@@ -401,6 +417,15 @@ func (h *ShareHandler) GetUserShares(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
 	scope := c.DefaultQuery("scope", "own")
+	keyword := c.Query("keyword")
+
+	// 解析状态筛选参数
+	var statusFilter *int
+	if statusStr := c.Query("status"); statusStr != "" {
+		if s, err := strconv.Atoi(statusStr); err == nil && s >= 1 && s <= 3 {
+			statusFilter = &s
+		}
+	}
 
 	if page < 1 {
 		page = 1
@@ -425,15 +450,25 @@ func (h *ShareHandler) GetUserShares(c *gin.Context) {
 		}
 	}
 
-	items, total, err := h.shareService.GetUserShares(userID, page, pageSize, viewAll)
+	// 构建筛选参数
+	filter := &repository.ShareFilterOptions{
+		Status:  statusFilter,
+		Keyword: keyword,
+	}
+
+	items, total, err := h.shareService.GetUserShares(userID, page, pageSize, viewAll, filter)
 	if err != nil {
 		response.InternalError(c, err.Error())
 		return
 	}
 
+	// 获取各状态的数量统计（用于前端状态卡片展示）
+	statusCounts, _ := h.shareService.GetShareStatusCounts(userID, viewAll, keyword)
+
 	response.Success(c, gin.H{
-		"items": items,
-		"total": total,
+		"items":        items,
+		"total":        total,
+		"statusCounts": statusCounts,
 	})
 }
 

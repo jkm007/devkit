@@ -250,7 +250,10 @@ const handleSave = async () => {
         delete updateData.secretKey;
       }
       delete updateData._editId;
-      await updateStorageConfigApi(currentConfig._editId!, updateData as any);
+      await updateStorageConfigApi(
+        currentConfig._editId ?? '',
+        updateData as any,
+      );
       message.success('更新成功');
     } else {
       await createStorageConfigApi(currentConfig as any);

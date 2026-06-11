@@ -14,7 +14,7 @@ export type CaptchaResponse = {
   height?: number;
   length?: number;
   start_time?: number;
-}
+};
 
 export namespace SystemSettingsApi {
   export interface SettingItem {

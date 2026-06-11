@@ -64,7 +64,11 @@ async function handleChangePassword() {
       captchaCode: captchaResult.captchaCode,
     });
     message.success($t('account.security.changePasswordSuccess'));
-    passwordForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' };
+    passwordForm.value = {
+      oldPassword: '',
+      newPassword: '',
+      confirmPassword: '',
+    };
   } catch {
     message.error('密码修改失败');
   } finally {
@@ -84,7 +88,7 @@ function isCurrentDevice(device: AccountApi.LoginDevice): boolean {
 
 // 排序：当前设备在最前面
 const sortedDevices = computed(() => {
-  return [...devices.value].sort((a, b) => {
+  return [...devices.value].toSorted((a, b) => {
     const aCurrent = isCurrentDevice(a) ? 1 : 0;
     const bCurrent = isCurrentDevice(b) ? 1 : 0;
     return bCurrent - aCurrent;
@@ -105,7 +109,8 @@ function getOSIcon(os: string): string {
   const o = os.toLowerCase();
   if (o.includes('windows')) return '🪟';
   if (o.includes('mac')) return '🍎';
-  if (o.includes('ios') || o.includes('iphone') || o.includes('ipad')) return '📱';
+  if (o.includes('ios') || o.includes('iphone') || o.includes('ipad'))
+    return '📱';
   if (o.includes('android')) return '🤖';
   if (o.includes('linux')) return '🐧';
   return '💻';
@@ -155,7 +160,9 @@ async function handleKickDevice(id: number) {
 async function handleKickAllOthers() {
   try {
     const result = await kickAllOtherDevices();
-    message.success($t('account.security.kickAllOthersSuccess', [result.kickedCount]));
+    message.success(
+      $t('account.security.kickAllOthersSuccess', [result.kickedCount]),
+    );
     await loadDevices();
   } catch {
     message.error('操作失败');
@@ -171,30 +178,42 @@ onMounted(() => {
   <div class="space-y-8">
     <!-- 修改密码 -->
     <div>
-      <h3 class="mb-4 text-base font-medium">{{ $t('account.security.changePassword') }}</h3>
+      <h3 class="mb-4 text-base font-medium">
+        {{ $t('account.security.changePassword') }}
+      </h3>
       <div class="max-w-md">
         <div class="mb-3">
-          <label class="mb-1 block text-sm">{{ $t('account.security.oldPassword') }}</label>
+          <label class="mb-1 block text-sm">{{
+            $t('account.security.oldPassword')
+          }}</label>
           <InputPassword
             v-model:value="passwordForm.oldPassword"
             :placeholder="$t('account.security.oldPassword')"
           />
         </div>
         <div class="mb-3">
-          <label class="mb-1 block text-sm">{{ $t('account.security.newPassword') }}</label>
+          <label class="mb-1 block text-sm">{{
+            $t('account.security.newPassword')
+          }}</label>
           <InputPassword
             v-model:value="passwordForm.newPassword"
             :placeholder="$t('account.security.newPassword')"
           />
         </div>
         <div class="mb-3">
-          <label class="mb-1 block text-sm">{{ $t('account.security.confirmPassword') }}</label>
+          <label class="mb-1 block text-sm">{{
+            $t('account.security.confirmPassword')
+          }}</label>
           <InputPassword
             v-model:value="passwordForm.confirmPassword"
             :placeholder="$t('account.security.confirmPassword')"
           />
         </div>
-        <Button type="primary" :loading="changingPassword" @click="handleChangePassword">
+        <Button
+          type="primary"
+          :loading="changingPassword"
+          @click="handleChangePassword"
+        >
           {{ $t('account.security.changePasswordBtn') }}
         </Button>
       </div>
@@ -204,7 +223,9 @@ onMounted(() => {
     <div>
       <div class="mb-4 flex items-center justify-between">
         <div>
-          <h3 class="text-base font-medium">{{ $t('account.security.loginDevices') }}</h3>
+          <h3 class="text-base font-medium">
+            {{ $t('account.security.loginDevices') }}
+          </h3>
           <p class="text-foreground/50 mt-1 text-xs">
             {{ $t('account.security.deviceCount', [devices.length]) }}
           </p>
@@ -225,26 +246,40 @@ onMounted(() => {
           v-for="device in sortedDevices"
           :key="device.id"
           class="border-border/60 hover:border-primary/40 rounded-lg border p-4 transition-colors"
-          :class="isCurrentDevice(device) ? 'border-primary/30 bg-primary/2' : ''"
+          :class="
+            isCurrentDevice(device) ? 'border-primary/30 bg-primary/2' : ''
+          "
         >
           <div class="flex items-start justify-between">
             <div class="flex items-start gap-3">
               <!-- 设备图标 -->
               <div
                 class="flex h-10 w-10 items-center justify-center rounded-lg text-lg"
-                :class="isCurrentDevice(device) ? 'bg-primary/10' : 'bg-background-soft'"
+                :class="
+                  isCurrentDevice(device)
+                    ? 'bg-primary/10'
+                    : 'bg-background-soft'
+                "
               >
                 {{ getBrowserIcon(device.browser) }}
               </div>
               <!-- 设备信息 -->
               <div>
                 <div class="flex items-center gap-2">
-                  <span class="text-sm font-medium">{{ device.deviceName }}</span>
-                  <Tag v-if="isCurrentDevice(device)" color="processing" class="ml-0">
+                  <span class="text-sm font-medium">{{
+                    device.deviceName
+                  }}</span>
+                  <Tag
+                    v-if="isCurrentDevice(device)"
+                    color="processing"
+                    class="ml-0"
+                  >
                     {{ $t('account.security.currentDevice') }}
                   </Tag>
                 </div>
-                <div class="text-foreground/60 mt-1 flex items-center gap-3 text-xs">
+                <div
+                  class="text-foreground/60 mt-1 flex items-center gap-3 text-xs"
+                >
                   <span class="flex items-center gap-1">
                     {{ getBrowserIcon(device.browser) }} {{ device.browser }}
                   </span>
@@ -253,8 +288,13 @@ onMounted(() => {
                   </span>
                   <span>🌐 {{ device.ip }}</span>
                 </div>
-                <div class="text-foreground/40 mt-1 flex items-center gap-3 text-xs">
-                  <Tooltip v-if="device.lastActiveAt" :title="device.lastActiveAt">
+                <div
+                  class="text-foreground/40 mt-1 flex items-center gap-3 text-xs"
+                >
+                  <Tooltip
+                    v-if="device.lastActiveAt"
+                    :title="device.lastActiveAt"
+                  >
                     <span>{{ formatTime(device.lastActiveAt) }}</span>
                   </Tooltip>
                   <span v-else>{{ $t('account.security.unknown') }}</span>

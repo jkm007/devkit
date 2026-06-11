@@ -23,8 +23,12 @@ import { useColumns, useGridFormSchema } from './data';
 import Detail from './modules/detail.vue';
 import Form from './modules/form.vue';
 
-const groupList = ref<(SystemGroupApi.SystemGroup | { id: number; name: string; status: 0 | 1 })[]>([]);
-const allGroupList = ref<(SystemGroupApi.SystemGroup | { id: number; name: string; status: 0 | 1 })[]>([]);
+const groupList = ref<
+  (SystemGroupApi.SystemGroup | { id: number; name: string; status: 0 | 1 })[]
+>([]);
+const allGroupList = ref<
+  (SystemGroupApi.SystemGroup | { id: number; name: string; status: 0 | 1 })[]
+>([]);
 const inputSearchValue = ref('');
 const selectedGroupId = ref<number>(-1);
 
@@ -179,8 +183,7 @@ function searchGroup(value: string) {
   }
   groupList.value = allGroupList.value.filter(
     (group) =>
-      group.id === -1 ||
-      group.name.toLowerCase().includes(value.toLowerCase()),
+      group.id === -1 || group.name.toLowerCase().includes(value.toLowerCase()),
   );
 }
 

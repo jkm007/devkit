@@ -74,7 +74,13 @@ const FORBIDDEN_ATTRS = new Set([
 ]);
 
 /** URL-like attributes that must not contain javascript: or data: schemes. */
-const URL_ATTRS = new Set(['action', 'formaction', 'href', 'src', 'xlink:href']);
+const URL_ATTRS = new Set([
+  'action',
+  'formaction',
+  'href',
+  'src',
+  'xlink:href',
+]);
 
 /** Allowed URL schemes. Only http(s), mailto, tel, relative paths and anchors are safe. */
 const SAFE_URL_PATTERN = /^(https?|mailto|tel|#|\/)/i;
@@ -124,7 +130,10 @@ function sanitizeNode(node: Node): void {
         }
 
         // Check URL attributes for dangerous schemes
-        if (URL_ATTRS.has(attrName) && !SAFE_URL_PATTERN.test(attr.value.trim())) {
+        if (
+          URL_ATTRS.has(attrName) &&
+          !SAFE_URL_PATTERN.test(attr.value.trim())
+        ) {
           el.removeAttribute(attr.name);
           continue;
         }

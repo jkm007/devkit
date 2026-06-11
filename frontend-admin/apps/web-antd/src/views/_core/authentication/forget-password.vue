@@ -2,7 +2,15 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { Button, Form, FormItem, Input, InputPassword, message, Space } from 'ant-design-vue';
+import {
+  Button,
+  Form,
+  FormItem,
+  Input,
+  InputPassword,
+  message,
+  Space,
+} from 'ant-design-vue';
 
 import { resetPasswordApi, sendVerifyCodeApi } from '#/api/core/auth';
 import {
@@ -81,7 +89,12 @@ async function handleSubmit() {
     message.warning(VALIDATION_MESSAGES.passwordMinLength);
     return;
   }
-  if (!validatePasswordMatch(formData.value.newPassword, formData.value.confirmPassword)) {
+  if (
+    !validatePasswordMatch(
+      formData.value.newPassword,
+      formData.value.confirmPassword,
+    )
+  ) {
     message.warning(VALIDATION_MESSAGES.passwordMismatch);
     return;
   }
@@ -123,13 +136,13 @@ function goToLogin() {
       </FormItem>
 
       <FormItem label="验证码" name="emailCode" required>
-        <Space style="width: 100%;">
+        <Space style="width: 100%">
           <Input
             v-model:value="formData.emailCode"
             placeholder="请输入6位验证码"
             :maxlength="6"
             size="large"
-            style="flex: 1;"
+            style="flex: 1"
           />
           <Button
             type="primary"
