@@ -62,6 +62,11 @@ func (r *MenuRepo) Update(menu *model.Menu) error {
 	return r.db.Save(menu).Error
 }
 
+// UpdateFields 更新指定字段
+func (r *MenuRepo) UpdateFields(id uint, fields map[string]interface{}) error {
+	return r.db.Model(&model.Menu{}).Where("id = ?", id).Updates(fields).Error
+}
+
 // Delete 删除菜单（软删除）
 func (r *MenuRepo) Delete(id uint) error {
 	return r.db.Where("id = ?", id).Delete(&model.Menu{}).Error

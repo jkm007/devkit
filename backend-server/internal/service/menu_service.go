@@ -255,8 +255,18 @@ func (s *MenuService) Create(req *CreateMenuRequest) error {
 		Status:    req.Status,
 		AuthCode:  req.AuthCode,
 		Sort:      req.Sort,
-		Meta:      s.metaToString(req.Meta),
 	}
+
+	// 从 Meta 中提取 icon
+	if req.Meta != nil {
+		if metaMap, ok := req.Meta.(map[string]interface{}); ok {
+			if icon, ok := metaMap["icon"].(string); ok {
+				menu.Icon = icon
+			}
+		}
+	}
+
+	menu.Meta = s.metaToString(req.Meta)
 
 	return s.menuRepo.Create(menu)
 }
@@ -268,35 +278,53 @@ func (s *MenuService) Update(id uint, req *UpdateMenuRequest) error {
 		return err
 	}
 
+	// 使用 map 来更新，这样可以处理零值
+	updates := make(map[string]interface{})
+
 	if req.Name != "" {
 		menu.Name = req.Name
+		updates["name"] = req.Name
 	}
 	if req.Path != "" {
 		menu.Path = req.Path
+		updates["path"] = req.Path
 	}
 	if req.Component != "" {
 		menu.Component = req.Component
+		updates["component"] = req.Component
 	}
 	if req.Type != "" {
 		menu.Type = req.Type
+		updates["type"] = req.Type
 	}
-	if req.Status != 0 {
-		menu.Status = req.Status
-	}
-	if req.PID != 0 {
-		menu.PID = req.PID
-	}
-	if req.AuthCode != "" {
-		menu.AuthCode = req.AuthCode
-	}
+	// Status 始终更新（因为 0 也是有效状态）
+	updates["status"] = req.Status
+	menu.Status = req.Status
+	// PID 始终更新（因为 0 也是有效状态）
+	updates["pid"] = req.PID
+	menu.PID = req.PID
+	// AuthCode 允许清空
+	updates["auth_code"] = req.AuthCode
+	menu.AuthCode = req.AuthCode
 	if req.Sort != nil {
+		updates["sort"] = *req.Sort
 		menu.Sort = *req.Sort
 	}
 	if req.Meta != nil {
-		menu.Meta = s.metaToString(req.Meta)
+		// 从 Meta 中提取 icon
+		if metaMap, ok := req.Meta.(map[string]interface{}); ok {
+			if icon, ok := metaMap["icon"].(string); ok {
+				menu.Icon = icon
+				updates["icon"] = icon
+			}
+		}
+		metaStr := s.metaToString(req.Meta)
+		updates["meta"] = metaStr
+		menu.Meta = metaStr
 	}
 
-	return s.menuRepo.Update(menu)
+	// 直接更新数据库（使用 updates map）
+	return s.menuRepo.UpdateFields(id, updates)
 }
 
 // metaToString 将 meta 对象转换为 JSON 字符串

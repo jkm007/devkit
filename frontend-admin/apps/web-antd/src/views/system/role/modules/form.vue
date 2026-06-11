@@ -155,41 +155,23 @@ const [Drawer, drawerApi] = useVbenDrawer({
   },
 });
 
-/** 递归过滤：只保留有权限码的节点，并确保 key 唯一 */
-function filterPermissionTree(nodes: any[]): any[] {
-  const seen = new Set<string>();
-  function process(nodes: any[]): any[] {
-    return nodes
-      .map((node) => {
-        // 先处理父节点，再处理子节点（前序遍历）
-        // 用 id 做唯一性判断，而不是 authCode（父子菜单可以共享权限码）
-        const nodeKey = String(node.id);
-        if (seen.has(nodeKey)) {
-          return null;
-        }
-        seen.add(nodeKey);
-
-        const children = node.children ? process(node.children) : [];
-        if (node.authCode || children.length > 0) {
-          const authCode = node.authCode || `__catalog_${node.id}`;
-          return {
-            ...node,
-            authCode,
-            children: children.length > 0 ? children : undefined,
-          };
-        }
-        return null;
-      })
-      .filter(Boolean);
-  }
-  return process(nodes);
+/** 递归处理权限树：为没有 authCode 的节点生成占位符 */
+function processPermissionTree(nodes: any[]): any[] {
+  return nodes.map((node) => {
+    const children = node.children ? processPermissionTree(node.children) : [];
+    return {
+      ...node,
+      authCode: node.authCode || `__catalog_${node.id}`,
+      children: children.length > 0 ? children : undefined,
+    };
+  });
 }
 
 async function loadPermissions() {
   loadingPermissions.value = true;
   try {
     const res = await getMenuList();
-    permissions.value = filterPermissionTree(res as unknown as DataNode[]);
+    permissions.value = processPermissionTree(res as unknown as DataNode[]);
   } finally {
     loadingPermissions.value = false;
   }

@@ -174,6 +174,14 @@ export namespace FileApi {
 
 // ==================== 分片上传 ====================
 
+/**
+ * 读取指定 Cookie 的值
+ */
+function getCookie(name: string): string | undefined {
+  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+  return match ? match[2] : undefined;
+}
+
 /** 秒传检查 */
 export function checkUpload(data: { fileHash: string; fileSize: number }) {
   return requestClient.post<FileApi.CheckUploadResult>(
@@ -211,6 +219,7 @@ export async function uploadPart(data: {
 
   const accessStore = useAccessStore();
   const token = accessStore.accessToken || '';
+  const csrfToken = getCookie('csrf_token');
 
   // 如果有进度回调，使用 XMLHttpRequest
   if (data.onProgress) {
@@ -251,15 +260,23 @@ export async function uploadPart(data: {
 
       xhr.open('POST', `${apiBase}/files/upload/part`);
       xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      if (csrfToken) {
+        xhr.setRequestHeader('X-CSRF-Token', csrfToken);
+      }
       xhr.send(formData);
     });
   }
 
+  const headers: Record<string, string> = {
+    'Authorization': `Bearer ${token}`,
+  };
+  if (csrfToken) {
+    headers['X-CSRF-Token'] = csrfToken;
+  }
+
   const response = await fetch(`${apiBase}/files/upload/part`, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers,
     body: formData,
   });
 
@@ -293,13 +310,19 @@ export async function completeUpload(data: {
 }): Promise<FileApi.CompleteUploadResult> {
   const accessStore = useAccessStore();
   const token = accessStore.accessToken || '';
+  const csrfToken = getCookie('csrf_token');
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`,
+  };
+  if (csrfToken) {
+    headers['X-CSRF-Token'] = csrfToken;
+  }
 
   const response = await fetch(`${apiBase}/files/upload/complete`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
+    headers,
     body: JSON.stringify(data),
   });
 
