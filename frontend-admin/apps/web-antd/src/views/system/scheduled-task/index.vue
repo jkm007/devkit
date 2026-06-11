@@ -12,6 +12,8 @@ import {
   InputNumber,
   message,
   Modal,
+  Select,
+  SelectOption,
   Space,
   Switch,
   Table,
@@ -444,13 +446,11 @@ onMounted(() => {
           <Input v-model:value="createForm.name" placeholder="请输入任务名称" />
         </FormItem>
 
+        <!-- 任务类型：使用 Ant Design Select 替换原生 select -->
         <FormItem label="任务类型">
-          <select
-            v-model="createForm.taskType"
-            class="w-full border rounded px-3 py-1.5"
-          >
-            <option value="recycle_cleanup">回收站清理</option>
-          </select>
+          <Select v-model:value="createForm.taskType">
+            <SelectOption value="recycle_cleanup">回收站清理</SelectOption>
+          </Select>
         </FormItem>
 
         <FormItem label="Cron 表达式">
