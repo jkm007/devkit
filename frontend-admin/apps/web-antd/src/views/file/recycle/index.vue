@@ -37,10 +37,18 @@ const accessStore = useAccessStore();
 // ==================== 权限 ====================
 
 const permissions = computed(() => accessStore.accessCodes || []);
-const hasViewAllPermission = computed(() => permissions.value.includes('file:view:all'));
-const hasRestorePermission = computed(() => permissions.value.includes('file:recycle:restore'));
-const hasDeletePermission = computed(() => permissions.value.includes('file:recycle:delete'));
-const hasEmptyPermission = computed(() => permissions.value.includes('file:recycle:empty'));
+const hasViewAllPermission = computed(() =>
+  permissions.value.includes('file:view:all'),
+);
+const hasRestorePermission = computed(() =>
+  permissions.value.includes('file:recycle:restore'),
+);
+const hasDeletePermission = computed(() =>
+  permissions.value.includes('file:recycle:delete'),
+);
+const hasEmptyPermission = computed(() =>
+  permissions.value.includes('file:recycle:empty'),
+);
 
 // ==================== 状态 ====================
 
@@ -191,7 +199,9 @@ async function handleBatchRestore() {
   try {
     const result = await batchRestoreFiles(selectedRowKeys.value);
     if (result.errors?.length > 0) {
-      message.warning(`已恢复 ${result.restored} 个文件，${result.errors.length} 个失败`);
+      message.warning(
+        `已恢复 ${result.restored} 个文件，${result.errors.length} 个失败`,
+      );
     } else {
       message.success(`已恢复 ${result.restored} 个文件`);
     }
@@ -219,7 +229,9 @@ async function handleBatchPermanentDelete() {
       try {
         const result = await batchPermanentDeleteFiles(selectedRowKeys.value);
         if (result.errors?.length > 0) {
-          message.warning(`已删除 ${result.deleted} 个文件，${result.errors.length} 个失败`);
+          message.warning(
+            `已删除 ${result.deleted} 个文件，${result.errors.length} 个失败`,
+          );
         } else {
           message.success(`已删除 ${result.deleted} 个文件`);
         }
@@ -273,7 +285,11 @@ onMounted(() => {
             <Statistic title="保留期限" :value="7" suffix="天" />
           </div>
           <Space>
-            <Button v-if="hasEmptyPermission && recycleCount > 0" danger @click="handleEmptyRecycleBin">
+            <Button
+              v-if="hasEmptyPermission && recycleCount > 0"
+              danger
+              @click="handleEmptyRecycleBin"
+            >
               清空回收站
             </Button>
           </Space>
@@ -300,7 +316,11 @@ onMounted(() => {
         </Space>
 
         <div v-if="hasViewAllPermission">
-          <Radio.Group v-model:value="fileScope" button-style="solid" @change="handleScopeChange">
+          <Radio.Group
+            v-model:value="fileScope"
+            button-style="solid"
+            @change="handleScopeChange"
+          >
             <Radio.Button value="own">我的文件</Radio.Button>
             <Radio.Button value="all">所有文件</Radio.Button>
           </Radio.Group>
@@ -323,7 +343,7 @@ onMounted(() => {
         }"
         :row-selection="{
           selectedRowKeys: selectedRowKeys,
-          onChange: (keys: any[]) => selectedRowKeys = keys as number[],
+          onChange: (keys: (string | number)[]) => (selectedRowKeys = keys as number[]),
         }"
         row-key="id"
         :scroll="{ x: 1000 }"
@@ -332,9 +352,14 @@ onMounted(() => {
           <!-- 文件名列 -->
           <template v-if="column.dataIndex === 'name'">
             <div class="flex items-center gap-2">
-              <span :class="getFileIcon((record as any).contentType)" class="text-lg text-gray-500" />
-              <Tooltip :title="(record as any).name">
-                <span class="truncate max-w-[200px]">{{ (record as any).name }}</span>
+              <span
+                :class="getFileIcon((record as RecycleBinItem).contentType)"
+                class="text-lg text-gray-500"
+              />
+              <Tooltip :title="(record as RecycleBinItem).name">
+                <span class="truncate max-w-[200px]">{{
+                  (record as RecycleBinItem).name
+                }}</span>
               </Tooltip>
             </div>
           </template>
@@ -343,14 +368,14 @@ onMounted(() => {
           <template v-if="column.dataIndex === 'daysRemaining'">
             <div class="flex items-center gap-2">
               <Progress
-                :percent="((record as any).daysRemaining / 7) * 100"
+                :percent="((record as RecycleBinItem).daysRemaining / 7) * 100"
                 :show-info="false"
-                :stroke-color="getDaysColor((record as any).daysRemaining)"
+                :stroke-color="getDaysColor((record as RecycleBinItem).daysRemaining)"
                 size="small"
-                style="width: 60px;"
+                style="width: 60px"
               />
-              <Tag :color="getDaysColor((record as any).daysRemaining)">
-                {{ (record as any).daysRemaining }} 天
+              <Tag :color="getDaysColor((record as RecycleBinItem).daysRemaining)">
+                {{ (record as RecycleBinItem).daysRemaining }} 天
               </Tag>
             </div>
           </template>
@@ -362,7 +387,7 @@ onMounted(() => {
                 v-if="hasRestorePermission"
                 type="link"
                 size="small"
-                @click="handleRestore(record as any)"
+                @click="handleRestore(record as RecycleBinItem)"
               >
                 恢复
               </Button>
@@ -371,7 +396,7 @@ onMounted(() => {
                 type="link"
                 size="small"
                 danger
-                @click="handlePermanentDelete(record as any)"
+                @click="handlePermanentDelete(record as RecycleBinItem)"
               >
                 永久删除
               </Button>
