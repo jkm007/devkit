@@ -27,42 +27,35 @@ export function formatFileSize(size: number | undefined | null): string {
 }
 
 /**
+ * 通过隐藏 textarea + execCommand 实现复制（降级方案）
+ * 用于 Clipboard API 不可用或调用失败时的回退
+ */
+function textareaCopy(text: string, successMsg: string): void {
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.style.cssText = 'position:fixed;left:0;top:0;opacity:0';
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  try {
+    document.execCommand('copy');
+    message.success(successMsg);
+  } catch {
+    message.error('复制失败，请手动复制');
+  }
+  document.body.removeChild(textarea);
+}
+
+/**
  * 复制文本到剪贴板，支持降级方案
  */
 export function fallbackCopy(text: string, successMsg = '链接已复制到剪贴板'): void {
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text).then(
       () => message.success(successMsg),
-      () => {
-        // 降级方案
-        const textarea = document.createElement('textarea');
-        textarea.value = text;
-        textarea.style.cssText = 'position:fixed;left:0;top:0;opacity:0';
-        document.body.appendChild(textarea);
-        textarea.focus();
-        textarea.select();
-        try {
-          document.execCommand('copy');
-          message.success(successMsg);
-        } catch {
-          message.error('复制失败，请手动复制');
-        }
-        document.body.removeChild(textarea);
-      },
+      () => textareaCopy(text, successMsg),
     );
   } else {
-    const textarea = document.createElement('textarea');
-    textarea.value = text;
-    textarea.style.cssText = 'position:fixed;left:0;top:0;opacity:0';
-    document.body.appendChild(textarea);
-    textarea.focus();
-    textarea.select();
-    try {
-      document.execCommand('copy');
-      message.success(successMsg);
-    } catch {
-      message.error('复制失败，请手动复制');
-    }
-    document.body.removeChild(textarea);
+    textareaCopy(text, successMsg);
   }
 }
