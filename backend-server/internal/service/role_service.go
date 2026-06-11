@@ -9,6 +9,9 @@ import (
 	"backend-server/internal/repository"
 	"backend-server/pkg/cache"
 	"backend-server/pkg/database"
+	"backend-server/pkg/logger"
+
+	"go.uber.org/zap"
 )
 
 // RoleService 角色服务
@@ -42,7 +45,14 @@ type RoleResponse struct {
 func toRoleResponse(role *model.Role) RoleResponse {
 	var permissions []string
 	if role.Permissions != "" {
-		json.Unmarshal([]byte(role.Permissions), &permissions)
+		// 反序列化角色权限列表
+		if err := json.Unmarshal([]byte(role.Permissions), &permissions); err != nil {
+			logger.Error("角色权限反序列化失败",
+				zap.Uint("role_id", role.ID),
+				zap.String("permissions", role.Permissions),
+				zap.Error(err),
+			)
+		}
 	}
 	if permissions == nil {
 		permissions = []string{}
