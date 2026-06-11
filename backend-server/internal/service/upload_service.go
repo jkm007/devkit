@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"errors"
 	"fmt"
+	"io"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"backend-server/internal/model"
 	"backend-server/internal/repository"
 	"backend-server/pkg/database"
+	"backend-server/pkg/fileutil"
 	"backend-server/pkg/storage"
 
 	"github.com/redis/go-redis/v9"
@@ -97,6 +99,11 @@ type InitResult struct {
 
 // InitUpload 初始化分片上传
 func (s *UploadService) InitUpload(userID uint, fileName string, fileSize int64, fileHash string, contentType string, totalParts int, folderID uint) (*InitResult, error) {
+	// 文件扩展名校验（白名单 + 黑名单）
+	if ok, reason := fileutil.ValidateExtension(fileName); !ok {
+		return nil, fmt.Errorf("文件校验失败: %s", reason)
+	}
+
 	// 使用路由引擎生成 objectKey 并确定存储驱动
 	routingResult, _, err := storage.Route(fileName, contentType, "user")
 	if err != nil {
@@ -206,6 +213,24 @@ func (s *UploadService) UploadPart(uploadID string, partNumber int, reader inter
 	if !ok {
 		return nil, fmt.Errorf("无效的 reader")
 	}
+
+	// Magic Bytes 校验（仅在第一个分片时执行）
+	if partNumber == 1 {
+		// 读取文件头部数据用于 Magic Bytes 检测（最多 512 字节）
+		headerBuf := make([]byte, 512)
+		n, err := rdr.Read(headerBuf)
+		if err != nil && err != io.EOF {
+			return nil, fmt.Errorf("读取文件头数据失败: %w", err)
+		}
+		if n > 0 {
+			if ok, _, reason := fileutil.ValidateMagicBytes(headerBuf[:n], task.FileName); !ok {
+				return nil, fmt.Errorf("文件校验失败: %s", reason)
+			}
+		}
+		// 将已读取的头部数据和剩余 reader 合并，确保存储层能收到完整数据
+		rdr = io.MultiReader(strings.NewReader(string(headerBuf[:n])), rdr)
+	}
+
 	etag, err := uploader.UploadPart(context.Background(), task.ObjectKey, uploadID, partNumber, rdr, size)
 	if err != nil {
 		// 更新任务失败状态
