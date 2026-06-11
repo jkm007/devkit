@@ -812,14 +812,16 @@ func (s *AuthService) RecordSecurityLog(userID uint, eventType, detail, ip, user
 }
 
 // UpdateProfileRequest 更新个人资料请求
+// Gender 和 Bio 使用指针类型，以区分「用户显式设置零值」和「用户未提供该字段」。
+// nil 表示未提供（不更新），非 nil 表示显式设置（即使是零值也会更新）。
 type UpdateProfileRequest struct {
-	Nickname string `json:"nickname"`
-	Email    string `json:"email"`
-	Phone    string `json:"phone"`
-	Gender   int    `json:"gender"`
-	Birthday string `json:"birthday"`
-	Bio      string `json:"bio"`
-	Avatar   string `json:"avatar"`
+	Nickname string  `json:"nickname"`
+	Email    string  `json:"email"`
+	Phone    string  `json:"phone"`
+	Gender   *int    `json:"gender"`   // nil=不更新, 非nil=显式设置（0=未知 1=男 2=女）
+	Birthday string  `json:"birthday"`
+	Bio      *string `json:"bio"`      // nil=不更新, 非nil=显式设置（包括清空）
+	Avatar   string  `json:"avatar"`
 }
 
 // validateAvatarURL 验证头像 URL 格式（只允许相对路径或本站 URL）
@@ -855,16 +857,16 @@ func (s *AuthService) UpdateProfile(userID uint, req *UpdateProfileRequest) erro
 	if req.Phone != "" {
 		user.Phone = req.Phone
 	}
-	if req.Gender != 0 {
-		user.Gender = req.Gender
+	if req.Gender != nil {
+		user.Gender = *req.Gender
 	}
 	if req.Birthday != "" {
 		if t, err := time.Parse("2006-01-02", req.Birthday); err == nil {
 			user.Birthday = &t
 		}
 	}
-	if req.Bio != "" {
-		user.Bio = req.Bio
+	if req.Bio != nil {
+		user.Bio = *req.Bio
 	}
 	if req.Avatar != "" {
 		if !validateAvatarURL(req.Avatar) {
