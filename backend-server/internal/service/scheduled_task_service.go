@@ -5,11 +5,17 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"backend-server/internal/model"
 	"backend-server/internal/repository"
 	"backend-server/pkg/database"
+)
+
+const (
+	// maxConcurrentTasks 定时任务最大并发执行数
+	maxConcurrentTasks = 3
 )
 
 // ScheduledTaskService 定时任务服务
@@ -106,6 +112,7 @@ func (s *ScheduledTaskService) RunTask(id uint) error {
 }
 
 // CheckAndRunDueTasks 检查并执行到期任务（定时调用）
+// 使用 worker pool 限制并发执行数量，避免同时运行过多任务
 func (s *ScheduledTaskService) CheckAndRunDueTasks() {
 	tasks, err := s.taskRepo.GetDueTasks()
 	if err != nil {
@@ -113,9 +120,27 @@ func (s *ScheduledTaskService) CheckAndRunDueTasks() {
 		return
 	}
 
-	for _, task := range tasks {
-		go s.executeTask(&task)
+	if len(tasks) == 0 {
+		return
 	}
+
+	// 使用带缓冲的 channel 作为信号量，限制并发数
+	sem := make(chan struct{}, maxConcurrentTasks)
+	var wg sync.WaitGroup
+
+	for _, task := range tasks {
+		task := task // 显式捕获循环变量，避免闭包引用问题
+		wg.Add(1)
+		sem <- struct{}{} // 获取信号量，超过并发上限时阻塞
+		go func() {
+			defer wg.Done()
+			defer func() { <-sem }() // 释放信号量
+			s.executeTask(&task)
+		}()
+	}
+
+	// 等待所有任务执行完毕，避免下一轮检查与本轮任务并发冲突
+	wg.Wait()
 }
 
 // executeTask 执行单个任务
