@@ -19,9 +19,10 @@ function isValidRedirect(url: string): string {
   // 二次解码，防止双重编码绕过校验（如 https%253A%252F%252Fevil.com）
   let decoded = url;
   try {
-    decoded = decodeURIComponent(url);
+    decoded = decodeURIComponent(decoded);
+    decoded = decodeURIComponent(decoded);
   } catch {
-    // 解码失败则使用原始值，后续校验仍会拦截
+    // 解码失败则使用已有结果，后续校验仍会拦截
   }
   // 拒绝外部协议（http://, https://, javascript:, data: 等）
   if (/^(https?:|javascript:|data:|vbscript:)/i.test(decoded)) {
@@ -93,7 +94,11 @@ function setupAccessGuard(router: Router) {
               preferences.app.defaultHomePath,
           ),
         );
-        return redirectUrl || userStore.userInfo?.homePath || preferences.app.defaultHomePath;
+        return (
+          redirectUrl ||
+          userStore.userInfo?.homePath ||
+          preferences.app.defaultHomePath
+        );
       }
       return true;
     }
