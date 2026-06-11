@@ -36,3 +36,13 @@ Thumbs.db
 backend-server/backend-server
 backend-server/serverbackups/
 backend-server/server
+
+# 项目目录
+backups/
+tmp/
+.agents/
+.claude/
+.git/
+
+# 数据库备份
+*.sql
