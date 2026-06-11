@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"net/http"
+	"strings"
 
 	"backend-server/pkg/response"
 
@@ -24,6 +25,22 @@ var csrfSafeMethods = map[string]bool{
 	"GET":     true,
 	"HEAD":    true,
 	"OPTIONS": true,
+}
+
+// csrfExemptPaths 不需要 CSRF 保护的路径前缀（公开接口，自身有其他安全机制）
+var csrfExemptPaths = []string{
+	"/api/v1/auth/login",
+	"/api/v1/auth/login-by-email",
+	"/api/v1/auth/login-by-phone",
+	"/api/v1/auth/register",
+	"/api/v1/auth/reset-password",
+	"/api/v1/auth/send-code",
+	"/api/v1/auth/verify-code",
+	"/api/v1/auth/send-sms-code",
+	"/api/v1/auth/refresh",
+	"/api/v1/auth/wechat/",
+	"/api/v1/auth/oauth/",
+	"/api/v1/share/",
 }
 
 // generateCSRFToken 生成随机 CSRF Token
@@ -54,6 +71,15 @@ func CSRF() gin.HandlerFunc {
 			ensureCSRFCookie(c)
 			c.Next()
 			return
+		}
+
+		// 公开接口跳过 CSRF 校验（登录、注册等自身有凭证验证）
+		for _, prefix := range csrfExemptPaths {
+			if strings.HasPrefix(c.Request.URL.Path, prefix) {
+				ensureCSRFCookie(c)
+				c.Next()
+				return
+			}
 		}
 
 		// 确保 CSRF Cookie 存在（首次请求时自动设置）

@@ -10,11 +10,11 @@ server:
 
 # MySQL 配置
 mysql:
-  host: 123.57.201.44
+  host: 10.0.50.108
   port: 3306
-  user: devkit
-  password: "devkit123"
-  database: devkit
+  user: root
+  password: "root123456"
+  database: backend_db
   max_open_conns: 100
   max_idle_conns: 10
   conn_max_lifetime: 3600s # 连接最大存活时间，Go duration 格式（如 3600s = 1小时）
@@ -22,9 +22,9 @@ mysql:
 
 # Redis 配置
 redis:
-  host: 123.57.201.44
+  host: 10.0.50.108
   port: 6379
-  password: "devkit123"
+  password: "redis123456"
   db: 0
   pool_size: 100
 
@@ -54,6 +54,7 @@ cors:
     - "http://localhost:5173"
     - "http://localhost:5666"
     - "http://localhost:5667"
+    - "http://10.0.50.207:5666"
   allow_methods:
     - GET
     - POST
