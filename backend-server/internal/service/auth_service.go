@@ -11,6 +11,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"backend-server/internal/model"
@@ -86,8 +87,33 @@ func loginFailCountKey(clientIP string) string {
 	return fmt.Sprintf("login_fail:%s", clientIP)
 }
 
-// getCaptchaSettings 获取验证码设置
+// captchaSettingsCacheItem 验证码配置内存缓存项
+type captchaSettingsCacheItem struct {
+	enabled   bool
+	trigger   int
+	expiresAt time.Time
+}
+
+var (
+	// 验证码配置内存缓存（避免每次登录都查数据库）
+	captchaSettingsCache     *captchaSettingsCacheItem
+	captchaSettingsCacheMu   sync.RWMutex
+	captchaSettingsCacheTTL  = 5 * time.Minute
+)
+
+// getCaptchaSettings 获取验证码设置（带内存缓存，TTL 5 分钟）
 func (s *AuthService) getCaptchaSettings() (enabled bool, trigger int) {
+	// 先从内存缓存读取
+	captchaSettingsCacheMu.RLock()
+	if captchaSettingsCache != nil && time.Now().Before(captchaSettingsCache.expiresAt) {
+		enabled = captchaSettingsCache.enabled
+		trigger = captchaSettingsCache.trigger
+		captchaSettingsCacheMu.RUnlock()
+		return
+	}
+	captchaSettingsCacheMu.RUnlock()
+
+	// 缓存未命中或已过期，从数据库加载
 	db := database.GetMySQL()
 	var settings []model.SystemSetting
 	db.Where("group_key = ? AND deleted_at IS NULL", "captcha").Find(&settings)
@@ -105,7 +131,25 @@ func (s *AuthService) getCaptchaSettings() (enabled bool, trigger int) {
 			}
 		}
 	}
+
+	// 写入内存缓存
+	captchaSettingsCacheMu.Lock()
+	captchaSettingsCache = &captchaSettingsCacheItem{
+		enabled:   enabled,
+		trigger:   trigger,
+		expiresAt: time.Now().Add(captchaSettingsCacheTTL),
+	}
+	captchaSettingsCacheMu.Unlock()
+
 	return
+}
+
+// InvalidateCaptchaSettingsCache 使验证码配置内存缓存失效
+// 在管理员修改验证码配置后调用，确保下次登录读取最新配置
+func InvalidateCaptchaSettingsCache() {
+	captchaSettingsCacheMu.Lock()
+	captchaSettingsCache = nil
+	captchaSettingsCacheMu.Unlock()
 }
 
 // checkCaptcha 验证码校验
