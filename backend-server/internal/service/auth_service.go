@@ -1115,7 +1115,7 @@ func (s *AuthService) ResetPassword(req *ResetPasswordRequest, ip, userAgent str
 	// 3. 清除所有登录设备记录
 	s.loginDeviceSvc.DeleteAllDevices(user.ID)
 
-	// 4. 发送安全通知邮件
+	// 4. 发送安全通知邮件（失败仅记录日志，不阻断主流程）
 	siteName := getSiteName()
 	notifySubject := fmt.Sprintf("【%s】密码重置通知", siteName)
 	notifyBody := fmt.Sprintf(`
@@ -1124,7 +1124,9 @@ func (s *AuthService) ResetPassword(req *ResetPasswordRequest, ip, userAgent str
 		<p>如果不是您本人操作，请立即联系管理员或修改密码。</p>
 		<p>此邮件为系统自动发送，请勿回复。</p>
 	`, user.Name, now.Format("2006-01-02 15:04:05"))
-	email.SendHTMLEmail(req.Email, notifySubject, notifyBody)
+	if err := email.SendHTMLEmail(req.Email, notifySubject, notifyBody); err != nil {
+		logger.Error("密码重置通知邮件发送失败", zap.String("email", req.Email), zap.Error(err))
+	}
 
 	// 记录安全日志
 	s.RecordSecurityLog(user.ID, "password_reset", "通过邮箱验证码重置密码，已踢出所有设备", ip, userAgent, 1)
