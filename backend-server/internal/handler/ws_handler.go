@@ -83,6 +83,16 @@ func (h *WSHandler) Handle(c *gin.Context) {
 
 // readPump 读取客户端消息
 func (h *WSHandler) readPump(client *ws.Client) {
+	// 防止 goroutine panic 导致整个进程崩溃
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Error("readPump panic recovered",
+				zap.Any("recover", r),
+				zap.Uint("userID", client.UserID),
+			)
+		}
+	}()
+
 	var closeOnce sync.Once
 	close := func() {
 		closeOnce.Do(func() {
@@ -102,6 +112,16 @@ func (h *WSHandler) readPump(client *ws.Client) {
 
 // writePump 向客户端写入消息
 func (h *WSHandler) writePump(client *ws.Client) {
+	// 防止 goroutine panic 导致整个进程崩溃
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Error("writePump panic recovered",
+				zap.Any("recover", r),
+				zap.Uint("userID", client.UserID),
+			)
+		}
+	}()
+
 	var closeOnce sync.Once
 	close := func() {
 		closeOnce.Do(func() {
