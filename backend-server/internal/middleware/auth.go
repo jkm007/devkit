@@ -10,6 +10,7 @@ import (
 	"backend-server/pkg/response"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 )
 
 // JWTAuth JWT 认证中间件
@@ -51,6 +52,7 @@ func JWTAuth() gin.HandlerFunc {
 		}
 
 		// 检查 Token 是否在黑名单中（logout 后失效）
+		// 采用 fail-closed 策略：Redis 不可用时拒绝请求，防止已注销的 Token 继续使用
 		blacklistKey := fmt.Sprintf("token_blacklist:%s", parts[1])
 		val, err := database.GetRedis().Get(context.Background(), blacklistKey).Result()
 		if err == nil && val != "" {
@@ -58,16 +60,25 @@ func JWTAuth() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		// Redis 不可用时记录警告但不阻断（降级模式）
-		if err != nil {
-			fmt.Printf("[auth] Redis 黑名单检查失败(降级模式): err=%v\n", err)
+		// redis.Nil 表示 key 不存在（正常情况），其他错误表示 Redis 故障
+		if err != nil && err != redis.Nil {
+			fmt.Printf("[auth] Redis 黑名单检查失败(fail-closed): err=%v\n", err)
+			response.InternalError(c, "服务暂时不可用，请稍后重试")
+			c.Abort()
+			return
 		}
 
-		// 检查设备是否被踢出
+		// 检查设备是否被踢出（同样采用 fail-closed 策略）
 		kickedKey := fmt.Sprintf("kicked_device:%d:%s", claims.UserID, deviceID)
 		val, err = database.GetRedis().Get(context.Background(), kickedKey).Result()
 		if err == nil && val != "" {
 			response.Unauthorized(c, "该设备已被踢出，请重新登录")
+			c.Abort()
+			return
+		}
+		if err != nil && err != redis.Nil {
+			fmt.Printf("[auth] Redis 设备踢出检查失败(fail-closed): err=%v\n", err)
+			response.InternalError(c, "服务暂时不可用，请稍后重试")
 			c.Abort()
 			return
 		}
