@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"io"
 	"strconv"
 
@@ -346,7 +347,7 @@ func (h *UploadHandler) GetUploadTaskByID(c *gin.Context) {
 }
 
 // saveToLocal 将 io.Reader 保存到本地临时文件（用于转码等场景）
+// TODO: 此函数尚未实现，当前调用方应避免使用，待后续版本完成临时文件存储逻辑
 func saveToLocal(reader io.Reader) (string, error) {
-	// TODO: 实现本地临时文件保存
-	return "", nil
+	return "", fmt.Errorf("saveToLocal is not implemented: local temporary file storage is not yet available")
 }

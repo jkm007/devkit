@@ -422,8 +422,9 @@ func (s *SystemSettingService) TestSMS(phone string) error {
 		return errors.New("SMS configuration is incomplete, please check access_key/secret_key/sign_name/template_code")
 	}
 
-	// TODO: 实际对接短信服务商 API
-	// 这里仅验证配置完整性，实际发送需要集成阿里云/腾讯云 SDK
+	// TODO: 短信服务尚未完成对接，当前仅验证配置完整性。
+	//  待后续版本集成阿里云/腾讯云短信 SDK 后，替换为实际发送逻辑。
+	//  目前 TestSMS 接口会返回明确的 "not yet implemented" 错误，前端应据此提示用户。
 	return errors.New("SMS sending is not yet implemented")
 }
 
