@@ -56,10 +56,10 @@ func SecurityLogMiddleware() gin.HandlerFunc {
 		}
 		c.Writer = w
 
-		// 读取请求体（用于记录详情）
+		// 读取请求体（用于记录详情），限制最大读取 64KB 防止内存溢出
 		var reqBody []byte
 		if c.Request.Body != nil {
-			reqBody, _ = io.ReadAll(c.Request.Body)
+			reqBody, _ = io.ReadAll(io.LimitReader(c.Request.Body, 64*1024))
 			c.Request.Body = io.NopCloser(bytes.NewBuffer(reqBody))
 		}
 
