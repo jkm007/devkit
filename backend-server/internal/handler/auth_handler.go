@@ -217,8 +217,10 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	// 用新的 RefreshToken 更新 Cookie，MaxAge 与 Refresh Token TTL 保持一致
+	// 用新的 Token 更新 Cookie，MaxAge 与对应 Token TTL 保持一致
+	accessTokenMaxAge := int(h.cfg.JWT.AccessTokenTTL.Seconds())
 	refreshTokenMaxAge := int(h.cfg.JWT.RefreshTokenTTL.Seconds())
+	h.setCookie(c, "access_token", result.AccessToken, accessTokenMaxAge)
 	h.setCookie(c, "refresh_token", result.RefreshToken, refreshTokenMaxAge)
 
 	response.Success(c, result)
