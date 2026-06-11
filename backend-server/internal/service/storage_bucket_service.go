@@ -8,7 +8,6 @@ import (
 	"backend-server/pkg/storage"
 	"context"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -149,187 +148,6 @@ func (s *StorageBucketService) SetDefault(id int64) error {
 	return storage.RefreshStorage()
 }
 
-// SyncDefaultBuckets 从存储配置同步默认桶到存储桶管理
-// 读取 sys_system_settings 中 storage 组的配置，为每个启用的驱动创建/更新默认桶
-func SyncDefaultBuckets() error {
-	db := database.GetMySQL()
-
-	// 读取 storage 组的所有配置
-	rows, err := db.Raw("SELECT `key`, value FROM sys_system_settings WHERE group_key = 'storage' AND deleted_at IS NULL").Rows()
-	if err != nil {
-		return fmt.Errorf("读取存储配置失败: %w", err)
-	}
-	defer rows.Close()
-
-	settings := make(map[string]string)
-	for rows.Next() {
-		var key, value string
-		if err := rows.Scan(&key, &value); err != nil {
-			continue
-		}
-		settings[key] = value
-	}
-
-	// 同步每个驱动的默认桶
-	drivers := []struct {
-		name       string
-		enabledKey string
-		label      string
-	}{
-		{"minio", "storage_minio_enabled", "MinIO"},
-		{"oss", "storage_oss_enabled", "阿里云 OSS"},
-		{"cos", "storage_cos_enabled", "腾讯云 COS"},
-	}
-
-	repo := repository.NewStorageBucketRepo(db)
-
-	for _, d := range drivers {
-		enabled := getSettingBoolFromMap(settings, d.enabledKey)
-		endpoint := getSettingStrFromMap(settings, fmt.Sprintf("storage_%s_endpoint", d.name))
-		bucketName := getSettingStrFromMap(settings, fmt.Sprintf("storage_%s_bucket", d.name))
-
-		log.Printf("[INFO] 同步存储桶检查: driver=%s, enabled=%v, endpoint=%s, bucket=%s", d.name, enabled, endpoint, bucketName)
-
-		// 从 storage_bucket 表查找该驱动的桶（优先找默认桶，没有则找任意一个）
-		existing, err := repo.GetDefaultByDriver(d.name)
-		if err != nil && err != gorm.ErrRecordNotFound {
-			log.Printf("[WARN] 查询 %s 默认桶失败: %v", d.name, err)
-			continue
-		}
-		if existing == nil {
-			// 没有默认桶，查找该驱动的任意一个桶
-			buckets, err := repo.GetByDriver(d.name)
-			if err == nil && len(buckets) > 0 {
-				existing = &buckets[0]
-			}
-		}
-
-		if !enabled {
-			// 未启用：跳过同步，不覆盖用户手动设置的桶状态
-			log.Printf("[INFO] %s 存储配置未启用，跳过桶同步（保留用户手动设置的状态）", d.label)
-			continue
-		}
-
-		// 已启用：构建桶配置（不自动设为默认，由用户手动选择）
-		// 保留用户手动设置的 status（禁用/启用）
-		bucketStatus := int8(1)
-		if existing != nil {
-			bucketStatus = existing.Status
-		}
-		newBucket := &model.StorageBucket{
-			Driver:     d.name,
-			Endpoint:   endpoint,
-			Bucket:     bucketName,
-			Purpose:    "file",
-			IsDefault:  existing != nil && existing.IsDefault, // 保留已有的默认状态
-			Status:     bucketStatus,
-			AccessKey:  getSettingStrFromMap(settings, fmt.Sprintf("storage_%s_access_key", d.name)),
-			SecretKey:  getSettingStrFromMap(settings, fmt.Sprintf("storage_%s_secret_key", d.name)),
-			CDNDomain:  getSettingStrFromMap(settings, fmt.Sprintf("storage_%s_cdn_domain", d.name)),
-			UseSSL:     getSettingBoolFromMap(settings, fmt.Sprintf("storage_%s_use_ssl", d.name)),
-			Description: fmt.Sprintf("由存储配置自动同步的 %s 桶", d.label),
-		}
-
-		// OSS 特殊字段
-		if d.name == "oss" {
-			newBucket.AccessKey = getSettingStrFromMap(settings, "storage_oss_access_key_id")
-			newBucket.SecretKey = getSettingStrFromMap(settings, "storage_oss_access_key_secret")
-		}
-		// COS 特殊字段
-		if d.name == "cos" {
-			newBucket.AccessKey = getSettingStrFromMap(settings, "storage_cos_secret_id")
-			newBucket.SecretKey = getSettingStrFromMap(settings, "storage_cos_secret_key")
-			newBucket.Region = getSettingStrFromMap(settings, "storage_cos_region")
-		}
-
-		// AccessKey 完全脱敏，日志中不打印任何 AccessKey 内容
-		ak := "******"
-		if newBucket.AccessKey == "" {
-			ak = "(空)"
-		}
-		log.Printf("[INFO] 同步存储桶: driver=%s, endpoint=%s, bucket=%s, accessKey=%s", d.name, newBucket.Endpoint, newBucket.Bucket, ak)
-
-		if existing != nil {
-			// 更新：保留用户自定义的名称和路径前缀
-			newBucket.ID = existing.ID
-			newBucket.Name = existing.Name
-			newBucket.PathPrefix = existing.PathPrefix
-			newBucket.CreatedAt = existing.CreatedAt
-			if newBucket.Name == "" {
-				newBucket.Name = fmt.Sprintf("%s 默认桶", d.label)
-			}
-			if err := repo.Update(newBucket); err != nil {
-				log.Printf("[ERROR] 更新 %s 默认桶失败: %v", d.name, err)
-			}
-		} else {
-			// 新建
-			newBucket.Name = fmt.Sprintf("%s 默认桶", d.label)
-			if err := repo.Create(newBucket); err != nil {
-				log.Printf("[ERROR] 创建 %s 默认桶失败: %v", d.name, err)
-			} else {
-				log.Printf("[INFO] 已创建 %s 默认桶: %s", d.name, newBucket.Name)
-			}
-		}
-	}
-
-	// 同步本地存储的默认桶
-	localPath := getSettingStrFromMap(settings, "storage_local_path")
-	localExisting, err := repo.GetDefaultByDriver("local")
-	if err != nil && err != gorm.ErrRecordNotFound {
-		log.Printf("[WARN] 查询本地默认桶失败: %v", err)
-	} else if localExisting == nil {
-		// 本地默认桶不存在，创建
-		if err := repo.Create(&model.StorageBucket{
-			Name:        "本地默认存储",
-			Driver:      "local",
-			PathPrefix:  localPath,
-			Purpose:     "file",
-			IsDefault:   true,
-			Status:      1,
-			Description: "系统内置的本地文件存储",
-		}); err != nil {
-			log.Printf("[ERROR] 创建本地默认桶失败: %v", err)
-		}
-	}
-
-	return nil
-}
-
-// getSettingStrFromMap 从设置 map 中获取字符串值（去除 JSON 引号）
-// 自动尝试带 storage_ 前缀和不带前缀两种 key
-func getSettingStrFromMap(settings map[string]string, key string) string {
-	// 先尝试原始 key
-	val, ok := settings[key]
-	if !ok || val == "" {
-		// 尝试去掉 storage_ 前缀
-		altKey := strings.TrimPrefix(key, "storage_")
-		if altKey != key {
-			val, ok = settings[altKey]
-		}
-	}
-	if !ok || val == "" {
-		// 尝试加上 storage_ 前缀
-		if !strings.HasPrefix(key, "storage_") {
-			altKey := "storage_" + key
-			val, ok = settings[altKey]
-		}
-	}
-	if !ok {
-		return ""
-	}
-	val = strings.TrimSpace(val)
-	if len(val) >= 2 && val[0] == '"' && val[len(val)-1] == '"' {
-		val = val[1 : len(val)-1]
-	}
-	return val
-}
-
-// getSettingBoolFromMap 从设置 map 中获取布尔值
-func getSettingBoolFromMap(settings map[string]string, key string) bool {
-	val := getSettingStrFromMap(settings, key)
-	return strings.ToLower(val) == "true"
-}
-
 // GetCredentialsForDriver 从 sys_storage_config 获取指定驱动的连接凭据
 // 优先使用默认配置，没有默认则使用第一个启用的配置
 func GetCredentialsForDriver(driver string) (endpoint, accessKey, secretKey, region, cdnDomain string, useSSL bool) {
@@ -338,7 +156,6 @@ func GetCredentialsForDriver(driver string) (endpoint, accessKey, secretKey, reg
 		return
 	}
 
-	// 先查默认配置
 	var cfg struct {
 		Endpoint  string
 		AccessKey string
@@ -349,8 +166,7 @@ func GetCredentialsForDriver(driver string) (endpoint, accessKey, secretKey, reg
 	}
 	err := db.Raw("SELECT endpoint, access_key, secret_key, region, cdn_domain, use_ssl FROM sys_storage_config WHERE driver = ? AND status = 1 ORDER BY is_default DESC LIMIT 1", driver).Scan(&cfg).Error
 	if err != nil {
-		// 回退到旧的 sys_system_settings
-		return getCredentialsFromSettings(driver)
+		return
 	}
 
 	endpoint = cfg.Endpoint
@@ -359,48 +175,6 @@ func GetCredentialsForDriver(driver string) (endpoint, accessKey, secretKey, reg
 	region = cfg.Region
 	cdnDomain = cfg.CDNDomain
 	useSSL = cfg.UseSSL
-	return
-}
-
-// getCredentialsFromSettings 从旧的 sys_system_settings 获取凭据（兼容回退）
-func getCredentialsFromSettings(driver string) (endpoint, accessKey, secretKey, region, cdnDomain string, useSSL bool) {
-	db := database.GetMySQL()
-	if db == nil {
-		return
-	}
-
-	rows, err := db.Raw("SELECT `key`, value FROM sys_system_settings WHERE group_key = 'storage' AND deleted_at IS NULL").Rows()
-	if err != nil {
-		return
-	}
-	defer rows.Close()
-
-	settings := make(map[string]string)
-	for rows.Next() {
-		var key, value string
-		if err := rows.Scan(&key, &value); err != nil {
-			continue
-		}
-		settings[key] = value
-	}
-
-	endpoint = getSettingStrFromMap(settings, fmt.Sprintf("storage_%s_endpoint", driver))
-	useSSL = getSettingBoolFromMap(settings, fmt.Sprintf("storage_%s_use_ssl", driver))
-	cdnDomain = getSettingStrFromMap(settings, fmt.Sprintf("storage_%s_cdn_domain", driver))
-
-	switch driver {
-	case "oss":
-		accessKey = getSettingStrFromMap(settings, "storage_oss_access_key_id")
-		secretKey = getSettingStrFromMap(settings, "storage_oss_access_key_secret")
-	case "cos":
-		accessKey = getSettingStrFromMap(settings, "storage_cos_secret_id")
-		secretKey = getSettingStrFromMap(settings, "storage_cos_secret_key")
-		region = getSettingStrFromMap(settings, "storage_cos_region")
-	default:
-		accessKey = getSettingStrFromMap(settings, fmt.Sprintf("storage_%s_access_key", driver))
-		secretKey = getSettingStrFromMap(settings, fmt.Sprintf("storage_%s_secret_key", driver))
-	}
-
 	return
 }
 
