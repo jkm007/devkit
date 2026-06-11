@@ -83,7 +83,7 @@ func (h *AuthHandler) getCaptchaSettings() map[string]interface{} {
 		Key   string
 		Value string
 	}
-	db.Raw("SELECT `key`, value FROM sys_system_settings WHERE group_key = ? AND deleted_at IS NULL", "captcha").Scan(&settings)
+	db.Raw("SELECT `key`, `value` FROM sys_system_settings WHERE group_key = ? AND deleted_at IS NULL", "captcha").Scan(&settings)
 
 	result := map[string]interface{}{
 		"enabled": false,
