@@ -18,6 +18,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// streamCopyBuffer 是用于文件流式传输的 buffer 大小（64KB），
+// 较大的 buffer 可以减少系统调用次数，提升大文件传输吞吐量
+const streamCopyBuffer = 64 * 1024
+
 // sanitizeContentDisposition 生成安全的 Content-Disposition 头
 func sanitizeContentDisposition(disposition, fileName string) string {
 	// 对文件名进行 RFC 5987 编码，防止 HTTP 响应头注入
@@ -251,7 +255,7 @@ func (h *MediaHandler) GetHLS(c *gin.Context) {
 	c.Header("Content-Type", contentType)
 	c.Header("Cache-Control", "private, max-age=3600")
 
-	buf := make([]byte, 32*1024)
+	buf := make([]byte, streamCopyBuffer)
 	if _, err := io.CopyBuffer(c.Writer, reader, buf); err != nil {
 		// 记录传输错误（客户端断开连接是正常情况，不记录为错误）
 		if !strings.Contains(err.Error(), "broken pipe") && !strings.Contains(err.Error(), "connection reset") {
@@ -398,7 +402,7 @@ func (h *MediaHandler) ViewFile(c *gin.Context) {
 		c.Status(http.StatusPartialContent)
 
 		// 流式返回部分内容
-		buf := make([]byte, 32*1024) // 32KB buffer
+		buf := make([]byte, streamCopyBuffer)
 		io.CopyBuffer(c.Writer, reader, buf)
 		return
 	}
@@ -415,7 +419,7 @@ func (h *MediaHandler) ViewFile(c *gin.Context) {
 	c.Header("Content-Length", strconv.FormatInt(fileSize, 10))
 
 	// 流式返回文件内容
-	buf := make([]byte, 32*1024) // 32KB buffer
+	buf := make([]byte, streamCopyBuffer)
 	io.CopyBuffer(c.Writer, reader, buf)
 }
 
@@ -645,7 +649,7 @@ func (h *MediaHandler) PreviewFile(c *gin.Context) {
 		c.Header("Content-Length", strconv.FormatInt(length, 10))
 		c.Status(http.StatusPartialContent)
 
-		buf := make([]byte, 32*1024)
+		buf := make([]byte, streamCopyBuffer)
 		io.CopyBuffer(c.Writer, reader, buf)
 		return
 	}
@@ -661,7 +665,7 @@ func (h *MediaHandler) PreviewFile(c *gin.Context) {
 	c.Header("Content-Type", contentType)
 	c.Header("Content-Length", strconv.FormatInt(fileSize, 10))
 
-	buf := make([]byte, 32*1024)
+	buf := make([]byte, streamCopyBuffer)
 	io.CopyBuffer(c.Writer, reader, buf)
 }
 
