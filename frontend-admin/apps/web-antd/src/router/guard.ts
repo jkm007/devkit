@@ -16,17 +16,24 @@ import { generateAccess } from './access';
  */
 function isValidRedirect(url: string): string {
   if (!url) return '';
+  // 二次解码，防止双重编码绕过校验（如 https%253A%252F%252Fevil.com）
+  let decoded = url;
+  try {
+    decoded = decodeURIComponent(url);
+  } catch {
+    // 解码失败则使用原始值，后续校验仍会拦截
+  }
   // 拒绝外部协议（http://, https://, javascript:, data: 等）
-  if (/^(https?:|javascript:|data:|vbscript:)/i.test(url)) {
+  if (/^(https?:|javascript:|data:|vbscript:)/i.test(decoded)) {
     return '';
   }
   // 拒绝协议相对路径（//evil.com）
-  if (url.startsWith('//')) {
+  if (decoded.startsWith('//')) {
     return '';
   }
   // 只允许 / 开头的同源路径
-  if (url.startsWith('/')) {
-    return url;
+  if (decoded.startsWith('/')) {
+    return decoded;
   }
   return '';
 }
