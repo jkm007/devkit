@@ -24,8 +24,6 @@ import {
 } from 'ant-design-vue';
 import { IconifyIcon, Plus } from '@vben/icons';
 import { $t } from '#/locales';
-
-const { hasAccessByCodes } = useAccess();
 import {
   getAllTags,
   createTag,
@@ -39,11 +37,16 @@ import {
   updateRoutingRuleStatus,
   testRoute,
 } from '#/api/system/tag';
-import type { Tag as TagType, TagUsageStat, TagRouting } from '#/api/system/tag';
+import type {
+  Tag as TagType,
+  TagUsageStat,
+  TagRouting,
+} from '#/api/system/tag';
 import { getAllFileTypeRules } from '#/api/system/file-type-rule';
 import { getAllStorageBucketsApi } from '#/api/system/storage-bucket';
 import type { StorageBucketApi } from '#/api/system/storage-bucket';
 
+const { hasAccessByCodes } = useAccess();
 const t = $t;
 
 // 标签管理相关
@@ -144,10 +147,10 @@ const storageBucketOptions = computed(() =>
     .filter((b) => b.status === 1)
     .map((b) => ({
       value: b.id,
-      label: `${b.name} (${b.driver}${b.bucket ? '/' + b.bucket : ''})`,
+      label: `${b.name} (${b.driver}${b.bucket ? `/${b.bucket}` : ''})`,
       driver: b.driver,
       bucket: b.bucket || '',
-    }))
+    })),
 );
 
 // 路由规则相关
@@ -308,7 +311,8 @@ const openRuleModal = (rule?: any) => {
     ruleForm.isDefault = rule.isDefault;
     // 根据 driver 和 bucket 找到匹配的存储桶
     const matchedBucket = storageBuckets.value.find(
-      (b) => b.driver === rule.driver && (b.bucket || '') === (rule.bucket || '')
+      (b) =>
+        b.driver === rule.driver && (b.bucket || '') === (rule.bucket || ''),
     );
     ruleForm.storageBucketId = matchedBucket ? matchedBucket.id : undefined;
   } else {
@@ -345,7 +349,7 @@ const handleStorageBucketChange = (value: any) => {
 // 获取存储桶显示标签
 const getStorageBucketLabel = (driver: string, bucket?: string) => {
   const matched = storageBuckets.value.find(
-    (b) => b.driver === driver && (b.bucket || '') === (bucket || '')
+    (b) => b.driver === driver && (b.bucket || '') === (bucket || ''),
   );
   if (matched) {
     return matched.name;
@@ -368,7 +372,10 @@ const handleRuleSubmit = async () => {
       conditions: { tags: ruleForm.conditions },
     };
     if (ruleEditing.value) {
-      await updateRoutingRule(ruleEditing.value.id, data as Partial<TagRouting>);
+      await updateRoutingRule(
+        ruleEditing.value.id,
+        data as Partial<TagRouting>,
+      );
       message.success('更新成功');
     } else {
       await createRoutingRule(data as Partial<TagRouting>);
@@ -421,7 +428,11 @@ const openTestModal = () => {
 
 const handleTestRoute = async () => {
   try {
-    testResult.value = await testRoute(testForm.fileName, testForm.contentType, testForm.source);
+    testResult.value = await testRoute(
+      testForm.fileName,
+      testForm.contentType,
+      testForm.source,
+    );
   } catch (error: any) {
     message.error(error.message || '测试失败');
   }
@@ -460,7 +471,7 @@ const getFileCount = (tagId: number) => {
 
 // 存储驱动选项（保留用于将来可能的扩展）
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-// @ts-ignore - 暂时未使用
+// @ts-expect-error - 暂时未使用
 const driverOptions = computed(() => [
   { label: t('system.tag.storageLocal'), value: 'local' },
   { label: t('system.tag.storageMinio'), value: 'minio' },
@@ -482,13 +493,15 @@ const tagKeyOptionsForSelect = computed(() => {
   if (fileTypeRules.value.length > 0) {
     keys.add('type');
   }
-  return Array.from(keys).sort().map((key) => ({ label: key, value: key }));
+  return Array.from(keys)
+    .toSorted()
+    .map((key) => ({ label: key, value: key }));
 });
 
 // 标签键选项（用于标签编辑弹框，返回纯字符串数组）
 const tagKeyOptions = computed(() => {
   const keys = new Set(tags.value.map((t) => t.tagKey));
-  return Array.from(keys).sort();
+  return Array.from(keys).toSorted();
 });
 
 // 标签值选项（根据选中的 tagKey 过滤）
@@ -496,14 +509,14 @@ const tagValueOptions = computed(() => {
   if (!tagForm.tagKey) {
     // 如果没有选择 key，显示所有值
     const vals = new Set(tags.value.map((t) => t.tagValue));
-    return Array.from(vals).sort();
+    return Array.from(vals).toSorted();
   }
   // 根据选中的 key 过滤值
   return tags.value
     .filter((t) => t.tagKey === tagForm.tagKey)
     .map((t) => t.tagValue)
     .filter((v, i, a) => a.indexOf(v) === i)
-    .sort();
+    .toSorted();
 });
 
 // 获取指定键的标签值选项
@@ -541,7 +554,11 @@ const getTagValueOptions = (key: string) => {
 
           <div class="mb-4">
             <Space>
-              <Button v-if="hasAccessByCodes(['system:setting:edit'])" type="primary" @click="openTagModal()">
+              <Button
+                v-if="hasAccessByCodes(['system:setting:edit'])"
+                type="primary"
+                @click="openTagModal()"
+              >
                 <Plus class="mr-1" />
                 {{ t('system.tag.addTag') }}
               </Button>
@@ -558,7 +575,9 @@ const getTagValueOptions = (key: string) => {
               <div class="text-center">
                 <div class="text-lg font-bold">{{ key }}</div>
                 <div class="text-2xl text-blue-500">{{ tagList.length }}</div>
-                <div class="text-gray-500 text-sm">{{ t('system.tag.tagList') }}</div>
+                <div class="text-gray-500 text-sm">
+                  {{ t('system.tag.tagList') }}
+                </div>
               </div>
             </Card>
           </div>
@@ -578,17 +597,32 @@ const getTagValueOptions = (key: string) => {
                 <Tag :color="record.color">{{ record.color }}</Tag>
               </template>
               <template v-if="column.dataIndex === 'fileCount'">
-                <Badge :count="getFileCount(record.id)" :number-style="{ backgroundColor: '#52c41a' }" />
+                <Badge
+                  :count="getFileCount(record.id)"
+                  :number-style="{ backgroundColor: '#52c41a' }"
+                />
               </template>
               <template v-if="column.dataIndex === 'isSystem'">
                 <Tag :color="record.isSystem ? 'blue' : 'default'">
-                  {{ record.isSystem ? t('system.tag.systemTag') : t('system.tag.customTag') }}
+                  {{
+                    record.isSystem
+                      ? t('system.tag.systemTag')
+                      : t('system.tag.customTag')
+                  }}
                 </Tag>
               </template>
               <template v-if="column.key === 'action'">
                 <Space>
-                  <Tooltip v-if="hasAccessByCodes(['system:setting:edit'])" :title="t('common.edit')">
-                    <Button type="link" size="small" @click="openTagModal(record)" :disabled="record.isSystem">
+                  <Tooltip
+                    v-if="hasAccessByCodes(['system:setting:edit'])"
+                    :title="t('common.edit')"
+                  >
+                    <Button
+                      type="link"
+                      size="small"
+                      @click="openTagModal(record)"
+                      :disabled="record.isSystem"
+                    >
                       <IconifyIcon icon="mdi:pencil" />
                     </Button>
                   </Tooltip>
@@ -599,7 +633,12 @@ const getTagValueOptions = (key: string) => {
                     :disabled="record.isSystem"
                   >
                     <Tooltip :title="t('common.delete')">
-                      <Button type="link" size="small" danger :disabled="record.isSystem">
+                      <Button
+                        type="link"
+                        size="small"
+                        danger
+                        :disabled="record.isSystem"
+                      >
                         <IconifyIcon icon="mdi:delete" />
                       </Button>
                     </Tooltip>
@@ -620,7 +659,11 @@ const getTagValueOptions = (key: string) => {
 
           <div class="mb-4">
             <Space>
-              <Button v-if="hasAccessByCodes(['system:setting:edit'])" type="primary" @click="openRuleModal()">
+              <Button
+                v-if="hasAccessByCodes(['system:setting:edit'])"
+                type="primary"
+                @click="openRuleModal()"
+              >
                 <Plus class="mr-1" />
                 {{ t('system.tag.addRule') }}
               </Button>
@@ -643,13 +686,20 @@ const getTagValueOptions = (key: string) => {
           >
             <template #bodyCell="{ column, record }">
               <template v-if="column.dataIndex === 'matchType'">
-                <Tag color="blue">{{ record.matchType === 'all' ? t('system.tag.matchAll') : record.matchType === 'any' ? t('system.tag.matchAny') : t('system.tag.matchExact') }}</Tag>
+                <Tag color="blue">{{
+                  record.matchType === 'all'
+                    ? t('system.tag.matchAll')
+                    : record.matchType === 'any'
+                      ? t('system.tag.matchAny')
+                      : t('system.tag.matchExact')
+                }}</Tag>
               </template>
               <template v-if="column.key === 'storage'">
                 {{ getStorageBucketLabel(record.driver, record.bucket) }}
               </template>
               <template v-if="column.key === 'bucket'">
-                {{ record.bucket || '-' }}{{ record.pathPrefix ? `/${record.pathPrefix}` : '' }}
+                {{ record.bucket || '-'
+                }}{{ record.pathPrefix ? `/${record.pathPrefix}` : '' }}
               </template>
               <template v-if="column.dataIndex === 'isDefault'">
                 <Tag :color="record.isDefault ? 'green' : 'default'">
@@ -665,13 +715,24 @@ const getTagValueOptions = (key: string) => {
                   :un-checked-children="t('common.disable')"
                 />
                 <Tag v-else :color="record.status === 1 ? 'green' : 'default'">
-                  {{ record.status === 1 ? t('common.enable') : t('common.disable') }}
+                  {{
+                    record.status === 1
+                      ? t('common.enable')
+                      : t('common.disable')
+                  }}
                 </Tag>
               </template>
               <template v-if="column.key === 'action'">
                 <Space>
-                  <Tooltip v-if="hasAccessByCodes(['system:setting:edit'])" :title="t('common.edit')">
-                    <Button type="link" size="small" @click="openRuleModal(record)">
+                  <Tooltip
+                    v-if="hasAccessByCodes(['system:setting:edit'])"
+                    :title="t('common.edit')"
+                  >
+                    <Button
+                      type="link"
+                      size="small"
+                      @click="openRuleModal(record)"
+                    >
                       <IconifyIcon icon="mdi:pencil" />
                     </Button>
                   </Tooltip>
@@ -682,7 +743,12 @@ const getTagValueOptions = (key: string) => {
                     :disabled="record.isDefault"
                   >
                     <Tooltip :title="t('common.delete')">
-                      <Button type="link" size="small" danger :disabled="record.isDefault">
+                      <Button
+                        type="link"
+                        size="small"
+                        danger
+                        :disabled="record.isDefault"
+                      >
                         <IconifyIcon icon="mdi:delete" />
                       </Button>
                     </Tooltip>
@@ -709,7 +775,10 @@ const getTagValueOptions = (key: string) => {
             :placeholder="t('system.tag.tagKeyPlaceholder')"
             show-search
             allow-clear
-            :filter-option="(input: string, option: any) => option.value.toLowerCase().includes(input.toLowerCase())"
+            :filter-option="
+              (input: string, option: any) =>
+                option.value.toLowerCase().includes(input.toLowerCase())
+            "
           >
             <Select.Option v-for="key in tagKeyOptions" :key="key" :value="key">
               {{ key }}
@@ -722,15 +791,25 @@ const getTagValueOptions = (key: string) => {
             :placeholder="t('system.tag.tagValuePlaceholder')"
             show-search
             allow-clear
-            :filter-option="(input: string, option: any) => option.value.toLowerCase().includes(input.toLowerCase())"
+            :filter-option="
+              (input: string, option: any) =>
+                option.value.toLowerCase().includes(input.toLowerCase())
+            "
           >
-            <Select.Option v-for="val in tagValueOptions" :key="val" :value="val">
+            <Select.Option
+              v-for="val in tagValueOptions"
+              :key="val"
+              :value="val"
+            >
               {{ val }}
             </Select.Option>
           </Select>
         </Form.Item>
         <Form.Item :label="t('system.tag.tagName')" required>
-          <Input v-model:value="tagForm.tagName" :placeholder="t('system.tag.tagNamePlaceholder')" />
+          <Input
+            v-model:value="tagForm.tagName"
+            :placeholder="t('system.tag.tagNamePlaceholder')"
+          />
         </Form.Item>
         <Form.Item :label="t('system.tag.icon')">
           <Select
@@ -738,9 +817,16 @@ const getTagValueOptions = (key: string) => {
             :placeholder="t('system.tag.iconPlaceholder')"
             show-search
             allow-clear
-            :filter-option="(input: string, option: any) => option.value.toLowerCase().includes(input.toLowerCase())"
+            :filter-option="
+              (input: string, option: any) =>
+                option.value.toLowerCase().includes(input.toLowerCase())
+            "
           >
-            <Select.Option v-for="icon in iconOptions" :key="icon.value" :value="icon.value">
+            <Select.Option
+              v-for="icon in iconOptions"
+              :key="icon.value"
+              :value="icon.value"
+            >
               <span class="mr-2" style="font-size: 16px">{{ icon.emoji }}</span>
               {{ icon.label }}
             </Select.Option>
@@ -762,7 +848,9 @@ const getTagValueOptions = (key: string) => {
               }"
               @click="tagForm.color = color"
             >
-              <span v-if="tagForm.color === color" class="text-white text-xs">✓</span>
+              <span v-if="tagForm.color === color" class="text-white text-xs"
+                >✓</span
+              >
             </div>
             <Input
               v-model:value="tagForm.color"
@@ -790,20 +878,32 @@ const getTagValueOptions = (key: string) => {
     >
       <Form :model="ruleForm" layout="vertical">
         <Form.Item :label="t('system.tag.ruleName')" required>
-          <Input v-model:value="ruleForm.ruleName" :placeholder="t('system.tag.ruleNamePlaceholder')" />
+          <Input
+            v-model:value="ruleForm.ruleName"
+            :placeholder="t('system.tag.ruleNamePlaceholder')"
+          />
         </Form.Item>
         <Form.Item :label="t('system.tag.description')">
           <Input.TextArea v-model:value="ruleForm.description" />
         </Form.Item>
         <Form.Item :label="t('system.tag.priority')">
           <InputNumber v-model:value="ruleForm.priority" :min="0" />
-          <span class="ml-2 text-gray-500">{{ t('system.tag.priorityHelp') }}</span>
+          <span class="ml-2 text-gray-500">{{
+            t('system.tag.priorityHelp')
+          }}</span>
         </Form.Item>
         <Form.Item :label="t('system.tag.matchType')">
-          <Select v-model:value="ruleForm.matchType" :options="matchTypeOptions" />
+          <Select
+            v-model:value="ruleForm.matchType"
+            :options="matchTypeOptions"
+          />
         </Form.Item>
         <Form.Item :label="t('system.tag.matchConditions')">
-          <div v-for="(condition, index) in ruleForm.conditions" :key="index" class="mb-2 flex gap-2">
+          <div
+            v-for="(condition, index) in ruleForm.conditions"
+            :key="index"
+            class="mb-2 flex gap-2"
+          >
             <Select
               v-model:value="condition.key"
               :options="tagKeyOptionsForSelect"
@@ -816,7 +916,9 @@ const getTagValueOptions = (key: string) => {
               :placeholder="t('system.tag.tagValueLabel')"
               style="width: 200px"
             />
-            <Button type="link" danger @click="removeCondition(index)">{{ t('common.delete') }}</Button>
+            <Button type="link" danger @click="removeCondition(index)">{{
+              t('common.delete')
+            }}</Button>
           </div>
           <Button type="dashed" @click="addCondition" block>
             <Plus class="mr-1" />
@@ -830,16 +932,24 @@ const getTagValueOptions = (key: string) => {
             :placeholder="t('system.tag.selectStorageBucket')"
             allowClear
             show-search
-            :filter-option="(input: string, option: any) => option.label.toLowerCase().includes(input.toLowerCase())"
+            :filter-option="
+              (input: string, option: any) =>
+                option.label.toLowerCase().includes(input.toLowerCase())
+            "
             @change="handleStorageBucketChange"
           />
         </Form.Item>
         <Form.Item :label="t('system.tag.pathPrefix')">
-          <Input v-model:value="ruleForm.pathPrefix" :placeholder="t('system.tag.pathPrefixPlaceholder')" />
+          <Input
+            v-model:value="ruleForm.pathPrefix"
+            :placeholder="t('system.tag.pathPrefixPlaceholder')"
+          />
         </Form.Item>
         <Form.Item :label="t('system.tag.defaultRule')">
           <Switch v-model:checked="ruleForm.isDefault" />
-          <span class="ml-2 text-gray-500">{{ t('system.tag.setDefaultRuleHelp') }}</span>
+          <span class="ml-2 text-gray-500">{{
+            t('system.tag.setDefaultRuleHelp')
+          }}</span>
         </Form.Item>
       </Form>
     </Modal>
@@ -853,16 +963,28 @@ const getTagValueOptions = (key: string) => {
     >
       <Form :model="testForm" layout="vertical">
         <Form.Item :label="t('system.tag.fileName')" required>
-          <Input v-model:value="testForm.fileName" :placeholder="t('system.tag.fileNamePlaceholder')" />
+          <Input
+            v-model:value="testForm.fileName"
+            :placeholder="t('system.tag.fileNamePlaceholder')"
+          />
         </Form.Item>
         <Form.Item :label="t('system.tag.fileType')">
-          <Input v-model:value="testForm.contentType" :placeholder="t('system.tag.fileTypePlaceholder')" />
+          <Input
+            v-model:value="testForm.contentType"
+            :placeholder="t('system.tag.fileTypePlaceholder')"
+          />
         </Form.Item>
         <Form.Item :label="t('system.tag.source')">
           <Select v-model:value="testForm.source">
-            <Select.Option value="user">{{ t('system.tag.sourceUser') }}</Select.Option>
-            <Select.Option value="system">{{ t('system.tag.sourceSystem') }}</Select.Option>
-            <Select.Option value="import">{{ t('system.tag.sourceImport') }}</Select.Option>
+            <Select.Option value="user">{{
+              t('system.tag.sourceUser')
+            }}</Select.Option>
+            <Select.Option value="system">{{
+              t('system.tag.sourceSystem')
+            }}</Select.Option>
+            <Select.Option value="import">{{
+              t('system.tag.sourceImport')
+            }}</Select.Option>
           </Select>
         </Form.Item>
       </Form>
@@ -870,20 +992,28 @@ const getTagValueOptions = (key: string) => {
       <div v-if="testResult" class="mt-4 p-4 bg-gray-50 rounded">
         <h4 class="mb-2">{{ t('system.tag.testResult') }}:</h4>
         <div class="mb-2">
-          <strong>{{ t('system.tag.matchedRule') }}:</strong> {{ testResult.result?.ruleName || t('system.tag.noMatch') }}
+          <strong>{{ t('system.tag.matchedRule') }}:</strong>
+          {{ testResult.result?.ruleName || t('system.tag.noMatch') }}
         </div>
         <div class="mb-2">
-          <strong>{{ t('system.tag.targetStorage') }}:</strong> {{ testResult.result?.driver }}
+          <strong>{{ t('system.tag.targetStorage') }}:</strong>
+          {{ testResult.result?.driver }}
         </div>
         <div class="mb-2">
-          <strong>{{ t('system.tag.bucketName') }}:</strong> {{ testResult.result?.bucket || '-' }}
+          <strong>{{ t('system.tag.bucketName') }}:</strong>
+          {{ testResult.result?.bucket || '-' }}
         </div>
         <div class="mb-2">
-          <strong>{{ t('system.tag.pathPrefix') }}:</strong> {{ testResult.result?.pathPrefix || '-' }}
+          <strong>{{ t('system.tag.pathPrefix') }}:</strong>
+          {{ testResult.result?.pathPrefix || '-' }}
         </div>
         <div>
           <strong>{{ t('system.tag.autoTags') }}:</strong>
-          <Tag v-for="tag in testResult.tags" :key="`${tag.key}-${tag.value}`" class="ml-1">
+          <Tag
+            v-for="tag in testResult.tags"
+            :key="`${tag.key}-${tag.value}`"
+            class="ml-1"
+          >
             {{ tag.key }}:{{ tag.value }}
           </Tag>
         </div>

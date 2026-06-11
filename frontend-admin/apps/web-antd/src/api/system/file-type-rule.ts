@@ -45,10 +45,7 @@ export function createFileTypeRule(data: Partial<FileTypeRule>) {
  * 更新文件类型规则
  */
 export function updateFileTypeRule(id: number, data: Partial<FileTypeRule>) {
-  return requestClient.put<FileTypeRule>(
-    `/system/file-type-rules/${id}`,
-    data,
-  );
+  return requestClient.put<FileTypeRule>(`/system/file-type-rules/${id}`, data);
 }
 
 /**

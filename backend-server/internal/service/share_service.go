@@ -29,13 +29,13 @@ func NewShareService() *ShareService {
 }
 
 // generateShareCode 生成分享码（128 位，32 字符 hex）
-func generateShareCode() string {
+// crypto/rand 失败时直接返回错误，不使用可预测的时间戳 fallback
+func generateShareCode() (string, error) {
 	b := make([]byte, 16) // 128 bits of entropy
 	if _, err := rand.Read(b); err != nil {
-		// 极小概率失败，fallback 到时间戳
-		return fmt.Sprintf("%x", time.Now().UnixNano())
+		return "", fmt.Errorf("生成分享码失败: %w", err)
 	}
-	return hex.EncodeToString(b)
+	return hex.EncodeToString(b), nil
 }
 
 // CreateFileShare 创建文件分享
@@ -47,9 +47,13 @@ func (s *ShareService) CreateFileShare(userID, fileID uint, expireHours int, max
 	}
 
 	// 创建分享
+	code, err := generateShareCode()
+	if err != nil {
+		return nil, err
+	}
 	share := &model.FileShare{
 		FileID:    fileID,
-		ShareCode: generateShareCode(),
+		ShareCode: code,
 		UserID:    userID,
 		MaxAccess: maxAccess,
 		IsPublic:  true,
@@ -75,9 +79,13 @@ func (s *ShareService) CreateFolderShare(userID, folderID uint, expireHours int,
 		return nil, fmt.Errorf("文件夹不存在或无权分享")
 	}
 
+	code, err := generateShareCode()
+	if err != nil {
+		return nil, err
+	}
 	share := &model.FileShare{
 		FolderID:  folderID,
-		ShareCode: generateShareCode(),
+		ShareCode: code,
 		UserID:    userID,
 		MaxAccess: maxAccess,
 		IsPublic:  true,
@@ -171,12 +179,17 @@ func (s *ShareService) GetShareInfo(code string) (map[string]interface{}, error)
 	return result, nil
 }
 
-// GetShareFolderFiles 获取分享文件夹内的文件列表
-func (s *ShareService) GetShareFolderFiles(folderID uint) ([]map[string]interface{}, error) {
-	// 获取文件夹内所有文件
-	entries, err := s.fileRepo.ListEntriesByFolder(folderID)
+// GetShareFolderFiles 获取分享文件夹内的文件列表（支持分页和搜索）
+func (s *ShareService) GetShareFolderFiles(folderID uint, page, pageSize int, keyword string) ([]map[string]interface{}, int64, error) {
+	// 使用已有的分页查询方法（userID=0 表示不限制用户）
+	filters := map[string]interface{}{}
+	if keyword != "" {
+		filters["keyword"] = keyword
+	}
+
+	entries, total, err := s.fileRepo.ListEntries(0, folderID, page, pageSize, filters)
 	if err != nil {
-		return nil, fmt.Errorf("获取文件列表失败")
+		return nil, 0, fmt.Errorf("获取文件列表失败")
 	}
 
 	files := make([]map[string]interface{}, 0, len(entries))
@@ -195,7 +208,7 @@ func (s *ShareService) GetShareFolderFiles(folderID uint) ([]map[string]interfac
 		files = append(files, file)
 	}
 
-	return files, nil
+	return files, total, nil
 }
 
 // GetFileInFolder 获取文件夹内指定文件信息（验证文件归属）
@@ -329,8 +342,8 @@ type ShareListItem struct {
 }
 
 // GetUserShares 获取用户的分享列表（带文件信息）
-func (s *ShareService) GetUserShares(userID uint, page, pageSize int, viewAll bool) ([]ShareListItem, int64, error) {
-	shares, total, err := s.shareRepo.GetUserSharesWithFile(userID, page, pageSize, viewAll)
+func (s *ShareService) GetUserShares(userID uint, page, pageSize int, viewAll bool, filter *repository.ShareFilterOptions) ([]ShareListItem, int64, error) {
+	shares, total, err := s.shareRepo.GetUserSharesWithFile(userID, page, pageSize, viewAll, filter)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -409,6 +422,11 @@ func (s *ShareService) GetUserShares(userID uint, page, pageSize int, viewAll bo
 	}
 
 	return items, total, nil
+}
+
+// GetShareStatusCounts 获取各状态的分享数量
+func (s *ShareService) GetShareStatusCounts(userID uint, viewAll bool, keyword string) (*repository.ShareStatusCounts, error) {
+	return s.shareRepo.GetShareStatusCounts(userID, viewAll, keyword)
 }
 
 // RenewShare 续签分享（延长过期时间）

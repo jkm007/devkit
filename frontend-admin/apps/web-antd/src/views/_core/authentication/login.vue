@@ -73,10 +73,6 @@ const shouldShowCaptcha = computed(() => {
 
 // 验证码类型判断
 const isNumericCaptcha = computed(() => captchaType.value === 'numeric');
-// @ts-expect-error - 暂时未使用，保留以备将来使用
-const isModalCaptcha = computed(() =>
-  ['slider', 'puzzle', 'rotation', 'point'].includes(captchaType.value),
-);
 
 // ==================== 加载逻辑 ====================
 async function loadSettings() {
@@ -135,7 +131,7 @@ async function fetchNumericCaptcha() {
     if (data && data.captcha_id && data.image) {
       numericCaptchaImage.value = data.image;
       numericCaptchaId.value = data.captcha_id;
-      numericCaptchaLength.value = (data as any).length || 4;
+      numericCaptchaLength.value = data.length || 4;
       captchaVerified.value = false;
       captchaResult.value = null;
     }
@@ -144,12 +140,6 @@ async function fetchNumericCaptcha() {
   } finally {
     numericCaptchaLoading.value = false;
   }
-}
-
-// 打开验证码弹框
-// @ts-expect-error - 暂时未使用，保留以备将来使用
-function openCaptchaModal() {
-  captchaModalVisible.value = true;
 }
 
 // 弹框验证完成（收集到验证码数据，准备提交登录）
@@ -256,7 +246,7 @@ const formSchema = computed((): VbenFormSchema[] => {
 // 执行登录（带验证码数据）
 function doLogin(
   params: Record<string, any>,
-  captchaData?: { captchaId: string; captchaCode: string },
+  captchaData?: { captchaCode: string; captchaId: string; startTime?: number },
 ) {
   const loginParams: Record<string, any> = {
     username: params.username,
@@ -267,7 +257,7 @@ function doLogin(
     loginParams.captchaId = captchaData.captchaId;
     loginParams.captchaCode = captchaData.captchaCode;
     loginParams.captchaType = captchaType.value;
-    loginParams.startTime = (captchaData as any).startTime || 0;
+    loginParams.startTime = captchaData.startTime || 0;
     if (captchaType.value === 'point' && captchaData.captchaCode) {
       loginParams.points = JSON.parse(captchaData.captchaCode);
     }

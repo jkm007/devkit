@@ -1,22 +1,23 @@
 package middleware
 
 import (
+	"sync"
+
 	"backend-server/internal/service"
 	"backend-server/pkg/response"
-	"sync"
 
 	"github.com/gin-gonic/gin"
 )
 
-// 全局单例 AuthService（懒加载模式）
+// AuthService 懒加载单例（使用 sync.Once 确保首次请求时才创建实例）
 var (
 	authServiceInstance *service.AuthService
-	once                sync.Once
+	authServiceOnce     sync.Once
 )
 
-// getAuthService 获取 AuthService 单例（懒加载）
+// getAuthService 获取 AuthService 单例（懒初始化，线程安全）
 func getAuthService() *service.AuthService {
-	once.Do(func() {
+	authServiceOnce.Do(func() {
 		authServiceInstance = service.NewAuthService()
 	})
 	return authServiceInstance

@@ -85,16 +85,16 @@ pnpm add @iconify/json
 
 `packages/@core/base/icons/src/index.ts`:
 
-| 图标集 | 文件 | 用途 |
-|--------|------|------|
-| mdi | mdi.json | Material Design Icons |
-| lucide | lucide.json | Lucide Icons |
-| carbon | carbon.json | Carbon Icons |
-| ant-design | ant-design.json | Ant Design Icons |
-| ion | ion.json | Ionicons |
-| ep | ep.json | Element Plus Icons |
-| charm | charm.json | Charm Icons |
-| fluent-mdl2 | fluent-mdl2.json | Fluent UI Icons |
+| 图标集      | 文件             | 用途                  |
+| ----------- | ---------------- | --------------------- |
+| mdi         | mdi.json         | Material Design Icons |
+| lucide      | lucide.json      | Lucide Icons          |
+| carbon      | carbon.json      | Carbon Icons          |
+| ant-design  | ant-design.json  | Ant Design Icons      |
+| ion         | ion.json         | Ionicons              |
+| ep          | ep.json          | Element Plus Icons    |
+| charm       | charm.json       | Charm Icons           |
+| fluent-mdl2 | fluent-mdl2.json | Fluent UI Icons       |
 
 ### 添加新图标集
 

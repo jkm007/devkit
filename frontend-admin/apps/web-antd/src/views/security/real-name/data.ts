@@ -82,7 +82,9 @@ export function useColumns(): VxeTableGridColumns {
         default: ({ row }: { row: SystemRealNameApi.RealNameApplication }) => {
           const fallback = { color: 'default', key: 'statusPending' };
           const s = statusMap[row.status] ?? fallback;
-          return h(Tag, { color: s.color }, () => $t(`system.realName.${s.key}`));
+          return h(Tag, { color: s.color }, () =>
+            $t(`system.realName.${s.key}`),
+          );
         },
       },
     },

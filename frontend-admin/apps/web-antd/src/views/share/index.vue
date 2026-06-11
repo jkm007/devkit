@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { onMounted, ref, computed } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
@@ -13,6 +13,7 @@ import {
   Spin,
   Table,
 } from 'ant-design-vue';
+import InputSearch from 'ant-design-vue/es/input/Search';
 
 import { getShareInfo, getShareFolderFiles } from '#/api/file';
 
@@ -22,13 +23,15 @@ const route = useRoute();
 const loading = ref(true);
 const shareInfo = ref<any>(null);
 const folderFiles = ref<any[]>([]);
+const folderFilesTotal = ref(0);
 const error = ref('');
 
 const shareCode = route.params.code as string;
 
-// 是否是文件夹分享
-// @ts-expect-error - 暂时未使用，保留以备将来使用
-const isFolderShare = computed(() => shareInfo.value?.type === 'folder');
+// 服务端筛选参数
+const searchText = ref('');
+const searchDebounceTimer = ref<ReturnType<typeof setTimeout> | null>(null);
+const pagination = ref({ current: 1, pageSize: 20 });
 
 async function loadShareInfo() {
   try {
@@ -38,8 +41,7 @@ async function loadShareInfo() {
 
     // 如果是文件夹分享，加载文件列表
     if (result.type === 'folder') {
-      const files = await getShareFolderFiles(shareCode);
-      folderFiles.value = files || [];
+      await loadFolderFiles();
     }
   } catch (err: any) {
     error.value = err.message || '分享不存在或已过期';
@@ -47,6 +49,32 @@ async function loadShareInfo() {
     loading.value = false;
   }
 }
+
+async function loadFolderFiles() {
+  try {
+    const result = await getShareFolderFiles(shareCode, {
+      page: pagination.value.current,
+      pageSize: pagination.value.pageSize,
+      keyword: searchText.value || undefined,
+    });
+    folderFiles.value = result?.items || [];
+    folderFilesTotal.value = result?.total || 0;
+  } catch {
+    folderFiles.value = [];
+    folderFilesTotal.value = 0;
+  }
+}
+
+// 搜索关键词变化时，防抖处理后重新加载
+watch(searchText, () => {
+  if (searchDebounceTimer.value) {
+    clearTimeout(searchDebounceTimer.value);
+  }
+  searchDebounceTimer.value = setTimeout(() => {
+    pagination.value.current = 1;
+    loadFolderFiles();
+  }, 300);
+});
 
 function viewFile(file: any) {
   // 文件夹分享的文件访问 URL
@@ -213,7 +241,7 @@ onMounted(() => {
               shareInfo.folderName
             }}</DescriptionsItem>
             <DescriptionsItem label="文件数"
-              >{{ folderFiles.length }} 个</DescriptionsItem
+              >{{ folderFilesTotal }} 个</DescriptionsItem
             >
             <DescriptionsItem label="分享者">
               <img
@@ -228,13 +256,37 @@ onMounted(() => {
             }}</DescriptionsItem>
           </Descriptions>
 
+          <!-- 搜索栏 -->
+          <div class="mb-4">
+            <InputSearch
+              v-model:value="searchText"
+              placeholder="搜索文件名"
+              allow-clear
+              style="width: 280px"
+            />
+          </div>
+
           <!-- 文件列表 -->
           <Table
             :columns="columns"
             :data-source="folderFiles"
-            :pagination="false"
+            :loading="loading"
+            :pagination="{
+              current: pagination.current,
+              pageSize: pagination.pageSize,
+              total: folderFilesTotal,
+              showSizeChanger: true,
+              showTotal: (total: number) => `共 ${total} 个文件`,
+            }"
             row-key="fileId"
             size="small"
+            @change="
+              (pag: any) => {
+                pagination.current = pag.current;
+                pagination.pageSize = pag.pageSize;
+                loadFolderFiles();
+              }
+            "
           >
             <template #bodyCell="{ column, record }">
               <template v-if="column.key === 'fileSize'">
@@ -257,10 +309,10 @@ onMounted(() => {
           </Table>
 
           <div
-            v-if="folderFiles.length === 0"
+            v-if="!loading && folderFiles.length === 0"
             class="text-center py-4 text-gray-500"
           >
-            文件夹内暂无文件
+            {{ searchText ? '未找到匹配的文件' : '文件夹内暂无文件' }}
           </div>
         </Card>
 

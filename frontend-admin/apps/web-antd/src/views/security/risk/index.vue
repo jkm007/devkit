@@ -56,7 +56,7 @@ async function loadData() {
     scores.value = scoresData;
     stats.value = statsData;
   } catch (e: any) {
-    message.error('获取数据失败：' + (e?.message || '未知错误'));
+    message.error(`获取数据失败：${e?.message || '未知错误'}`);
   } finally {
     loading.value = false;
   }
@@ -72,10 +72,10 @@ async function handleRefresh() {
 async function handleClear(ip: string) {
   try {
     await clearRiskScore(ip);
-    message.success('已清除 ' + ip + ' 的风险评分');
+    message.success(`已清除 ${ip} 的风险评分`);
     await loadData();
   } catch (e: any) {
-    message.error('清除失败：' + (e?.message || '未知错误'));
+    message.error(`清除失败：${e?.message || '未知错误'}`);
   }
 }
 
@@ -220,7 +220,11 @@ onMounted(() => {
 
       <!-- 风险评分列表 -->
       <Card title="风险评分列表">
-        <Table :data-source="scores" :pagination="{ pageSize: 20 }" row-key="ip">
+        <Table
+          :data-source="scores"
+          :pagination="{ pageSize: 20 }"
+          row-key="ip"
+        >
           <TableColumn title="IP 地址" data-index="ip" width="150">
             <template #default="{ record }">
               <span class="font-mono">{{ record.ip }}</span>
@@ -228,7 +232,10 @@ onMounted(() => {
           </TableColumn>
           <TableColumn title="风险分数" data-index="score" width="120" sorter>
             <template #default="{ record }">
-              <Badge :color="getScoreColor(record.score)" :text="record.score" />
+              <Badge
+                :color="getScoreColor(record.score)"
+                :text="record.score"
+              />
             </template>
           </TableColumn>
           <TableColumn title="风险等级" width="100">

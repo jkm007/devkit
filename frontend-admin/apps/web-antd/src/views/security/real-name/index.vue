@@ -73,7 +73,9 @@ function onReject(row: SystemRealNameApi.RealNameApplication) {
     async onOk() {
       if (!reasonRef.value.trim()) {
         message.warning($t('system.realName.rejectReasonPlaceholder'));
-        return Promise.reject();
+        return Promise.reject(
+          new Error($t('system.realName.rejectReasonPlaceholder')),
+        );
       }
       await rejectRealName(row.id, { reason: reasonRef.value });
       message.success($t('system.realName.rejectSuccess'));

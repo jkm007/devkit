@@ -9,6 +9,9 @@ import (
 	"backend-server/internal/repository"
 	"backend-server/pkg/cache"
 	"backend-server/pkg/database"
+	"backend-server/pkg/logger"
+
+	"go.uber.org/zap"
 )
 
 // RoleService 角色服务
@@ -42,7 +45,14 @@ type RoleResponse struct {
 func toRoleResponse(role *model.Role) RoleResponse {
 	var permissions []string
 	if role.Permissions != "" {
-		json.Unmarshal([]byte(role.Permissions), &permissions)
+		// 反序列化角色权限列表
+		if err := json.Unmarshal([]byte(role.Permissions), &permissions); err != nil {
+			logger.Error("角色权限反序列化失败",
+				zap.Uint("role_id", role.ID),
+				zap.String("permissions", role.Permissions),
+				zap.Error(err),
+			)
+		}
 	}
 	if permissions == nil {
 		permissions = []string{}
@@ -243,10 +253,16 @@ func (s *RoleService) Delete(id uint) error {
 	db := database.GetMySQL()
 	if err := db.Where("role_id = ?", id).Delete(&model.UserRole{}).Error; err != nil {
 		// 记录日志但不影响返回（角色已删除）
-		fmt.Printf("清理 UserRole 关联失败: role_id=%d, err=%v\n", id, err)
+		logger.Error("清理 UserRole 关联失败",
+			zap.Uint("role_id", id),
+			zap.Error(err),
+		)
 	}
 	if err := db.Where("role_id = ?", id).Delete(&model.GroupRole{}).Error; err != nil {
-		fmt.Printf("清理 GroupRole 关联失败: role_id=%d, err=%v\n", id, err)
+		logger.Error("清理 GroupRole 关联失败",
+			zap.Uint("role_id", id),
+			zap.Error(err),
+		)
 	}
 
 	return nil

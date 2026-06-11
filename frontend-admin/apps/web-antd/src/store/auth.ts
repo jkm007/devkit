@@ -30,7 +30,8 @@ export const useAuthStore = defineStore('auth', () => {
   const loginLoading = ref(false);
   // 权限版本（内存中，不持久化，用于比对）
   const permissionVersion = ref('');
-  let permissionCheckTimer: ReturnType<typeof setInterval> | null = null;
+  // 权限版本检查定时器（纳入 store state，便于响应式管理和 $reset 时统一清理）
+  const permissionCheckTimer = ref<ReturnType<typeof setInterval> | null>(null);
   let isLoggingOut = false;
 
   /**
@@ -246,16 +247,16 @@ export const useAuthStore = defineStore('auth', () => {
    */
   function startPermissionCheck() {
     stopPermissionCheck();
-    permissionCheckTimer = setInterval(checkPermissionVersion, 30_000);
+    permissionCheckTimer.value = setInterval(checkPermissionVersion, 30_000);
   }
 
   /**
    * 停止权限版本检查
    */
   function stopPermissionCheck() {
-    if (permissionCheckTimer) {
-      clearInterval(permissionCheckTimer);
-      permissionCheckTimer = null;
+    if (permissionCheckTimer.value) {
+      clearInterval(permissionCheckTimer.value);
+      permissionCheckTimer.value = null;
     }
   }
 

@@ -69,7 +69,7 @@ async function handleShow(event?: Event) {
     serverType &&
     ['numeric', 'slider', 'puzzle', 'rotation', 'point'].includes(serverType)
   ) {
-    captchaType.value = serverType as any;
+    captchaType.value = serverType;
   }
   // 没有指定类型时使用默认类型（slider），不调用 getPublicSettings 避免触发验证码守卫
   loadCaptcha();

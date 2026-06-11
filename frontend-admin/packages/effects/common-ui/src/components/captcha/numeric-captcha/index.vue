@@ -93,13 +93,7 @@ function drawCaptcha() {
   for (let i = 0; i < 20; i++) {
     ctx.fillStyle = randomColor(100, 200);
     ctx.beginPath();
-    ctx.arc(
-      Math.random() * width,
-      Math.random() * height,
-      1,
-      0,
-      2 * Math.PI,
-    );
+    ctx.arc(Math.random() * width, Math.random() * height, 1, 0, 2 * Math.PI);
     ctx.fill();
   }
 
@@ -119,7 +113,7 @@ function drawCaptcha() {
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(deg);
-    ctx.fillText(code[i]!, -fontSize / 4, 0);
+    ctx.fillText(code[i] ?? '', -fontSize / 4, 0);
     ctx.restore();
   }
 }
@@ -232,9 +226,7 @@ defineExpose({ refresh, verify });
       <input
         v-model="inputCode"
         :maxlength="charLength"
-        :placeholder="
-          $t('ui.captcha.numericPlaceholder') || '请输入验证码'
-        "
+        :placeholder="$t('ui.captcha.numericPlaceholder') || '请输入验证码'"
         class="h-10 w-28 rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary"
         @keyup.enter="verify"
       />

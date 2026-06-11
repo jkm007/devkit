@@ -214,13 +214,17 @@ watch(previewVisible, (newVal) => {
   }
 });
 
-// 监听上传任务数量变化，自动刷新表格（新增/移除任务时）
+/** 标记：下次 query 仅使用缓存数据重新合并，不发起后端请求 */
+const useCachedQuery = ref(false);
+
+// 监听上传任务数量变化，仅更新本地合并结果，不触发后端请求
 // 进度更新不需要刷新 — uploadTask 是 Pinia 响应式引用，模板自动更新
 watch(
   () => uploadTasks.value.length,
   (newLen, oldLen) => {
     if (newLen !== (oldLen ?? 0)) {
-      onRefresh();
+      useCachedQuery.value = true;
+      gridApi.query();
     }
   },
 );
@@ -356,6 +360,12 @@ const [Grid, gridApi] = useVbenVxeGrid({
     proxyConfig: {
       ajax: {
         query: async ({ page }) => {
+          // 上传任务变化时，仅使用缓存数据重新合并，不发起后端请求
+          if (useCachedQuery.value) {
+            useCachedQuery.value = false;
+            return mergeWithUploadTasks(lastApiResult.value);
+          }
+
           const result = await listFiles({
             folderId: currentFolderId.value ?? undefined,
             page: page.currentPage,
@@ -488,13 +498,13 @@ function showFolderMenu(nodeData: FolderTreeNode) {
 
 function folderMenuAction(action: string) {
   folderMenuVisible.value = false;
-  if (action === 'new') openNewFolderModal(folderMenuId.value!);
+  if (action === 'new') openNewFolderModal(folderMenuId.value ?? 0);
   else if (action === 'rename')
-    openRenameFolderModal(folderMenuId.value!, folderMenuName.value);
+    openRenameFolderModal(folderMenuId.value ?? 0, folderMenuName.value);
   else if (action === 'delete')
-    openDeleteFolderModal(folderMenuId.value!, folderMenuName.value);
+    openDeleteFolderModal(folderMenuId.value ?? 0, folderMenuName.value);
   else if (action === 'share')
-    openFolderShareModal(folderMenuId.value!, folderMenuName.value);
+    openFolderShareModal(folderMenuId.value ?? 0, folderMenuName.value);
 }
 
 function openFolderShareModal(id: number, name: string) {
@@ -507,7 +517,7 @@ function openFolderShareModal(id: number, name: string) {
 
 async function confirmFolderShare() {
   try {
-    const result = await createFolderShare(folderShareId.value!, {
+    const result = await createFolderShare(folderShareId.value ?? 0, {
       expireHours: folderShareExpireHours.value || undefined,
     });
     folderShareResult.value = result;
@@ -562,7 +572,7 @@ async function handleRenameFolder() {
     return;
   }
   try {
-    await renameFolder(renameFolderId.value!, {
+    await renameFolder(renameFolderId.value ?? 0, {
       name: renameFolderName.value.trim(),
     });
     message.success('重命名成功');
@@ -581,7 +591,7 @@ function openDeleteFolderModal(id: number, name: string) {
 
 async function handleDeleteFolder() {
   try {
-    await deleteFolder(deleteFolderId.value!);
+    await deleteFolder(deleteFolderId.value ?? 0);
     message.success('删除成功');
     deleteFolderModalVisible.value = false;
     if (currentFolderId.value === deleteFolderId.value)
@@ -604,7 +614,7 @@ function openMoveFileModal(id: number) {
 async function handleMoveFile() {
   try {
     await moveFile({
-      fileId: moveFileId.value!,
+      fileId: moveFileId.value ?? 0,
       targetFolderId: moveTargetFolderId.value || undefined,
     });
     message.success('移动成功');
@@ -919,7 +929,7 @@ async function confirmShare() {
   }
   shareLoading.value = true;
   try {
-    const result = await createFileShare(shareFileId.value!, {
+    const result = await createFileShare(shareFileId.value ?? 0, {
       expireHours: shareExpireHours.value || undefined,
     });
     shareResult.value = { ...result };
@@ -945,7 +955,9 @@ async function handleUpload(file: File) {
   try {
     await uploadStore.uploadFile(file, currentFolderId.value ?? undefined);
     message.success(`${file.name} 上传成功`);
-    onRefresh();
+    // 不调用 onRefresh()，上传任务变化由 watcher 通过本地合并更新表格，
+    // 避免触发全表加载状态和多余的后端请求。
+    // 新文件会在用户手动刷新时出现。
   } catch (err) {
     message.error(`上传失败: ${err}`);
   }

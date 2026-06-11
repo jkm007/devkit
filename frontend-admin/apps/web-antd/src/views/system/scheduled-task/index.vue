@@ -12,11 +12,14 @@ import {
   InputNumber,
   message,
   Modal,
+  Select,
+  SelectOption,
   Space,
   Switch,
   Table,
   Tooltip,
 } from 'ant-design-vue';
+import type { ColumnType } from 'ant-design-vue/es/table/interface';
 
 import {
   createScheduledTask,
@@ -26,9 +29,18 @@ import {
   updateScheduledTask,
   updateScheduledTaskEnabled,
 } from '#/api/system/scheduled-task';
-import type { ScheduledTask } from '#/api/system/scheduled-task';
+import type { ScheduledTask, TaskConfig } from '#/api/system/scheduled-task';
 
 defineOptions({ name: 'SystemScheduledTask' });
+
+/**
+ * 将 Table bodyCell slot 中的 record 安全转换为 ScheduledTask
+ * ant-design-vue 的 bodyCell slot 将 record 类型定义为 Record<string, any>，
+ * 实际运行时 record 即为 ScheduledTask 实例，此处通过 unknown 做安全类型收窄
+ */
+function toTask(record: Record<string, unknown>): ScheduledTask {
+  return record as unknown as ScheduledTask;
+}
 
 // ==================== 状态 ====================
 
@@ -53,7 +65,7 @@ const createForm = ref({
 
 // ==================== 表格列定义 ====================
 
-const columns = [
+const columns: ColumnType<ScheduledTask>[] = [
   {
     title: '任务名称',
     dataIndex: 'name',
@@ -80,10 +92,11 @@ const columns = [
     title: '配置',
     dataIndex: 'config',
     width: 200,
-    customRender: ({ text }: { text: Record<string, any> }) => {
+    customRender: ({ text }: { text: TaskConfig }) => {
       if (!text) return '-';
       const parts = [];
-      if (text.retention_days !== undefined) parts.push(`保留 ${text.retention_days} 天`);
+      if (text.retention_days !== undefined)
+        parts.push(`保留 ${text.retention_days} 天`);
       return parts.join(', ') || '-';
     },
   },
@@ -120,7 +133,8 @@ const columns = [
     title: '最后执行',
     dataIndex: 'lastRunAt',
     width: 180,
-    customRender: ({ text }: { text: string }) => text ? new Date(text).toLocaleString('zh-CN') : '-',
+    customRender: ({ text }: { text: string }) =>
+      text ? new Date(text).toLocaleString('zh-CN') : '-',
   },
   {
     title: '最后结果',
@@ -135,7 +149,8 @@ const columns = [
     title: '下次执行',
     dataIndex: 'nextRunAt',
     width: 180,
-    customRender: ({ text }: { text: string }) => text ? new Date(text).toLocaleString('zh-CN') : '-',
+    customRender: ({ text }: { text: string }) =>
+      text ? new Date(text).toLocaleString('zh-CN') : '-',
   },
   {
     title: '操作',
@@ -195,8 +210,8 @@ async function handleSaveEdit() {
     message.success('保存成功');
     editModalVisible.value = false;
     loadData();
-  } catch (err: any) {
-    message.error(err.message || '保存失败');
+  } catch (err: unknown) {
+    message.error(err instanceof Error ? err.message : '保存失败');
   }
 }
 
@@ -266,8 +281,8 @@ async function handleSaveCreate() {
     message.success('创建成功');
     createModalVisible.value = false;
     loadData();
-  } catch (err: any) {
-    message.error(err.message || '创建失败');
+  } catch (err: unknown) {
+    message.error(err instanceof Error ? err.message : '创建失败');
   }
 }
 
@@ -294,12 +309,14 @@ onMounted(() => {
       <Card class="mb-4">
         <div class="flex items-center justify-between">
           <div class="text-sm text-gray-600">
-            <p class="mb-2"><strong>定时任务管理</strong> - 配置系统自动执行的任务</p>
-            <p>Cron 表达式格式：分 时 日 月 周（例：0 3 * * * = 每天凌晨 3:00）</p>
+            <p class="mb-2">
+              <strong>定时任务管理</strong> - 配置系统自动执行的任务
+            </p>
+            <p>
+              Cron 表达式格式：分 时 日 月 周（例：0 3 * * * = 每天凌晨 3:00）
+            </p>
           </div>
-          <Button type="primary" @click="handleCreate">
-            新增任务
-          </Button>
+          <Button type="primary" @click="handleCreate"> 新增任务 </Button>
         </div>
       </Card>
 
@@ -316,15 +333,20 @@ onMounted(() => {
           <!-- 启用状态列 -->
           <template v-if="column.dataIndex === 'enabled'">
             <Switch
-              :checked="(record as any).enabled"
-              @change="() => handleToggleEnabled(record as any)"
+              :checked="toTask(record).enabled"
+              @change="() => handleToggleEnabled(toTask(record))"
             />
           </template>
 
           <!-- 最后结果列 -->
           <template v-if="column.dataIndex === 'lastResult'">
-            <Tooltip v-if="(record as any).lastResult" :title="(record as any).lastResult">
-              <span class="truncate max-w-[180px] block">{{ (record as any).lastResult }}</span>
+            <Tooltip
+              v-if="toTask(record).lastResult"
+              :title="toTask(record).lastResult"
+            >
+              <span class="truncate max-w-[180px] block">{{
+                toTask(record).lastResult
+              }}</span>
             </Tooltip>
             <span v-else class="text-gray-400">-</span>
           </template>
@@ -332,13 +354,26 @@ onMounted(() => {
           <!-- 操作列 -->
           <template v-if="column.dataIndex === 'action'">
             <Space>
-              <Button type="link" size="small" @click="handleEdit(record as any)">
+              <Button
+                type="link"
+                size="small"
+                @click="handleEdit(toTask(record))"
+              >
                 编辑
               </Button>
-              <Button type="link" size="small" @click="handleRun(record as any)">
+              <Button
+                type="link"
+                size="small"
+                @click="handleRun(toTask(record))"
+              >
                 立即执行
               </Button>
-              <Button type="link" size="small" danger @click="handleDelete(record as any)">
+              <Button
+                type="link"
+                size="small"
+                danger
+                @click="handleDelete(toTask(record))"
+              >
                 删除
               </Button>
             </Space>
@@ -354,7 +389,11 @@ onMounted(() => {
       @ok="handleSaveEdit"
       width="600px"
     >
-      <Form v-if="editTask" :label-col="{ span: 6 }" :wrapper-col="{ span: 16 }">
+      <Form
+        v-if="editTask"
+        :label-col="{ span: 6 }"
+        :wrapper-col="{ span: 16 }"
+      >
         <FormItem label="任务名称">
           <Input v-model:value="editForm.name" />
         </FormItem>
@@ -363,7 +402,11 @@ onMounted(() => {
           <Input v-model:value="editForm.cronExpr" placeholder="0 3 * * *" />
           <div class="mt-2 text-xs text-gray-500">
             <p class="mb-1">常用表达式：</p>
-            <div v-for="example in cronExamples" :key="example.expr" class="flex items-center gap-2 mb-1">
+            <div
+              v-for="example in cronExamples"
+              :key="example.expr"
+              class="flex items-center gap-2 mb-1"
+            >
               <code
                 class="px-2 py-0.5 bg-gray-100 rounded cursor-pointer hover:bg-gray-200"
                 @click="editForm.cronExpr = example.expr"
@@ -375,9 +418,18 @@ onMounted(() => {
           </div>
         </FormItem>
 
-        <FormItem v-if="editTask.taskType === 'recycle_cleanup'" label="保留天数">
-          <InputNumber v-model:value="editForm.retentionDays" :min="1" :max="365" />
-          <span class="ml-2 text-gray-500">天（超过此天数的文件将被自动清理）</span>
+        <FormItem
+          v-if="editTask.taskType === 'recycle_cleanup'"
+          label="保留天数"
+        >
+          <InputNumber
+            v-model:value="editForm.retentionDays"
+            :min="1"
+            :max="365"
+          />
+          <span class="ml-2 text-gray-500"
+            >天（超过此天数的文件将被自动清理）</span
+          >
         </FormItem>
       </Form>
     </Modal>
@@ -394,17 +446,22 @@ onMounted(() => {
           <Input v-model:value="createForm.name" placeholder="请输入任务名称" />
         </FormItem>
 
+        <!-- 任务类型：使用 Ant Design Select 替换原生 select -->
         <FormItem label="任务类型">
-          <select v-model="createForm.taskType" class="w-full border rounded px-3 py-1.5">
-            <option value="recycle_cleanup">回收站清理</option>
-          </select>
+          <Select v-model:value="createForm.taskType">
+            <SelectOption value="recycle_cleanup">回收站清理</SelectOption>
+          </Select>
         </FormItem>
 
         <FormItem label="Cron 表达式">
           <Input v-model:value="createForm.cronExpr" placeholder="0 3 * * *" />
           <div class="mt-2 text-xs text-gray-500">
             <p class="mb-1">常用表达式：</p>
-            <div v-for="example in cronExamples" :key="example.expr" class="flex items-center gap-2 mb-1">
+            <div
+              v-for="example in cronExamples"
+              :key="example.expr"
+              class="flex items-center gap-2 mb-1"
+            >
               <code
                 class="px-2 py-0.5 bg-gray-100 rounded cursor-pointer hover:bg-gray-200"
                 @click="createForm.cronExpr = example.expr"
@@ -416,9 +473,18 @@ onMounted(() => {
           </div>
         </FormItem>
 
-        <FormItem v-if="createForm.taskType === 'recycle_cleanup'" label="保留天数">
-          <InputNumber v-model:value="createForm.retentionDays" :min="1" :max="365" />
-          <span class="ml-2 text-gray-500">天（超过此天数的文件将被自动清理）</span>
+        <FormItem
+          v-if="createForm.taskType === 'recycle_cleanup'"
+          label="保留天数"
+        >
+          <InputNumber
+            v-model:value="createForm.retentionDays"
+            :min="1"
+            :max="365"
+          />
+          <span class="ml-2 text-gray-500"
+            >天（超过此天数的文件将被自动清理）</span
+          >
         </FormItem>
       </Form>
     </Modal>

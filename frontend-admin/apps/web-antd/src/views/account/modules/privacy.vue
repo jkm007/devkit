@@ -75,7 +75,9 @@ async function handleSavePrivacy() {
 
 // ==================== 实名认证 ====================
 const realNameLoading = ref(false);
-const realNameStatus = ref<AccountApi.RealNameStatus>({} as AccountApi.RealNameStatus);
+const realNameStatus = ref<AccountApi.RealNameStatus>(
+  {} as AccountApi.RealNameStatus,
+);
 const submitting = ref(false);
 const realNameForm = ref({
   realName: '',
@@ -118,7 +120,9 @@ function getStatusTag(status: number) {
     2: { color: 'processing', text: $t('account.privacy.pending') },
     3: { color: 'error', text: $t('account.privacy.rejected') },
   };
-  return map[status] || { color: 'default', text: $t('account.privacy.notVerified') };
+  return (
+    map[status] || { color: 'default', text: $t('account.privacy.notVerified') }
+  );
 }
 
 onMounted(() => {
@@ -131,7 +135,9 @@ onMounted(() => {
   <div class="space-y-6">
     <!-- 隐私设置 -->
     <div>
-      <h3 class="mb-4 text-base font-medium">{{ $t('account.privacy.privacySettings') }}</h3>
+      <h3 class="mb-4 text-base font-medium">
+        {{ $t('account.privacy.privacySettings') }}
+      </h3>
       <div v-loading="privacyLoading">
         <Form layout="vertical" :model="privacyForm">
           <Row :gutter="16">
@@ -206,7 +212,11 @@ onMounted(() => {
             </Col>
           </Row>
           <FormItem>
-            <Button type="primary" :loading="privacySaving" @click="handleSavePrivacy">
+            <Button
+              type="primary"
+              :loading="privacySaving"
+              @click="handleSavePrivacy"
+            >
               {{ $t('account.profile.save') }}
             </Button>
           </FormItem>
@@ -216,10 +226,16 @@ onMounted(() => {
 
     <!-- 实名认证 -->
     <div>
-      <h3 class="mb-4 text-base font-medium">{{ $t('account.privacy.realName') }}</h3>
+      <h3 class="mb-4 text-base font-medium">
+        {{ $t('account.privacy.realName') }}
+      </h3>
       <div v-loading="realNameLoading">
         <!-- 已有认证状态 -->
-        <div v-if="realNameStatus.status !== undefined && realNameStatus.status !== 0">
+        <div
+          v-if="
+            realNameStatus.status !== undefined && realNameStatus.status !== 0
+          "
+        >
           <Descriptions bordered :column="1">
             <DescriptionsItem :label="$t('account.privacy.realNameStatus')">
               <Tag :color="getStatusTag(realNameStatus.status).color">
@@ -242,7 +258,9 @@ onMounted(() => {
               v-if="realNameStatus.rejectReason"
               :label="$t('account.privacy.rejectReason')"
             >
-              <span class="text-red-500">{{ realNameStatus.rejectReason }}</span>
+              <span class="text-red-500">{{
+                realNameStatus.rejectReason
+              }}</span>
             </DescriptionsItem>
           </Descriptions>
 
@@ -268,7 +286,11 @@ onMounted(() => {
                 </Col>
               </Row>
               <FormItem>
-                <Button type="primary" :loading="submitting" @click="handleSubmitRealName">
+                <Button
+                  type="primary"
+                  :loading="submitting"
+                  @click="handleSubmitRealName"
+                >
                   {{ $t('account.privacy.submitRealName') }}
                 </Button>
               </FormItem>
@@ -298,7 +320,11 @@ onMounted(() => {
               </Col>
             </Row>
             <FormItem>
-              <Button type="primary" :loading="submitting" @click="handleSubmitRealName">
+              <Button
+                type="primary"
+                :loading="submitting"
+                @click="handleSubmitRealName"
+              >
                 {{ $t('account.privacy.submitRealName') }}
               </Button>
             </FormItem>

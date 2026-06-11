@@ -23,6 +23,7 @@ import (
 	"backend-server/pkg/jwt"
 	"backend-server/pkg/logger"
 
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -376,11 +377,18 @@ func (s *AuthService) generateLoginResponse(user *model.User, clientIP string) (
 		return nil, err
 	}
 
-	// 存储 RefreshToken 哈希到 Redis
-	rdb := database.GetRedis()
-	if err := rdb.Set(context.Background(), fmt.Sprintf("refresh_token:%d", user.ID), hashToken(tokenPair.RefreshToken), 30*24*time.Hour).Err(); err != nil {
+	// 存储 RefreshToken 哈希到 Redis（使用 Lua 脚本确保存储原子性，避免与并发 Refresh 操作产生竞态）
+	ctx := context.Background()
+	refreshCacheKey := fmt.Sprintf("refresh_token:%d", user.ID)
+	refreshTTLSeconds := int((30 * 24 * time.Hour).Seconds())
+	storeResult, err := storeRefreshTokenLuaScript.Run(ctx, database.GetRedis(), []string{refreshCacheKey}, hashToken(tokenPair.RefreshToken), refreshTTLSeconds).Int()
+	if err != nil {
 		logger.Error("存储 RefreshToken 失败", zap.Error(err))
 		return nil, errors.New("系统错误，请稍后重试")
+	}
+	if storeResult == 0 {
+		// 覆盖了已有 RefreshToken，可能是因为并发登录或 Token 轮换冲突
+		logger.Warn("登录时覆盖已有 RefreshToken", zap.Uint("userID", user.ID))
 	}
 
 	// 更新用户最后登录信息
@@ -416,21 +424,13 @@ func (s *AuthService) generateLoginResponse(user *model.User, clientIP string) (
 }
 
 // RefreshToken 刷新 AccessToken（带 Token 轮换）
-// 验证 RefreshToken 哈希，通过后生成新的 AccessToken + RefreshToken
+// 使用 Lua 脚本原子性完成：验证旧哈希 → 替换为新哈希
+// 并发刷新请求只有一个能成功，其余自动失败（防止 Token 重放攻击）
 func (s *AuthService) RefreshToken(userID uint, refreshToken string) (*TokenRefreshResponse, error) {
 	ctx := context.Background()
 	cacheKey := fmt.Sprintf("refresh_token:%d", userID)
 
-	// 1. 验证 Redis 中的 RefreshToken 哈希
-	storedHash, err := database.GetRedis().Get(ctx, cacheKey).Result()
-	if err != nil {
-		return nil, errors.New("refresh token expired or not found")
-	}
-	if storedHash != hashToken(refreshToken) {
-		return nil, errors.New("refresh token mismatch")
-	}
-
-	// 2. 获取用户信息和角色
+	// 1. 获取用户信息和角色（在原子操作之前，减少 Lua 脚本执行时间）
 	user, err := s.userRepo.GetByID(userID)
 	if err != nil {
 		return nil, err
@@ -452,15 +452,35 @@ func (s *AuthService) RefreshToken(userID uint, refreshToken string) (*TokenRefr
 		}
 	}
 
-	// 3. 生成新的 Token 对（轮换，包含所有角色）
+	// 2. 生成新的 Token 对（轮换，包含所有角色）
 	tokenPair, err := jwt.Generate(user.ID, user.Name, roleNames)
 	if err != nil {
 		return nil, err
 	}
 
-	// 4. 用新 RefreshToken 哈希覆盖旧的（旧的自动失效）
-	if err := database.GetRedis().Set(ctx, cacheKey, hashToken(tokenPair.RefreshToken), 30*24*time.Hour).Err(); err != nil {
-		logger.Error("更新 RefreshToken 失败", zap.Error(err))
+	// 3. 使用 Lua 脚本原子性地验证旧哈希并替换为新哈希
+	//    这确保了 READ-VERIFY-WRITE 的原子性，避免 TOCTOU 竞态条件
+	oldHash := hashToken(refreshToken)
+	newHash := hashToken(tokenPair.RefreshToken)
+	ttlSeconds := int((30 * 24 * time.Hour).Seconds())
+
+	result, err := refreshTokenLuaScript.Run(ctx, database.GetRedis(), []string{cacheKey}, oldHash, newHash, ttlSeconds).Int()
+	if err != nil {
+		logger.Error("原子性更新 RefreshToken 失败", zap.Error(err))
+		return nil, errors.New("系统错误，请稍后重试")
+	}
+
+	switch result {
+	case 1:
+		// 成功：旧哈希匹配，已原子替换为新哈希
+	case 0:
+		// 哈希不匹配：可能已被并发请求使用（Token 重放），或被篡改
+		return nil, errors.New("refresh token mismatch")
+	case -1:
+		// Key 不存在：RefreshToken 已过期或已登出
+		return nil, errors.New("refresh token expired or not found")
+	default:
+		logger.Error("Lua 脚本返回未知结果", zap.Int("result", result))
 		return nil, errors.New("系统错误，请稍后重试")
 	}
 
@@ -481,6 +501,42 @@ func hashToken(token string) string {
 	h := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(h[:])
 }
+
+// refreshTokenLuaScript 原子性刷新 RefreshToken 的 Lua 脚本
+// 功能：读取存储的哈希 → 与旧哈希比较 → 匹配则原子替换为新哈希 → 返回结果
+// 避免 TOCTOU 竞态：并发刷新请求只有一个能成功，其余自动失效
+// KEYS[1] = refresh_token:{userID}
+// ARGV[1] = 旧 refresh token 哈希
+// ARGV[2] = 新 refresh token 哈希
+// ARGV[3] = 过期时间（秒）
+// 返回: 1 = 成功, 0 = 哈希不匹配, -1 = key 不存在
+var refreshTokenLuaScript = redis.NewScript(`
+local stored = redis.call('GET', KEYS[1])
+if not stored then
+	return -1
+end
+if stored ~= ARGV[1] then
+	return 0
+end
+redis.call('SETEX', KEYS[1], tonumber(ARGV[3]), ARGV[2])
+return 1
+`)
+
+// storeRefreshTokenLuaScript 原子性存储 RefreshToken 的 Lua 脚本
+// 功能：检查 key 是否已存在 → 原子性地写入新哈希并设置过期时间
+// 登录场景下新会话覆盖旧会话，通过 EXISTS 检测是否覆盖了已有值
+// KEYS[1] = refresh_token:{userID}
+// ARGV[1] = refresh token 哈希
+// ARGV[2] = 过期时间（秒）
+// 返回: 1 = 新存储, 0 = 覆盖已有值
+var storeRefreshTokenLuaScript = redis.NewScript(`
+local existed = redis.call('EXISTS', KEYS[1])
+redis.call('SETEX', KEYS[1], tonumber(ARGV[2]), ARGV[1])
+if existed == 1 then
+	return 0
+end
+return 1
+`)
 
 // collectRoleNames 收集用户的所有角色名称（直接 + 分组继承）
 func (s *AuthService) collectRoleNames(user *model.User) ([]string, error) {
@@ -609,31 +665,17 @@ func (s *AuthService) loadPermissionCodesFromDB(userID uint) ([]string, error) {
 		if role.Permissions == "" {
 			continue
 		}
+		// 权限码统一使用 JSON 数组格式，如 ["system:user:view","system:user:add"]
 		var codes []string
-		// 清理 JSON 字符串（去除 BOM 和不可见字符）
-		cleanPerms := strings.TrimSpace(role.Permissions)
-		// 去除 UTF-8 BOM（如果存在）
-		if len(cleanPerms) >= 3 && cleanPerms[0] == 0xEF && cleanPerms[1] == 0xBB && cleanPerms[2] == 0xBF {
-			cleanPerms = cleanPerms[3:]
+		if err := json.Unmarshal([]byte(role.Permissions), &codes); err != nil {
+			logger.Warn("角色权限码格式错误，跳过该角色",
+				zap.Uint("roleID", role.ID),
+				zap.String("permissions", role.Permissions),
+				zap.Error(err))
+			continue
 		}
-		// 调试日志：打印原始数据长度
-		fmt.Printf("[auth] 解析角色权限: role=%s, raw_len=%d, clean_len=%d\n", role.Name, len(role.Permissions), len(cleanPerms))
-		if err := json.Unmarshal([]byte(cleanPerms), &codes); err == nil {
-			fmt.Printf("[auth] JSON 解析成功: codes_count=%d, 前10个=%v\n", len(codes), codes[:min(10, len(codes))])
-			for _, code := range codes {
-				codeSet[code] = true
-			}
-		} else {
-			// 兼容逗号分隔格式（仅在 JSON 解析失败时使用）
-			fmt.Printf("[auth] JSON 解析失败，使用逗号分隔格式: role=%s, err=%v, perms_len=%d\n", role.Name, err, len(cleanPerms))
-			for _, code := range strings.Split(cleanPerms, ",") {
-				code = strings.TrimSpace(code)
-				// 去除可能的引号和方括号
-				code = strings.Trim(code, "[]\"' ")
-				if code != "" {
-					codeSet[code] = true
-				}
-			}
+		for _, code := range codes {
+			codeSet[code] = true
 		}
 	}
 
@@ -825,14 +867,16 @@ func (s *AuthService) RecordSecurityLog(userID uint, eventType, detail, ip, user
 }
 
 // UpdateProfileRequest 更新个人资料请求
+// Gender 和 Bio 使用指针类型，以区分「用户显式设置零值」和「用户未提供该字段」。
+// nil 表示未提供（不更新），非 nil 表示显式设置（即使是零值也会更新）。
 type UpdateProfileRequest struct {
-	Nickname string `json:"nickname"`
-	Email    string `json:"email"`
-	Phone    string `json:"phone"`
-	Gender   int    `json:"gender"`
-	Birthday string `json:"birthday"`
-	Bio      string `json:"bio"`
-	Avatar   string `json:"avatar"`
+	Nickname string  `json:"nickname"`
+	Email    string  `json:"email"`
+	Phone    string  `json:"phone"`
+	Gender   *int    `json:"gender"`   // nil=不更新, 非nil=显式设置（0=未知 1=男 2=女）
+	Birthday string  `json:"birthday"`
+	Bio      *string `json:"bio"`      // nil=不更新, 非nil=显式设置（包括清空）
+	Avatar   string  `json:"avatar"`
 }
 
 // validateAvatarURL 验证头像 URL 格式（只允许相对路径或本站 URL）
@@ -868,16 +912,16 @@ func (s *AuthService) UpdateProfile(userID uint, req *UpdateProfileRequest) erro
 	if req.Phone != "" {
 		user.Phone = req.Phone
 	}
-	if req.Gender != 0 {
-		user.Gender = req.Gender
+	if req.Gender != nil {
+		user.Gender = *req.Gender
 	}
 	if req.Birthday != "" {
 		if t, err := time.Parse("2006-01-02", req.Birthday); err == nil {
 			user.Birthday = &t
 		}
 	}
-	if req.Bio != "" {
-		user.Bio = req.Bio
+	if req.Bio != nil {
+		user.Bio = *req.Bio
 	}
 	if req.Avatar != "" {
 		if !validateAvatarURL(req.Avatar) {

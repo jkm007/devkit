@@ -134,18 +134,29 @@ export function updateRoutingRuleStatus(id: number, status: number) {
 }
 
 export function updateRoutingRulePriority(id: number, priority: number) {
-  return requestClient.put(`/system/routing-rules/${id}/priority`, { priority });
+  return requestClient.put(`/system/routing-rules/${id}/priority`, {
+    priority,
+  });
 }
 
 export function batchUpdatePriority(priorities: Record<number, number>) {
-  return requestClient.post('/system/routing-rules/batch-priority', { priorities });
+  return requestClient.post('/system/routing-rules/batch-priority', {
+    priorities,
+  });
 }
 
 export function testRoutingRule(id: number, tags: TagCondition[]) {
-  return requestClient.post<{ matched: boolean }>(`/system/routing-rules/${id}/test`, { tags });
+  return requestClient.post<{ matched: boolean }>(
+    `/system/routing-rules/${id}/test`,
+    { tags },
+  );
 }
 
-export function testRoute(fileName: string, contentType: string, source: string) {
+export function testRoute(
+  fileName: string,
+  contentType: string,
+  source: string,
+) {
   return requestClient.post('/system/routing-rules/test-route', {
     fileName,
     contentType,

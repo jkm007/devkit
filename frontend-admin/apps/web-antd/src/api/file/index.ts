@@ -175,11 +175,11 @@ export namespace FileApi {
 // ==================== 分片上传 ====================
 
 /** 秒传检查 */
-export function checkUpload(data: {
-  fileHash: string;
-  fileSize: number;
-}) {
-  return requestClient.post<FileApi.CheckUploadResult>('/files/upload/check', data);
+export function checkUpload(data: { fileHash: string; fileSize: number }) {
+  return requestClient.post<FileApi.CheckUploadResult>(
+    '/files/upload/check',
+    data,
+  );
 }
 
 /** 初始化分片上传 */
@@ -191,7 +191,10 @@ export function initUpload(data: {
   totalParts: number;
   folderId?: number;
 }) {
-  return requestClient.post<FileApi.InitUploadResult>('/files/upload/init', data);
+  return requestClient.post<FileApi.InitUploadResult>(
+    '/files/upload/init',
+    data,
+  );
 }
 
 /** 上传分片 - 使用原生 fetch 确保 FormData 正确发送 */
@@ -216,7 +219,7 @@ export async function uploadPart(data: {
 
       xhr.upload.addEventListener('progress', (event) => {
         if (event.lengthComputable) {
-          data.onProgress!({
+          data.onProgress?.({
             loaded: event.loaded,
             total: event.total,
             percent: Math.round((event.loaded / event.total) * 100),
@@ -229,7 +232,9 @@ export async function uploadPart(data: {
           try {
             const result = JSON.parse(xhr.responseText);
             if (result.code !== 0) {
-              reject(new Error(result.message || result.error || '上传分片失败'));
+              reject(
+                new Error(result.message || result.error || '上传分片失败'),
+              );
             } else {
               resolve(result.data);
             }
@@ -253,7 +258,7 @@ export async function uploadPart(data: {
   const response = await fetch(`${apiBase}/files/upload/part`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${token}`,
+      Authorization: `Bearer ${token}`,
     },
     body: formData,
   });
@@ -267,7 +272,9 @@ export async function uploadPart(data: {
     }
     try {
       const json = JSON.parse(text);
-      throw new Error(json.message || json.error || `上传失败: ${response.status}`);
+      throw new Error(
+        json.message || json.error || `上传失败: ${response.status}`,
+      );
     } catch {
       throw new Error(`上传失败: ${response.status}`);
     }
@@ -281,7 +288,9 @@ export async function uploadPart(data: {
 }
 
 /** 完成上传 - 使用原生 fetch 避免超时问题（大文件合并需要较长时间） */
-export async function completeUpload(data: { uploadId: string }): Promise<FileApi.CompleteUploadResult> {
+export async function completeUpload(data: {
+  uploadId: string;
+}): Promise<FileApi.CompleteUploadResult> {
   const accessStore = useAccessStore();
   const token = accessStore.accessToken || '';
 
@@ -289,7 +298,7 @@ export async function completeUpload(data: { uploadId: string }): Promise<FileAp
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(data),
   });
@@ -301,7 +310,9 @@ export async function completeUpload(data: { uploadId: string }): Promise<FileAp
     }
     try {
       const json = JSON.parse(text);
-      throw new Error(json.message || json.error || `完成上传失败: ${response.status}`);
+      throw new Error(
+        json.message || json.error || `完成上传失败: ${response.status}`,
+      );
     } catch {
       throw new Error(`完成上传失败: ${response.status}`);
     }
@@ -321,7 +332,9 @@ export function abortUpload(data: { uploadId: string }) {
 
 /** 获取上传状态 */
 export function getUploadStatus(params: { uploadId: string }) {
-  return requestClient.get<FileApi.UploadStatus>('/files/upload/status', { params });
+  return requestClient.get<FileApi.UploadStatus>('/files/upload/status', {
+    params,
+  });
 }
 
 /** 上传任务状态 */
@@ -378,7 +391,9 @@ export function deleteFolder(id: number) {
 
 /** 获取文件列表 */
 export function listFiles(params: FileApi.ListFilesParams) {
-  return requestClient.get<FileApi.ListFilesResponse>('/files/list', { params });
+  return requestClient.get<FileApi.ListFilesResponse>('/files/list', {
+    params,
+  });
 }
 
 /** 移动文件 */
@@ -398,12 +413,18 @@ export function deleteFile(id: number) {
 
 /** 批量删除文件 */
 export function batchDeleteFiles(fileIds: number[]) {
-  return requestClient.post<{ deleted: number; errors: string[] }>('/files/batch-delete', { fileIds });
+  return requestClient.post<{ deleted: number; errors: string[] }>(
+    '/files/batch-delete',
+    { fileIds },
+  );
 }
 
 /** 批量移动文件 */
 export function batchMoveFiles(fileIds: number[], targetFolderId?: number) {
-  return requestClient.post<{ moved: number; errors: string[] }>('/files/batch-move', { fileIds, targetFolderId });
+  return requestClient.post<{ moved: number; errors: string[] }>(
+    '/files/batch-move',
+    { fileIds, targetFolderId },
+  );
 }
 
 // ==================== 媒体文件 ====================
@@ -430,14 +451,23 @@ export function viewFile(id: number) {
 
 /** 获取预签名 URL（用于视频流式播放） */
 export function getPreviewURL(id: number, expires?: number) {
-  return requestClient.get<{ url: string; contentType: string; name: string }>(`/files/${id}/preview-url`, {
-    params: expires ? { expires } : undefined,
-  });
+  return requestClient.get<{ url: string; contentType: string; name: string }>(
+    `/files/${id}/preview-url`,
+    {
+      params: expires ? { expires } : undefined,
+    },
+  );
 }
 
 /** 获取文件直链（presigned URL） */
 export function getDirectUrl(id: number, expires?: number) {
-  return requestClient.get<{ url: string; strategy: string; expiresIn?: number; contentType: string; name: string }>(`/files/${id}/direct-url`, {
+  return requestClient.get<{
+    url: string;
+    strategy: string;
+    expiresIn?: number;
+    contentType: string;
+    name: string;
+  }>(`/files/${id}/direct-url`, {
     params: expires ? { expires } : undefined,
   });
 }
@@ -458,13 +488,25 @@ export interface ShareInfo {
 }
 
 /** 创建文件分享 */
-export function createFileShare(id: number, data?: { expireHours?: number; maxAccess?: number }) {
-  return requestClient.post<{ shareCode: string; shareUrl: string }>(`/files/${id}/share`, data || {});
+export function createFileShare(
+  id: number,
+  data?: { expireHours?: number; maxAccess?: number },
+) {
+  return requestClient.post<{ shareCode: string; shareUrl: string }>(
+    `/files/${id}/share`,
+    data || {},
+  );
 }
 
 /** 创建文件夹分享 */
-export function createFolderShare(id: number, data?: { expireHours?: number; maxAccess?: number }) {
-  return requestClient.post<{ shareCode: string; shareUrl: string }>(`/folders/${id}/share`, data || {});
+export function createFolderShare(
+  id: number,
+  data?: { expireHours?: number; maxAccess?: number },
+) {
+  return requestClient.post<{ shareCode: string; shareUrl: string }>(
+    `/folders/${id}/share`,
+    data || {},
+  );
 }
 
 /** 获取分享信息（公开） */
@@ -472,9 +514,24 @@ export function getShareInfo(code: string) {
   return requestClient.get<ShareInfo>(`/share/${code}`);
 }
 
-/** 获取分享文件夹内的文件列表（公开） */
-export function getShareFolderFiles(code: string) {
-  return requestClient.get<any[]>(`/share/${code}/files`);
+/** 分享文件夹内文件列表响应 */
+export interface ShareFolderFilesResponse {
+  items: any[];
+  total: number;
+}
+
+/** 获取分享文件夹内的文件列表（公开，支持分页和搜索） */
+export function getShareFolderFiles(
+  code: string,
+  params?: {
+    page?: number;
+    pageSize?: number;
+    keyword?: string;
+  },
+) {
+  return requestClient.get<ShareFolderFilesResponse>(`/share/${code}/files`, {
+    params,
+  });
 }
 
 /** 获取我的分享列表 */
@@ -511,14 +568,29 @@ export interface ShareListItem {
   userAvatar?: string;
 }
 
+/** 分享状态统计 */
+export interface ShareStatusCounts {
+  total: number;
+  active: number;
+  expired: number;
+  disabled: number;
+}
+
 /** 分享列表响应 */
 export interface ShareListResponse {
   items: ShareListItem[];
   total: number;
+  statusCounts: ShareStatusCounts;
 }
 
-/** 获取用户分享列表（带分页） */
-export function getUserShares(params?: { page?: number; pageSize?: number; scope?: 'all' | 'own' }) {
+/** 获取用户分享列表（带分页和服务端筛选） */
+export function getUserShares(params?: {
+  page?: number;
+  pageSize?: number;
+  scope?: 'all' | 'own';
+  status?: number; // 状态筛选：1=有效, 2=已过期, 3=已禁用
+  keyword?: string; // 搜索关键词（匹配文件名、文件夹名、分享码）
+}) {
   return requestClient.get<ShareListResponse>('/files/shares', { params });
 }
 
@@ -592,8 +664,14 @@ export interface RecycleBinListResponse {
 }
 
 /** 获取回收站列表 */
-export function getRecycleBinList(params?: { page?: number; pageSize?: number; scope?: 'all' | 'own' }) {
-  return requestClient.get<RecycleBinListResponse>('/files/recycle/list', { params });
+export function getRecycleBinList(params?: {
+  page?: number;
+  pageSize?: number;
+  scope?: 'all' | 'own';
+}) {
+  return requestClient.get<RecycleBinListResponse>('/files/recycle/list', {
+    params,
+  });
 }
 
 /** 获取回收站文件数量 */
@@ -608,7 +686,10 @@ export function restoreFile(id: number) {
 
 /** 批量恢复文件 */
 export function batchRestoreFiles(fileIds: number[]) {
-  return requestClient.post<{ restored: number; errors: string[] }>('/files/recycle/batch-restore', { fileIds });
+  return requestClient.post<{ restored: number; errors: string[] }>(
+    '/files/recycle/batch-restore',
+    { fileIds },
+  );
 }
 
 /** 永久删除文件 */
@@ -618,7 +699,10 @@ export function permanentDeleteFile(id: number) {
 
 /** 批量永久删除文件 */
 export function batchPermanentDeleteFiles(fileIds: number[]) {
-  return requestClient.post<{ deleted: number; errors: string[] }>('/files/recycle/batch-delete', { fileIds });
+  return requestClient.post<{ deleted: number; errors: string[] }>(
+    '/files/recycle/batch-delete',
+    { fileIds },
+  );
 }
 
 /** 清空回收站 */

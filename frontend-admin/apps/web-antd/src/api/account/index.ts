@@ -151,7 +151,9 @@ export function kickDevice(id: number) {
 
 /** 踢出所有其他设备 */
 export function kickAllOtherDevices() {
-  return requestClient.delete<{ kickedCount: number }>('/auth/devices/kick-all');
+  return requestClient.delete<{ kickedCount: number }>(
+    '/auth/devices/kick-all',
+  );
 }
 
 // ==================== OAuth绑定 ====================

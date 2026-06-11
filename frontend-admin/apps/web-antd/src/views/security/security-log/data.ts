@@ -17,7 +17,10 @@ const eventTypeOptions = [
   { label: $t('account.eventType.bind_oauth'), value: 'bind_oauth' },
   { label: $t('account.eventType.unbind_oauth'), value: 'unbind_oauth' },
   { label: $t('account.eventType.account_lock'), value: 'account_lock' },
-  { label: $t('account.eventType.account_deactivate'), value: 'account_deactivate' },
+  {
+    label: $t('account.eventType.account_deactivate'),
+    value: 'account_deactivate',
+  },
   { label: $t('account.eventType.user_create'), value: 'user_create' },
   { label: $t('account.eventType.user_update'), value: 'user_update' },
   { label: $t('account.eventType.user_delete'), value: 'user_delete' },
@@ -126,13 +129,10 @@ export function useColumns(): VxeTableGridColumns {
       slots: {
         default: ({ row }: { row: SystemSecurityLogApi.SecurityLog }) => {
           const isSuccess = row.status === 1;
-          return h(
-            Tag,
-            { color: isSuccess ? 'success' : 'error' },
-            () =>
-              isSuccess
-                ? $t('system.securityLog.statusSuccess')
-                : $t('system.securityLog.statusFail'),
+          return h(Tag, { color: isSuccess ? 'success' : 'error' }, () =>
+            isSuccess
+              ? $t('system.securityLog.statusSuccess')
+              : $t('system.securityLog.statusFail'),
           );
         },
       },

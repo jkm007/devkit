@@ -34,7 +34,9 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   'update:visible': [value: boolean];
-  success: [data: { captchaCode: string; captchaId: string; startTime?: number }];
+  success: [
+    data: { captchaCode: string; captchaId: string; startTime?: number },
+  ];
   fail: [message: string];
   close: [];
 }>();
@@ -95,17 +97,17 @@ async function loadCaptcha() {
       captchaId.value = data.captcha_id;
       captchaImage.value = data.image;
       captchaThumb.value = data.thumb || '';
-      captchaThumbY.value = (data as any).thumb_y || 0;
-      captchaHintText.value = (data as any).hint_text || '';
-      captchaChars.value = (data as any).chars || [];
-      captchaPointCount.value = (data as any).chars?.length || 4; // 点选数量
-      captchaStartTime.value = (data as any).start_time || Date.now();
+      captchaThumbY.value = data.thumb_y || 0;
+      captchaHintText.value = data.hint_text || '';
+      captchaChars.value = data.chars || [];
+      captchaPointCount.value = data.chars?.length || 4; // 点选数量
+      captchaStartTime.value = data.start_time || Date.now();
     } else {
       emit('fail', '获取验证码失败');
       modalVisible.value = false;
     }
   } catch (e: any) {
-    emit('fail', '获取验证码失败：' + (e?.message || '未知错误'));
+    emit('fail', `获取验证码失败：${e?.message || '未知错误'}`);
     modalVisible.value = false;
   } finally {
     loading.value = false;
@@ -129,11 +131,18 @@ function resetState() {
   }
 }
 
-async function handleCaptchaSuccess(data: { captchaCode: string; captchaId: string }) {
+async function handleCaptchaSuccess(data: {
+  captchaCode: string;
+  captchaId: string;
+}) {
   // 公开模式：直接返回验证数据，不调用验证接口
   // startTime 使用用户完成验证的时间（Date.now()），用于后端检测操作耗时
   if (props.public) {
-    emit('success', { captchaId: captchaId.value, captchaCode: data.captchaCode, startTime: Date.now() });
+    emit('success', {
+      captchaId: captchaId.value,
+      captchaCode: data.captchaCode,
+      startTime: Date.now(),
+    });
     setTimeout(() => {
       modalVisible.value = false;
     }, 500);
@@ -154,7 +163,11 @@ async function handleCaptchaSuccess(data: { captchaCode: string; captchaId: stri
 
     if (result.valid) {
       setTimeout(() => {
-        emit('success', { captchaId: captchaId.value, captchaCode: data.captchaCode, startTime: Date.now() });
+        emit('success', {
+          captchaId: captchaId.value,
+          captchaCode: data.captchaCode,
+          startTime: Date.now(),
+        });
         modalVisible.value = false;
       }, 500);
     } else {
@@ -222,7 +235,10 @@ watch(
       </div>
 
       <!-- 旋转验证码 -->
-      <div v-else-if="isRotationType && captchaImage" class="flex flex-col items-center">
+      <div
+        v-else-if="isRotationType && captchaImage"
+        class="flex flex-col items-center"
+      >
         <BackendRotateCaptcha
           ref="rotateCaptchaRef"
           :server-image="captchaImage"
@@ -235,9 +251,15 @@ watch(
       </div>
 
       <!-- 滑块/拼图/点选验证码 -->
-      <div v-else-if="isBackendType && captchaImage" class="flex flex-col items-center">
+      <div
+        v-else-if="isBackendType && captchaImage"
+        class="flex flex-col items-center"
+      >
         <!-- 点选提示文字 -->
-        <div v-if="captchaType === 'point' && captchaHintText" class="mb-2 text-center text-sm text-foreground">
+        <div
+          v-if="captchaType === 'point' && captchaHintText"
+          class="mb-2 text-center text-sm text-foreground"
+        >
           {{ captchaHintText }}
         </div>
 
@@ -254,7 +276,10 @@ watch(
         />
 
         <!-- 点选字符列表 -->
-        <div v-if="captchaType === 'point' && captchaChars.length > 0" class="mt-2 text-center text-xs text-muted-foreground">
+        <div
+          v-if="captchaType === 'point' && captchaChars.length > 0"
+          class="mt-2 text-center text-xs text-muted-foreground"
+        >
           点击顺序：{{ captchaChars.join(' → ') }}
         </div>
       </div>
@@ -267,7 +292,10 @@ watch(
         >
           {{ captchaResult.valid ? '验证通过 ✓' : '验证失败 ✗' }}
         </span>
-        <span v-if="!captchaResult.valid" class="ml-2 text-xs text-muted-foreground">
+        <span
+          v-if="!captchaResult.valid"
+          class="ml-2 text-xs text-muted-foreground"
+        >
           {{ captchaResult.message }}
         </span>
       </div>

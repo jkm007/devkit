@@ -3,12 +3,7 @@ import type { AccountApi } from '#/api';
 
 import { onMounted, ref } from 'vue';
 
-import {
-  List,
-  ListItem,
-  ListItemMeta,
-  Tag,
-} from 'ant-design-vue';
+import { List, ListItem, ListItemMeta, Tag } from 'ant-design-vue';
 
 import { getMySecurityLogs } from '#/api';
 import { $t } from '#/locales';

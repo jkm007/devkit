@@ -34,7 +34,9 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const emit = defineEmits<{
-  success: [data: { captchaCode: string; captchaId: string; startTime: number }];
+  success: [
+    data: { captchaCode: string; captchaId: string; startTime: number },
+  ];
   refresh: [];
 }>();
 
@@ -125,11 +127,7 @@ defineExpose({ refresh: handleRefresh });
       @click="handleRefresh"
     >
       <!-- 主图片（后端已旋转，不需要再旋转） -->
-      <img
-        :src="serverImage"
-        alt="verify"
-        class="w-full rounded-full"
-      />
+      <img :src="serverImage" alt="verify" class="w-full rounded-full" />
 
       <!-- 缩略图（用户可旋转） -->
       <div
@@ -164,7 +162,9 @@ defineExpose({ refresh: handleRefresh });
         class="absolute bottom-3 left-0 z-10 block h-7 w-full text-center text-xs leading-[30px] text-white"
       >
         <div class="bg-black/30">
-          {{ $t('ui.captcha.sliderRotateDefaultTip') || '拖动滑块旋转图片对齐' }}
+          {{
+            $t('ui.captcha.sliderRotateDefaultTip') || '拖动滑块旋转图片对齐'
+          }}
         </div>
       </div>
     </div>

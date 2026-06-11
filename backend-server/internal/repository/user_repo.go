@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"fmt"
+
 	"backend-server/internal/model"
 
 	"gorm.io/gorm"
@@ -232,6 +234,17 @@ func (r *UserRepo) GetUserRoleIDsByUserIDs(userIDs []uint) (map[uint][]uint, err
 // SyncUserRoles 同步用户角色（替换所有，事务保护）
 func (r *UserRepo) SyncUserRoles(userID uint, roleIDs []uint) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
+		// 校验角色是否存在
+		if len(roleIDs) > 0 {
+			var count int64
+			if err := tx.Model(&model.Role{}).Where("id IN ?", roleIDs).Count(&count).Error; err != nil {
+				return fmt.Errorf("校验角色失败: %w", err)
+			}
+			if int(count) != len(roleIDs) {
+				return fmt.Errorf("部分角色不存在，请检查角色ID")
+			}
+		}
+
 		// 删除旧的关联
 		if err := tx.Where("user_id = ?", userID).Delete(&model.UserRole{}).Error; err != nil {
 			return err

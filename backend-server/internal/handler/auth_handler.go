@@ -116,9 +116,16 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	result, err := h.authService.Login(&req, c.ClientIP())
 	if err != nil {
-		// 记录登录失败日志
+		// 记录登录失败日志（保留完整错误信息用于内部排查）
 		h.authService.RecordSecurityLog(0, "login_fail", fmt.Sprintf("用户[%s]登录失败: %s", req.Username, err.Error()), c.ClientIP(), c.GetHeader("User-Agent"), 0)
-		response.Forbidden(c, err.Error())
+		// 统一返回通用错误消息，不暴露内部实现细节（如账号是否存在、账号状态、验证码系统细节等）
+		// 完整错误信息已记录到安全日志，供内部排查使用
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "验证码") || strings.Contains(errMsg, "captcha") {
+			response.Forbidden(c, "验证码错误，请刷新后重试")
+		} else {
+			response.Forbidden(c, "用户名或密码错误")
+		}
 		return
 	}
 
@@ -244,7 +251,7 @@ func (h *AuthHandler) GetPermissionCodes(c *gin.Context) {
 
 	codes, err := h.authService.GetPermissionCodes(userID)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		response.InternalError(c, "获取权限信息失败，请稍后重试")
 		return
 	}
 
@@ -269,7 +276,7 @@ func (h *AuthHandler) GetUserInfo(c *gin.Context) {
 
 	userInfo, err := h.authService.GetUserInfo(userID)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		response.InternalError(c, "获取用户信息失败，请稍后重试")
 		return
 	}
 
@@ -297,12 +304,12 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 
 	var req service.UpdateProfileRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "请求参数错误")
 		return
 	}
 
 	if err := h.authService.UpdateProfile(userID, &req); err != nil {
-		response.InternalError(c, err.Error())
+		response.InternalError(c, "更新个人资料失败，请稍后重试")
 		return
 	}
 
@@ -330,7 +337,7 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 
 	var req service.ChangePasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "请求参数错误")
 		return
 	}
 
@@ -345,7 +352,12 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 	}
 
 	if err := h.authService.ChangePassword(userID, &req, c.ClientIP(), c.GetHeader("User-Agent"), tokenStr); err != nil {
-		response.BadRequest(c, err.Error())
+		// 用户输入校验类错误允许展示，其余返回通用消息避免暴露内部实现细节
+		if isUserInputError(err.Error()) {
+			response.BadRequest(c, err.Error())
+		} else {
+			response.BadRequest(c, "密码修改失败，请稍后重试")
+		}
 		return
 	}
 
@@ -375,20 +387,23 @@ type LoginByEmailRequest struct {
 func (h *AuthHandler) LoginByEmail(c *gin.Context) {
 	var req LoginByEmailRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "参数错误: "+err.Error())
+		response.BadRequest(c, "请求参数错误")
 		return
 	}
 
 	// 图形验证码校验（与密码登录一致）
 	if err := h.checkCaptchaForAltLogin(req.CaptchaID, req.CaptchaCode, req.StartTime, req.Points); err != nil {
-		response.BadRequest(c, err.Error())
+		// 统一返回通用验证码错误消息，不暴露验证码系统的内部实现细节
+		response.BadRequest(c, "验证码错误，请刷新后重试")
 		return
 	}
 
 	result, err := h.authService.LoginByEmail(req.Email, req.Code, c.ClientIP())
 	if err != nil {
+		// 记录登录失败日志（保留完整错误信息用于内部排查）
 		h.authService.RecordSecurityLog(0, "login_fail", fmt.Sprintf("邮箱[%s]登录失败: %s", req.Email, err.Error()), c.ClientIP(), c.GetHeader("User-Agent"), 0)
-		response.BadRequest(c, err.Error())
+		// 统一返回通用错误消息，避免泄露账号是否存在等内部信息
+		response.BadRequest(c, "登录失败，请稍后重试")
 		return
 	}
 
@@ -429,20 +444,23 @@ type LoginByPhoneRequest struct {
 func (h *AuthHandler) LoginByPhone(c *gin.Context) {
 	var req LoginByPhoneRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "参数错误: "+err.Error())
+		response.BadRequest(c, "请求参数错误")
 		return
 	}
 
 	// 图形验证码校验（与密码登录一致）
 	if err := h.checkCaptchaForAltLogin(req.CaptchaID, req.CaptchaCode, req.StartTime, req.Points); err != nil {
-		response.BadRequest(c, err.Error())
+		// 统一返回通用验证码错误消息，不暴露验证码系统的内部实现细节
+		response.BadRequest(c, "验证码错误，请刷新后重试")
 		return
 	}
 
 	result, err := h.authService.LoginByPhone(req.Phone, req.Code, c.ClientIP())
 	if err != nil {
+		// 记录登录失败日志（保留完整错误信息用于内部排查）
 		h.authService.RecordSecurityLog(0, "login_fail", fmt.Sprintf("手机号[%s]登录失败: %s", req.Phone, err.Error()), c.ClientIP(), c.GetHeader("User-Agent"), 0)
-		response.BadRequest(c, err.Error())
+		// 统一返回通用错误消息，避免泄露账号是否存在等内部信息
+		response.BadRequest(c, "登录失败，请稍后重试")
 		return
 	}
 
@@ -472,14 +490,16 @@ func (h *AuthHandler) LoginByPhone(c *gin.Context) {
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req service.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "请求参数错误")
 		return
 	}
 
 	userID, err := h.authService.Register(&req, c.ClientIP(), c.GetHeader("User-Agent"))
 	if err != nil {
+		// 记录注册失败日志（保留完整错误信息用于内部排查）
 		h.authService.RecordSecurityLog(0, "register_fail", err.Error(), c.ClientIP(), c.GetHeader("User-Agent"), 0)
-		response.BadRequest(c, err.Error())
+		// 统一返回通用错误消息，避免泄露用户名/邮箱是否已存在等内部信息
+		response.BadRequest(c, "注册失败，请稍后重试")
 		return
 	}
 
@@ -499,12 +519,13 @@ func (h *AuthHandler) Register(c *gin.Context) {
 func (h *AuthHandler) ResetPassword(c *gin.Context) {
 	var req service.ResetPasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
+		response.BadRequest(c, "请求参数错误")
 		return
 	}
 
 	if err := h.authService.ResetPassword(&req, c.ClientIP(), c.GetHeader("User-Agent")); err != nil {
-		response.BadRequest(c, err.Error())
+		// 统一返回通用错误消息，避免泄露邮箱是否已注册等内部信息
+		response.BadRequest(c, "密码重置失败，请稍后重试")
 		return
 	}
 
@@ -529,7 +550,7 @@ func (h *AuthHandler) GetPermissionVersion(c *gin.Context) {
 
 	codes, err := h.authService.GetPermissionCodes(userID)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		response.InternalError(c, "获取权限版本失败，请稍后重试")
 		return
 	}
 
@@ -537,6 +558,23 @@ func (h *AuthHandler) GetPermissionVersion(c *gin.Context) {
 	sort.Strings(codes)
 	hash := sha256HashString(strings.Join(codes, ","))
 	response.Success(c, hash)
+}
+
+// isUserInputError 判断错误是否属于用户输入校验类错误（允许展示给用户）
+// 仅匹配已知的用户输入校验错误关键词，其余一律视为内部错误不予暴露
+func isUserInputError(errMsg string) bool {
+	userInputKeywords := []string{
+		"验证码",
+		"密码不一致",
+		"密码长度",
+		"旧密码错误",
+	}
+	for _, keyword := range userInputKeywords {
+		if strings.Contains(errMsg, keyword) {
+			return true
+		}
+	}
+	return false
 }
 
 // sha256HashString 计算 SHA-256 哈希

@@ -157,14 +157,14 @@ class RequestClient {
       return response as T;
     } catch (error: any) {
       // 保留完整错误上下文，便于调试
-      const enhancedError = {
+      const enhancedError = new Error(error.message || 'Request failed');
+      Object.assign(enhancedError, {
         ...error,
         url,
         method: config.method,
         requestData: config.data,
         response: error.response,
-        message: error.message || 'Request failed',
-      };
+      });
       throw enhancedError;
     }
   }
