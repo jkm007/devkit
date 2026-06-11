@@ -17,7 +17,6 @@ import (
 	"backend-server/pkg/fileutil"
 	"backend-server/pkg/storage"
 
-	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
 
@@ -516,7 +515,6 @@ func (s *UploadService) CleanupStaleUploads(olderThan time.Duration) error {
 		rdb.Del(context.Background(), "upload:"+task.UploadID)
 	}
 
-	_ = redis.Nil // avoid unused import
 	return nil
 }
 
