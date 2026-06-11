@@ -23,6 +23,7 @@ import (
 	"backend-server/pkg/jwt"
 	"backend-server/pkg/logger"
 
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -416,21 +417,13 @@ func (s *AuthService) generateLoginResponse(user *model.User, clientIP string) (
 }
 
 // RefreshToken 刷新 AccessToken（带 Token 轮换）
-// 验证 RefreshToken 哈希，通过后生成新的 AccessToken + RefreshToken
+// 使用 Lua 脚本原子性完成：验证旧哈希 → 替换为新哈希
+// 并发刷新请求只有一个能成功，其余自动失败（防止 Token 重放攻击）
 func (s *AuthService) RefreshToken(userID uint, refreshToken string) (*TokenRefreshResponse, error) {
 	ctx := context.Background()
 	cacheKey := fmt.Sprintf("refresh_token:%d", userID)
 
-	// 1. 验证 Redis 中的 RefreshToken 哈希
-	storedHash, err := database.GetRedis().Get(ctx, cacheKey).Result()
-	if err != nil {
-		return nil, errors.New("refresh token expired or not found")
-	}
-	if storedHash != hashToken(refreshToken) {
-		return nil, errors.New("refresh token mismatch")
-	}
-
-	// 2. 获取用户信息和角色
+	// 1. 获取用户信息和角色（在原子操作之前，减少 Lua 脚本执行时间）
 	user, err := s.userRepo.GetByID(userID)
 	if err != nil {
 		return nil, err
@@ -452,15 +445,35 @@ func (s *AuthService) RefreshToken(userID uint, refreshToken string) (*TokenRefr
 		}
 	}
 
-	// 3. 生成新的 Token 对（轮换，包含所有角色）
+	// 2. 生成新的 Token 对（轮换，包含所有角色）
 	tokenPair, err := jwt.Generate(user.ID, user.Name, roleNames)
 	if err != nil {
 		return nil, err
 	}
 
-	// 4. 用新 RefreshToken 哈希覆盖旧的（旧的自动失效）
-	if err := database.GetRedis().Set(ctx, cacheKey, hashToken(tokenPair.RefreshToken), 30*24*time.Hour).Err(); err != nil {
-		logger.Error("更新 RefreshToken 失败", zap.Error(err))
+	// 3. 使用 Lua 脚本原子性地验证旧哈希并替换为新哈希
+	//    这确保了 READ-VERIFY-WRITE 的原子性，避免 TOCTOU 竞态条件
+	oldHash := hashToken(refreshToken)
+	newHash := hashToken(tokenPair.RefreshToken)
+	ttlSeconds := int((30 * 24 * time.Hour).Seconds())
+
+	result, err := refreshTokenLuaScript.Run(ctx, database.GetRedis(), []string{cacheKey}, oldHash, newHash, ttlSeconds).Int()
+	if err != nil {
+		logger.Error("原子性更新 RefreshToken 失败", zap.Error(err))
+		return nil, errors.New("系统错误，请稍后重试")
+	}
+
+	switch result {
+	case 1:
+		// 成功：旧哈希匹配，已原子替换为新哈希
+	case 0:
+		// 哈希不匹配：可能已被并发请求使用（Token 重放），或被篡改
+		return nil, errors.New("refresh token mismatch")
+	case -1:
+		// Key 不存在：RefreshToken 已过期或已登出
+		return nil, errors.New("refresh token expired or not found")
+	default:
+		logger.Error("Lua 脚本返回未知结果", zap.Int("result", result))
 		return nil, errors.New("系统错误，请稍后重试")
 	}
 
@@ -481,6 +494,26 @@ func hashToken(token string) string {
 	h := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(h[:])
 }
+
+// refreshTokenLuaScript 原子性刷新 RefreshToken 的 Lua 脚本
+// 功能：读取存储的哈希 → 与旧哈希比较 → 匹配则原子替换为新哈希 → 返回结果
+// 避免 TOCTOU 竞态：并发刷新请求只有一个能成功，其余自动失效
+// KEYS[1] = refresh_token:{userID}
+// ARGV[1] = 旧 refresh token 哈希
+// ARGV[2] = 新 refresh token 哈希
+// ARGV[3] = 过期时间（秒）
+// 返回: 1 = 成功, 0 = 哈希不匹配, -1 = key 不存在
+var refreshTokenLuaScript = redis.NewScript(`
+local stored = redis.call('GET', KEYS[1])
+if not stored then
+	return -1
+end
+if stored ~= ARGV[1] then
+	return 0
+end
+redis.call('SETEX', KEYS[1], tonumber(ARGV[3]), ARGV[2])
+return 1
+`)
 
 // collectRoleNames 收集用户的所有角色名称（直接 + 分组继承）
 func (s *AuthService) collectRoleNames(user *model.User) ([]string, error) {
