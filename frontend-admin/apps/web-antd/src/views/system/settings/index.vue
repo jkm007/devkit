@@ -425,8 +425,9 @@ async function loadCaptchaForTest() {
     } else {
       message.error('获取验证码失败');
     }
-  } catch (e: any) {
-    message.error(`获取验证码失败：${e?.message || '未知错误'}`);
+  } catch (e: unknown) {
+    const errMsg = e instanceof Error ? e.message : '未知错误';
+    message.error(`获取验证码失败：${errMsg}`);
   } finally {
     captchaTestLoading.value = false;
   }
@@ -449,8 +450,9 @@ async function handleCaptchaTestVerify(payload: {
     } else {
       message.error(`验证失败：${result.message}`);
     }
-  } catch (e: any) {
-    message.error(`验证请求失败：${e?.message || '未知错误'}`);
+  } catch (e: unknown) {
+    const errMsg = e instanceof Error ? e.message : '未知错误';
+    message.error(`验证请求失败：${errMsg}`);
   } finally {
     captchaTestVerifying.value = false;
   }
@@ -486,9 +488,10 @@ function onPointConfirm(
         message.error(`验证失败：${result.message}`);
       }
     })
-    .catch((e: any) => {
+    .catch((e: unknown) => {
       clear();
-      message.error(`验证请求失败：${e?.message || '未知错误'}`);
+      const errMsg = e instanceof Error ? e.message : '未知错误';
+      message.error(`验证请求失败：${errMsg}`);
     })
     .finally(() => {
       captchaTestVerifying.value = false;
