@@ -217,13 +217,18 @@ func SyncDefaultBuckets() error {
 		}
 
 		// 已启用：构建桶配置（不自动设为默认，由用户手动选择）
+		// 保留用户手动设置的 status（禁用/启用）
+		bucketStatus := int8(1)
+		if existing != nil {
+			bucketStatus = existing.Status
+		}
 		newBucket := &model.StorageBucket{
 			Driver:     d.name,
 			Endpoint:   endpoint,
 			Bucket:     bucketName,
 			Purpose:    "file",
 			IsDefault:  existing != nil && existing.IsDefault, // 保留已有的默认状态
-			Status:     1,
+			Status:     bucketStatus,
 			AccessKey:  getSettingStrFromMap(settings, fmt.Sprintf("storage_%s_access_key", d.name)),
 			SecretKey:  getSettingStrFromMap(settings, fmt.Sprintf("storage_%s_secret_key", d.name)),
 			CDNDomain:  getSettingStrFromMap(settings, fmt.Sprintf("storage_%s_cdn_domain", d.name)),

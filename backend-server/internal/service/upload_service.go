@@ -64,7 +64,7 @@ type CheckResult struct {
 }
 
 // CheckUpload 秒传检查
-func (s *UploadService) CheckUpload(fileHash string, fileSize int64) (*CheckResult, error) {
+func (s *UploadService) CheckUpload(userID uint, fileHash string, fileSize int64, folderID uint) (*CheckResult, error) {
 	asset, err := s.assetRepo.GetByHash(fileHash)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -77,23 +77,42 @@ func (s *UploadService) CheckUpload(fileHash string, fileSize int64) (*CheckResu
 	if asset.FileSize != fileSize {
 		return &CheckResult{Exists: false}, nil
 	}
-	// 存储类型校验：必须在当前存储中存在
-	currentDriver := storage.GetStorageDriver()
-	if asset.StorageType != currentDriver {
-		return &CheckResult{Exists: false}, nil
-	}
-	// 秒传命中，在事务中原子递增引用计数，避免并发场景下引用计数不准确
+
+	// 秒传命中：创建文件条目并递增引用计数
+	// 不检查存储驱动，因为路由引擎会根据文件类型选择存储
+	var entryID uint
 	db := database.GetMySQL()
 	err = db.Transaction(func(tx *gorm.DB) error {
-		return tx.Model(&model.FileAsset{}).Where("id = ?", asset.ID).
-			Update("ref_count", gorm.Expr("ref_count + 1")).Error
+		// 递增引用计数
+		if err := tx.Model(&model.FileAsset{}).Where("id = ?", asset.ID).
+			Update("ref_count", gorm.Expr("ref_count + 1")).Error; err != nil {
+			return fmt.Errorf("更新引用计数失败: %w", err)
+		}
+
+		// 创建文件条目（在目标文件夹中）
+		entry := &model.FileEntry{
+			FolderID:    folderID,
+			FileAssetID: asset.ID,
+			Name:        asset.FileName,
+			Size:        asset.FileSize,
+			ContentType: asset.ContentType,
+			UserID:      userID,
+		}
+		if err := tx.Create(entry).Error; err != nil {
+			return fmt.Errorf("创建文件条目失败: %w", err)
+		}
+		entryID = entry.ID
+		return nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("更新引用计数失败: %w", err)
+		return nil, err
 	}
+
 	return &CheckResult{
 		Exists:    true,
+		FileID:    entryID,
 		ObjectKey: asset.ObjectKey,
+		URL:       fmt.Sprintf("/files/%d/direct-url", entryID),
 	}, nil
 }
 

@@ -183,7 +183,11 @@ function getCookie(name: string): string | undefined {
 }
 
 /** 秒传检查 */
-export function checkUpload(data: { fileHash: string; fileSize: number }) {
+export function checkUpload(data: {
+  fileHash: string;
+  fileSize: number;
+  folderId?: number;
+}) {
   return requestClient.post<FileApi.CheckUploadResult>(
     '/files/upload/check',
     data,
@@ -766,7 +770,7 @@ export async function simpleUpload(
   const fileHash = await calculateFileHash(file);
 
   // 先尝试秒传
-  const checkResult = await checkUpload({ fileHash, fileSize: file.size });
+  const checkResult = await checkUpload({ fileHash, fileSize: file.size, folderId });
   if (checkResult.exists && checkResult.fileId && checkResult.url) {
     onProgress?.({ loaded: file.size, total: file.size, percent: 100 });
     return {

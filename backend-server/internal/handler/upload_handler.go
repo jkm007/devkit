@@ -27,6 +27,7 @@ func NewUploadHandler() *UploadHandler {
 type checkRequest struct {
 	FileHash string `json:"fileHash" binding:"required"`
 	FileSize int64  `json:"fileSize" binding:"required"`
+	FolderID uint   `json:"folderId"`
 }
 
 // CheckUpload 秒传检查
@@ -45,7 +46,8 @@ func (h *UploadHandler) CheckUpload(c *gin.Context) {
 		return
 	}
 
-	result, err := h.uploadService.CheckUpload(req.FileHash, req.FileSize)
+	userID := middleware.GetCurrentUserID(c)
+	result, err := h.uploadService.CheckUpload(userID, req.FileHash, req.FileSize, req.FolderID)
 	if err != nil {
 		response.InternalError(c, err.Error())
 		return
