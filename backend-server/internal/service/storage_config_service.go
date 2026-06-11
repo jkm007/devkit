@@ -299,7 +299,7 @@ func (s *StorageConfigService) SyncBucketsFromConfig() error {
 		}
 
 		if existing != nil {
-			// 更新凭据
+			// 更新凭据（保留用户手动设置的状态）
 			existing.Endpoint = cfg.Endpoint
 			existing.AccessKey = cfg.AccessKey
 			existing.SecretKey = cfg.SecretKey
@@ -308,7 +308,6 @@ func (s *StorageConfigService) SyncBucketsFromConfig() error {
 			if driver == "cos" {
 				existing.Region = cfg.Region
 			}
-			existing.Status = 1
 			existing.Description = fmt.Sprintf("由存储配置自动同步的 %s 桶", label)
 			if err := bucketRepo.Update(existing); err != nil {
 				log.Printf("[ERROR] 更新 %s 默认桶失败: %v", driver, err)

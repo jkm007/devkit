@@ -611,12 +611,13 @@ func GetEnabledDrivers() []map[string]interface{} {
 }
 
 // InitDefaultStorageBuckets 初始化默认存储桶
-// 从存储配置同步默认桶，并确保本地默认桶存在
+// 从 sys_storage_config 同步默认桶，并确保本地默认桶存在
 func InitDefaultStorageBuckets() error {
 	db := database.GetMySQL()
 
-	// 先同步外部存储驱动的默认桶
-	if err := SyncDefaultBuckets(); err != nil {
+	// 从 sys_storage_config 同步外部存储驱动的默认桶（新表）
+	configService := NewStorageConfigService()
+	if err := configService.SyncBucketsFromConfig(); err != nil {
 		return fmt.Errorf("同步默认存储桶失败: %w", err)
 	}
 
