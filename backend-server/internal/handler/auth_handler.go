@@ -76,13 +76,14 @@ func (h *AuthHandler) checkCaptchaForAltLogin(captchaID, captchaCode string, sta
 }
 
 // getCaptchaSettings 获取验证码设置
+// 从 sys_system_settings 表读取 captcha 组的配置项
 func (h *AuthHandler) getCaptchaSettings() map[string]interface{} {
 	db := database.GetMySQL()
 	var settings []struct {
 		Key   string
 		Value string
 	}
-	db.Raw("SELECT `key`, `value` FROM system_settings WHERE group_key = ? AND deleted_at IS NULL", "captcha").Scan(&settings)
+	db.Raw("SELECT `key`, value FROM sys_system_settings WHERE group_key = ? AND deleted_at IS NULL", "captcha").Scan(&settings)
 
 	result := map[string]interface{}{
 		"enabled": false,
