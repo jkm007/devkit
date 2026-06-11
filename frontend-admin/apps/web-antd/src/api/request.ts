@@ -56,10 +56,10 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
    */
   async function doRefreshToken() {
     const accessStore = useAccessStore();
-    // baseRequestClient 无拦截器，返回原始 Axios response
-    // resp.data = { code, data: { accessToken, refreshToken }, message }
+    // baseRequestClient 无拦截器，返回原始 Axios response（框架 request() 内部 as T 转换导致类型不精确）
+    // 运行时 resp 实际是 AxiosResponse，resp.data = { code, data: { accessToken, refreshToken }, message }
     const resp = await refreshTokenApi();
-    const { accessToken, refreshToken } = resp.data.data;
+    const { accessToken, refreshToken } = (resp as any).data.data;
     accessStore.setAccessToken(accessToken);
     if (refreshToken) {
       accessStore.setRefreshToken(refreshToken);
