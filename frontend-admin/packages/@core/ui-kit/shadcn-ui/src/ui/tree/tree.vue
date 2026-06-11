@@ -291,45 +291,28 @@ function onSelect(item: FlattenedItem<Recordable<any>>, isSelected: boolean) {
       });
   }
 
-  // check-strictly 模式下的 bubble-select：选中/取消子节点时更新父节点状态
-  if (props.checkStrictly && props.multiple && Array.isArray(modelValue.value)) {
-    handleBubbleSelect(item);
-  }
-
   updateTreeValue();
   emits('select', item);
 }
 
-// check-strictly 模式下的 bubble-select：向上冒泡更新父节点选中状态
-function handleBubbleSelect(item: FlattenedItem<Recordable<any>>) {
-  if (!item.parents || item.parents.length === 0) return;
+// check-strictly 模式下判断节点是否半选（部分子节点选中）
+function isNodeIndeterminate(nodeValue: Recordable<any>): boolean {
+  if (!props.checkStrictly || !props.multiple) return false;
+  if (!Array.isArray(modelValue.value)) return false;
 
-  const parent = item.parents[item.parents.length - 1];
-  if (!parent || get(parent, props.disabledField)) return;
-
-  const parentKey = get(parent, props.valueField);
-  const siblings = flattenData.value.filter(
-    (i) => i.parentId === parent,
+  const nodeKey = get(nodeValue, props.valueField);
+  const children = flattenData.value.filter(
+    (i) => i.parentId === nodeKey,
   );
-  const allSelected = siblings.every((sib) =>
+  if (children.length === 0) return false;
+
+  const selectedCount = children.filter((child) =>
     (modelValue.value as unknown[]).includes(
-      get(sib.value, props.valueField),
+      get(child.value, props.valueField),
     ),
-  );
+  ).length;
 
-  if (allSelected) {
-    if (!(modelValue.value as unknown[]).includes(parentKey)) {
-      (modelValue.value as unknown[]).push(parentKey);
-    }
-  } else {
-    const idx = (modelValue.value as unknown[]).indexOf(parentKey);
-    if (idx !== -1) {
-      (modelValue.value as unknown[]).splice(idx, 1);
-    }
-  }
-
-  // 递归向上冒泡
-  handleBubbleSelect(parent);
+  return selectedCount > 0 && selectedCount < children.length;
 }
 
 defineExpose({
@@ -352,7 +335,6 @@ defineExpose({
     v-model:expanded="expanded as string[]"
     :default-expanded="defaultExpandedKeys as string[]"
     :propagate-select="!checkStrictly"
-    :bubble-select="checkStrictly"
     :multiple="multiple"
     :disabled="disabled"
     :selection-behavior="allowClear || multiple ? 'toggle' : 'replace'"
@@ -467,7 +449,7 @@ defineExpose({
         <div class="flex items-center gap-1 item-checkbox">
           <Checkbox
             v-if="multiple"
-            :model-value="isIndeterminate && !isNodeDisabled(item) ? 'indeterminate' : (isSelected && !isNodeDisabled(item))"
+            :model-value="isNodeIndeterminate(item.value) && !isNodeDisabled(item) ? 'indeterminate' : (isSelected && !isNodeDisabled(item))"
             :disabled="isNodeDisabled(item)"
             @click="
               (event: MouseEvent) => {
