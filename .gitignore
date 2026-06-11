@@ -43,6 +43,3 @@ tmp/
 .agents/
 .claude/
 .git/
-
-# 数据库备份
-*.sql
