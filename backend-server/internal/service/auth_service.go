@@ -2,11 +2,13 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -61,21 +63,22 @@ type LoginRequest struct {
 
 // LoginResponse 登录响应
 type LoginResponse struct {
-	ID             uint     `json:"id"`
-	Username       string   `json:"username"`
-	Nickname       string   `json:"nickname"`
-	RealName       string   `json:"realName"`
-	Email          string   `json:"email"`
-	Phone          string   `json:"phone"`
-	Avatar         string   `json:"avatar"`
-	Gender         int      `json:"gender"`
-	Birthday       string   `json:"birthday,omitempty"`
-	Bio            string   `json:"bio"`
-	Roles          []string `json:"roles"`
-	RegisterSource string   `json:"registerSource,omitempty"`
-	HomePath       string   `json:"homePath,omitempty"`
-	AccessToken    string   `json:"accessToken,omitempty"`
-	RefreshToken   string   `json:"refreshToken,omitempty"`
+	ID                 uint     `json:"id"`
+	Username           string   `json:"username"`
+	Nickname           string   `json:"nickname"`
+	RealName           string   `json:"realName"`
+	Email              string   `json:"email"`
+	Phone              string   `json:"phone"`
+	Avatar             string   `json:"avatar"`
+	Gender             int      `json:"gender"`
+	Birthday           string   `json:"birthday,omitempty"`
+	Bio                string   `json:"bio"`
+	Roles              []string `json:"roles"`
+	RegisterSource     string   `json:"registerSource,omitempty"`
+	HomePath           string   `json:"homePath,omitempty"`
+	AccessToken        string   `json:"accessToken,omitempty"`
+	RefreshToken       string   `json:"refreshToken,omitempty"`
+	MustChangePassword bool     `json:"mustChangePassword,omitempty"` // 首次登录或管理员重置密码后需强制修改
 }
 
 // loginFailCountKey 生成登录失败计数的 Redis key
@@ -315,21 +318,22 @@ func (s *AuthService) generateLoginResponse(user *model.User, clientIP string) (
 	}
 
 	return &LoginResponse{
-		ID:             user.ID,
-		Username:       user.Name,
-		Nickname:       user.Nickname,
-		RealName:       user.Name,
-		Email:          user.Email,
-		Phone:          user.Phone,
-		Avatar:         user.Avatar,
-		Gender:         user.Gender,
-		Birthday:       birthday,
-		Bio:            user.Bio,
-		Roles:          roleNames,
-		RegisterSource: user.RegisterSource,
-		HomePath:       homePath,
-		AccessToken:    tokenPair.AccessToken,
-		RefreshToken:   tokenPair.RefreshToken,
+		ID:                 user.ID,
+		Username:           user.Name,
+		Nickname:           user.Nickname,
+		RealName:           user.Name,
+		Email:              user.Email,
+		Phone:              user.Phone,
+		Avatar:             user.Avatar,
+		Gender:             user.Gender,
+		Birthday:           birthday,
+		Bio:                user.Bio,
+		Roles:              roleNames,
+		RegisterSource:     user.RegisterSource,
+		HomePath:           homePath,
+		AccessToken:        tokenPair.AccessToken,
+		RefreshToken:       tokenPair.RefreshToken,
+		MustChangePassword: user.MustChangePassword,
 	}, nil
 }
 
@@ -598,18 +602,19 @@ func (s *AuthService) GetUserInfo(userID uint) (*LoginResponse, error) {
 	}
 
 	return &LoginResponse{
-		ID:       user.ID,
-		Username: user.Name,
-		Nickname: user.Nickname,
-		RealName: user.Name,
-		Email:    user.Email,
-		Phone:    user.Phone,
-		Avatar:   user.Avatar,
-		Gender:   user.Gender,
-		Birthday: birthday,
-		Bio:      user.Bio,
-		Roles:    roleNames,
-		HomePath: homePath,
+		ID:                 user.ID,
+		Username:           user.Name,
+		Nickname:           user.Nickname,
+		RealName:           user.Name,
+		Email:              user.Email,
+		Phone:              user.Phone,
+		Avatar:             user.Avatar,
+		Gender:             user.Gender,
+		Birthday:           birthday,
+		Bio:                user.Bio,
+		Roles:              roleNames,
+		HomePath:           homePath,
+		MustChangePassword: user.MustChangePassword,
 	}, nil
 }
 
@@ -841,6 +846,7 @@ func (s *AuthService) ChangePassword(userID uint, req *ChangePasswordRequest, ip
 	now := time.Now()
 	user.PasswordChangedAt = &now
 	user.LoginFailCount = 0
+	user.MustChangePassword = false // 解除强制修改密码标记
 
 	if err := s.userRepo.Update(user); err != nil {
 		return err
@@ -1116,27 +1122,31 @@ func (s *AuthService) InitDefaultUsers() error {
 	}
 
 	// 创建默认用户
+	// 优先从环境变量读取密码（格式: DEFAULT_USER_{大写用户名}_PASSWORD），
+	// 未设置时生成随机密码并打印到日志，所有默认用户首次登录必须修改密码
 	defaultUsers := []struct {
 		Name     string
-		Password string
 		RoleName string
 	}{
-		{"vben", "123456", "super"},
-		{"admin", "123456", "admin"},
-		{"jack", "123456", "user"},
+		{"vben", "super"},
+		{"admin", "admin"},
+		{"jack", "user"},
 	}
 
 	for _, u := range defaultUsers {
+		password := getDefaultUserPassword(u.Name)
+
 		// 加密密码
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 		if err != nil {
 			return err
 		}
 
 		user := &model.User{
-			Name:     u.Name,
-			Password: string(hashedPassword),
-			Status:   1,
+			Name:              u.Name,
+			Password:          string(hashedPassword),
+			Status:            1,
+			MustChangePassword: true, // 首次登录必须修改密码
 		}
 		if err := s.userRepo.Create(user); err != nil {
 			return err
@@ -1154,6 +1164,48 @@ func (s *AuthService) InitDefaultUsers() error {
 	}
 
 	return nil
+}
+
+// getDefaultUserPassword 获取默认用户的密码
+// 优先级：环境变量 DEFAULT_USER_{大写用户名}_PASSWORD > 随机生成
+func getDefaultUserPassword(username string) string {
+	envKey := "DEFAULT_USER_" + strings.ToUpper(username) + "_PASSWORD"
+	if pw := strings.TrimSpace(os.Getenv(envKey)); pw != "" {
+		logger.Info(fmt.Sprintf("使用环境变量 %s 为用户 %s 设置密码", envKey, username))
+		return pw
+	}
+
+	// 随机生成 16 字符密码（保证强度）
+	randomPw, err := generateRandomPassword(16)
+	if err != nil {
+		logger.Error("生成随机密码失败，使用兜底密码", zap.Error(err))
+		return "ChangeMe!" + fmt.Sprintf("%d", time.Now().UnixNano()%10000)
+	}
+
+	logger.Warn(fmt.Sprintf("用户 %s 的密码已随机生成，请查看日志并妥善保管（首次登录需修改密码）", username),
+		zap.String("password", randomPw))
+	return randomPw
+}
+
+// generateRandomPassword 生成指定长度的随机密码（包含大小写字母、数字、特殊字符）
+func generateRandomPassword(length int) (string, error) {
+	if length < 8 {
+		length = 8
+	}
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*"
+	b := make([]byte, length)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	for i := range b {
+		b[i] = charset[int(b[i])%len(charset)]
+	}
+	// 确保包含至少一个大写、小写、数字和特殊字符
+	b[0] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[int(b[0])%26]
+	b[1] = "abcdefghijklmnopqrstuvwxyz"[int(b[1])%26]
+	b[2] = "0123456789"[int(b[2])%10]
+	b[3] = "!@#$%^&*"[int(b[3])%8]
+	return string(b), nil
 }
 
 // initDefaultMenus 初始化默认菜单

@@ -163,6 +163,7 @@ func (s *UserService) Create(req *CreateUserRequest) error {
 
 	// 加密密码
 	password := req.Password
+	mustChange := false
 	if password == "" {
 		// 生成随机临时密码（8 位十六进制）
 		b := make([]byte, 4)
@@ -170,6 +171,7 @@ func (s *UserService) Create(req *CreateUserRequest) error {
 			return fmt.Errorf("生成临时密码失败: %w", err)
 		}
 		password = fmt.Sprintf("Tmp%s!", fmt.Sprintf("%x", b))
+		mustChange = true // 管理员未指定密码时，用户首次登录需修改密码
 	}
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
@@ -177,16 +179,17 @@ func (s *UserService) Create(req *CreateUserRequest) error {
 	}
 
 	user := &model.User{
-		Name:     req.Name,
-		Nickname: req.Nickname,
-		Email:    req.Email,
-		Phone:    req.Phone,
-		Gender:   req.Gender,
-		Bio:      req.Bio,
-		Password: string(hashedPassword),
-		Status:   req.Status,
-		GroupID:  req.GroupID,
-		Remark:   req.Remark,
+		Name:              req.Name,
+		Nickname:          req.Nickname,
+		Email:             req.Email,
+		Phone:             req.Phone,
+		Gender:            req.Gender,
+		Bio:               req.Bio,
+		Password:          string(hashedPassword),
+		Status:            req.Status,
+		GroupID:           req.GroupID,
+		Remark:            req.Remark,
+		MustChangePassword: mustChange,
 	}
 
 	// 使用事务确保用户创建和角色分配原子性

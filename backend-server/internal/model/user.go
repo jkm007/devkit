@@ -29,8 +29,9 @@ type User struct {
 	LastLoginDevice  string         `gorm:"type:varchar(200);default:;comment:最后登录设备" json:"-"`
 	LoginFailCount   int            `gorm:"default:0;comment:连续登录失败次数" json:"-"`
 	LockUntil        *time.Time     `gorm:"comment:锁定截止时间" json:"-"`
-	PasswordChangedAt *time.Time    `gorm:"comment:密码修改时间" json:"passwordChangedAt"`
-	Remark           string         `gorm:"type:varchar(500);comment:备注" json:"remark"`
+	PasswordChangedAt  *time.Time     `gorm:"comment:密码修改时间" json:"passwordChangedAt"`
+	MustChangePassword bool           `gorm:"default:false;comment:是否需要强制修改密码" json:"mustChangePassword"`
+	Remark             string         `gorm:"type:varchar(500);comment:备注" json:"remark"`
 	CreatedAt        time.Time      `gorm:"comment:创建时间" json:"createTime"`
 	UpdatedAt        time.Time      `gorm:"comment:更新时间" json:"-"`
 	DeletedAt        gorm.DeletedAt `gorm:"index;comment:删除时间" json:"-"`
