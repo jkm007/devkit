@@ -233,6 +233,33 @@ function onSelect(item: FlattenedItem<Recordable<any>>, isSelected: boolean) {
     return;
   }
 
+  // check-strictly 模式：点击父节点时向下传播到所有叶子节点
+  if (props.checkStrictly && props.multiple && Array.isArray(modelValue.value)) {
+    const nodeKey = get(item.value, props.valueField);
+    const leaves = collectLeafKeys(nodeKey);
+    if (leaves.length > 0) {
+      const allSelected = leaves.every((leaf) =>
+        (modelValue.value as unknown[]).includes(leaf),
+      );
+      if (allSelected) {
+        // 全选 → 取消所有叶子，同时移除父节点 key
+        modelValue.value = (modelValue.value as unknown[]).filter(
+          (v) => !leaves.includes(v) && v !== nodeKey,
+        );
+      } else {
+        // 未全选 → 添加所有叶子，移除父节点 key（状态由计算得出）
+        const set = new Set(
+          (modelValue.value as unknown[]).filter((v) => v !== nodeKey),
+        );
+        leaves.forEach((leaf) => set.add(leaf));
+        modelValue.value = [...set];
+      }
+      updateTreeValue();
+      emits('select', item);
+      return;
+    }
+  }
+
   if (
     !props.checkStrictly &&
     props.multiple &&
@@ -291,29 +318,80 @@ function onSelect(item: FlattenedItem<Recordable<any>>, isSelected: boolean) {
       });
   }
 
+  // 移除 modelValue 中的父节点 key（父节点状态由 isNodeAllSelected/isNodeIndeterminate 计算）
+  if (props.checkStrictly && props.multiple && Array.isArray(modelValue.value)) {
+    const nodeKey = get(item.value, props.valueField);
+    const leaves = collectLeafKeys(nodeKey);
+    if (leaves.length === 0) {
+      // 当前是叶子节点，移除其所有祖先 key
+      const parents = item.parents || [];
+      for (const p of parents) {
+        const parentKey = get(p, props.valueField);
+        const idx = (modelValue.value as unknown[]).indexOf(parentKey);
+        if (idx !== -1) {
+          (modelValue.value as unknown[]).splice(idx, 1);
+        }
+      }
+    }
+  }
+
   updateTreeValue();
   emits('select', item);
 }
 
-// 判断节点是否半选（部分子节点选中）
-// 兼容 check-strictly 和非 check-strictly 模式
+// 收集节点下所有叶子节点的 key
+function collectLeafKeys(nodeKey: number | string): unknown[] {
+  const leaves: unknown[] = [];
+  const children = flattenData.value.filter((i) => i.parentId === nodeKey);
+  for (const child of children) {
+    const childKey = get(child.value, props.valueField);
+    const grandChildren = flattenData.value.filter(
+      (i) => i.parentId === childKey,
+    );
+    if (grandChildren.length === 0) {
+      // 叶子节点
+      leaves.push(childKey);
+    } else {
+      // 递归收集
+      leaves.push(...collectLeafKeys(childKey));
+    }
+  }
+  return leaves;
+}
+
+// 判断节点是否半选（部分叶子节点选中）
 function isNodeIndeterminate(nodeValue: Recordable<any>): boolean {
   if (!props.multiple) return false;
   if (!Array.isArray(modelValue.value)) return false;
 
   const nodeKey = get(nodeValue, props.valueField);
-  const children = flattenData.value.filter(
-    (i) => i.parentId === nodeKey,
-  );
-  if (children.length === 0) return false;
+  const leaves = collectLeafKeys(nodeKey);
+  if (leaves.length === 0) return false;
 
-  const selectedCount = children.filter((child) =>
-    (modelValue.value as unknown[]).includes(
-      get(child.value, props.valueField),
-    ),
+  const selectedCount = leaves.filter((leaf) =>
+    (modelValue.value as unknown[]).includes(leaf),
   ).length;
 
-  return selectedCount > 0 && selectedCount < children.length;
+  return selectedCount > 0 && selectedCount < leaves.length;
+}
+
+// 判断节点是否全选（所有叶子节点都选中）
+// 叶子节点：检查自身是否在 modelValue 中
+// 父节点：检查所有叶子节点是否都在 modelValue 中
+function isNodeAllSelected(nodeValue: Recordable<any>): boolean {
+  if (!props.multiple) return false;
+  if (!Array.isArray(modelValue.value)) return false;
+
+  const nodeKey = get(nodeValue, props.valueField);
+  const leaves = collectLeafKeys(nodeKey);
+  if (leaves.length === 0) {
+    // 叶子节点，检查自身
+    return (modelValue.value as unknown[]).includes(nodeKey);
+  }
+
+  return leaves.every((leaf) =>
+    (modelValue.value as unknown[]).includes(leaf),
+  );
 }
 
 defineExpose({
@@ -450,7 +528,7 @@ defineExpose({
         <div class="flex items-center gap-1 item-checkbox">
           <Checkbox
             v-if="multiple"
-            :model-value="isNodeIndeterminate(item.value) && !isNodeDisabled(item) ? 'indeterminate' : (isSelected && !isNodeDisabled(item))"
+            :model-value="isNodeIndeterminate(item.value) && !isNodeDisabled(item) ? 'indeterminate' : (isNodeAllSelected(item.value) && !isNodeDisabled(item))"
             :disabled="isNodeDisabled(item)"
             @click="
               (event: MouseEvent) => {

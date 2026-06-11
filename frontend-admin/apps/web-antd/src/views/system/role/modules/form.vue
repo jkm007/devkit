@@ -71,11 +71,12 @@ function handleUpdateValue(keys: string[]) {
 }
 
 // 监听表单值变化（编辑时加载已有权限）
+// 只设置叶子节点 key，父节点状态由 isNodeAllSelected/isNodeIndeterminate 计算
 watch(
   () => formData.value?.permissions,
   (val) => {
     if (Array.isArray(val)) {
-      selectedKeys.value = enrichWithParentKeys(val);
+      selectedKeys.value = val;
     }
   },
   { immediate: true },
@@ -124,7 +125,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
       if (data) {
         formApi.setValues(data);
         if (Array.isArray(data.permissions)) {
-          selectedKeys.value = enrichWithParentKeys(data.permissions);
+          selectedKeys.value = data.permissions;
         }
       }
     }
