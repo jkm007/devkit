@@ -33,7 +33,7 @@ import {
 } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeTableGridOptions } from '#/adapter/vxe-table';
+import type { VxeTableGridColumns, VxeTableGridOptions } from '#/adapter/vxe-table';
 import {
   checkFileShares,
   createFolder,
@@ -54,6 +54,39 @@ import type { UploadTaskItem } from '#/store/upload';
 import { getFileIcon, formatFileSize, fallbackCopy } from '#/utils/file-utils';
 
 defineOptions({ name: 'FileList' });
+
+/** 表格行数据（文件条目 + 上传任务） */
+interface FileRowItem {
+  id: number | string;
+  name: string;
+  size: number;
+  contentType?: string;
+  storageType: string;
+  folderId?: number | null;
+  createdAt: string;
+  updatedAt?: string;
+  uploaderName?: string;
+  tags?: FileApi.TagInfo[];
+  /** 是否为上传任务行 */
+  isUploadTask: boolean;
+  /** 关联的上传任务 */
+  uploadTask: UploadTaskItem | null;
+}
+
+/** 文件夹树节点 */
+interface FolderTreeNode {
+  key: number | string;
+  title: string;
+  type?: string;
+  children?: FolderTreeNode[];
+}
+
+/** 文件夹下拉选择节点 */
+interface FolderSelectNode {
+  value: number | string;
+  label: string;
+  children?: FolderSelectNode[];
+}
 
 const accessStore = useAccessStore();
 const uploadStore = useUploadStore();
@@ -182,10 +215,10 @@ const storageTypeLabels: Record<string, { label: string; color: string }> = {
 const showUploader = ref(false);
 
 const tableColumns = computed(() => {
-  const cols: any[] = [
+  const cols: VxeTableGridColumns<FileRowItem> = [
     { type: 'checkbox', width: 50, align: 'center' },
     { field: 'name', title: '文件名', minWidth: 200, slots: { default: 'name' } },
-    { field: 'size', title: '大小', width: 100, align: 'center', formatter: ({ cellValue }: any) => formatFileSize(cellValue) },
+    { field: 'size', title: '大小', width: 100, align: 'center', formatter: ({ cellValue }: { cellValue: number }) => formatFileSize(cellValue) },
     { field: 'status', title: '状态', width: 100, align: 'center', slots: { default: 'status' } },
     { field: 'storageType', title: '存储', width: 100, align: 'center', slots: { default: 'storage' } },
     { field: 'tags', title: '标签', minWidth: 150, slots: { default: 'tags' } },
@@ -205,10 +238,10 @@ const tableColumns = computed(() => {
 });
 
 // 缓存最后一次 API 查询结果，用于上传进度更新时避免重复请求
-const lastApiResult = ref<{ items: any[]; total: number }>({ items: [], total: 0 });
+const lastApiResult = ref<{ items: FileApi.FileEntry[]; total: number }>({ items: [], total: 0 });
 
 // 合并上传任务与 API 数据
-function mergeWithUploadTasks(apiResult: { items: any[]; total: number }) {
+function mergeWithUploadTasks(apiResult: { items: FileApi.FileEntry[]; total: number }) {
   const activeTasks = uploadTasks.value
     .filter(task => task.status === 'uploading' || task.status === 'processing')
     .map(task => ({
@@ -222,7 +255,7 @@ function mergeWithUploadTasks(apiResult: { items: any[]; total: number }) {
       createdAt: new Date(task.startTime).toISOString(),
     }));
 
-  const files = apiResult.items.map((file: any) => ({
+  const files = apiResult.items.map((file) => ({
     ...file,
     isUploadTask: false,
     uploadTask: null,
@@ -273,13 +306,13 @@ const [Grid, gridApi] = useVbenVxeGrid({
       search: false,
       zoom: true,
     },
-  } as VxeTableGridOptions<any>,
+  } as VxeTableGridOptions<FileRowItem>,
   gridEvents: {
-    checkboxChange({ records }: any) {
-      selectedRowKeys.value = records.map((r: any) => r.id).filter((id: any) => typeof id === 'number');
+    checkboxChange({ records }: { records: FileRowItem[] }) {
+      selectedRowKeys.value = records.map((r) => r.id).filter((id): id is number => typeof id === 'number');
     },
-    checkboxAll({ records }: any) {
-      selectedRowKeys.value = records.map((r: any) => r.id).filter((id: any) => typeof id === 'number');
+    checkboxAll({ records }: { records: FileRowItem[] }) {
+      selectedRowKeys.value = records.map((r) => r.id).filter((id): id is number => typeof id === 'number');
     },
   },
 });
@@ -316,7 +349,7 @@ function onRefresh() {
   gridApi.query();
 }
 
-function handleFolderClick(node: any) {
+function handleFolderClick(node: FolderTreeNode) {
   const key = node?.key;
   currentFolderId.value = (!key || key === '__all__') ? null : Number(key);
   onRefresh();
@@ -334,7 +367,7 @@ function handleTagFilter() {
 }
 
 // 文件操作菜单处理
-function handleFileAction(key: string, row: any) {
+function handleFileAction(key: string, row: FileRowItem) {
   switch (key) {
     case 'preview':
       handlePreview(row);
@@ -349,7 +382,7 @@ function handleFileAction(key: string, row: any) {
       openTagEditModal(row);
       break;
     case 'move':
-      openMoveFileModal(row.id);
+      openMoveFileModal(row.id as number);
       break;
     case 'delete':
       handleDeleteWithShareCheck(row);
@@ -359,7 +392,7 @@ function handleFileAction(key: string, row: any) {
 
 // ==================== 文件夹操作 ====================
 
-function showFolderMenu(nodeData: any) {
+function showFolderMenu(nodeData: FolderTreeNode) {
   folderMenuId.value = nodeData.key as number;
   folderMenuName.value = nodeData.title as string;
   folderMenuVisible.value = true;
@@ -466,9 +499,9 @@ async function handleMoveFile() {
   } catch { message.error('移动失败'); }
 }
 
-async function handleDeleteWithShareCheck(row: any) {
+async function handleDeleteWithShareCheck(row: FileRowItem) {
   try {
-    const result = await checkFileShares(row.id);
+    const result = await checkFileShares(row.id as number);
     const shareCount = result?.shareCount || 0;
 
     if (shareCount > 0) {
@@ -503,22 +536,22 @@ async function handleDeleteWithShareCheck(row: any) {
   }
 }
 
-async function handleDeleteFile(row: any) {
+async function handleDeleteFile(row: FileRowItem) {
   try {
-    await deleteFile(row.id);
+    await deleteFile(row.id as number);
     message.success(`已将 ${row.name} 移入回收站`);
     onRefresh();
   } catch { message.error('删除失败'); }
 }
 
-async function openTagEditModal(row: any) {
-  tagEditFileId.value = row.id;
+async function openTagEditModal(row: FileRowItem) {
+  tagEditFileId.value = row.id as number;
   tagEditFileName.value = row.name;
-  tagEditSelectedTags.value = row.tags?.map((t: any) => t.id) || [];
+  tagEditSelectedTags.value = row.tags?.map((t) => t.id) || [];
   tagEditModalVisible.value = true;
   try {
     const { getFileTags } = await import('#/api/file');
-    fileTags.value = await getFileTags(row.id);
+    fileTags.value = await getFileTags(row.id as number);
   } catch { fileTags.value = []; }
 }
 
@@ -530,7 +563,7 @@ async function handleTagEditSubmit() {
     message.success('标签更新成功');
     tagEditModalVisible.value = false;
     onRefresh();
-  } catch (error: any) { message.error(error.message || '更新失败'); }
+  } catch (error: unknown) { message.error(error instanceof Error ? error.message : '更新失败'); }
 }
 
 async function handleBatchDelete() {
@@ -593,7 +626,7 @@ async function handleBatchMove() {
   } catch { message.error('批量移动失败'); }
 }
 
-function handleDownload(row: any) {
+function handleDownload(row: FileRowItem) {
   const token = useAccessStore().accessToken;
   const url = `/api/v1/files/${row.id}/download`;
 
@@ -645,7 +678,7 @@ function handleDownload(row: any) {
   xhr.send();
 }
 
-async function handlePreview(row: any) {
+async function handlePreview(row: FileRowItem) {
   previewName.value = row.name;
   previewUrl.value = '';
   previewType.value = '';
@@ -705,8 +738,8 @@ async function handlePreview(row: any) {
   } catch { message.error('获取预览失败'); previewVisible.value = false; }
 }
 
-async function handleShare(row: any) {
-  shareFileId.value = row.id;
+async function handleShare(row: FileRowItem) {
+  shareFileId.value = row.id as number;
   shareExpireHours.value = 0;
   shareResult.value = null;
   shareModalVisible.value = true;
@@ -755,8 +788,8 @@ onMounted(() => {
 
 // ==================== Tree 数据 ====================
 
-const treeData = computed(() => {
-  const convert = (folders: FileApi.Folder[]): any[] =>
+const treeData = computed((): FolderTreeNode[] => {
+  const convert = (folders: FileApi.Folder[]): FolderTreeNode[] =>
     folders.map((f) => ({
       key: f.id,
       title: f.name,
@@ -766,14 +799,14 @@ const treeData = computed(() => {
   return [{ key: '__all__', title: '全部文件', type: 'all' }, ...convert(folderTree.value)];
 });
 
-const folderSelectData = computed(() => {
-  const convert = (folders: FileApi.Folder[]): any[] =>
+const folderSelectData = computed((): FolderSelectNode[] => {
+  const convert = (folders: FileApi.Folder[]): FolderSelectNode[] =>
     folders.map((f) => ({
       value: f.id,
       label: f.name,
       children: f.children ? convert(f.children) : undefined,
     }));
-  return [{ value: null, label: '根目录' }, ...convert(folderTree.value)];
+  return [{ value: 0, label: '根目录' }, ...convert(folderTree.value)];
 });
 </script>
 
@@ -900,7 +933,7 @@ const folderSelectData = computed(() => {
               <Tag v-for="tag in row.tags.slice(0, 3)" :key="tag.id" :color="tag.color" class="mr-1 mb-1">
                 {{ tag.icon }} {{ tag.name }}
               </Tag>
-              <Tooltip v-if="row.tags.length > 3" :title="row.tags.map((t: any) => `${t.icon} ${t.name}`).join(', ')">
+              <Tooltip v-if="row.tags.length > 3" :title="row.tags.map((t) => `${t.icon} ${t.name}`).join(', ')">
                 <Tag>+{{ row.tags.length - 3 }}</Tag>
               </Tooltip>
             </template>
@@ -911,7 +944,7 @@ const folderSelectData = computed(() => {
           <template #action="{ row }">
             <!-- 上传任务操作 -->
             <template v-if="row.isUploadTask">
-              <Button type="link" size="small" @click="showUploadDetail(row.uploadTask)">详情</Button>
+              <Button type="link" size="small" @click="showUploadDetail(row.uploadTask!)">详情</Button>
             </template>
             <!-- 正常文件操作 -->
             <template v-else>
@@ -923,7 +956,7 @@ const folderSelectData = computed(() => {
                     更多 <span class="i-ant-design:down-outlined ml-1" />
                   </Button>
                   <template #overlay>
-                    <Menu @click="({ key }: any) => handleFileAction(key, row)">
+                    <Menu @click="({ key }: { key: string | number }) => handleFileAction(String(key), row)">
                       <MenuItem v-if="hasSharePermission" key="share">
                         <span class="i-ant-design:share-alt-outlined mr-2" />分享
                       </MenuItem>
