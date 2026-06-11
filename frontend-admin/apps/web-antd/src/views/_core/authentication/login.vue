@@ -135,7 +135,7 @@ async function fetchNumericCaptcha() {
     if (data && data.captcha_id && data.image) {
       numericCaptchaImage.value = data.image;
       numericCaptchaId.value = data.captcha_id;
-      numericCaptchaLength.value = (data as any).length || 4;
+      numericCaptchaLength.value = data.length || 4;
       captchaVerified.value = false;
       captchaResult.value = null;
     }
@@ -256,7 +256,7 @@ const formSchema = computed((): VbenFormSchema[] => {
 // 执行登录（带验证码数据）
 function doLogin(
   params: Record<string, any>,
-  captchaData?: { captchaId: string; captchaCode: string },
+  captchaData?: { captchaCode: string; captchaId: string; startTime?: number },
 ) {
   const loginParams: Record<string, any> = {
     username: params.username,
@@ -267,7 +267,7 @@ function doLogin(
     loginParams.captchaId = captchaData.captchaId;
     loginParams.captchaCode = captchaData.captchaCode;
     loginParams.captchaType = captchaType.value;
-    loginParams.startTime = (captchaData as any).startTime || 0;
+    loginParams.startTime = captchaData.startTime || 0;
     if (captchaType.value === 'point' && captchaData.captchaCode) {
       loginParams.points = JSON.parse(captchaData.captchaCode);
     }

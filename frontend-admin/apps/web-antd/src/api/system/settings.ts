@@ -1,5 +1,21 @@
 import { requestClient } from '#/api/request';
 
+/** 验证码响应数据类型 */
+export type CaptchaResponse = {
+  captcha_id: string;
+  image: string;
+  thumb?: string;
+  thumb_x?: number;
+  thumb_y?: number;
+  type: string;
+  hint_text?: string;
+  chars?: string[];
+  width?: number;
+  height?: number;
+  length?: number;
+  start_time?: number;
+}
+
 export namespace SystemSettingsApi {
   export interface SettingItem {
     key: string;
@@ -49,10 +65,9 @@ async function getSettingsByGroup(group: string) {
  * 批量更新配置
  */
 async function updateSettings(settings: Record<string, Record<string, any>>) {
-  return requestClient.put<SystemSettingsApi.UpdateResult>(
-    '/system/settings',
-    { settings },
-  );
+  return requestClient.put<SystemSettingsApi.UpdateResult>('/system/settings', {
+    settings,
+  });
 }
 
 /**
@@ -72,20 +87,18 @@ async function updateSettingsByGroup(
  * 测试邮件发送
  */
 async function testEmail(to: string) {
-  return requestClient.post<{ sent: boolean }>(
-    '/system/settings/test-email',
-    { to },
-  );
+  return requestClient.post<{ sent: boolean }>('/system/settings/test-email', {
+    to,
+  });
 }
 
 /**
  * 测试短信发送
  */
 async function testSms(phone: string) {
-  return requestClient.post<{ sent: boolean }>(
-    '/system/settings/test-sms',
-    { phone },
-  );
+  return requestClient.post<{ sent: boolean }>('/system/settings/test-sms', {
+    phone,
+  });
 }
 
 /**
@@ -93,20 +106,9 @@ async function testSms(phone: string) {
  * @param type 验证码类型: numeric/slider/puzzle/point
  */
 async function getCaptcha(type: string = 'numeric') {
-  return requestClient.get<{
-    captcha_id: string;
-    image: string;
-    thumb?: string;
-    thumb_x?: number;
-    thumb_y?: number;
-    type: string;
-    hint_text?: string;
-    chars?: string[];
-    width?: number;
-    height?: number;
-    length?: number;
-    start_time?: number;
-  }>('/auth/captcha', { params: { type } });
+  return requestClient.get<CaptchaResponse>('/auth/captcha', {
+    params: { type },
+  });
 }
 
 /**
@@ -114,20 +116,9 @@ async function getCaptcha(type: string = 'numeric') {
  * @param type 验证码类型: numeric/slider/puzzle/point
  */
 async function testCaptcha(type: string = 'numeric') {
-  return requestClient.get<{
-    captcha_id: string;
-    image: string;
-    thumb?: string;
-    thumb_x?: number;
-    thumb_y?: number;
-    type: string;
-    hint_text?: string;
-    chars?: string[];
-    width?: number;
-    height?: number;
-    length?: number;
-    start_time?: number;
-  }>('/system/captcha/test', { params: { type } });
+  return requestClient.get<CaptchaResponse>('/system/captcha/test', {
+    params: { type },
+  });
 }
 
 /**

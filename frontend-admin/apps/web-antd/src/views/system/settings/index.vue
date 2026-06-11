@@ -3,7 +3,11 @@ import type { SystemSettingsApi } from '#/api/system/settings';
 
 import { computed, onMounted, reactive, ref } from 'vue';
 
-import { Page } from '@vben/common-ui';
+import {
+  NumericCaptcha,
+  Page,
+  PointSelectionCaptcha,
+} from '@vben/common-ui';
 import { updatePreferences } from '@vben/preferences';
 
 import {
@@ -36,10 +40,16 @@ import {
   updateSettingsByGroup,
   verifyCaptcha,
 } from '#/api/system/settings';
-import { NumericCaptcha, PointSelectionCaptcha } from '@vben/common-ui';
 import BackendCaptcha from '#/components/captcha/backend-captcha.vue';
 import BackendRotateCaptcha from '#/components/captcha/backend-rotate-captcha.vue';
 import { $t } from '#/locales';
+
+/** 后端验证码（滑块/拼图/旋转）成功回调数据类型 */
+type CaptchaSuccessData = {
+  captchaCode: string;
+  captchaId: string;
+  startTime: number;
+};
 
 // ==================== Group Config ====================
 const groupConfig: Record<
@@ -407,10 +417,10 @@ async function loadCaptchaForTest() {
       captchaTestId.value = data.captcha_id;
       captchaTestImage.value = data.image;
       captchaTestThumb.value = data.thumb || '';
-      captchaTestThumbY.value = (data as any).thumb_y || 0; // 缩略图 Y 位置
-      captchaTestHintText.value = (data as any).hint_text || '';
-      captchaTestChars.value = (data as any).chars || [];
-      captchaTestLength.value = (data as any).length || 4; // 数字验证码长度
+      captchaTestThumbY.value = data.thumb_y || 0;
+      captchaTestHintText.value = data.hint_text || '';
+      captchaTestChars.value = data.chars || [];
+      captchaTestLength.value = data.length || 4;
       // startTime 在用户开始操作时设置，不在这里设置
     } else {
       message.error('获取验证码失败');
@@ -1147,7 +1157,7 @@ onMounted(() => {
                       :char-length="captchaTestLength"
                       class="mb-3"
                       @success="
-                        (data: any) => {
+                        (data: { captchaId: string; code: string }) => {
                           handleCaptchaTestVerify({ captchaCode: data.code });
                         }
                       "
@@ -1176,7 +1186,7 @@ onMounted(() => {
                       :server-captcha-id="captchaTestId"
                       @refresh="loadCaptchaForTest"
                       @success="
-                        (data: any) =>
+                        (data: CaptchaSuccessData) =>
                           handleCaptchaTestVerify({
                             captchaCode: data.captchaCode,
                           })
@@ -1207,7 +1217,7 @@ onMounted(() => {
                       :server-captcha-id="captchaTestId"
                       @refresh="loadCaptchaForTest"
                       @success="
-                        (data: any) =>
+                        (data: CaptchaSuccessData) =>
                           handleCaptchaTestVerify({
                             captchaCode: data.captchaCode,
                           })
@@ -1237,7 +1247,7 @@ onMounted(() => {
                       :image-size="220"
                       @refresh="loadCaptchaForTest"
                       @success="
-                        (data: any) =>
+                        (data: CaptchaSuccessData) =>
                           handleCaptchaTestVerify({
                             captchaCode: data.captchaCode,
                           })
