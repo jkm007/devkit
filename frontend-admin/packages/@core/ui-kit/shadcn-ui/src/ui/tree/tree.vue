@@ -290,8 +290,46 @@ function onSelect(item: FlattenedItem<Recordable<any>>, isSelected: boolean) {
         }
       });
   }
+
+  // check-strictly 模式下的 bubble-select：选中/取消子节点时更新父节点状态
+  if (props.checkStrictly && props.multiple && Array.isArray(modelValue.value)) {
+    handleBubbleSelect(item);
+  }
+
   updateTreeValue();
   emits('select', item);
+}
+
+// check-strictly 模式下的 bubble-select：向上冒泡更新父节点选中状态
+function handleBubbleSelect(item: FlattenedItem<Recordable<any>>) {
+  if (!item.parents || item.parents.length === 0) return;
+
+  const parent = item.parents[item.parents.length - 1];
+  if (!parent || get(parent, props.disabledField)) return;
+
+  const parentKey = get(parent, props.valueField);
+  const siblings = flattenData.value.filter(
+    (i) => i.parentId === parent,
+  );
+  const allSelected = siblings.every((sib) =>
+    (modelValue.value as unknown[]).includes(
+      get(sib.value, props.valueField),
+    ),
+  );
+
+  if (allSelected) {
+    if (!(modelValue.value as unknown[]).includes(parentKey)) {
+      (modelValue.value as unknown[]).push(parentKey);
+    }
+  } else {
+    const idx = (modelValue.value as unknown[]).indexOf(parentKey);
+    if (idx !== -1) {
+      (modelValue.value as unknown[]).splice(idx, 1);
+    }
+  }
+
+  // 递归向上冒泡
+  handleBubbleSelect(parent);
 }
 
 defineExpose({
