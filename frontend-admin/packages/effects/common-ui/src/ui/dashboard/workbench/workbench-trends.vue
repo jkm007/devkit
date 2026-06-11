@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { WorkbenchTrendItem } from '../typing';
 
+import { computed } from 'vue';
+
 import {
   Card,
   CardContent,
@@ -8,6 +10,8 @@ import {
   CardTitle,
   VbenIcon,
 } from '@vben-core/shadcn-ui';
+
+import { sanitizeHtml } from './sanitize-html';
 
 interface Props {
   items?: WorkbenchTrendItem[];
@@ -18,9 +22,17 @@ defineOptions({
   name: 'WorkbenchTrends',
 });
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   items: () => [],
 });
+
+/** Sanitize HTML content for each trend item to prevent XSS. */
+const sanitizedItems = computed(() =>
+  props.items.map((item) => ({
+    ...item,
+    safeContent: sanitizeHtml(item.content),
+  })),
+);
 </script>
 
 <template>
@@ -31,7 +43,7 @@ withDefaults(defineProps<Props>(), {
     <CardContent class="flex flex-wrap p-5 pt-0">
       <ul class="w-full divide-y divide-border" role="list">
         <li
-          v-for="item in items"
+          v-for="item in sanitizedItems"
           :key="item.title"
           class="flex justify-between gap-x-6 py-5"
         >
@@ -45,10 +57,10 @@ withDefaults(defineProps<Props>(), {
               <p class="text-sm/6 font-semibold text-foreground">
                 {{ item.title }}
               </p>
-              <!-- eslint-disable vue/no-v-html -->
+              <!-- v-html safe: content is sanitized via sanitizeHtml() -->
               <p
                 class="mt-1 truncate text-xs/5 text-foreground/80 *:text-primary"
-                v-html="item.content"
+                v-html="item.safeContent"
               ></p>
             </div>
           </div>
