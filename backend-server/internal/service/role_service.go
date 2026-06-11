@@ -253,10 +253,16 @@ func (s *RoleService) Delete(id uint) error {
 	db := database.GetMySQL()
 	if err := db.Where("role_id = ?", id).Delete(&model.UserRole{}).Error; err != nil {
 		// 记录日志但不影响返回（角色已删除）
-		fmt.Printf("清理 UserRole 关联失败: role_id=%d, err=%v\n", id, err)
+		logger.Error("清理 UserRole 关联失败",
+			zap.Uint("role_id", id),
+			zap.Error(err),
+		)
 	}
 	if err := db.Where("role_id = ?", id).Delete(&model.GroupRole{}).Error; err != nil {
-		fmt.Printf("清理 GroupRole 关联失败: role_id=%d, err=%v\n", id, err)
+		logger.Error("清理 GroupRole 关联失败",
+			zap.Uint("role_id", id),
+			zap.Error(err),
+		)
 	}
 
 	return nil
