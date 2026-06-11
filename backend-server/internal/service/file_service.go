@@ -299,15 +299,20 @@ func (s *FileService) DeleteFolder(userID uint, folderID uint) error {
 	return nil
 }
 
+// collectChildFolderIDs 收集指定文件夹下所有子文件夹的 ID（BFS 迭代实现）
 func (s *FileService) collectChildFolderIDs(parentID uint, ids *[]uint) error {
-	children, err := s.fileRepo.GetChildFolders(parentID)
-	if err != nil {
-		return err
-	}
-	for _, child := range children {
-		*ids = append(*ids, child.ID)
-		if err := s.collectChildFolderIDs(child.ID, ids); err != nil {
+	queue := []uint{parentID}
+	for len(queue) > 0 {
+		currentID := queue[0]
+		queue = queue[1:]
+
+		children, err := s.fileRepo.GetChildFolders(currentID)
+		if err != nil {
 			return err
+		}
+		for _, child := range children {
+			*ids = append(*ids, child.ID)
+			queue = append(queue, child.ID)
 		}
 	}
 	return nil
