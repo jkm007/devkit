@@ -201,6 +201,15 @@ func (s *UserService) Create(req *CreateUserRequest) error {
 
 		// 同步用户角色
 		if len(req.RoleIDs) > 0 {
+			// 校验角色是否存在
+			var count int64
+			if err := tx.Model(&model.Role{}).Where("id IN ?", req.RoleIDs).Count(&count).Error; err != nil {
+				return fmt.Errorf("校验角色失败: %w", err)
+			}
+			if int(count) != len(req.RoleIDs) {
+				return fmt.Errorf("部分角色不存在，请检查角色ID")
+			}
+
 			for _, roleID := range req.RoleIDs {
 				userRole := &model.UserRole{
 					UserID: user.ID,
@@ -282,6 +291,17 @@ func (s *UserService) Update(id uint, req *UpdateUserRequest) error {
 
 		// 同步用户角色
 		if req.RoleIDs != nil {
+			// 校验角色是否存在
+			if len(req.RoleIDs) > 0 {
+				var count int64
+				if err := tx.Model(&model.Role{}).Where("id IN ?", req.RoleIDs).Count(&count).Error; err != nil {
+					return fmt.Errorf("校验角色失败: %w", err)
+				}
+				if int(count) != len(req.RoleIDs) {
+					return fmt.Errorf("部分角色不存在，请检查角色ID")
+				}
+			}
+
 			// 先删除旧的关联
 			if err := tx.Where("user_id = ?", user.ID).Delete(&model.UserRole{}).Error; err != nil {
 				return err
