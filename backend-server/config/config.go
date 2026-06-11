@@ -44,7 +44,7 @@ type MySQLConfig struct {
 	Database       string        `mapstructure:"database"`
 	MaxOpenConns   int           `mapstructure:"max_open_conns"`
 	MaxIdleConns   int           `mapstructure:"max_idle_conns"`
-	ConnMaxLifetime time.Duration `mapstructure:"conn_max_lifetime"`
+	ConnMaxLifetime time.Duration `mapstructure:"conn_max_lifetime"` // 连接最大存活时间，Go duration 格式（如 3600s）
 	Charset        string        `mapstructure:"charset"`
 }
 

@@ -17,7 +17,7 @@ mysql:
   database: backend_db
   max_open_conns: 100
   max_idle_conns: 10
-  conn_max_lifetime: 3600s
+  conn_max_lifetime: 3600s # 连接最大存活时间，Go duration 格式（如 3600s = 1小时）
   charset: utf8mb4
 
 # Redis 配置

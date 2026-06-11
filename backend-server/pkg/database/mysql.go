@@ -33,6 +33,7 @@ func InitMySQL(cfg config.MySQLConfig) error {
 	// 连接池配置
 	sqlDB.SetMaxOpenConns(cfg.MaxOpenConns)
 	sqlDB.SetMaxIdleConns(cfg.MaxIdleConns)
+	// ConnMaxLifetime 单位为秒，乘以 time.Second 转换为 time.Duration
 	sqlDB.SetConnMaxLifetime(cfg.ConnMaxLifetime * time.Second)
 
 	// 测试连接
