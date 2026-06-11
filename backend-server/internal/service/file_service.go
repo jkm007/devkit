@@ -259,12 +259,19 @@ func (s *FileService) DeleteFolder(userID uint, folderID uint) error {
 			logger.Warn("删除文件标签失败", zap.Uint("fileID", entry.ID), zap.Error(err))
 		}
 
-		// 处理文件资产
+		// 处理文件资产（使用原子递减避免并发竞态）
 		if entry.FileAssetID > 0 {
-			asset, err := s.assetRepo.GetByID(entry.FileAssetID)
-			if err == nil {
-				if asset.RefCount <= 1 {
-					// 引用计数减到 0，删除存储对象和资产记录
+			affected, err := s.assetRepo.DecrementRefCountAtomic(entry.FileAssetID)
+			if err != nil {
+				logger.Error("原子递减引用计数失败", zap.Uint("assetID", entry.FileAssetID), zap.Error(err))
+			} else if affected == 0 {
+				// ref_count 已经 <= 0，无需删除存储对象（已被其他协程处理）
+				logger.Debug("资产引用计数已为0，跳过", zap.Uint("assetID", entry.FileAssetID))
+			} else {
+				// 递减成功，检查递减后的 ref_count 是否为 0
+				asset, err := s.assetRepo.GetByID(entry.FileAssetID)
+				if err == nil && asset.RefCount <= 0 {
+					// 引用计数归零，删除存储对象和资产记录
 					if asset.ObjectKey != "" {
 						st := storage.GetStorageByDriver(asset.StorageType)
 						if err := st.Delete(context.Background(), asset.ObjectKey); err != nil {
@@ -273,11 +280,6 @@ func (s *FileService) DeleteFolder(userID uint, folderID uint) error {
 					}
 					if err := s.assetRepo.DeleteByID(entry.FileAssetID); err != nil {
 						logger.Error("删除资产记录失败", zap.Uint("assetID", entry.FileAssetID), zap.Error(err))
-					}
-				} else {
-					// 引用计数减 1
-					if err := s.assetRepo.DecrementRefCount(entry.FileAssetID); err != nil {
-						logger.Warn("递减引用计数失败", zap.Uint("fileAssetID", entry.FileAssetID), zap.Error(err))
 					}
 				}
 			}
