@@ -236,7 +236,7 @@ function onSelect(item: FlattenedItem<Recordable<any>>, isSelected: boolean) {
   // check-strictly 模式：点击父节点时向下传播到所有叶子节点
   if (props.checkStrictly && props.multiple && Array.isArray(modelValue.value)) {
     const nodeKey = get(item.value, props.valueField);
-    const leaves = collectLeafKeys(nodeKey);
+    const leaves = getNodeLeafKeys(nodeKey);
     if (leaves.length > 0) {
       const allSelected = leaves.every((leaf) =>
         (modelValue.value as unknown[]).includes(leaf),
@@ -321,7 +321,7 @@ function onSelect(item: FlattenedItem<Recordable<any>>, isSelected: boolean) {
   // 移除 modelValue 中的父节点 key（父节点状态由 isNodeAllSelected/isNodeIndeterminate 计算）
   if (props.checkStrictly && props.multiple && Array.isArray(modelValue.value)) {
     const nodeKey = get(item.value, props.valueField);
-    const leaves = collectLeafKeys(nodeKey);
+    const leaves = getNodeLeafKeys(nodeKey);
     if (leaves.length === 0) {
       // 当前是叶子节点，移除其所有祖先 key
       const parents = item.parents || [];
@@ -339,24 +339,57 @@ function onSelect(item: FlattenedItem<Recordable<any>>, isSelected: boolean) {
   emits('select', item);
 }
 
-// 收集节点下所有叶子节点的 key
-function collectLeafKeys(nodeKey: number | string): unknown[] {
-  const leaves: unknown[] = [];
-  const children = flattenData.value.filter((i) => i.parentId === nodeKey);
-  for (const child of children) {
-    const childKey = get(child.value, props.valueField);
-    const grandChildren = flattenData.value.filter(
-      (i) => i.parentId === childKey,
-    );
-    if (grandChildren.length === 0) {
-      // 叶子节点
-      leaves.push(childKey);
-    } else {
-      // 递归收集
-      leaves.push(...collectLeafKeys(childKey));
+// 预计算：每个节点的叶子节点 key 列表（只在 treeData 变化时重建）
+const leafKeysMap = ref<Map<number | string, unknown[]>>(new Map());
+
+function buildLeafKeysMap() {
+  const map = new Map<number | string, unknown[]>();
+  // 从叶子节点向上构建
+  for (const item of flattenData.value) {
+    const key = get(item.value, props.valueField);
+    const children = flattenData.value.filter((i) => i.parentId === key);
+    if (children.length === 0) {
+      // 叶子节点，自身就是叶子
+      map.set(key, [key]);
     }
   }
-  return leaves;
+  // 自底向上：父节点的叶子 = 所有子节点的叶子之和
+  // 重复几轮直到所有节点都有值
+  for (let round = 0; round < 10; round++) {
+    let changed = false;
+    for (const item of flattenData.value) {
+      const key = get(item.value, props.valueField);
+      if (map.has(key)) continue;
+      const children = flattenData.value.filter((i) => i.parentId === key);
+      if (children.length === 0) continue;
+      const allChildrenResolved = children.every((c) =>
+        map.has(get(c.value, props.valueField)),
+      );
+      if (!allChildrenResolved) continue;
+      const leaves: unknown[] = [];
+      for (const c of children) {
+        leaves.push(...(map.get(get(c.value, props.valueField)) || []));
+      }
+      map.set(key, leaves);
+      changed = true;
+    }
+    if (!changed) break;
+  }
+  leafKeysMap.value = map;
+}
+
+// 监听 treeData 变化时重建 leafKeysMap
+watch(
+  () => flattenData.value.length,
+  () => {
+    if (flattenData.value.length > 0) {
+      buildLeafKeysMap();
+    }
+  },
+);
+
+function getNodeLeafKeys(nodeKey: number | string): unknown[] {
+  return leafKeysMap.value.get(nodeKey) || [];
 }
 
 // 判断节点是否半选（部分叶子节点选中）
@@ -365,33 +398,30 @@ function isNodeIndeterminate(nodeValue: Recordable<any>): boolean {
   if (!Array.isArray(modelValue.value)) return false;
 
   const nodeKey = get(nodeValue, props.valueField);
-  const leaves = collectLeafKeys(nodeKey);
-  if (leaves.length === 0) return false;
+  const leaves = getNodeLeafKeys(nodeKey);
+  if (leaves.length <= 1) return false;
 
-  const selectedCount = leaves.filter((leaf) =>
-    (modelValue.value as unknown[]).includes(leaf),
-  ).length;
+  const selectedSet = new Set(modelValue.value as unknown[]);
+  const selectedCount = leaves.filter((leaf) => selectedSet.has(leaf)).length;
 
   return selectedCount > 0 && selectedCount < leaves.length;
 }
 
-// 判断节点是否全选（所有叶子节点都选中）
-// 叶子节点：检查自身是否在 modelValue 中
-// 父节点：检查所有叶子节点是否都在 modelValue 中
+// 判断节点是否全选
 function isNodeAllSelected(nodeValue: Recordable<any>): boolean {
   if (!props.multiple) return false;
   if (!Array.isArray(modelValue.value)) return false;
 
   const nodeKey = get(nodeValue, props.valueField);
-  const leaves = collectLeafKeys(nodeKey);
-  if (leaves.length === 0) {
-    // 叶子节点，检查自身
+  const leaves = getNodeLeafKeys(nodeKey);
+  if (leaves.length === 0) return false;
+  if (leaves.length === 1 && leaves[0] === nodeKey) {
+    // 叶子节点
     return (modelValue.value as unknown[]).includes(nodeKey);
   }
 
-  return leaves.every((leaf) =>
-    (modelValue.value as unknown[]).includes(leaf),
-  );
+  const selectedSet = new Set(modelValue.value as unknown[]);
+  return leaves.every((leaf) => selectedSet.has(leaf));
 }
 
 defineExpose({
