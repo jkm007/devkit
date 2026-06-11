@@ -23,10 +23,15 @@ import (
 const streamCopyBuffer = 64 * 1024
 
 // sanitizeContentDisposition 生成安全的 Content-Disposition 头
+// 对 filename 参数中的双引号和反斜杠进行转义（RFC 2616 quoted-string 规则），
+// 防止 HTTP 响应头注入；同时提供 RFC 5987 编码的 filename* 参数确保非 ASCII 文件名正确传输
 func sanitizeContentDisposition(disposition, fileName string) string {
-	// 对文件名进行 RFC 5987 编码，防止 HTTP 响应头注入
+	// 转义 quoted-string 中的特殊字符：先转义反斜杠，再转义双引号
+	safeName := strings.ReplaceAll(fileName, `\`, `\\`)
+	safeName = strings.ReplaceAll(safeName, `"`, `\"`)
+	// RFC 5987 编码，用于 filename* 参数
 	escaped := url.PathEscape(fileName)
-	return fmt.Sprintf(`%s; filename="%s"; filename*=UTF-8''%s`, disposition, fileName, escaped)
+	return fmt.Sprintf(`%s; filename="%s"; filename*=UTF-8''%s`, disposition, safeName, escaped)
 }
 
 // resolveExpiry 解析 expires 参数，返回实际过期时间（秒）

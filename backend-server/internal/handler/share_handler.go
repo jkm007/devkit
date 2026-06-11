@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"strconv"
 	"time"
 
@@ -246,8 +245,7 @@ func (h *ShareHandler) GetShareFile(c *gin.Context) {
 
 	// 设置通用响应头
 	c.Header("Accept-Ranges", "bytes")
-	escapedName := url.PathEscape(fileName)
-	c.Header("Content-Disposition", fmt.Sprintf(`inline; filename="%s"; filename*=UTF-8''%s`, fileName, escapedName))
+	c.Header("Content-Disposition", sanitizeContentDisposition("inline", fileName))
 	c.Header("Cache-Control", "private, max-age=3600")
 
 	// 处理 Range 请求（用于视频流式播放）
