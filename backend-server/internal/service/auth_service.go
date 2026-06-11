@@ -377,11 +377,18 @@ func (s *AuthService) generateLoginResponse(user *model.User, clientIP string) (
 		return nil, err
 	}
 
-	// 存储 RefreshToken 哈希到 Redis
-	rdb := database.GetRedis()
-	if err := rdb.Set(context.Background(), fmt.Sprintf("refresh_token:%d", user.ID), hashToken(tokenPair.RefreshToken), 30*24*time.Hour).Err(); err != nil {
+	// 存储 RefreshToken 哈希到 Redis（使用 Lua 脚本确保存储原子性，避免与并发 Refresh 操作产生竞态）
+	ctx := context.Background()
+	refreshCacheKey := fmt.Sprintf("refresh_token:%d", user.ID)
+	refreshTTLSeconds := int((30 * 24 * time.Hour).Seconds())
+	storeResult, err := storeRefreshTokenLuaScript.Run(ctx, database.GetRedis(), []string{refreshCacheKey}, hashToken(tokenPair.RefreshToken), refreshTTLSeconds).Int()
+	if err != nil {
 		logger.Error("存储 RefreshToken 失败", zap.Error(err))
 		return nil, errors.New("系统错误，请稍后重试")
+	}
+	if storeResult == 0 {
+		// 覆盖了已有 RefreshToken，可能是因为并发登录或 Token 轮换冲突
+		logger.Warn("登录时覆盖已有 RefreshToken", zap.Uint("userID", user.ID))
 	}
 
 	// 更新用户最后登录信息
@@ -512,6 +519,22 @@ if stored ~= ARGV[1] then
 	return 0
 end
 redis.call('SETEX', KEYS[1], tonumber(ARGV[3]), ARGV[2])
+return 1
+`)
+
+// storeRefreshTokenLuaScript 原子性存储 RefreshToken 的 Lua 脚本
+// 功能：检查 key 是否已存在 → 原子性地写入新哈希并设置过期时间
+// 登录场景下新会话覆盖旧会话，通过 EXISTS 检测是否覆盖了已有值
+// KEYS[1] = refresh_token:{userID}
+// ARGV[1] = refresh token 哈希
+// ARGV[2] = 过期时间（秒）
+// 返回: 1 = 新存储, 0 = 覆盖已有值
+var storeRefreshTokenLuaScript = redis.NewScript(`
+local existed = redis.call('EXISTS', KEYS[1])
+redis.call('SETEX', KEYS[1], tonumber(ARGV[2]), ARGV[1])
+if existed == 1 then
+	return 0
+end
 return 1
 `)
 
