@@ -413,13 +413,15 @@ func (s *FileService) ListFiles(userID uint, req *ListFilesRequest) ([]FileEntry
 		}
 	}
 
-	// 批量查询用户信息
-	userMap := make(map[uint]*model.User)
+	// 批量查询用户信息（单次查询替代 N+1）
+	uidList := make([]uint, 0, len(userIDs))
 	for uid := range userIDs {
-		user, err := s.userRepo.GetByID(uid)
-		if err == nil {
-			userMap[uid] = user
-		}
+		uidList = append(uidList, uid)
+	}
+	userMap, err := s.userRepo.GetByIDs(uidList)
+	if err != nil {
+		logger.Warn("批量查询用户信息失败", zap.Error(err))
+		userMap = make(map[uint]*model.User)
 	}
 
 	// 批量查询资产信息
