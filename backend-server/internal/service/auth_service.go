@@ -665,19 +665,17 @@ func (s *AuthService) loadPermissionCodesFromDB(userID uint) ([]string, error) {
 		if role.Permissions == "" {
 			continue
 		}
+		// 权限码统一使用 JSON 数组格式，如 ["system:user:view","system:user:add"]
 		var codes []string
-		if err := json.Unmarshal([]byte(role.Permissions), &codes); err == nil {
-			for _, code := range codes {
-				codeSet[code] = true
-			}
-		} else {
-			// 兼容逗号分隔格式
-			for _, code := range strings.Split(role.Permissions, ",") {
-				code = strings.TrimSpace(code)
-				if code != "" {
-					codeSet[code] = true
-				}
-			}
+		if err := json.Unmarshal([]byte(role.Permissions), &codes); err != nil {
+			logger.Warn("角色权限码格式错误，跳过该角色",
+				zap.Uint("roleID", role.ID),
+				zap.String("permissions", role.Permissions),
+				zap.Error(err))
+			continue
+		}
+		for _, code := range codes {
+			codeSet[code] = true
 		}
 	}
 
