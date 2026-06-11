@@ -876,7 +876,9 @@ func (s *AuthService) ChangePassword(userID uint, req *ChangePasswordRequest, ip
 		if err == nil && claims.ExpiresAt != nil {
 			remaining := time.Until(claims.ExpiresAt.Time)
 			if remaining > 0 {
-				blacklistKey := fmt.Sprintf("token_blacklist:%s", accessToken)
+				// 使用 SHA-256 哈希存储，减少内存占用并降低 Token 泄露风险
+			tokenHash := sha256.Sum256([]byte(accessToken))
+			blacklistKey := fmt.Sprintf("token_blacklist:%s", hex.EncodeToString(tokenHash[:]))
 				rdb.Set(ctx, blacklistKey, "1", remaining)
 			}
 		}

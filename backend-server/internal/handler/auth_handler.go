@@ -165,7 +165,8 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 				ttl = remaining
 			}
 		}
-		blacklistKey := fmt.Sprintf("token_blacklist:%s", tokenStr)
+		// 使用 SHA-256 哈希存储，减少内存占用并降低 Token 泄露风险
+		blacklistKey := fmt.Sprintf("token_blacklist:%s", sha256HashString(tokenStr))
 		database.GetRedis().Set(c, blacklistKey, "1", ttl)
 	}
 

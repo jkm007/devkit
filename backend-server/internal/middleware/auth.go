@@ -2,6 +2,8 @@ package middleware
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"strings"
 
@@ -55,7 +57,8 @@ func JWTAuth() gin.HandlerFunc {
 
 		// 检查 Token 是否在黑名单中（logout 后失效）
 		// 采用 fail-closed 策略：Redis 不可用时拒绝请求，防止已注销的 Token 继续使用
-		blacklistKey := fmt.Sprintf("token_blacklist:%s", parts[1])
+		// 使用 SHA-256 哈希存储，减少内存占用并降低 Token 泄露风险
+		blacklistKey := tokenBlacklistKey(parts[1])
 		val, err := database.GetRedis().Get(context.Background(), blacklistKey).Result()
 		if err == nil && val != "" {
 			response.Unauthorized(c, "Token 已失效，请重新登录")
@@ -140,4 +143,11 @@ func GetCurrentDeviceID(c *gin.Context) string {
 		return did.(string)
 	}
 	return ""
+}
+
+// tokenBlacklistKey 生成 Token 黑名单的 Redis key
+// 使用 SHA-256 哈希替代明文存储，减少内存占用并降低 Token 泄露风险
+func tokenBlacklistKey(token string) string {
+	h := sha256.Sum256([]byte(token))
+	return fmt.Sprintf("token_blacklist:%s", hex.EncodeToString(h[:]))
 }
