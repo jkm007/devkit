@@ -73,10 +73,6 @@ const shouldShowCaptcha = computed(() => {
 
 // 验证码类型判断
 const isNumericCaptcha = computed(() => captchaType.value === 'numeric');
-// @ts-expect-error - 暂时未使用，保留以备将来使用
-const isModalCaptcha = computed(() =>
-  ['slider', 'puzzle', 'rotation', 'point'].includes(captchaType.value),
-);
 
 // ==================== 加载逻辑 ====================
 async function loadSettings() {
@@ -144,12 +140,6 @@ async function fetchNumericCaptcha() {
   } finally {
     numericCaptchaLoading.value = false;
   }
-}
-
-// 打开验证码弹框
-// @ts-expect-error - 暂时未使用，保留以备将来使用
-function openCaptchaModal() {
-  captchaModalVisible.value = true;
 }
 
 // 弹框验证完成（收集到验证码数据，准备提交登录）
