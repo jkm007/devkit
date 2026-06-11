@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"backend-server/internal/model"
 	"backend-server/internal/repository"
@@ -36,6 +37,46 @@ func intersectFileIDs(a, b []uint) []uint {
 		}
 	}
 	return result
+}
+
+// sanitizeFolderName 清理文件夹名称
+// 策略：白名单方式，仅保留安全字符；过滤空字节和控制字符；限制名称长度
+func sanitizeFolderName(name string) (string, error) {
+	const maxFolderNameLen = 255
+
+	// 第一步：过滤空字节和控制字符（ASCII < 0x20 的不可见字符，保留普通空格和制表符）
+	var buf strings.Builder
+	buf.Grow(len(name))
+	for _, r := range name {
+		if r == 0 || (r < 0x20 && r != '\t' && r != ' ') {
+			continue
+		}
+		buf.WriteRune(r)
+	}
+	name = buf.String()
+
+	// 第二步：白名单过滤，仅保留 Unicode 字母、数字、空格和安全标点符号
+	buf.Reset()
+	for _, r := range name {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) ||
+			r == ' ' || r == '-' || r == '_' || r == '.' ||
+			r == '(' || r == ')' || r == '[' || r == ']' ||
+			r == '\t' {
+			buf.WriteRune(r)
+		}
+	}
+	name = strings.TrimSpace(buf.String())
+
+	if name == "" {
+		return "", fmt.Errorf("文件夹名称不能为空")
+	}
+
+	// 第三步：限制名称长度
+	if len([]rune(name)) > maxFolderNameLen {
+		return "", fmt.Errorf("文件夹名称不能超过 %d 个字符", maxFolderNameLen)
+	}
+
+	return name, nil
 }
 
 // FileService 文件管理服务
@@ -89,12 +130,10 @@ func (s *FileService) CreateAvatarFolder(userID uint) (*model.FileFolder, error)
 
 // CreateFolder 创建文件夹
 func (s *FileService) CreateFolder(userID uint, name string, parentID *uint) (*model.FileFolder, error) {
-	// 过滤非法字符（防止路径遍历）
-	name = strings.ReplaceAll(name, "/", "")
-	name = strings.ReplaceAll(name, "..", "")
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return nil, fmt.Errorf("文件夹名称不能为空")
+	// 清理文件夹名称（白名单 + 控制字符过滤 + 长度限制）
+	name, err := sanitizeFolderName(name)
+	if err != nil {
+		return nil, err
 	}
 
 	path := "/" + name
@@ -175,12 +214,10 @@ func (s *FileService) RenameFolder(userID uint, folderID uint, newName string) e
 		return fmt.Errorf("无权操作")
 	}
 
-	// 过滤非法字符
-	newName = strings.ReplaceAll(newName, "/", "")
-	newName = strings.ReplaceAll(newName, "..", "")
-	newName = strings.TrimSpace(newName)
-	if newName == "" {
-		return fmt.Errorf("文件夹名称不能为空")
+	// 清理文件夹名称（白名单 + 控制字符过滤 + 长度限制）
+	newName, err = sanitizeFolderName(newName)
+	if err != nil {
+		return err
 	}
 
 	oldPath := folder.Path
