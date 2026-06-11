@@ -243,10 +243,9 @@ func SyncDefaultBuckets() error {
 			newBucket.Region = getSettingStrFromMap(settings, "storage_cos_region")
 		}
 
-		ak := newBucket.AccessKey
-		if len(ak) > 4 {
-			ak = ak[:4] + "***"
-		} else if ak == "" {
+		// AccessKey 完全脱敏，日志中不打印任何 AccessKey 内容
+		ak := "******"
+		if newBucket.AccessKey == "" {
 			ak = "(空)"
 		}
 		log.Printf("[INFO] 同步存储桶: driver=%s, endpoint=%s, bucket=%s, accessKey=%s", d.name, newBucket.Endpoint, newBucket.Bucket, ak)
