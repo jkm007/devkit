@@ -51,9 +51,15 @@ func NewIPRateLimiter(ctx context.Context, r rate.Limit, burst int) gin.HandlerF
 
 	return func(c *gin.Context) {
 		ip := c.ClientIP()
-		val, _ := limiters.LoadOrStore(ip, &ipLimiter{
-			limiter: rate.NewLimiter(r, burst),
-		})
+
+		// 先尝试 Load，避免已存在时不必要的内存分配
+		val, loaded := limiters.Load(ip)
+		if !loaded {
+			// 使用 LoadOrStore 处理并发首次访问同一 IP 的竞态情况
+			val, _ = limiters.LoadOrStore(ip, &ipLimiter{
+				limiter: rate.NewLimiter(r, burst),
+			})
+		}
 		entry := val.(*ipLimiter)
 		entry.lastSeen.Store(time.Now().UnixNano())
 
