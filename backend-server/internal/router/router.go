@@ -1,6 +1,8 @@
 package router
 
 import (
+	"context"
+
 	"backend-server/config"
 	"backend-server/internal/handler"
 	"backend-server/internal/middleware"
@@ -17,7 +19,7 @@ import (
 )
 
 // Setup 初始化路由
-func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
+func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	// 设置运行模式
 	gin.SetMode(cfg.Server.Mode)
 
@@ -27,8 +29,9 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	r.Use(middleware.Logger())
 	r.Use(middleware.SecurityHeaders())
 	r.Use(middleware.CORS(cfg.CORS))
-	r.Use(middleware.RateLimiter(cfg.RateLimit))
+	r.Use(middleware.RateLimiter(ctx, cfg.RateLimit))
 	r.Use(middleware.DBRateLimiter())
+	r.Use(middleware.CSRF())
 	r.Use(gin.Recovery())
 
 	// 初始化处理器
@@ -232,6 +235,10 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		authorized.GET("/files/:id/hls", middleware.Permission("file:download"), mediaHandler.GetHLS)
 
 		// 临时预览（使用 token 认证，支持 Range 请求）
+		// 设计说明：该路由注册在 apiV1 顶层而非 authorized 组中，有意绕过 JWT 认证中间件。
+		// 原因：预览 URL 需要支持在浏览器、iframe、邮件等外部场景中直接访问，
+		//       使用一次性临时 token（带过期时间）替代 JWT，无需登录即可预览文件。
+		//       handler 内部通过 ValidatePreviewToken() 验证 token 合法性和归属权限，安全性由 token 机制保证。
 		apiV1.GET("/files/:id/preview", mediaHandler.PreviewFile)
 
 		// 系统管理
