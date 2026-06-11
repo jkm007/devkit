@@ -12,6 +12,7 @@ import (
 	"backend-server/internal/repository"
 	"backend-server/pkg/captcha"
 	"backend-server/pkg/database"
+	"backend-server/pkg/sms"
 	"backend-server/pkg/storage"
 )
 
@@ -396,36 +397,18 @@ func sendMailViaSSL(addr, host, username, password, from, to, msg string) error 
 
 // TestSMS 测试短信发送
 func (s *SystemSettingService) TestSMS(phone string) error {
-	getVal := func(groupKey, key string) string {
-		setting, err := s.repo.GetByKey(groupKey, key)
-		if err != nil || setting.Value == "" {
-			return ""
-		}
-		val := setting.Value
-		if len(val) >= 2 && val[0] == '"' && val[len(val)-1] == '"' {
-			val = val[1 : len(val)-1]
-		}
-		return val
+	// 通过 sms 包获取发送器（内部会从数据库读取配置并校验完整性）
+	sender, err := sms.GetSender()
+	if err != nil {
+		return fmt.Errorf("短信服务不可用: %w", err)
 	}
 
-	enabled := getVal("sms", "sms_enabled")
-	if enabled != "true" {
-		return errors.New("SMS service is not enabled")
+	// 发送测试验证码
+	if err := sender.Send(phone, "123456"); err != nil {
+		return fmt.Errorf("短信发送测试失败: %w", err)
 	}
 
-	accessKey := getVal("sms", "sms_access_key")
-	secretKey := getVal("sms", "sms_secret_key")
-	signName := getVal("sms", "sms_sign_name")
-	templateCode := getVal("sms", "sms_template_code")
-
-	if accessKey == "" || secretKey == "" || signName == "" || templateCode == "" {
-		return errors.New("SMS configuration is incomplete, please check access_key/secret_key/sign_name/template_code")
-	}
-
-	// TODO: 短信服务尚未完成对接，当前仅验证配置完整性。
-	//  待后续版本集成阿里云/腾讯云短信 SDK 后，替换为实际发送逻辑。
-	//  目前 TestSMS 接口会返回明确的 "not yet implemented" 错误，前端应据此提示用户。
-	return errors.New("SMS sending is not yet implemented")
+	return nil
 }
 
 // toSettingItem 将模型转为响应项
