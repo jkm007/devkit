@@ -496,7 +496,7 @@ async function onSubmit() {
       await (formData.value?.id
         ? updateMenu(formData.value.id, data)
         : createMenu(data));
-      drawerApi.close();
+      await drawerApi.close();
       emit('success');
     } finally {
       drawerApi.unlock();

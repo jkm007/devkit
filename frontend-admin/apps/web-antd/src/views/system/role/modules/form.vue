@@ -32,19 +32,6 @@ const permissions = ref<DataNode[]>([]);
 const loadingPermissions = ref(false);
 const selectedKeys = ref<string[]>([]);
 
-// 扁平化树，用于查找节点和子节点
-const flatNodeMap = computed(() => {
-  const map = new Map<string, any>();
-  const flatten = (nodes: any[]) => {
-    for (const node of nodes) {
-      map.set(node.authCode, node);
-      if (node.children) flatten(node.children);
-    }
-  };
-  flatten(permissions.value);
-  return map;
-});
-
 // 收集某个节点下所有叶子节点的 authCode
 function collectLeafKeys(node: any): string[] {
   if (!node.children || node.children.length === 0) {
@@ -73,17 +60,6 @@ function enrichWithParentKeys(leafKeys: string[]): string[] {
   }
   walk(permissions.value);
   return result;
-}
-
-// 判断父节点是否半选（部分子节点选中）
-function isIndeterminate(node: any): boolean {
-  if (!node.children || node.children.length === 0) return false;
-  const leafKeys = collectLeafKeys(node);
-  if (leafKeys.length === 0) return false;
-  const selectedCount = leafKeys.filter((k) =>
-    selectedKeys.value.includes(k),
-  ).length;
-  return selectedCount > 0 && selectedCount < leafKeys.length;
 }
 
 // 处理选中变化 — 直接保留树组件返回的完整 keys（含父节点），保存时再过滤
@@ -119,9 +95,9 @@ const [Drawer, drawerApi] = useVbenDrawer({
     }
     drawerApi.lock();
     (id.value ? updateRole(id.value, values) : createRole(values))
-      .then(() => {
+      .then(async () => {
+        await drawerApi.close();
         emits('success');
-        drawerApi.close();
       })
       .catch(() => {
         drawerApi.unlock();
@@ -188,14 +164,6 @@ function getNodeClass(node: Recordable<any>) {
   if (node.value?.type === 'button') {
     classes.push('inline-flex');
   }
-  // 半选状态
-  const authCode = node.value?.authCode;
-  if (authCode) {
-    const realNode = flatNodeMap.value.get(authCode);
-    if (realNode && isIndeterminate(realNode)) {
-      classes.push('tree-indeterminate');
-    }
-  }
   return classes.join(' ');
 }
 </script>
@@ -240,12 +208,4 @@ function getNodeClass(node: Recordable<any>) {
   }
 }
 
-/* 半选状态样式：给 checkbox 添加背景色 */
-:deep(.tree-indeterminate) {
-  [data-state='unchecked'],
-  button[role='checkbox'] {
-    background-color: hsl(var(--primary) / 30%) !important;
-    border-color: hsl(var(--primary)) !important;
-  }
-}
 </style>

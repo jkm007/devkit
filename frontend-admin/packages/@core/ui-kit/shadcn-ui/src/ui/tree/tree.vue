@@ -314,6 +314,7 @@ defineExpose({
     v-model:expanded="expanded as string[]"
     :default-expanded="defaultExpandedKeys as string[]"
     :propagate-select="!checkStrictly"
+    :bubble-select="checkStrictly"
     :multiple="multiple"
     :disabled="disabled"
     :selection-behavior="allowClear || multiple ? 'toggle' : 'replace'"
@@ -428,9 +429,8 @@ defineExpose({
         <div class="flex items-center gap-1 item-checkbox">
           <Checkbox
             v-if="multiple"
-            :model-value="isSelected && !isNodeDisabled(item)"
+            :model-value="isIndeterminate && !isNodeDisabled(item) ? 'indeterminate' : (isSelected && !isNodeDisabled(item))"
             :disabled="isNodeDisabled(item)"
-            :indeterminate="isIndeterminate && !isNodeDisabled(item)"
             @click="
               (event: MouseEvent) => {
                 if (isNodeDisabled(item)) {

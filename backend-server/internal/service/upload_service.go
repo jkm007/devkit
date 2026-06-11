@@ -102,6 +102,24 @@ func (s *UploadService) CheckUpload(userID uint, fileHash string, fileSize int64
 			return fmt.Errorf("创建文件条目失败: %w", err)
 		}
 		entryID = entry.ID
+
+		// 自动打标签（与 CompleteUpload 逻辑一致）
+		_, tags, _ := storage.Route(asset.FileName, asset.ContentType, "user")
+		if len(tags) > 0 {
+			for _, tag := range tags {
+				tagModel, err := s.tagRepo.GetByKeyValue(tag.Key, tag.Value)
+				if err != nil {
+					continue
+				}
+				fileTag := &model.FileTag{
+					FileID: entry.ID,
+					TagID:  tagModel.ID,
+					Source: "auto",
+				}
+				tx.Create(fileTag)
+			}
+		}
+
 		return nil
 	})
 	if err != nil {
