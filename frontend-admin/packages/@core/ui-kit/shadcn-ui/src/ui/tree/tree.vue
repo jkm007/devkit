@@ -67,7 +67,20 @@ const expanded = ref<Array<number | string>>(props.defaultExpandedKeys ?? []);
 const treeValue = ref();
 let lastTreeData: any = null;
 
+// 本地跟踪选中的 key 集合（解决 defineModel getter 返回旧 prop 值的问题）
+const selectedKeysSet = ref<Set<number | string>>(new Set());
+
+function syncSelectedKeysSet() {
+  if (Array.isArray(modelValue.value)) {
+    selectedKeysSet.value = new Set(modelValue.value as (number | string)[]);
+  } else {
+    selectedKeysSet.value = new Set();
+  }
+}
+
 onMounted(() => {
+  syncSelectedKeysSet();
+
   watchEffect(() => {
     flattenData.value = flatten(props.treeData, props.childrenField);
     if (flattenData.value.length > 0) {
@@ -89,6 +102,7 @@ onMounted(() => {
 
   // 外部 modelValue 变化时同步内部状态
   watch(modelValue, () => {
+    syncSelectedKeysSet();
     if (flattenData.value.length > 0) {
       updateTreeValue();
     }
@@ -179,18 +193,17 @@ function collapseAll() {
 
 function checkAll() {
   if (!props.multiple) return;
-  modelValue.value = [
-    ...new Set(
-      flattenData.value
-        .filter((item) => !get(item.value, props.disabledField))
-        .map((item) => get(item.value, props.valueField)),
-    ),
-  ];
+  const allKeys = flattenData.value
+    .filter((item) => !get(item.value, props.disabledField))
+    .map((item) => get(item.value, props.valueField));
+  selectedKeysSet.value = new Set(allKeys);
+  modelValue.value = allKeys;
   updateTreeValue();
 }
 
 function unCheckAll() {
   if (!props.multiple) return;
+  selectedKeysSet.value = new Set();
   modelValue.value = [];
   updateTreeValue();
 }
@@ -202,14 +215,14 @@ function isNodeDisabled(item: FlattenedItem<Recordable<any>>) {
 // 计算全选/半选状态
 const selectAllStatus = computed<'indeterminate' | boolean>(() => {
   if (!props.multiple) return false;
-  if (!modelValue.value || !Array.isArray(modelValue.value)) return false;
+  if (selectedKeysSet.value.size === 0) return false;
 
   const allValues = flattenData.value
     .filter((item) => !get(item.value, props.disabledField))
     .map((item) => get(item.value, props.valueField));
 
   const selectedCount = allValues.filter((v) =>
-    (modelValue.value as (number | string)[]).includes(v),
+    selectedKeysSet.value.has(v),
   ).length;
 
   if (selectedCount === 0) return false;
@@ -234,36 +247,34 @@ function onSelect(item: FlattenedItem<Recordable<any>>, isSelected: boolean) {
   }
 
   // check-strictly 模式：手动处理选中/取消
-  if (props.checkStrictly && props.multiple && Array.isArray(modelValue.value)) {
+  if (props.checkStrictly && props.multiple) {
     const nodeKey = get(item.value, props.valueField);
     const leaves = getNodeLeafKeys(nodeKey);
+    const currentSet = new Set(selectedKeysSet.value);
 
     if (leaves.length > 1) {
       // 父节点：向下传播到所有叶子
-      const selectedSet = new Set(modelValue.value as unknown[]);
-      const allSelected = leaves.every((leaf) => selectedSet.has(leaf));
+      const allSelected = leaves.every((leaf) => currentSet.has(leaf));
       if (allSelected) {
-        modelValue.value = (modelValue.value as unknown[]).filter(
-          (v) => !leaves.includes(v) && v !== nodeKey,
-        );
+        leaves.forEach((leaf) => currentSet.delete(leaf));
+        currentSet.delete(nodeKey);
       } else {
-        const set = new Set(
-          (modelValue.value as unknown[]).filter((v) => v !== nodeKey),
-        );
-        leaves.forEach((leaf) => set.add(leaf));
-        modelValue.value = [...set];
+        leaves.forEach((leaf) => currentSet.add(leaf));
+        currentSet.delete(nodeKey);
       }
     } else {
       // 叶子节点：切换自身选中状态
-      const idx = (modelValue.value as unknown[]).indexOf(nodeKey);
-      if (idx !== -1) {
-        modelValue.value = (modelValue.value as unknown[]).filter(
-          (v) => v !== nodeKey,
-        );
+      if (currentSet.has(nodeKey)) {
+        currentSet.delete(nodeKey);
       } else {
-        modelValue.value = [...(modelValue.value as unknown[]), nodeKey];
+        currentSet.add(nodeKey);
       }
     }
+
+    // 立即更新本地状态（checkbox 立即响应）
+    selectedKeysSet.value = currentSet;
+    const newKeys = [...currentSet];
+    modelValue.value = newKeys;
     updateTreeValue();
     emits('select', item);
     return;
@@ -329,14 +340,14 @@ function getNodeLeafKeys(nodeKey: number | string): unknown[] {
 // 判断节点是否半选（部分叶子节点选中）
 function isNodeIndeterminate(nodeValue: Recordable<any>): boolean {
   if (!props.multiple) return false;
-  if (!Array.isArray(modelValue.value)) return false;
 
   const nodeKey = get(nodeValue, props.valueField);
   const leaves = getNodeLeafKeys(nodeKey);
   if (leaves.length <= 1) return false;
 
-  const selectedSet = new Set(modelValue.value as unknown[]);
-  const selectedCount = leaves.filter((leaf) => selectedSet.has(leaf)).length;
+  const selectedCount = leaves.filter((leaf) =>
+    selectedKeysSet.value.has(leaf),
+  ).length;
 
   return selectedCount > 0 && selectedCount < leaves.length;
 }
@@ -344,18 +355,16 @@ function isNodeIndeterminate(nodeValue: Recordable<any>): boolean {
 // 判断节点是否全选
 function isNodeAllSelected(nodeValue: Recordable<any>): boolean {
   if (!props.multiple) return false;
-  if (!Array.isArray(modelValue.value)) return false;
 
   const nodeKey = get(nodeValue, props.valueField);
   const leaves = getNodeLeafKeys(nodeKey);
   if (leaves.length === 0) return false;
   if (leaves.length === 1 && leaves[0] === nodeKey) {
     // 叶子节点
-    return (modelValue.value as unknown[]).includes(nodeKey);
+    return selectedKeysSet.value.has(nodeKey);
   }
 
-  const selectedSet = new Set(modelValue.value as unknown[]);
-  return leaves.every((leaf) => selectedSet.has(leaf));
+  return leaves.every((leaf) => selectedKeysSet.value.has(leaf));
 }
 
 defineExpose({
