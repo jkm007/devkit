@@ -214,13 +214,17 @@ watch(previewVisible, (newVal) => {
   }
 });
 
-// 监听上传任务数量变化，自动刷新表格（新增/移除任务时）
+/** 标记：下次 query 仅使用缓存数据重新合并，不发起后端请求 */
+const useCachedQuery = ref(false);
+
+// 监听上传任务数量变化，仅更新本地合并结果，不触发后端请求
 // 进度更新不需要刷新 — uploadTask 是 Pinia 响应式引用，模板自动更新
 watch(
   () => uploadTasks.value.length,
   (newLen, oldLen) => {
     if (newLen !== (oldLen ?? 0)) {
-      onRefresh();
+      useCachedQuery.value = true;
+      gridApi.query();
     }
   },
 );
@@ -356,6 +360,12 @@ const [Grid, gridApi] = useVbenVxeGrid({
     proxyConfig: {
       ajax: {
         query: async ({ page }) => {
+          // 上传任务变化时，仅使用缓存数据重新合并，不发起后端请求
+          if (useCachedQuery.value) {
+            useCachedQuery.value = false;
+            return mergeWithUploadTasks(lastApiResult.value);
+          }
+
           const result = await listFiles({
             folderId: currentFolderId.value ?? undefined,
             page: page.currentPage,
