@@ -25,6 +25,7 @@ func Setup(cfg *config.Config, hub *ws.Hub) *gin.Engine {
 
 	// 全局中间件
 	r.Use(middleware.Logger())
+	r.Use(middleware.SecurityHeaders())
 	r.Use(middleware.CORS(cfg.CORS))
 	r.Use(middleware.RateLimiter(cfg.RateLimit))
 	r.Use(middleware.DBRateLimiter())
