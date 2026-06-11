@@ -36,10 +36,7 @@ import {
   updateSettingsByGroup,
   verifyCaptcha,
 } from '#/api/system/settings';
-import {
-  NumericCaptcha,
-  PointSelectionCaptcha,
-} from '@vben/common-ui';
+import { NumericCaptcha, PointSelectionCaptcha } from '@vben/common-ui';
 import BackendCaptcha from '#/components/captcha/backend-captcha.vue';
 import BackendRotateCaptcha from '#/components/captcha/backend-rotate-captcha.vue';
 import { $t } from '#/locales';
@@ -81,14 +78,7 @@ const groupConfig: Record<
   },
 };
 
-const ALL_GROUPS = [
-  'basic',
-  'auth',
-  'email',
-  'sms',
-  'captcha',
-  'wechat',
-];
+const ALL_GROUPS = ['basic', 'auth', 'email', 'sms', 'captcha', 'wechat'];
 
 // 验证码类型中文映射
 const CAPTCHA_TYPE_LABELS: Record<string, string> = {
@@ -124,12 +114,12 @@ const captchaTestVerifying = ref(false);
 const captchaTestId = ref('');
 const captchaTestImage = ref('');
 const captchaTestThumb = ref('');
-const captchaTestThumbY = ref(0);  // 缩略图初始 Y 位置
+const captchaTestThumbY = ref(0); // 缩略图初始 Y 位置
 const captchaTestType = ref('numeric');
 const captchaTestStartTime = ref(0);
 const captchaTestHintText = ref('');
 const captchaTestChars = ref<string[]>([]);
-const captchaTestLength = ref(4);  // 数字验证码长度
+const captchaTestLength = ref(4); // 数字验证码长度
 const captchaTestResult = ref<{ valid: boolean; message: string } | null>(null);
 
 // 滑块/拼图组件引用 & 状态
@@ -142,7 +132,7 @@ const captchaRotatePassing = ref(false);
 const captchaPointPassing = ref(false);
 
 const CAPTCHA_IMG_W = 320;
-const CAPTCHA_IMG_H_POINT = 220;  // point/click (go-captcha 使用 220)
+const CAPTCHA_IMG_H_POINT = 220; // point/click (go-captcha 使用 220)
 
 // ==================== Computed ====================
 const groupKeys = computed(() => {
@@ -176,7 +166,14 @@ const basicThemeItems = computed(() =>
 // Captcha settings sub-groups for organized display
 const captchaGeneralItems = computed(() =>
   currentGroupItems.value.filter((i) =>
-    ['captcha_enabled', 'captcha_type', 'captcha_expire', 'captcha_max_fail', 'captcha_login_trigger', 'captcha_min_duration'].includes(i.key),
+    [
+      'captcha_enabled',
+      'captcha_type',
+      'captcha_expire',
+      'captcha_max_fail',
+      'captcha_login_trigger',
+      'captcha_min_duration',
+    ].includes(i.key),
   ),
 );
 
@@ -390,7 +387,7 @@ function resetCaptchaTestInput() {
   captchaRotatePassing.value = false;
   captchaPointPassing.value = false;
   captchaTestStartTime.value = 0; // 重置开始时间，避免"操作过于迅速"错误
-  captchaTestThumbY.value = 0;    // 重置缩略图 Y 位置
+  captchaTestThumbY.value = 0; // 重置缩略图 Y 位置
 }
 
 async function openCaptchaTest() {
@@ -410,16 +407,16 @@ async function loadCaptchaForTest() {
       captchaTestId.value = data.captcha_id;
       captchaTestImage.value = data.image;
       captchaTestThumb.value = data.thumb || '';
-      captchaTestThumbY.value = (data as any).thumb_y || 0;  // 缩略图 Y 位置
+      captchaTestThumbY.value = (data as any).thumb_y || 0; // 缩略图 Y 位置
       captchaTestHintText.value = (data as any).hint_text || '';
       captchaTestChars.value = (data as any).chars || [];
-      captchaTestLength.value = (data as any).length || 4;  // 数字验证码长度
+      captchaTestLength.value = (data as any).length || 4; // 数字验证码长度
       // startTime 在用户开始操作时设置，不在这里设置
     } else {
       message.error('获取验证码失败');
     }
   } catch (e: any) {
-    message.error('获取验证码失败：' + (e?.message || '未知错误'));
+    message.error(`获取验证码失败：${e?.message || '未知错误'}`);
   } finally {
     captchaTestLoading.value = false;
   }
@@ -440,10 +437,10 @@ async function handleCaptchaTestVerify(payload: {
     if (result.valid) {
       message.success('验证通过！');
     } else {
-      message.error('验证失败：' + result.message);
+      message.error(`验证失败：${result.message}`);
     }
   } catch (e: any) {
-    message.error('验证请求失败：' + (e?.message || '未知错误'));
+    message.error(`验证请求失败：${e?.message || '未知错误'}`);
   } finally {
     captchaTestVerifying.value = false;
   }
@@ -457,7 +454,10 @@ function onPointClick(_point: { x: number; y: number; t: number; i: number }) {
   }
 }
 
-function onPointConfirm(points: Array<{ x: number; y: number }>, clear: () => void) {
+function onPointConfirm(
+  points: Array<{ x: number; y: number }>,
+  clear: () => void,
+) {
   const serverPoints = points.map((p) => ({ x: p.x, y: p.y }));
   captchaTestVerifying.value = true;
   verifyCaptcha({
@@ -465,21 +465,24 @@ function onPointConfirm(points: Array<{ x: number; y: number }>, clear: () => vo
     startTime: captchaTestStartTime.value,
     captchaCode: JSON.stringify(serverPoints),
     points: serverPoints,
-  }).then((result) => {
-    captchaTestResult.value = result;
-    if (result.valid) {
-      captchaPointPassing.value = true;
-      message.success('验证通过！');
-    } else {
+  })
+    .then((result) => {
+      captchaTestResult.value = result;
+      if (result.valid) {
+        captchaPointPassing.value = true;
+        message.success('验证通过！');
+      } else {
+        clear();
+        message.error(`验证失败：${result.message}`);
+      }
+    })
+    .catch((e: any) => {
       clear();
-      message.error('验证失败：' + result.message);
-    }
-  }).catch((e: any) => {
-    clear();
-    message.error('验证请求失败：' + (e?.message || '未知错误'));
-  }).finally(() => {
-    captchaTestVerifying.value = false;
-  });
+      message.error(`验证请求失败：${e?.message || '未知错误'}`);
+    })
+    .finally(() => {
+      captchaTestVerifying.value = false;
+    });
 }
 
 function onPointRefresh() {
@@ -537,18 +540,18 @@ onMounted(() => {
           <div v-if="activeGroup === 'basic' && formValues.basic">
             <!-- 站点信息 -->
             <div class="settings-section">
-              <h3 class="settings-section-title">🌐 {{ $t('system.settings.basic.siteInfo') }}</h3>
+              <h3 class="settings-section-title">
+                🌐 {{ $t('system.settings.basic.siteInfo') }}
+              </h3>
               <Row :gutter="[16, 16]">
-                <Col
-                  v-for="item in basicSiteItems"
-                  :key="item.key"
-                  :span="12"
-                >
+                <Col v-for="item in basicSiteItems" :key="item.key" :span="12">
                   <div class="setting-item">
                     <label class="setting-label">
                       {{ item.label }}
                       <Tooltip v-if="item.tip" :title="item.tip">
-                        <span class="text-foreground/40 ml-1 cursor-help">ⓘ</span>
+                        <span class="text-foreground/40 ml-1 cursor-help"
+                          >ⓘ</span
+                        >
                       </Tooltip>
                     </label>
                     <Input
@@ -565,12 +568,18 @@ onMounted(() => {
 
             <!-- 水印设置 -->
             <div class="settings-section">
-              <h3 class="settings-section-title">💧 {{ $t('system.settings.basic.watermark') }}</h3>
+              <h3 class="settings-section-title">
+                💧 {{ $t('system.settings.basic.watermark') }}
+              </h3>
               <Row :gutter="[16, 16]">
                 <Col :span="12">
                   <div class="setting-item">
-                    <label class="setting-label">{{ $t('system.settings.basic.watermarkEnabled') }}</label>
-                    <Switch v-model:checked="formValues.basic.watermark_enabled" />
+                    <label class="setting-label">{{
+                      $t('system.settings.basic.watermarkEnabled')
+                    }}</label>
+                    <Switch
+                      v-model:checked="formValues.basic.watermark_enabled"
+                    />
                   </div>
                 </Col>
               </Row>
@@ -578,16 +587,24 @@ onMounted(() => {
                 <Row :gutter="[16, 16]" class="mt-3">
                   <Col :span="12">
                     <div class="setting-item">
-                      <label class="setting-label">{{ $t('system.settings.basic.watermarkContent') }}</label>
+                      <label class="setting-label">{{
+                        $t('system.settings.basic.watermarkContent')
+                      }}</label>
                       <Input
                         v-model:value="formValues.basic.watermark_content"
-                        :placeholder="$t('system.settings.basic.watermarkContentPlaceholder')"
+                        :placeholder="
+                          $t(
+                            'system.settings.basic.watermarkContentPlaceholder',
+                          )
+                        "
                       />
                     </div>
                   </Col>
                   <Col :span="12">
                     <div class="setting-item">
-                      <label class="setting-label">{{ $t('system.settings.basic.watermarkOpacity') }}</label>
+                      <label class="setting-label">{{
+                        $t('system.settings.basic.watermarkOpacity')
+                      }}</label>
                       <div class="flex items-center gap-3">
                         <Slider
                           v-model:value="formValues.basic.watermark_opacity"
@@ -610,17 +627,23 @@ onMounted(() => {
 
             <!-- 页脚设置 -->
             <div class="settings-section">
-              <h3 class="settings-section-title">📎 {{ $t('system.settings.basic.footer') }}</h3>
+              <h3 class="settings-section-title">
+                📎 {{ $t('system.settings.basic.footer') }}
+              </h3>
               <Row :gutter="[16, 16]">
                 <Col :span="12">
                   <div class="setting-item">
-                    <label class="setting-label">{{ $t('system.settings.basic.footerEnabled') }}</label>
+                    <label class="setting-label">{{
+                      $t('system.settings.basic.footerEnabled')
+                    }}</label>
                     <Switch v-model:checked="formValues.basic.footer_enabled" />
                   </div>
                 </Col>
                 <Col :span="12">
                   <div class="setting-item">
-                    <label class="setting-label">{{ $t('system.settings.basic.footerFixed') }}</label>
+                    <label class="setting-label">{{
+                      $t('system.settings.basic.footerFixed')
+                    }}</label>
                     <Switch
                       v-model:checked="formValues.basic.footer_fixed"
                       :disabled="!formValues.basic.footer_enabled"
@@ -634,11 +657,15 @@ onMounted(() => {
 
             <!-- 版权设置 -->
             <div class="settings-section">
-              <h3 class="settings-section-title">©️ {{ $t('system.settings.basic.copyright') }}</h3>
+              <h3 class="settings-section-title">
+                ©️ {{ $t('system.settings.basic.copyright') }}
+              </h3>
               <Row :gutter="[16, 16]">
                 <Col :span="12">
                   <div class="setting-item">
-                    <label class="setting-label">{{ $t('system.settings.basic.copyrightEnabled') }}</label>
+                    <label class="setting-label">{{
+                      $t('system.settings.basic.copyrightEnabled')
+                    }}</label>
                     <Switch
                       v-model:checked="formValues.basic.copyright_enabled"
                       :disabled="!formValues.basic.footer_enabled"
@@ -646,20 +673,31 @@ onMounted(() => {
                   </div>
                 </Col>
               </Row>
-              <template v-if="formValues.basic.copyright_enabled && formValues.basic.footer_enabled">
+              <template
+                v-if="
+                  formValues.basic.copyright_enabled &&
+                  formValues.basic.footer_enabled
+                "
+              >
                 <Row :gutter="[16, 16]" class="mt-3">
                   <Col :span="12">
                     <div class="setting-item">
-                      <label class="setting-label">{{ $t('system.settings.basic.copyrightName') }}</label>
+                      <label class="setting-label">{{
+                        $t('system.settings.basic.copyrightName')
+                      }}</label>
                       <Input
                         v-model:value="formValues.basic.copyright"
-                        :placeholder="$t('system.settings.basic.copyrightNamePlaceholder')"
+                        :placeholder="
+                          $t('system.settings.basic.copyrightNamePlaceholder')
+                        "
                       />
                     </div>
                   </Col>
                   <Col :span="12">
                     <div class="setting-item">
-                      <label class="setting-label">{{ $t('system.settings.basic.copyrightSite') }}</label>
+                      <label class="setting-label">{{
+                        $t('system.settings.basic.copyrightSite')
+                      }}</label>
                       <Input
                         v-model:value="formValues.basic.copyright_company_site"
                         placeholder="https://example.com"
@@ -670,7 +708,9 @@ onMounted(() => {
                 <Row :gutter="[16, 16]" class="mt-3">
                   <Col :span="12">
                     <div class="setting-item">
-                      <label class="setting-label">{{ $t('system.settings.basic.copyrightDate') }}</label>
+                      <label class="setting-label">{{
+                        $t('system.settings.basic.copyrightDate')
+                      }}</label>
                       <Input
                         v-model:value="formValues.basic.copyright_date"
                         placeholder="2026"
@@ -681,16 +721,22 @@ onMounted(() => {
                 <Row :gutter="[16, 16]" class="mt-3">
                   <Col :span="12">
                     <div class="setting-item">
-                      <label class="setting-label">{{ $t('system.settings.basic.copyrightIcp') }}</label>
+                      <label class="setting-label">{{
+                        $t('system.settings.basic.copyrightIcp')
+                      }}</label>
                       <Input
                         v-model:value="formValues.basic.copyright_icp"
-                        :placeholder="$t('system.settings.basic.copyrightIcpPlaceholder')"
+                        :placeholder="
+                          $t('system.settings.basic.copyrightIcpPlaceholder')
+                        "
                       />
                     </div>
                   </Col>
                   <Col :span="12">
                     <div class="setting-item">
-                      <label class="setting-label">{{ $t('system.settings.basic.copyrightIcpLink') }}</label>
+                      <label class="setting-label">{{
+                        $t('system.settings.basic.copyrightIcpLink')
+                      }}</label>
                       <Input
                         v-model:value="formValues.basic.copyright_icp_link"
                         placeholder="https://beian.miit.gov.cn/"
@@ -705,18 +751,18 @@ onMounted(() => {
 
             <!-- 主题与语言 -->
             <div class="settings-section">
-              <h3 class="settings-section-title">🎨 {{ $t('system.settings.basic.themeAndLang') }}</h3>
+              <h3 class="settings-section-title">
+                🎨 {{ $t('system.settings.basic.themeAndLang') }}
+              </h3>
               <Row :gutter="[16, 16]">
-                <Col
-                  v-for="item in basicThemeItems"
-                  :key="item.key"
-                  :span="12"
-                >
+                <Col v-for="item in basicThemeItems" :key="item.key" :span="12">
                   <div class="setting-item">
                     <label class="setting-label">
                       {{ item.label }}
                       <Tooltip v-if="item.tip" :title="item.tip">
-                        <span class="text-foreground/40 ml-1 cursor-help">ⓘ</span>
+                        <span class="text-foreground/40 ml-1 cursor-help"
+                          >ⓘ</span
+                        >
                       </Tooltip>
                     </label>
                     <Select
@@ -741,11 +787,7 @@ onMounted(() => {
           <!-- ==================== 邮箱设置 ==================== -->
           <div v-else-if="activeGroup === 'email' && formValues.email">
             <Row :gutter="[16, 16]">
-              <Col
-                v-for="item in currentGroupItems"
-                :key="item.key"
-                :span="12"
-              >
+              <Col v-for="item in currentGroupItems" :key="item.key" :span="12">
                 <div class="setting-item">
                   <label class="setting-label">
                     {{ item.label }}
@@ -791,11 +833,7 @@ onMounted(() => {
           <!-- ==================== 短信设置 ==================== -->
           <div v-else-if="activeGroup === 'sms' && formValues.sms">
             <Row :gutter="[16, 16]">
-              <Col
-                v-for="item in currentGroupItems"
-                :key="item.key"
-                :span="12"
-              >
+              <Col v-for="item in currentGroupItems" :key="item.key" :span="12">
                 <div class="setting-item">
                   <label class="setting-label">
                     {{ item.label }}
@@ -846,9 +884,7 @@ onMounted(() => {
           </div>
 
           <!-- ==================== 验证码设置 ==================== -->
-          <div
-            v-else-if="activeGroup === 'captcha' && formValues.captcha"
-          >
+          <div v-else-if="activeGroup === 'captcha' && formValues.captcha">
             <!-- 通用配置 -->
             <div class="settings-section">
               <h3 class="settings-section-title">⚙️ 通用配置</h3>
@@ -862,7 +898,9 @@ onMounted(() => {
                     <label class="setting-label">
                       {{ item.label }}
                       <Tooltip v-if="item.tip" :title="item.tip">
-                        <span class="text-foreground/40 ml-1 cursor-help">ⓘ</span>
+                        <span class="text-foreground/40 ml-1 cursor-help"
+                          >ⓘ</span
+                        >
                       </Tooltip>
                     </label>
                     <Switch
@@ -896,7 +934,10 @@ onMounted(() => {
             <Divider />
 
             <!-- 数字验证码配置 - 仅当类型为 numeric 时显示 -->
-            <div v-if="currentCaptchaType === 'numeric'" class="settings-section">
+            <div
+              v-if="currentCaptchaType === 'numeric'"
+              class="settings-section"
+            >
               <h3 class="settings-section-title">🔢 数字验证码配置</h3>
               <Row :gutter="[16, 16]">
                 <Col
@@ -908,7 +949,9 @@ onMounted(() => {
                     <label class="setting-label">
                       {{ item.label }}
                       <Tooltip v-if="item.tip" :title="item.tip">
-                        <span class="text-foreground/40 ml-1 cursor-help">ⓘ</span>
+                        <span class="text-foreground/40 ml-1 cursor-help"
+                          >ⓘ</span
+                        >
                       </Tooltip>
                     </label>
                     <InputNumber
@@ -922,7 +965,10 @@ onMounted(() => {
             </div>
 
             <!-- 滑块验证码配置 - 仅当类型为 slider 时显示 -->
-            <div v-if="currentCaptchaType === 'slider'" class="settings-section">
+            <div
+              v-if="currentCaptchaType === 'slider'"
+              class="settings-section"
+            >
               <h3 class="settings-section-title">📊 滑块验证码配置</h3>
               <Row :gutter="[16, 16]">
                 <Col
@@ -934,7 +980,9 @@ onMounted(() => {
                     <label class="setting-label">
                       {{ item.label }}
                       <Tooltip v-if="item.tip" :title="item.tip">
-                        <span class="text-foreground/40 ml-1 cursor-help">ⓘ</span>
+                        <span class="text-foreground/40 ml-1 cursor-help"
+                          >ⓘ</span
+                        >
                       </Tooltip>
                     </label>
                     <InputNumber
@@ -948,7 +996,10 @@ onMounted(() => {
             </div>
 
             <!-- 拼图验证码配置 - 仅当类型为 puzzle 时显示 -->
-            <div v-if="currentCaptchaType === 'puzzle'" class="settings-section">
+            <div
+              v-if="currentCaptchaType === 'puzzle'"
+              class="settings-section"
+            >
               <h3 class="settings-section-title">🧩 拼图验证码配置</h3>
               <Row :gutter="[16, 16]">
                 <Col
@@ -960,7 +1011,9 @@ onMounted(() => {
                     <label class="setting-label">
                       {{ item.label }}
                       <Tooltip v-if="item.tip" :title="item.tip">
-                        <span class="text-foreground/40 ml-1 cursor-help">ⓘ</span>
+                        <span class="text-foreground/40 ml-1 cursor-help"
+                          >ⓘ</span
+                        >
                       </Tooltip>
                     </label>
                     <InputNumber
@@ -979,7 +1032,10 @@ onMounted(() => {
             </div>
 
             <!-- 旋转验证码配置 - 仅当类型为 rotation 时显示 -->
-            <div v-if="currentCaptchaType === 'rotation'" class="settings-section">
+            <div
+              v-if="currentCaptchaType === 'rotation'"
+              class="settings-section"
+            >
               <h3 class="settings-section-title">🔄 旋转验证码配置</h3>
               <Row :gutter="[16, 16]">
                 <Col
@@ -991,7 +1047,9 @@ onMounted(() => {
                     <label class="setting-label">
                       {{ item.label }}
                       <Tooltip v-if="item.tip" :title="item.tip">
-                        <span class="text-foreground/40 ml-1 cursor-help">ⓘ</span>
+                        <span class="text-foreground/40 ml-1 cursor-help"
+                          >ⓘ</span
+                        >
                       </Tooltip>
                     </label>
                     <InputNumber
@@ -1017,7 +1075,9 @@ onMounted(() => {
                     <label class="setting-label">
                       {{ item.label }}
                       <Tooltip v-if="item.tip" :title="item.tip">
-                        <span class="text-foreground/40 ml-1 cursor-help">ⓘ</span>
+                        <span class="text-foreground/40 ml-1 cursor-help"
+                          >ⓘ</span
+                        >
                       </Tooltip>
                     </label>
                     <InputNumber
@@ -1053,13 +1113,24 @@ onMounted(() => {
               <Spin :spinning="captchaTestLoading">
                 <div class="flex flex-col items-center py-2">
                   <!-- 类型切换 -->
-                  <div class="mb-3 flex w-full items-center justify-center gap-2">
+                  <div
+                    class="mb-3 flex w-full items-center justify-center gap-2"
+                  >
                     <Tag
-                      v-for="t in ['numeric', 'slider', 'puzzle', 'rotation', 'point']"
+                      v-for="t in [
+                        'numeric',
+                        'slider',
+                        'puzzle',
+                        'rotation',
+                        'point',
+                      ]"
                       :key="t"
                       :color="captchaTestType === t ? 'blue' : 'default'"
                       class="cursor-pointer"
-                      @click="captchaTestType = t; loadCaptchaForTest()"
+                      @click="
+                        captchaTestType = t;
+                        loadCaptchaForTest();
+                      "
                     >
                       {{ CAPTCHA_TYPE_LABELS[t] || t }}
                     </Tag>
@@ -1075,14 +1146,18 @@ onMounted(() => {
                       :height="60"
                       :char-length="captchaTestLength"
                       class="mb-3"
-                      @success="(data: any) => {
-                        handleCaptchaTestVerify({ captchaCode: data.code });
-                      }"
+                      @success="
+                        (data: any) => {
+                          handleCaptchaTestVerify({ captchaCode: data.code });
+                        }
+                      "
                     />
                     <div v-if="captchaTestResult" class="mt-2 w-full">
                       <Alert
                         :type="captchaTestResult.valid ? 'success' : 'error'"
-                        :message="captchaTestResult.valid ? '验证通过 ✓' : '验证失败 ✗'"
+                        :message="
+                          captchaTestResult.valid ? '验证通过 ✓' : '验证失败 ✗'
+                        "
                         :description="captchaTestResult.message"
                         show-icon
                       />
@@ -1100,13 +1175,20 @@ onMounted(() => {
                       :server-thumb-y="captchaTestThumbY"
                       :server-captcha-id="captchaTestId"
                       @refresh="loadCaptchaForTest"
-                      @success="(data: any) => handleCaptchaTestVerify({ captchaCode: data.captchaCode })"
+                      @success="
+                        (data: any) =>
+                          handleCaptchaTestVerify({
+                            captchaCode: data.captchaCode,
+                          })
+                      "
                       class="mb-3"
                     />
                     <div v-if="captchaTestResult" class="mt-2 w-full">
                       <Alert
                         :type="captchaTestResult.valid ? 'success' : 'error'"
-                        :message="captchaTestResult.valid ? '验证通过 ✓' : '验证失败 ✗'"
+                        :message="
+                          captchaTestResult.valid ? '验证通过 ✓' : '验证失败 ✗'
+                        "
                         :description="captchaTestResult.message"
                         show-icon
                       />
@@ -1124,13 +1206,20 @@ onMounted(() => {
                       :server-thumb-y="captchaTestThumbY"
                       :server-captcha-id="captchaTestId"
                       @refresh="loadCaptchaForTest"
-                      @success="(data: any) => handleCaptchaTestVerify({ captchaCode: data.captchaCode })"
+                      @success="
+                        (data: any) =>
+                          handleCaptchaTestVerify({
+                            captchaCode: data.captchaCode,
+                          })
+                      "
                       class="mb-3"
                     />
                     <div v-if="captchaTestResult" class="mt-2 w-full">
                       <Alert
                         :type="captchaTestResult.valid ? 'success' : 'error'"
-                        :message="captchaTestResult.valid ? '验证通过 ✓' : '验证失败 ✗'"
+                        :message="
+                          captchaTestResult.valid ? '验证通过 ✓' : '验证失败 ✗'
+                        "
                         :description="captchaTestResult.message"
                         show-icon
                       />
@@ -1147,13 +1236,20 @@ onMounted(() => {
                       :server-captcha-id="captchaTestId"
                       :image-size="220"
                       @refresh="loadCaptchaForTest"
-                      @success="(data: any) => handleCaptchaTestVerify({ captchaCode: data.captchaCode })"
+                      @success="
+                        (data: any) =>
+                          handleCaptchaTestVerify({
+                            captchaCode: data.captchaCode,
+                          })
+                      "
                       class="mb-3"
                     />
                     <div v-if="captchaTestResult" class="mt-2 w-full">
                       <Alert
                         :type="captchaTestResult.valid ? 'success' : 'error'"
-                        :message="captchaTestResult.valid ? '验证通过 ✓' : '验证失败 ✗'"
+                        :message="
+                          captchaTestResult.valid ? '验证通过 ✓' : '验证失败 ✗'
+                        "
                         :description="captchaTestResult.message"
                         show-icon
                       />
@@ -1164,7 +1260,9 @@ onMounted(() => {
                   <template v-if="captchaTestType === 'point'">
                     <PointSelectionCaptcha
                       :captcha-image="captchaTestImage"
-                      :hint-text="captchaTestHintText || '请依次点击图片中的文字'"
+                      :hint-text="
+                        captchaTestHintText || '请依次点击图片中的文字'
+                      "
                       :show-confirm="true"
                       :width="CAPTCHA_IMG_W"
                       :height="CAPTCHA_IMG_H_POINT"
@@ -1176,7 +1274,9 @@ onMounted(() => {
                     <div v-if="captchaTestResult" class="mt-2 w-full">
                       <Alert
                         :type="captchaTestResult.valid ? 'success' : 'error'"
-                        :message="captchaTestResult.valid ? '验证通过 ✓' : '验证失败 ✗'"
+                        :message="
+                          captchaTestResult.valid ? '验证通过 ✓' : '验证失败 ✗'
+                        "
                         :description="captchaTestResult.message"
                         show-icon
                       />
@@ -1190,11 +1290,7 @@ onMounted(() => {
           <!-- ==================== 微信设置 ==================== -->
           <div v-else-if="activeGroup === 'wechat' && formValues.wechat">
             <Row :gutter="[16, 16]">
-              <Col
-                v-for="item in currentGroupItems"
-                :key="item.key"
-                :span="12"
-              >
+              <Col v-for="item in currentGroupItems" :key="item.key" :span="12">
                 <div class="setting-item">
                   <label class="setting-label">
                     {{ item.label }}
@@ -1221,9 +1317,7 @@ onMounted(() => {
           </div>
 
           <!-- ==================== 认证设置 ==================== -->
-          <div
-            v-else-if="activeGroup === 'auth' && formValues.auth"
-          >
+          <div v-else-if="activeGroup === 'auth' && formValues.auth">
             <Alert
               message="配置登录方式的开启与关闭"
               type="info"
@@ -1231,11 +1325,7 @@ onMounted(() => {
               class="mb-4"
             />
             <Row :gutter="[16, 16]">
-              <Col
-                v-for="item in currentGroupItems"
-                :key="item.key"
-                :span="12"
-              >
+              <Col v-for="item in currentGroupItems" :key="item.key" :span="12">
                 <div class="setting-item">
                   <label class="setting-label">
                     {{ item.label }}
@@ -1284,19 +1374,22 @@ onMounted(() => {
 .settings-section {
   margin-bottom: 8px;
 }
+
 .settings-section-title {
+  margin-bottom: 12px;
   font-size: 14px;
   font-weight: 600;
-  margin-bottom: 12px;
-  color: rgba(0, 0, 0, 0.85);
+  color: rgb(0 0 0 / 85%);
 }
+
 .setting-item {
   margin-bottom: 8px;
 }
+
 .setting-label {
   display: block;
+  margin-bottom: 4px;
   font-size: 13px;
   font-weight: 500;
-  margin-bottom: 4px;
 }
 </style>

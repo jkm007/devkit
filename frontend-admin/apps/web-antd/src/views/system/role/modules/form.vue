@@ -161,11 +161,9 @@ function filterPermissionTree(nodes: any[]): any[] {
   function process(nodes: any[]): any[] {
     return nodes
       .map((node) => {
-        const children = node.children
-          ? process(node.children)
-          : [];
+        const children = node.children ? process(node.children) : [];
         if (node.authCode || children.length > 0) {
-          let authCode = node.authCode || `__catalog_${node.id}`;
+          const authCode = node.authCode || `__catalog_${node.id}`;
           // 去重：相同 authCode 的节点只保留第一个
           if (seen.has(authCode)) {
             return null;
@@ -261,7 +259,7 @@ function getNodeClass(node: Recordable<any>) {
 :deep(.tree-indeterminate) {
   [data-state='unchecked'],
   button[role='checkbox'] {
-    background-color: hsl(var(--primary) / 0.3) !important;
+    background-color: hsl(var(--primary) / 30%) !important;
     border-color: hsl(var(--primary)) !important;
   }
 }

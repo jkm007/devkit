@@ -33,10 +33,7 @@ import {
   updateRateLimitRuleStatus,
 } from '#/api/security/rate-limit';
 import type { RateLimitRuleApi } from '#/api/security/rate-limit';
-import {
-  getAllSettings,
-  updateSettingsByGroup,
-} from '#/api/system/settings';
+import { getAllSettings, updateSettingsByGroup } from '#/api/system/settings';
 import { $t } from '#/locales';
 
 // ==================== State ====================
@@ -75,15 +72,46 @@ const methodOptions = [
 ];
 
 const rateLimitColumns = [
-  { title: '路径模式', dataIndex: 'pathPattern', key: 'pathPattern', width: 160 },
+  {
+    title: '路径模式',
+    dataIndex: 'pathPattern',
+    key: 'pathPattern',
+    width: 160,
+  },
   { title: '方法', dataIndex: 'method', key: 'method', width: 60 },
-  { title: '速率', dataIndex: 'rate', key: 'rate', width: 70, customRender: ({ text }: { text: number }) => `${text}/s` },
+  {
+    title: '速率',
+    dataIndex: 'rate',
+    key: 'rate',
+    width: 70,
+    customRender: ({ text }: { text: number }) => `${text}/s`,
+  },
   { title: '突发', dataIndex: 'burst', key: 'burst', width: 60 },
   { title: '冷却(s)', dataIndex: 'cooldown', key: 'cooldown', width: 80 },
-  { title: '封禁(s)', dataIndex: 'blockDuration', key: 'blockDuration', width: 80 },
-  { title: '违规阈值', dataIndex: 'maxViolations', key: 'maxViolations', width: 80 },
-  { title: '风险分', dataIndex: 'violationScore', key: 'violationScore', width: 80 },
-  { title: '描述', dataIndex: 'description', key: 'description', ellipsis: true },
+  {
+    title: '封禁(s)',
+    dataIndex: 'blockDuration',
+    key: 'blockDuration',
+    width: 80,
+  },
+  {
+    title: '违规阈值',
+    dataIndex: 'maxViolations',
+    key: 'maxViolations',
+    width: 80,
+  },
+  {
+    title: '风险分',
+    dataIndex: 'violationScore',
+    key: 'violationScore',
+    width: 80,
+  },
+  {
+    title: '描述',
+    dataIndex: 'description',
+    key: 'description',
+    ellipsis: true,
+  },
   { title: '状态', dataIndex: 'enabled', key: 'enabled', width: 60 },
   { title: '操作', key: 'actions', width: 150, fixed: 'right' as const },
 ];
@@ -93,7 +121,9 @@ const riskItems = computed(() => allSettings.value.risk_score || []);
 const securityItems = computed(() => allSettings.value.security || []);
 
 const riskGeneralItems = computed(() =>
-  riskItems.value.filter((i: any) => i.key.startsWith('risk_') && !i.key.startsWith('rule_')),
+  riskItems.value.filter(
+    (i: any) => i.key.startsWith('risk_') && !i.key.startsWith('rule_'),
+  ),
 );
 const riskFrequencyItems = computed(() =>
   riskItems.value.filter((i: any) => i.key.startsWith('rule_frequency')),
@@ -141,7 +171,9 @@ async function handleSaveRisk() {
   saving.value = true;
   try {
     const result = await updateSettingsByGroup('risk_score', { ...riskForm });
-    message.success($t('system.settings.saveSuccess', { count: result.updated }));
+    message.success(
+      $t('system.settings.saveSuccess', { count: result.updated }),
+    );
     if (result.restartRequired) {
       Modal.warning({
         title: $t('system.settings.restartRequired'),
@@ -162,7 +194,9 @@ async function handleSaveSecurity() {
   saving.value = true;
   try {
     const result = await updateSettingsByGroup('security', { ...securityForm });
-    message.success($t('system.settings.saveSuccess', { count: result.updated }));
+    message.success(
+      $t('system.settings.saveSuccess', { count: result.updated }),
+    );
     if (result.restartRequired) {
       Modal.warning({
         title: $t('system.settings.restartRequired'),
@@ -224,7 +258,9 @@ function openRateLimitModal(record?: RateLimitRuleApi.Rule) {
 async function handleRateLimitSubmit() {
   try {
     if (rateLimitEditing.value) {
-      await updateRateLimitRule(rateLimitEditing.value.id, { ...rateLimitForm });
+      await updateRateLimitRule(rateLimitEditing.value.id, {
+        ...rateLimitForm,
+      });
       message.success('规则更新成功');
     } else {
       await createRateLimitRule({ ...rateLimitForm });
@@ -275,17 +311,35 @@ onMounted(() => {
             <div class="settings-section">
               <h3 class="settings-section-title">⚙️ 通用配置</h3>
               <Row :gutter="[16, 16]">
-                <Col v-for="item in riskGeneralItems" :key="item.key" :span="12">
+                <Col
+                  v-for="item in riskGeneralItems"
+                  :key="item.key"
+                  :span="12"
+                >
                   <div class="setting-item">
                     <label class="setting-label">
                       {{ item.label }}
                       <Tooltip v-if="item.tip" :title="item.tip">
-                        <span class="text-foreground/40 ml-1 cursor-help">ⓘ</span>
+                        <span class="text-foreground/40 ml-1 cursor-help"
+                          >ⓘ</span
+                        >
                       </Tooltip>
                     </label>
-                    <Switch v-if="item.type === 'boolean'" v-model:checked="riskForm[item.key]" />
-                    <InputNumber v-else-if="item.type === 'number'" v-model:value="riskForm[item.key]" class="w-full" :min="0" />
-                    <Input v-else-if="item.type === 'string'" v-model:value="riskForm[item.key]" :placeholder="item.tip" />
+                    <Switch
+                      v-if="item.type === 'boolean'"
+                      v-model:checked="riskForm[item.key]"
+                    />
+                    <InputNumber
+                      v-else-if="item.type === 'number'"
+                      v-model:value="riskForm[item.key]"
+                      class="w-full"
+                      :min="0"
+                    />
+                    <Input
+                      v-else-if="item.type === 'string'"
+                      v-model:value="riskForm[item.key]"
+                      :placeholder="item.tip"
+                    />
                   </div>
                 </Col>
               </Row>
@@ -297,16 +351,30 @@ onMounted(() => {
             <div class="settings-section">
               <h3 class="settings-section-title">📊 频率检测规则</h3>
               <Row :gutter="[16, 16]">
-                <Col v-for="item in riskFrequencyItems" :key="item.key" :span="12">
+                <Col
+                  v-for="item in riskFrequencyItems"
+                  :key="item.key"
+                  :span="12"
+                >
                   <div class="setting-item">
                     <label class="setting-label">
                       {{ item.label }}
                       <Tooltip v-if="item.tip" :title="item.tip">
-                        <span class="text-foreground/40 ml-1 cursor-help">ⓘ</span>
+                        <span class="text-foreground/40 ml-1 cursor-help"
+                          >ⓘ</span
+                        >
                       </Tooltip>
                     </label>
-                    <Switch v-if="item.type === 'boolean'" v-model:checked="riskForm[item.key]" />
-                    <InputNumber v-else-if="item.type === 'number'" v-model:value="riskForm[item.key]" class="w-full" :min="0" />
+                    <Switch
+                      v-if="item.type === 'boolean'"
+                      v-model:checked="riskForm[item.key]"
+                    />
+                    <InputNumber
+                      v-else-if="item.type === 'number'"
+                      v-model:value="riskForm[item.key]"
+                      class="w-full"
+                      :min="0"
+                    />
                   </div>
                 </Col>
               </Row>
@@ -318,16 +386,30 @@ onMounted(() => {
             <div class="settings-section">
               <h3 class="settings-section-title">🔗 无 Referer 规则</h3>
               <Row :gutter="[16, 16]">
-                <Col v-for="item in riskNoRefererItems" :key="item.key" :span="12">
+                <Col
+                  v-for="item in riskNoRefererItems"
+                  :key="item.key"
+                  :span="12"
+                >
                   <div class="setting-item">
                     <label class="setting-label">
                       {{ item.label }}
                       <Tooltip v-if="item.tip" :title="item.tip">
-                        <span class="text-foreground/40 ml-1 cursor-help">ⓘ</span>
+                        <span class="text-foreground/40 ml-1 cursor-help"
+                          >ⓘ</span
+                        >
                       </Tooltip>
                     </label>
-                    <Switch v-if="item.type === 'boolean'" v-model:checked="riskForm[item.key]" />
-                    <InputNumber v-else-if="item.type === 'number'" v-model:value="riskForm[item.key]" class="w-full" :min="0" />
+                    <Switch
+                      v-if="item.type === 'boolean'"
+                      v-model:checked="riskForm[item.key]"
+                    />
+                    <InputNumber
+                      v-else-if="item.type === 'number'"
+                      v-model:value="riskForm[item.key]"
+                      class="w-full"
+                      :min="0"
+                    />
                   </div>
                 </Col>
               </Row>
@@ -344,11 +426,21 @@ onMounted(() => {
                     <label class="setting-label">
                       {{ item.label }}
                       <Tooltip v-if="item.tip" :title="item.tip">
-                        <span class="text-foreground/40 ml-1 cursor-help">ⓘ</span>
+                        <span class="text-foreground/40 ml-1 cursor-help"
+                          >ⓘ</span
+                        >
                       </Tooltip>
                     </label>
-                    <Switch v-if="item.type === 'boolean'" v-model:checked="riskForm[item.key]" />
-                    <InputNumber v-else-if="item.type === 'number'" v-model:value="riskForm[item.key]" class="w-full" :min="0" />
+                    <Switch
+                      v-if="item.type === 'boolean'"
+                      v-model:checked="riskForm[item.key]"
+                    />
+                    <InputNumber
+                      v-else-if="item.type === 'number'"
+                      v-model:value="riskForm[item.key]"
+                      class="w-full"
+                      :min="0"
+                    />
                   </div>
                 </Col>
               </Row>
@@ -365,12 +457,26 @@ onMounted(() => {
                     <label class="setting-label">
                       {{ item.label }}
                       <Tooltip v-if="item.tip" :title="item.tip">
-                        <span class="text-foreground/40 ml-1 cursor-help">ⓘ</span>
+                        <span class="text-foreground/40 ml-1 cursor-help"
+                          >ⓘ</span
+                        >
                       </Tooltip>
                     </label>
-                    <Switch v-if="item.type === 'boolean'" v-model:checked="riskForm[item.key]" />
-                    <InputNumber v-else-if="item.type === 'number'" v-model:value="riskForm[item.key]" class="w-full" :min="0" />
-                    <Input v-else-if="item.type === 'string'" v-model:value="riskForm[item.key]" :placeholder="item.tip" />
+                    <Switch
+                      v-if="item.type === 'boolean'"
+                      v-model:checked="riskForm[item.key]"
+                    />
+                    <InputNumber
+                      v-else-if="item.type === 'number'"
+                      v-model:value="riskForm[item.key]"
+                      class="w-full"
+                      :min="0"
+                    />
+                    <Input
+                      v-else-if="item.type === 'string'"
+                      v-model:value="riskForm[item.key]"
+                      :placeholder="item.tip"
+                    />
                   </div>
                 </Col>
               </Row>
@@ -382,16 +488,30 @@ onMounted(() => {
             <div class="settings-section">
               <h3 class="settings-section-title">⏱️ 请求间隔规则</h3>
               <Row :gutter="[16, 16]">
-                <Col v-for="item in riskIntervalItems" :key="item.key" :span="12">
+                <Col
+                  v-for="item in riskIntervalItems"
+                  :key="item.key"
+                  :span="12"
+                >
                   <div class="setting-item">
                     <label class="setting-label">
                       {{ item.label }}
                       <Tooltip v-if="item.tip" :title="item.tip">
-                        <span class="text-foreground/40 ml-1 cursor-help">ⓘ</span>
+                        <span class="text-foreground/40 ml-1 cursor-help"
+                          >ⓘ</span
+                        >
                       </Tooltip>
                     </label>
-                    <Switch v-if="item.type === 'boolean'" v-model:checked="riskForm[item.key]" />
-                    <InputNumber v-else-if="item.type === 'number'" v-model:value="riskForm[item.key]" class="w-full" :min="0" />
+                    <Switch
+                      v-if="item.type === 'boolean'"
+                      v-model:checked="riskForm[item.key]"
+                    />
+                    <InputNumber
+                      v-else-if="item.type === 'number'"
+                      v-model:value="riskForm[item.key]"
+                      class="w-full"
+                      :min="0"
+                    />
                   </div>
                 </Col>
               </Row>
@@ -423,9 +543,21 @@ onMounted(() => {
                       <span class="text-foreground/40 ml-1 cursor-help">ⓘ</span>
                     </Tooltip>
                   </label>
-                  <Input v-if="item.type === 'string'" v-model:value="securityForm[item.key]" :placeholder="item.tip" />
-                  <Switch v-else-if="item.type === 'boolean'" v-model:checked="securityForm[item.key]" />
-                  <InputNumber v-else-if="item.type === 'number'" v-model:value="securityForm[item.key]" class="w-full" :min="0" />
+                  <Input
+                    v-if="item.type === 'string'"
+                    v-model:value="securityForm[item.key]"
+                    :placeholder="item.tip"
+                  />
+                  <Switch
+                    v-else-if="item.type === 'boolean'"
+                    v-model:checked="securityForm[item.key]"
+                  />
+                  <InputNumber
+                    v-else-if="item.type === 'number'"
+                    v-model:value="securityForm[item.key]"
+                    class="w-full"
+                    :min="0"
+                  />
                 </div>
               </Col>
             </Row>
@@ -433,7 +565,11 @@ onMounted(() => {
             <Divider />
 
             <div class="flex justify-end">
-              <Button type="primary" :loading="saving" @click="handleSaveSecurity">
+              <Button
+                type="primary"
+                :loading="saving"
+                @click="handleSaveSecurity"
+              >
                 {{ $t('system.settings.saveGroup') }}
               </Button>
             </div>
@@ -477,23 +613,39 @@ onMounted(() => {
                 </template>
                 <template v-else-if="column.key === 'actions'">
                   <div class="flex gap-2">
-                    <Button type="link" size="small" @click="openRateLimitModal(record as RateLimitRuleApi.Rule)">
+                    <Button
+                      type="link"
+                      size="small"
+                      @click="
+                        openRateLimitModal(record as RateLimitRuleApi.Rule)
+                      "
+                    >
                       编辑
                     </Button>
                     <Button
                       type="link"
                       size="small"
-                      @click="handleRateLimitStatusChange(record as RateLimitRuleApi.Rule)"
+                      @click="
+                        handleRateLimitStatusChange(
+                          record as RateLimitRuleApi.Rule,
+                        )
+                      "
                     >
-                      {{ (record as RateLimitRuleApi.Rule).enabled ? '禁用' : '启用' }}
+                      {{
+                        (record as RateLimitRuleApi.Rule).enabled
+                          ? '禁用'
+                          : '启用'
+                      }}
                     </Button>
                     <Popconfirm
                       title="确定删除此规则？"
-                      @confirm="handleRateLimitDelete((record as RateLimitRuleApi.Rule).id)"
+                      @confirm="
+                        handleRateLimitDelete(
+                          (record as RateLimitRuleApi.Rule).id,
+                        )
+                      "
                     >
-                      <Button type="link" size="small" danger>
-                        删除
-                      </Button>
+                      <Button type="link" size="small" danger> 删除 </Button>
                     </Popconfirm>
                   </div>
                 </template>
@@ -512,12 +664,16 @@ onMounted(() => {
     >
       <div class="space-y-4 py-4">
         <div>
-          <label class="mb-1 block text-sm font-medium">路径模式 <span class="text-red-500">*</span></label>
+          <label class="mb-1 block text-sm font-medium"
+            >路径模式 <span class="text-red-500">*</span></label
+          >
           <Input
             v-model:value="rateLimitForm.pathPattern"
             placeholder="例如: /auth/login 或 /share/*"
           />
-          <p class="mt-1 text-xs text-gray-400">支持 * 通配符，如 /auth/* 匹配所有认证接口</p>
+          <p class="mt-1 text-xs text-gray-400">
+            支持 * 通配符，如 /auth/* 匹配所有认证接口
+          </p>
         </div>
         <div>
           <label class="mb-1 block text-sm font-medium">HTTP 方法</label>
@@ -529,7 +685,9 @@ onMounted(() => {
         </div>
         <Row :gutter="16">
           <Col :span="12">
-            <label class="mb-1 block text-sm font-medium">速率 (req/s) <span class="text-red-500">*</span></label>
+            <label class="mb-1 block text-sm font-medium"
+              >速率 (req/s) <span class="text-red-500">*</span></label
+            >
             <InputNumber
               v-model:value="rateLimitForm.rate"
               :min="0.1"
@@ -539,7 +697,9 @@ onMounted(() => {
             />
           </Col>
           <Col :span="12">
-            <label class="mb-1 block text-sm font-medium">突发容量 <span class="text-red-500">*</span></label>
+            <label class="mb-1 block text-sm font-medium"
+              >突发容量 <span class="text-red-500">*</span></label
+            >
             <InputNumber
               v-model:value="rateLimitForm.burst"
               :min="1"
@@ -638,19 +798,22 @@ onMounted(() => {
 .settings-section {
   margin-bottom: 8px;
 }
+
 .settings-section-title {
+  margin-bottom: 12px;
   font-size: 14px;
   font-weight: 600;
-  margin-bottom: 12px;
-  color: rgba(0, 0, 0, 0.85);
+  color: rgb(0 0 0 / 85%);
 }
+
 .setting-item {
   margin-bottom: 8px;
 }
+
 .setting-label {
   display: block;
+  margin-bottom: 4px;
   font-size: 13px;
   font-weight: 500;
-  margin-bottom: 4px;
 }
 </style>

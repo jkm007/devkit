@@ -46,7 +46,10 @@ async function loadCaptcha() {
       captchaHintText.value = data.hint_text || '';
       captchaLength.value = data.length || 4;
       // 使用后端返回的类型（如果有效）
-      if (data.type && ['numeric', 'slider', 'puzzle', 'rotation', 'point'].includes(data.type)) {
+      if (
+        data.type &&
+        ['numeric', 'slider', 'puzzle', 'rotation', 'point'].includes(data.type)
+      ) {
         captchaType.value = data.type;
       }
     }
@@ -62,28 +65,44 @@ async function handleShow(event?: Event) {
   // 优先使用后端指定的验证码类型（随机类型）
   const detail = (event as CustomEvent)?.detail;
   const serverType = detail?.captchaType;
-  if (serverType && ['numeric', 'slider', 'puzzle', 'rotation', 'point'].includes(serverType)) {
+  if (
+    serverType &&
+    ['numeric', 'slider', 'puzzle', 'rotation', 'point'].includes(serverType)
+  ) {
     captchaType.value = serverType as any;
   }
   // 没有指定类型时使用默认类型（slider），不调用 getPublicSettings 避免触发验证码守卫
   loadCaptcha();
 }
 
-function handleSuccess(result: { captchaCode: string; captchaId: string; startTime: number }) {
+function handleSuccess(result: {
+  captchaCode: string;
+  captchaId: string;
+  startTime: number;
+}) {
   visible.value = false;
   window.dispatchEvent(
     new CustomEvent('captcha:verify-result', {
-      detail: { captchaId: result.captchaId, captchaCode: result.captchaCode, startTime: result.startTime },
+      detail: {
+        captchaId: result.captchaId,
+        captchaCode: result.captchaCode,
+        startTime: result.startTime,
+      },
     }),
   );
 }
 
 function handleNumericSubmit() {
-  if (!numericCode.value || numericCode.value.length !== captchaLength.value) return;
+  if (!numericCode.value || numericCode.value.length !== captchaLength.value)
+    return;
   visible.value = false;
   window.dispatchEvent(
     new CustomEvent('captcha:verify-result', {
-      detail: { captchaId: captchaId.value, captchaCode: numericCode.value, startTime: Date.now() },
+      detail: {
+        captchaId: captchaId.value,
+        captchaCode: numericCode.value,
+        startTime: Date.now(),
+      },
     }),
   );
 }
@@ -102,7 +121,10 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  window.removeEventListener('captcha:show-verify', handleShow as EventListener);
+  window.removeEventListener(
+    'captcha:show-verify',
+    handleShow as EventListener,
+  );
 });
 </script>
 
@@ -117,24 +139,41 @@ onUnmounted(() => {
     :footer="null"
     @cancel="handleCancel"
   >
-    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 12px 0;">
+    <div
+      style="
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 12px 0;
+      "
+    >
       <!-- 数字验证码 -->
-      <div v-if="!loading && captchaImage && captchaType === 'numeric'" style="display: flex; flex-direction: column; align-items: center;">
+      <div
+        v-if="!loading && captchaImage && captchaType === 'numeric'"
+        style="display: flex; flex-direction: column; align-items: center"
+      >
         <img
           :src="captchaImage"
           alt="captcha"
-          style="cursor: pointer; border: 1px solid #eee; border-radius: 4px;"
+          style="cursor: pointer; border: 1px solid #eee; border-radius: 4px"
           @click="loadCaptcha"
         />
-        <div style="margin-top: 12px; display: flex; gap: 8px; align-items: center;">
+        <div
+          style="display: flex; gap: 8px; align-items: center; margin-top: 12px"
+        >
           <Input
             v-model:value="numericCode"
             :maxlength="captchaLength"
             :placeholder="`请输入 ${captchaLength} 位验证码`"
-            style="width: 180px;"
+            style="width: 180px"
             @press-enter="handleNumericSubmit"
           />
-          <Button type="primary" :disabled="numericCode.length !== captchaLength" @click="handleNumericSubmit">
+          <Button
+            type="primary"
+            :disabled="numericCode.length !== captchaLength"
+            @click="handleNumericSubmit"
+          >
             确认
           </Button>
         </div>
@@ -163,8 +202,27 @@ onUnmounted(() => {
         @refresh="handleRefresh"
       />
 
-      <div v-else-if="loading" style="color: #999; min-height: 200px; display: flex; align-items: center;">加载中...</div>
-      <div v-else style="color: #999; min-height: 200px; display: flex; align-items: center;">验证码加载失败，点击
+      <div
+        v-else-if="loading"
+        style="
+          display: flex;
+          align-items: center;
+          min-height: 200px;
+          color: #999;
+        "
+      >
+        加载中...
+      </div>
+      <div
+        v-else
+        style="
+          display: flex;
+          align-items: center;
+          min-height: 200px;
+          color: #999;
+        "
+      >
+        验证码加载失败，点击
         <a @click="loadCaptcha">重试</a>
       </div>
     </div>

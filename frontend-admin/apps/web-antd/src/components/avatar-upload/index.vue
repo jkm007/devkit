@@ -64,7 +64,13 @@ async function handleSave() {
   let uploadedUrl: string | null = null;
   try {
     // 获取裁剪后的图片 Blob
-    const blob = await cropperRef.value.getCropImage('image/jpeg', 0.92, 'blob', 200, 200);
+    const blob = await cropperRef.value.getCropImage(
+      'image/jpeg',
+      0.92,
+      'blob',
+      200,
+      200,
+    );
     if (!blob) {
       message.error('裁剪失败');
       return;
@@ -157,10 +163,16 @@ defineExpose({ open });
           accept="image/*"
         >
           <div class="upload-content">
-            <div class="i-ant-design:inbox-outlined text-4xl text-primary mb-4" />
+            <div
+              class="i-ant-design:inbox-outlined text-4xl text-primary mb-4"
+            />
             <p class="text-base">{{ $t('file.avatar.dragTip') }}</p>
-            <p class="text-sm text-muted-foreground mt-2">{{ $t('file.avatar.formatTip') }}</p>
-            <p class="text-sm text-muted-foreground">{{ $t('file.avatar.sizeTip') }}</p>
+            <p class="text-sm text-muted-foreground mt-2">
+              {{ $t('file.avatar.formatTip') }}
+            </p>
+            <p class="text-sm text-muted-foreground">
+              {{ $t('file.avatar.sizeTip') }}
+            </p>
           </div>
         </Upload.Dragger>
       </div>
@@ -190,8 +202,8 @@ defineExpose({ open });
 
 .upload-area {
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
 }
 
 .upload-content {

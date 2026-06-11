@@ -51,12 +51,11 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     // 获取用户信息、权限码、权限版本
-    const [fetchUserInfoResult, accessCodes, permVersion] =
-      await Promise.all([
-        fetchUserInfo(),
-        getAccessCodesApi(),
-        getPermissionVersionApi(),
-      ]);
+    const [fetchUserInfoResult, accessCodes, permVersion] = await Promise.all([
+      fetchUserInfo(),
+      getAccessCodesApi(),
+      getPermissionVersionApi(),
+    ]);
 
     userInfo = fetchUserInfoResult;
     userStore.setUserInfo(userInfo);
@@ -144,7 +143,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function logout(redirect: boolean = true) {
+  async function logout(_redirect: boolean = true) {
     // 防止重复调用
     if (isLoggingOut) return;
     isLoggingOut = true;

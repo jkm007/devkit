@@ -4,7 +4,15 @@ import { useRoute } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
 
-import { Button, Card, Descriptions, DescriptionsItem, Image, Spin, Table } from 'ant-design-vue';
+import {
+  Button,
+  Card,
+  Descriptions,
+  DescriptionsItem,
+  Image,
+  Spin,
+  Table,
+} from 'ant-design-vue';
 
 import { getShareInfo, getShareFolderFiles } from '#/api/file';
 
@@ -19,7 +27,7 @@ const error = ref('');
 const shareCode = route.params.code as string;
 
 // 是否是文件夹分享
-// @ts-ignore - 暂时未使用，保留以备将来使用
+// @ts-expect-error - 暂时未使用，保留以备将来使用
 const isFolderShare = computed(() => shareInfo.value?.type === 'folder');
 
 async function loadShareInfo() {
@@ -96,7 +104,10 @@ onMounted(() => {
     <div class="max-w-4xl mx-auto p-4">
       <Spin :spinning="loading">
         <!-- 文件分享 -->
-        <Card v-if="shareInfo && shareInfo.type === 'file'" :title="shareInfo.fileName">
+        <Card
+          v-if="shareInfo && shareInfo.type === 'file'"
+          :title="shareInfo.fileName"
+        >
           <!-- 图片预览 -->
           <div v-if="shareInfo.contentType?.startsWith('image/')">
             <Image
@@ -107,7 +118,12 @@ onMounted(() => {
           </div>
 
           <!-- PDF 预览 -->
-          <div v-else-if="shareInfo.contentType?.includes('pdf') || shareInfo.fileName?.toLowerCase().endsWith('.pdf')">
+          <div
+            v-else-if="
+              shareInfo.contentType?.includes('pdf') ||
+              shareInfo.fileName?.toLowerCase().endsWith('.pdf')
+            "
+          >
             <iframe
               :src="`/api/v1/share/${shareCode}/file`"
               sandbox="allow-scripts allow-same-origin"
@@ -125,7 +141,12 @@ onMounted(() => {
               autoplay
               preload="auto"
               playsinline
-              style="max-width: 100%; max-height: 400px; display: block; background: #000;"
+              style="
+                display: block;
+                max-width: 100%;
+                max-height: 400px;
+                background: #000;
+              "
             />
           </div>
 
@@ -133,13 +154,15 @@ onMounted(() => {
           <div v-else-if="shareInfo.contentType?.startsWith('audio/')">
             <div class="py-6 text-center">
               <div class="mb-4 text-6xl text-blue-500">🎵</div>
-              <p class="mb-4 text-lg text-foreground">{{ shareInfo.fileName }}</p>
+              <p class="mb-4 text-lg text-foreground">
+                {{ shareInfo.fileName }}
+              </p>
               <audio
                 :src="`/api/v1/share/${shareCode}/file`"
                 controls
                 autoplay
                 preload="auto"
-                style="width: 100%; max-width: 500px; margin: 0 auto;"
+                style="width: 100%; max-width: 500px; margin: 0 auto"
               />
             </div>
           </div>
@@ -152,13 +175,23 @@ onMounted(() => {
 
           <!-- 文件信息 -->
           <Descriptions :column="2" class="mt-4">
-            <DescriptionsItem label="文件名">{{ shareInfo.fileName }}</DescriptionsItem>
-            <DescriptionsItem label="文件大小">{{ formatFileSize(shareInfo.fileSize) }}</DescriptionsItem>
+            <DescriptionsItem label="文件名">{{
+              shareInfo.fileName
+            }}</DescriptionsItem>
+            <DescriptionsItem label="文件大小">{{
+              formatFileSize(shareInfo.fileSize)
+            }}</DescriptionsItem>
             <DescriptionsItem label="分享者">
-              <img v-if="shareInfo.sharerAvatar" :src="shareInfo.sharerAvatar" class="w-6 h-6 rounded-full inline-block mr-1" />
+              <img
+                v-if="shareInfo.sharerAvatar"
+                :src="shareInfo.sharerAvatar"
+                class="w-6 h-6 rounded-full inline-block mr-1"
+              />
               {{ shareInfo.sharerName }}
             </DescriptionsItem>
-            <DescriptionsItem label="过期时间">{{ formatDate(shareInfo.expireAt) }}</DescriptionsItem>
+            <DescriptionsItem label="过期时间">{{
+              formatDate(shareInfo.expireAt)
+            }}</DescriptionsItem>
           </Descriptions>
 
           <!-- 下载按钮 -->
@@ -170,16 +203,29 @@ onMounted(() => {
         </Card>
 
         <!-- 文件夹分享 -->
-        <Card v-if="shareInfo && shareInfo.type === 'folder'" :title="shareInfo.folderName">
+        <Card
+          v-if="shareInfo && shareInfo.type === 'folder'"
+          :title="shareInfo.folderName"
+        >
           <!-- 文件夹信息 -->
           <Descriptions :column="2" class="mb-4">
-            <DescriptionsItem label="文件夹">{{ shareInfo.folderName }}</DescriptionsItem>
-            <DescriptionsItem label="文件数">{{ folderFiles.length }} 个</DescriptionsItem>
+            <DescriptionsItem label="文件夹">{{
+              shareInfo.folderName
+            }}</DescriptionsItem>
+            <DescriptionsItem label="文件数"
+              >{{ folderFiles.length }} 个</DescriptionsItem
+            >
             <DescriptionsItem label="分享者">
-              <img v-if="shareInfo.sharerAvatar" :src="shareInfo.sharerAvatar" class="w-6 h-6 rounded-full inline-block mr-1" />
+              <img
+                v-if="shareInfo.sharerAvatar"
+                :src="shareInfo.sharerAvatar"
+                class="w-6 h-6 rounded-full inline-block mr-1"
+              />
               {{ shareInfo.sharerName }}
             </DescriptionsItem>
-            <DescriptionsItem label="过期时间">{{ formatDate(shareInfo.expireAt) }}</DescriptionsItem>
+            <DescriptionsItem label="过期时间">{{
+              formatDate(shareInfo.expireAt)
+            }}</DescriptionsItem>
           </Descriptions>
 
           <!-- 文件列表 -->
@@ -195,16 +241,25 @@ onMounted(() => {
                 {{ formatFileSize(record.fileSize) }}
               </template>
               <template v-if="column.key === 'contentType'">
-                <span class="text-sm text-gray-500">{{ record.contentType || '未知' }}</span>
+                <span class="text-sm text-gray-500">{{
+                  record.contentType || '未知'
+                }}</span>
               </template>
               <template v-if="column.key === 'action'">
-                <Button type="link" size="small" @click="viewFile(record)">预览</Button>
-                <Button type="link" size="small" @click="downloadFile(record)">下载</Button>
+                <Button type="link" size="small" @click="viewFile(record)"
+                  >预览</Button
+                >
+                <Button type="link" size="small" @click="downloadFile(record)"
+                  >下载</Button
+                >
               </template>
             </template>
           </Table>
 
-          <div v-if="folderFiles.length === 0" class="text-center py-4 text-gray-500">
+          <div
+            v-if="folderFiles.length === 0"
+            class="text-center py-4 text-gray-500"
+          >
             文件夹内暂无文件
           </div>
         </Card>
@@ -212,7 +267,9 @@ onMounted(() => {
         <!-- 错误提示 -->
         <Card v-else-if="error">
           <div class="text-center py-8">
-            <span class="i-ant-design:warning-outlined text-4xl text-red-500 mb-4" />
+            <span
+              class="i-ant-design:warning-outlined text-4xl text-red-500 mb-4"
+            />
             <p class="text-lg">{{ error }}</p>
           </div>
         </Card>

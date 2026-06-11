@@ -30,8 +30,8 @@ import {
   testStorageBucketByDriverApi,
   testStorageBucketConnectionApi,
   updateStorageBucketApi,
-  type StorageBucketApi,
 } from '#/api/system/storage-bucket';
+import type { StorageBucketApi } from '#/api/system/storage-bucket';
 
 const { hasAccessByCodes } = useAccess();
 
@@ -47,7 +47,9 @@ const enabledDrivers = ref<
 const modalVisible = ref(false);
 const modalTitle = ref('');
 const isEditing = ref(false);
-const currentBucket = ref<Partial<StorageBucketApi.StorageBucket> & StorageBucketApi.CreateStorageBucket>({
+const currentBucket = ref<
+  Partial<StorageBucketApi.StorageBucket> & StorageBucketApi.CreateStorageBucket
+>({
   name: '',
   driver: 'local',
   endpoint: '',
@@ -151,7 +153,11 @@ onMounted(() => {
 const getDriverInfo = (driver: string) => {
   const opt = enabledDrivers.value.find((d) => d.value === driver);
   if (opt) {
-    return { label: opt.label, color: driverColors[opt.value] || '#8c8c8c', icon: opt.icon };
+    return {
+      label: opt.label,
+      color: driverColors[opt.value] || '#8c8c8c',
+      icon: opt.icon,
+    };
   }
   return { label: driver, color: '#8c8c8c', icon: '❓' };
 };
@@ -190,7 +196,12 @@ const handleTestConnection = async () => {
 
 // 获取用途信息
 const getPurposeInfo = (purpose: string) => {
-  return purposeOptions.find((item) => item.value === purpose) || { label: purpose || '未指定', color: '#d9d9d9' };
+  return (
+    purposeOptions.find((item) => item.value === purpose) || {
+      label: purpose || '未指定',
+      color: '#d9d9d9',
+    }
+  );
 };
 
 // 重置表单
@@ -256,7 +267,9 @@ const handleSave = async () => {
 };
 
 // 删除（由 Popconfirm 确认后直接执行）
-const handleDelete = async (record: StorageBucketApi.StorageBucket) => {
+const handleDelete = async (
+  record: StorageBucketApi.StorageBucket | Record<string, any>,
+) => {
   try {
     await deleteStorageBucketApi(record.id);
     message.success('删除成功');
@@ -297,15 +310,21 @@ const handleCancel = () => {
     <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
       <div class="rounded-lg border border-gray-200 bg-white p-3">
         <div class="text-xs text-gray-500">总存储桶</div>
-        <div class="mt-1 text-2xl font-bold text-blue-600">{{ stats.total }}</div>
+        <div class="mt-1 text-2xl font-bold text-blue-600">
+          {{ stats.total }}
+        </div>
       </div>
       <div class="rounded-lg border border-gray-200 bg-white p-3">
         <div class="text-xs text-gray-500">已启用</div>
-        <div class="mt-1 text-2xl font-bold text-green-600">{{ stats.enabled }}</div>
+        <div class="mt-1 text-2xl font-bold text-green-600">
+          {{ stats.enabled }}
+        </div>
       </div>
       <div class="rounded-lg border border-gray-200 bg-white p-3">
         <div class="text-xs text-gray-500">已禁用</div>
-        <div class="mt-1 text-2xl font-bold text-gray-400">{{ stats.disabled }}</div>
+        <div class="mt-1 text-2xl font-bold text-gray-400">
+          {{ stats.disabled }}
+        </div>
       </div>
       <div class="rounded-lg border border-gray-200 bg-white p-3">
         <div class="text-xs text-gray-500">默认桶</div>
@@ -316,18 +335,29 @@ const handleCancel = () => {
     </div>
 
     <!-- 使用说明 -->
-    <div class="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700">
+    <div
+      class="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700"
+    >
       <div class="font-medium mb-1">💡 存储桶怎么用？</div>
       <ul class="list-disc pl-5 space-y-0.5">
-        <li><b>存储桶</b> = 一个存储位置（本地、MinIO、阿里云 OSS、腾讯云 COS）</li>
-        <li><b>标签路由</b> = 根据文件类型自动选择存到哪个桶（如：图片→OSS，文档→本地）</li>
+        <li>
+          <b>存储桶</b> = 一个存储位置（本地、MinIO、阿里云 OSS、腾讯云 COS）
+        </li>
+        <li>
+          <b>标签路由</b> =
+          根据文件类型自动选择存到哪个桶（如：图片→OSS，文档→本地）
+        </li>
         <li>添加存储桶后，去「标签路由」页面创建规则，即可实现自动分类存储</li>
       </ul>
     </div>
 
     <!-- 操作栏 -->
     <div class="mb-4 flex justify-between items-center">
-      <Button v-if="hasAccessByCodes(['storage:bucket:edit'])" type="primary" @click="handleAdd">
+      <Button
+        v-if="hasAccessByCodes(['storage:bucket:edit'])"
+        type="primary"
+        @click="handleAdd"
+      >
         <Plus class="mr-1" />
         添加存储桶
       </Button>
@@ -348,7 +378,8 @@ const handleCancel = () => {
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'driver'">
           <Tag :color="getDriverInfo(record.driver).color">
-            {{ getDriverInfo(record.driver).icon }} {{ getDriverInfo(record.driver).label }}
+            {{ getDriverInfo(record.driver).icon }}
+            {{ getDriverInfo(record.driver).label }}
           </Tag>
         </template>
         <template v-else-if="column.key === 'purpose'">
@@ -357,17 +388,36 @@ const handleCancel = () => {
           </Tag>
         </template>
         <template v-else-if="column.key === 'status'">
-          <Badge :status="record.status === 1 ? 'success' : 'default'" :text="record.status === 1 ? '启用' : '禁用'" />
+          <Badge
+            :status="record.status === 1 ? 'success' : 'default'"
+            :text="record.status === 1 ? '启用' : '禁用'"
+          />
         </template>
         <template v-else-if="column.key === 'isDefault'">
           <Tag v-if="record.isDefault" color="gold">⭐ 默认</Tag>
-          <Button v-else-if="hasAccessByCodes(['storage:bucket:edit']) && record.status === 1" type="link" size="small" @click="handleSetDefault(record)">设为默认</Button>
+          <Button
+            v-else-if="
+              hasAccessByCodes(['storage:bucket:edit']) && record.status === 1
+            "
+            type="link"
+            size="small"
+            @click="handleSetDefault(record)"
+            >设为默认</Button
+          >
         </template>
         <template v-else-if="column.key === 'action'">
           <Space>
-            <Button v-if="hasAccessByCodes(['storage:bucket:edit'])" type="link" size="small" @click="handleEdit(record)">编辑</Button>
+            <Button
+              v-if="hasAccessByCodes(['storage:bucket:edit'])"
+              type="link"
+              size="small"
+              @click="handleEdit(record)"
+              >编辑</Button
+            >
             <Popconfirm
-              v-if="!record.isDefault && hasAccessByCodes(['storage:bucket:delete'])"
+              v-if="
+                !record.isDefault && hasAccessByCodes(['storage:bucket:delete'])
+              "
               title="确定删除?"
               @confirm="handleDelete(record)"
             >
@@ -387,15 +437,25 @@ const handleCancel = () => {
     >
       <Form layout="vertical" class="mt-4">
         <FormItem label="存储桶名称" required>
-          <Input v-model:value="currentBucket.name" placeholder="如：生产环境图片桶" />
+          <Input
+            v-model:value="currentBucket.name"
+            placeholder="如：生产环境图片桶"
+          />
         </FormItem>
         <FormItem label="存储驱动" required>
-          <Select v-model:value="currentBucket.driver" :options="driverOptions" placeholder="选择驱动" />
+          <Select
+            v-model:value="currentBucket.driver"
+            :options="driverOptions"
+            placeholder="选择驱动"
+          />
         </FormItem>
 
         <template v-if="currentBucket.driver !== 'local'">
           <FormItem label="Bucket 名称" required>
-            <Input v-model:value="currentBucket.bucket" placeholder="如：my-bucket" />
+            <Input
+              v-model:value="currentBucket.bucket"
+              placeholder="如：my-bucket"
+            />
           </FormItem>
           <div class="mb-4 flex items-center gap-2">
             <Button
@@ -412,12 +472,23 @@ const handleCancel = () => {
         </template>
 
         <FormItem label="路径前缀">
-          <Input v-model:value="currentBucket.pathPrefix" placeholder="可选，如：files/" />
+          <Input
+            v-model:value="currentBucket.pathPrefix"
+            placeholder="可选，如：files/"
+          />
         </FormItem>
 
         <FormItem label="用途">
-          <Select v-model:value="currentBucket.purpose" placeholder="选择用途" allow-clear>
-            <SelectOption v-for="opt in purposeOptions" :key="opt.value" :value="opt.value">
+          <Select
+            v-model:value="currentBucket.purpose"
+            placeholder="选择用途"
+            allow-clear
+          >
+            <SelectOption
+              v-for="opt in purposeOptions"
+              :key="opt.value"
+              :value="opt.value"
+            >
               {{ opt.label }}
             </SelectOption>
           </Select>
@@ -428,11 +499,19 @@ const handleCancel = () => {
         </FormItem>
 
         <FormItem label="状态">
-          <Switch v-model:checked="currentBucket.status" :checked-value="1" :un-checked-value="0" />
+          <Switch
+            v-model:checked="currentBucket.status"
+            :checked-value="1"
+            :un-checked-value="0"
+          />
         </FormItem>
 
         <FormItem label="描述">
-          <Input.TextArea v-model:value="currentBucket.description" placeholder="备注信息" :rows="2" />
+          <Input.TextArea
+            v-model:value="currentBucket.description"
+            placeholder="备注信息"
+            :rows="2"
+          />
         </FormItem>
       </Form>
 

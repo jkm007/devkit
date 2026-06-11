@@ -33,7 +33,10 @@ import {
 } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import type { VxeTableGridColumns, VxeTableGridOptions } from '#/adapter/vxe-table';
+import type {
+  VxeTableGridColumns,
+  VxeTableGridOptions,
+} from '#/adapter/vxe-table';
 import {
   checkFileShares,
   createFolder,
@@ -94,11 +97,21 @@ const uploadStore = useUploadStore();
 // ==================== 权限 ====================
 
 const permissions = computed(() => accessStore.accessCodes || []);
-const hasViewAllPermission = computed(() => permissions.value.includes('file:view:all'));
-const hasUploadPermission = computed(() => permissions.value.includes('file:upload'));
-const hasDeletePermission = computed(() => permissions.value.includes('file:delete'));
-const hasSharePermission = computed(() => permissions.value.includes('file:share'));
-const hasManagePermission = computed(() => permissions.value.includes('file:manage'));
+const hasViewAllPermission = computed(() =>
+  permissions.value.includes('file:view:all'),
+);
+const hasUploadPermission = computed(() =>
+  permissions.value.includes('file:upload'),
+);
+const hasDeletePermission = computed(() =>
+  permissions.value.includes('file:delete'),
+);
+const hasSharePermission = computed(() =>
+  permissions.value.includes('file:share'),
+);
+const hasManagePermission = computed(() =>
+  permissions.value.includes('file:manage'),
+);
 
 // ==================== 状态 ====================
 
@@ -107,7 +120,16 @@ const currentFolderId = ref<number | null>(null);
 const selectedRowKeys = ref<number[]>([]);
 const fileScope = ref<'own' | 'all'>('own');
 const selectedTagKeys = ref<string[]>([]);
-const availableTags = ref<{ id: number; key: string; value: string; name: string; icon: string; color: string }[]>([]);
+const availableTags = ref<
+  {
+    id: number;
+    key: string;
+    value: string;
+    name: string;
+    icon: string;
+    color: string;
+  }[]
+>([]);
 
 // 文件夹操作
 const newFolderModalVisible = ref(false);
@@ -161,16 +183,29 @@ const uploadDetailTask = ref<UploadTaskItem | null>(null);
 const downloadProgressVisible = ref(false);
 const downloadProgress = ref(0);
 const downloadFileName = ref('');
-const downloadStatus = ref<'downloading' | 'saving' | 'done' | 'error'>('downloading');
+const downloadStatus = ref<'downloading' | 'saving' | 'done' | 'error'>(
+  'downloading',
+);
 
 // ==================== 计算属性 ====================
 
 const uploadTasks = computed(() => uploadStore.tasks);
 const uploading = computed(() => uploadStore.uploadingCount > 0);
 const hasShareResult = computed(() => !!shareResult.value?.shareCode);
-const shareFullUrl = computed(() => shareResult.value?.shareCode ? `${window.location.origin}/share/${shareResult.value.shareCode}` : '');
-const folderShareFullUrl = computed(() => folderShareResult.value?.shareCode ? `${window.location.origin}/share/${folderShareResult.value.shareCode}` : '');
-const validFileIds = computed(() => selectedRowKeys.value.filter((key) => typeof key === 'number') as number[]);
+const shareFullUrl = computed(() =>
+  shareResult.value?.shareCode
+    ? `${window.location.origin}/share/${shareResult.value.shareCode}`
+    : '',
+);
+const folderShareFullUrl = computed(() =>
+  folderShareResult.value?.shareCode
+    ? `${window.location.origin}/share/${folderShareResult.value.shareCode}`
+    : '',
+);
+const validFileIds = computed(
+  () =>
+    selectedRowKeys.value.filter((key) => typeof key === 'number') as number[],
+);
 
 watch(previewVisible, (newVal) => {
   if (!newVal && previewUrl.value && previewUrl.value.startsWith('blob:')) {
@@ -181,11 +216,14 @@ watch(previewVisible, (newVal) => {
 
 // 监听上传任务数量变化，自动刷新表格（新增/移除任务时）
 // 进度更新不需要刷新 — uploadTask 是 Pinia 响应式引用，模板自动更新
-watch(() => uploadTasks.value.length, (newLen, oldLen) => {
-  if (newLen !== (oldLen ?? 0)) {
-    onRefresh();
-  }
-});
+watch(
+  () => uploadTasks.value.length,
+  (newLen, oldLen) => {
+    if (newLen !== (oldLen ?? 0)) {
+      onRefresh();
+    }
+  },
+);
 
 // ==================== 工具函数 ====================
 
@@ -199,7 +237,6 @@ function formatDuration(ms: number | undefined): string {
   const seconds = Math.floor((ms % 60000) / 1000);
   return `${minutes}m ${seconds}s`;
 }
-
 
 const storageTypeLabels: Record<string, { label: string; color: string }> = {
   local: { label: '本地', color: 'default' },
@@ -217,34 +254,78 @@ const showUploader = ref(false);
 const tableColumns = computed(() => {
   const cols: VxeTableGridColumns<FileRowItem> = [
     { type: 'checkbox', width: 50, align: 'center' },
-    { field: 'name', title: '文件名', minWidth: 200, slots: { default: 'name' } },
-    { field: 'size', title: '大小', width: 100, align: 'center', formatter: ({ cellValue }: { cellValue: number }) => formatFileSize(cellValue) },
-    { field: 'status', title: '状态', width: 100, align: 'center', slots: { default: 'status' } },
-    { field: 'storageType', title: '存储', width: 100, align: 'center', slots: { default: 'storage' } },
+    {
+      field: 'name',
+      title: '文件名',
+      minWidth: 200,
+      slots: { default: 'name' },
+    },
+    {
+      field: 'size',
+      title: '大小',
+      width: 100,
+      align: 'center',
+      formatter: ({ cellValue }: { cellValue: number }) =>
+        formatFileSize(cellValue),
+    },
+    {
+      field: 'status',
+      title: '状态',
+      width: 100,
+      align: 'center',
+      slots: { default: 'status' },
+    },
+    {
+      field: 'storageType',
+      title: '存储',
+      width: 100,
+      align: 'center',
+      slots: { default: 'storage' },
+    },
     { field: 'tags', title: '标签', minWidth: 150, slots: { default: 'tags' } },
   ];
 
   // 查看所有文件时显示上传者列
   if (showUploader.value) {
-    cols.push({ field: 'uploaderName', title: '上传者', width: 120, align: 'center' });
+    cols.push({
+      field: 'uploaderName',
+      title: '上传者',
+      width: 120,
+      align: 'center',
+    });
   }
 
   cols.push(
     { field: 'createdAt', title: '时间', width: 160, align: 'center' },
-    { field: 'operation', title: '操作', width: 180, align: 'center', fixed: 'right', slots: { default: 'action' } },
+    {
+      field: 'operation',
+      title: '操作',
+      width: 180,
+      align: 'center',
+      fixed: 'right',
+      slots: { default: 'action' },
+    },
   );
 
   return cols;
 });
 
 // 缓存最后一次 API 查询结果，用于上传进度更新时避免重复请求
-const lastApiResult = ref<{ items: FileApi.FileEntry[]; total: number }>({ items: [], total: 0 });
+const lastApiResult = ref<{ items: FileApi.FileEntry[]; total: number }>({
+  items: [],
+  total: 0,
+});
 
 // 合并上传任务与 API 数据
-function mergeWithUploadTasks(apiResult: { items: FileApi.FileEntry[]; total: number }) {
+function mergeWithUploadTasks(apiResult: {
+  items: FileApi.FileEntry[];
+  total: number;
+}) {
   const activeTasks = uploadTasks.value
-    .filter(task => task.status === 'uploading' || task.status === 'processing')
-    .map(task => ({
+    .filter(
+      (task) => task.status === 'uploading' || task.status === 'processing',
+    )
+    .map((task) => ({
       id: `task-${task.id}`,
       name: task.fileName,
       size: task.fileSize,
@@ -280,7 +361,10 @@ const [Grid, gridApi] = useVbenVxeGrid({
             page: page.currentPage,
             pageSize: page.pageSize,
             scope: fileScope.value,
-            tagKeys: selectedTagKeys.value.length > 0 ? selectedTagKeys.value.join(',') : undefined,
+            tagKeys:
+              selectedTagKeys.value.length > 0
+                ? selectedTagKeys.value.join(',')
+                : undefined,
           });
 
           // 缓存 API 结果
@@ -309,10 +393,14 @@ const [Grid, gridApi] = useVbenVxeGrid({
   } as VxeTableGridOptions<FileRowItem>,
   gridEvents: {
     checkboxChange({ records }: { records: FileRowItem[] }) {
-      selectedRowKeys.value = records.map((r) => r.id).filter((id): id is number => typeof id === 'number');
+      selectedRowKeys.value = records
+        .map((r) => r.id)
+        .filter((id): id is number => typeof id === 'number');
     },
     checkboxAll({ records }: { records: FileRowItem[] }) {
-      selectedRowKeys.value = records.map((r) => r.id).filter((id): id is number => typeof id === 'number');
+      selectedRowKeys.value = records
+        .map((r) => r.id)
+        .filter((id): id is number => typeof id === 'number');
     },
   },
 });
@@ -332,7 +420,7 @@ async function loadAvailableTags() {
   try {
     const { getTagsForUser } = await import('#/api/system/tag');
     const tags = await getTagsForUser();
-    availableTags.value = tags.map(tag => ({
+    availableTags.value = tags.map((tag) => ({
       id: tag.id,
       key: tag.tagKey,
       value: tag.tagValue,
@@ -351,7 +439,7 @@ function onRefresh() {
 
 function handleFolderClick(node: FolderTreeNode) {
   const key = node?.key;
-  currentFolderId.value = (!key || key === '__all__') ? null : Number(key);
+  currentFolderId.value = !key || key === '__all__' ? null : Number(key);
   onRefresh();
 }
 
@@ -401,9 +489,12 @@ function showFolderMenu(nodeData: FolderTreeNode) {
 function folderMenuAction(action: string) {
   folderMenuVisible.value = false;
   if (action === 'new') openNewFolderModal(folderMenuId.value!);
-  else if (action === 'rename') openRenameFolderModal(folderMenuId.value!, folderMenuName.value);
-  else if (action === 'delete') openDeleteFolderModal(folderMenuId.value!, folderMenuName.value);
-  else if (action === 'share') openFolderShareModal(folderMenuId.value!, folderMenuName.value);
+  else if (action === 'rename')
+    openRenameFolderModal(folderMenuId.value!, folderMenuName.value);
+  else if (action === 'delete')
+    openDeleteFolderModal(folderMenuId.value!, folderMenuName.value);
+  else if (action === 'share')
+    openFolderShareModal(folderMenuId.value!, folderMenuName.value);
 }
 
 function openFolderShareModal(id: number, name: string) {
@@ -416,7 +507,9 @@ function openFolderShareModal(id: number, name: string) {
 
 async function confirmFolderShare() {
   try {
-    const result = await createFolderShare(folderShareId.value!, { expireHours: folderShareExpireHours.value || undefined });
+    const result = await createFolderShare(folderShareId.value!, {
+      expireHours: folderShareExpireHours.value || undefined,
+    });
     folderShareResult.value = result;
     message.success('分享链接已生成');
   } catch {
@@ -426,7 +519,10 @@ async function confirmFolderShare() {
 
 function copyFolderShareUrl() {
   const url = folderShareFullUrl.value;
-  if (!url) { message.error('分享链接不存在'); return; }
+  if (!url) {
+    message.error('分享链接不存在');
+    return;
+  }
   fallbackCopy(url);
 }
 
@@ -437,13 +533,21 @@ function openNewFolderModal(parentId?: number) {
 }
 
 async function handleCreateFolder() {
-  if (!newFolderName.value.trim()) { message.warning('请输入文件夹名称'); return; }
+  if (!newFolderName.value.trim()) {
+    message.warning('请输入文件夹名称');
+    return;
+  }
   try {
-    await createFolder({ name: newFolderName.value.trim(), parentId: newFolderParentId.value || undefined });
+    await createFolder({
+      name: newFolderName.value.trim(),
+      parentId: newFolderParentId.value || undefined,
+    });
     message.success('创建成功');
     newFolderModalVisible.value = false;
     loadFolderTree();
-  } catch { message.error('创建失败'); }
+  } catch {
+    message.error('创建失败');
+  }
 }
 
 function openRenameFolderModal(id: number, name: string) {
@@ -458,11 +562,15 @@ async function handleRenameFolder() {
     return;
   }
   try {
-    await renameFolder(renameFolderId.value!, { name: renameFolderName.value.trim() });
+    await renameFolder(renameFolderId.value!, {
+      name: renameFolderName.value.trim(),
+    });
     message.success('重命名成功');
     renameFolderModalVisible.value = false;
     loadFolderTree();
-  } catch { message.error('重命名失败'); }
+  } catch {
+    message.error('重命名失败');
+  }
 }
 
 function openDeleteFolderModal(id: number, name: string) {
@@ -476,10 +584,13 @@ async function handleDeleteFolder() {
     await deleteFolder(deleteFolderId.value!);
     message.success('删除成功');
     deleteFolderModalVisible.value = false;
-    if (currentFolderId.value === deleteFolderId.value) currentFolderId.value = null;
+    if (currentFolderId.value === deleteFolderId.value)
+      currentFolderId.value = null;
     loadFolderTree();
     onRefresh();
-  } catch { message.error('删除失败'); }
+  } catch {
+    message.error('删除失败');
+  }
 }
 
 // ==================== 文件操作 ====================
@@ -492,11 +603,16 @@ function openMoveFileModal(id: number) {
 
 async function handleMoveFile() {
   try {
-    await moveFile({ fileId: moveFileId.value!, targetFolderId: moveTargetFolderId.value || undefined });
+    await moveFile({
+      fileId: moveFileId.value!,
+      targetFolderId: moveTargetFolderId.value || undefined,
+    });
     message.success('移动成功');
     moveFileModalVisible.value = false;
     onRefresh();
-  } catch { message.error('移动失败'); }
+  } catch {
+    message.error('移动失败');
+  }
 }
 
 async function handleDeleteWithShareCheck(row: FileRowItem) {
@@ -511,7 +627,9 @@ async function handleDeleteWithShareCheck(row: FileRowItem) {
         okText: '确定移入回收站',
         okType: 'danger',
         cancelText: '取消',
-        onOk: async () => { await handleDeleteFile(row); },
+        onOk: async () => {
+          await handleDeleteFile(row);
+        },
       });
     } else {
       Modal.confirm({
@@ -520,7 +638,9 @@ async function handleDeleteWithShareCheck(row: FileRowItem) {
         okText: '确定',
         okType: 'danger',
         cancelText: '取消',
-        onOk: async () => { await handleDeleteFile(row); },
+        onOk: async () => {
+          await handleDeleteFile(row);
+        },
       });
     }
   } catch {
@@ -531,7 +651,9 @@ async function handleDeleteWithShareCheck(row: FileRowItem) {
       okText: '确定',
       okType: 'danger',
       cancelText: '取消',
-      onOk: async () => { await handleDeleteFile(row); },
+      onOk: async () => {
+        await handleDeleteFile(row);
+      },
     });
   }
 }
@@ -541,7 +663,9 @@ async function handleDeleteFile(row: FileRowItem) {
     await deleteFile(row.id as number);
     message.success(`已将 ${row.name} 移入回收站`);
     onRefresh();
-  } catch { message.error('删除失败'); }
+  } catch {
+    message.error('删除失败');
+  }
 }
 
 async function openTagEditModal(row: FileRowItem) {
@@ -552,7 +676,9 @@ async function openTagEditModal(row: FileRowItem) {
   try {
     const { getFileTags } = await import('#/api/file');
     fileTags.value = await getFileTags(row.id as number);
-  } catch { fileTags.value = []; }
+  } catch {
+    fileTags.value = [];
+  }
 }
 
 async function handleTagEditSubmit() {
@@ -563,28 +689,44 @@ async function handleTagEditSubmit() {
     message.success('标签更新成功');
     tagEditModalVisible.value = false;
     onRefresh();
-  } catch (error: unknown) { message.error(error instanceof Error ? error.message : '更新失败'); }
+  } catch (error: unknown) {
+    message.error(error instanceof Error ? error.message : '更新失败');
+  }
 }
 
 async function handleBatchDelete() {
-  if (validFileIds.value.length === 0) { message.warning('请先选择文件'); return; }
+  if (validFileIds.value.length === 0) {
+    message.warning('请先选择文件');
+    return;
+  }
 
   // 检查选中文件是否有分享
   let totalShares = 0;
   try {
-    const results = await Promise.all(validFileIds.value.map(id => checkFileShares(id).catch(() => ({ shareCount: 0 }))));
+    const results = await Promise.all(
+      validFileIds.value.map((id) =>
+        checkFileShares(id).catch(() => ({ shareCount: 0 })),
+      ),
+    );
     totalShares = results.reduce((sum, r) => sum + (r?.shareCount || 0), 0);
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 
   const doDelete = async () => {
     try {
       const result = await batchDeleteFiles(validFileIds.value);
-      if (result.errors?.length > 0) message.warning(`已移入回收站 ${result.deleted} 个文件，${result.errors.length} 个失败`);
+      if (result.errors?.length > 0)
+        message.warning(
+          `已移入回收站 ${result.deleted} 个文件，${result.errors.length} 个失败`,
+        );
       else message.success(`已将 ${result.deleted} 个文件移入回收站`);
       selectedRowKeys.value = [];
       gridApi.grid?.clearCheckboxRow?.();
       onRefresh();
-    } catch { message.error('批量删除失败'); }
+    } catch {
+      message.error('批量删除失败');
+    }
   };
 
   if (totalShares > 0) {
@@ -609,21 +751,32 @@ async function handleBatchDelete() {
 }
 
 function openBatchMoveModal() {
-  if (validFileIds.value.length === 0) { message.warning('请先选择文件'); return; }
+  if (validFileIds.value.length === 0) {
+    message.warning('请先选择文件');
+    return;
+  }
   batchTargetFolderId.value = currentFolderId.value;
   batchMoveModalVisible.value = true;
 }
 
 async function handleBatchMove() {
   try {
-    const result = await batchMoveFiles(validFileIds.value, batchTargetFolderId.value || undefined);
-    if (result.errors?.length > 0) message.warning(`已移动 ${result.moved} 个文件，${result.errors.length} 个失败`);
+    const result = await batchMoveFiles(
+      validFileIds.value,
+      batchTargetFolderId.value || undefined,
+    );
+    if (result.errors?.length > 0)
+      message.warning(
+        `已移动 ${result.moved} 个文件，${result.errors.length} 个失败`,
+      );
     else message.success(`已移动 ${result.moved} 个文件`);
     batchMoveModalVisible.value = false;
     selectedRowKeys.value = [];
     gridApi.grid?.clearCheckboxRow?.();
     onRefresh();
-  } catch { message.error('批量移动失败'); }
+  } catch {
+    message.error('批量移动失败');
+  }
 }
 
 function handleDownload(row: FileRowItem) {
@@ -663,7 +816,9 @@ function handleDownload(row: FileRowItem) {
       window.URL.revokeObjectURL(blobUrl);
       downloadStatus.value = 'done';
       message.success(`${row.name} 下载成功`);
-      setTimeout(() => { downloadProgressVisible.value = false; }, 1500);
+      setTimeout(() => {
+        downloadProgressVisible.value = false;
+      }, 1500);
     } else {
       downloadStatus.value = 'error';
       message.error('下载失败');
@@ -707,9 +862,12 @@ async function handlePreview(row: FileRowItem) {
   if (isVideo || isPdf || isAudio) {
     previewType.value = isVideo ? 'video' : isAudio ? 'audio' : 'pdf';
     try {
-      const response = await fetch(`/api/v1/files/${row.id}/preview-url?expires=300`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
+      const response = await fetch(
+        `/api/v1/files/${row.id}/preview-url?expires=300`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
       if (response.ok) {
         const result = await response.json();
         if (result.code === 0) {
@@ -721,21 +879,30 @@ async function handlePreview(row: FileRowItem) {
       }
       message.error('获取预览失败');
       previewVisible.value = false;
-    } catch { message.error('获取预览失败'); previewVisible.value = false; }
+    } catch {
+      message.error('获取预览失败');
+      previewVisible.value = false;
+    }
     return;
   }
 
   // 图片使用 blob URL
   try {
     const response = await fetch(`/api/v1/files/${row.id}/view`, {
-      headers: { 'Authorization': `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${token}` },
     });
     if (response.ok) {
       const blob = await response.blob();
       previewUrl.value = URL.createObjectURL(blob);
       previewType.value = 'image';
-    } else { message.error('获取预览失败'); previewVisible.value = false; }
-  } catch { message.error('获取预览失败'); previewVisible.value = false; }
+    } else {
+      message.error('获取预览失败');
+      previewVisible.value = false;
+    }
+  } catch {
+    message.error('获取预览失败');
+    previewVisible.value = false;
+  }
 }
 
 async function handleShare(row: FileRowItem) {
@@ -746,16 +913,23 @@ async function handleShare(row: FileRowItem) {
 }
 
 async function confirmShare() {
-  if (shareResult.value) { closeShareModal(); return; }
+  if (shareResult.value) {
+    closeShareModal();
+    return;
+  }
   shareLoading.value = true;
   try {
-    const result = await createFileShare(shareFileId.value!, { expireHours: shareExpireHours.value || undefined });
+    const result = await createFileShare(shareFileId.value!, {
+      expireHours: shareExpireHours.value || undefined,
+    });
     shareResult.value = { ...result };
     message.success('分享链接已生成');
   } catch (err) {
     console.error('Share error:', err);
     message.error('分享失败');
-  } finally { shareLoading.value = false; }
+  } finally {
+    shareLoading.value = false;
+  }
 }
 
 function closeShareModal() {
@@ -763,14 +937,18 @@ function closeShareModal() {
   shareResult.value = null;
 }
 
-function copyShareUrl() { fallbackCopy(shareFullUrl.value); }
+function copyShareUrl() {
+  fallbackCopy(shareFullUrl.value);
+}
 
 async function handleUpload(file: File) {
   try {
     await uploadStore.uploadFile(file, currentFolderId.value ?? undefined);
     message.success(`${file.name} 上传成功`);
     onRefresh();
-  } catch (err) { message.error(`上传失败: ${err}`); }
+  } catch (err) {
+    message.error(`上传失败: ${err}`);
+  }
   return false;
 }
 
@@ -796,7 +974,10 @@ const treeData = computed((): FolderTreeNode[] => {
       type: f.type,
       children: f.children ? convert(f.children) : undefined,
     }));
-  return [{ key: '__all__', title: '全部文件', type: 'all' }, ...convert(folderTree.value)];
+  return [
+    { key: '__all__', title: '全部文件', type: 'all' },
+    ...convert(folderTree.value),
+  ];
 });
 
 const folderSelectData = computed((): FolderSelectNode[] => {
@@ -831,15 +1012,28 @@ const folderSelectData = computed((): FolderSelectNode[] => {
           :model-value="currentFolderId ?? '__all__'"
         >
           <template #node="item">
-            <div class="flex items-center gap-1 py-1 group cursor-pointer" @click="handleFolderClick(item.value)">
-              <span :class="item.value.type === 'all' ? 'i-ant-design:home-outlined' : item.value.type === 'avatar' ? 'i-ant-design:user-outlined' : 'i-ant-design:folder-outlined'" />
+            <div
+              class="flex items-center gap-1 py-1 group cursor-pointer"
+              @click="handleFolderClick(item.value)"
+            >
+              <span
+                :class="
+                  item.value.type === 'all'
+                    ? 'i-ant-design:home-outlined'
+                    : item.value.type === 'avatar'
+                      ? 'i-ant-design:user-outlined'
+                      : 'i-ant-design:folder-outlined'
+                "
+              />
               <span class="flex-1 truncate">{{ item.value.title }}</span>
               <button
                 v-if="item.value.type !== 'all'"
                 type="button"
                 class="opacity-0 group-hover:opacity-100 ml-1 px-1 py-0.5 text-xs rounded hover:bg-gray-200"
                 @click.stop="showFolderMenu(item.value)"
-              >⋯</button>
+              >
+                ⋯
+              </button>
             </div>
           </template>
         </Tree>
@@ -849,22 +1043,39 @@ const folderSelectData = computed((): FolderSelectNode[] => {
       <div class="w-5/6 ml-4">
         <!-- 筛选工具栏 -->
         <div class="mb-3 flex items-center gap-3 flex-wrap">
-          <Upload v-if="hasUploadPermission" :show-upload-list="false" :before-upload="handleUpload" :multiple="true" :disabled="uploading">
+          <Upload
+            v-if="hasUploadPermission"
+            :show-upload-list="false"
+            :before-upload="handleUpload"
+            :multiple="true"
+            :disabled="uploading"
+          >
             <Button type="primary" :loading="uploading">
               <Plus class="size-5" />
               上传文件
             </Button>
           </Upload>
 
-          <Button v-if="validFileIds.length > 0 && hasDeletePermission" danger @click="handleBatchDelete">
+          <Button
+            v-if="validFileIds.length > 0 && hasDeletePermission"
+            danger
+            @click="handleBatchDelete"
+          >
             批量删除 ({{ validFileIds.length }})
           </Button>
-          <Button v-if="validFileIds.length > 0 && hasManagePermission" @click="openBatchMoveModal">
+          <Button
+            v-if="validFileIds.length > 0 && hasManagePermission"
+            @click="openBatchMoveModal"
+          >
             批量移动 ({{ validFileIds.length }})
           </Button>
 
           <div v-if="hasViewAllPermission" class="ml-auto">
-            <Radio.Group v-model:value="fileScope" button-style="solid" @change="handleScopeChange">
+            <Radio.Group
+              v-model:value="fileScope"
+              button-style="solid"
+              @change="handleScopeChange"
+            >
               <Radio.Button value="own">我的文件</Radio.Button>
               <Radio.Button value="all">所有文件</Radio.Button>
             </Radio.Group>
@@ -876,7 +1087,12 @@ const folderSelectData = computed((): FolderSelectNode[] => {
             mode="multiple"
             placeholder="按标签筛选"
             style="min-width: 200px"
-            :options="availableTags.map(t => ({ label: `${t.icon} ${t.name}`, value: `${t.key}:${t.value}` }))"
+            :options="
+              availableTags.map((t) => ({
+                label: `${t.icon} ${t.name}`,
+                value: `${t.key}:${t.value}`,
+              }))
+            "
             @change="handleTagFilter"
             allow-clear
             :max-tag-count="2"
@@ -887,8 +1103,14 @@ const folderSelectData = computed((): FolderSelectNode[] => {
         <Grid>
           <!-- 文件名列 -->
           <template #name="{ row }">
-            <div class="flex items-center gap-2 cursor-pointer" @click="handlePreview(row)">
-              <span :class="getFileIcon(row.contentType)" class="text-lg text-gray-500" />
+            <div
+              class="flex items-center gap-2 cursor-pointer"
+              @click="handlePreview(row)"
+            >
+              <span
+                :class="getFileIcon(row.contentType)"
+                class="text-lg text-gray-500"
+              />
               <span class="truncate">{{ row.name }}</span>
             </div>
           </template>
@@ -897,20 +1119,47 @@ const folderSelectData = computed((): FolderSelectNode[] => {
           <template #status="{ row }">
             <!-- 上传任务状态 -->
             <template v-if="row.isUploadTask && row.uploadTask">
-              <div class="cursor-pointer" @click="showUploadDetail(row.uploadTask)">
-                <div v-if="row.uploadTask.status === 'uploading'" class="flex items-center gap-2">
-                  <Progress :percent="row.uploadTask.progress" :show-info="false" status="active" size="small" style="width: 80px; margin: 0;" />
-                  <span class="text-xs text-blue-600">{{ row.uploadTask.progress }}%</span>
+              <div
+                class="cursor-pointer"
+                @click="showUploadDetail(row.uploadTask)"
+              >
+                <div
+                  v-if="row.uploadTask.status === 'uploading'"
+                  class="flex items-center gap-2"
+                >
+                  <Progress
+                    :percent="row.uploadTask.progress"
+                    :show-info="false"
+                    status="active"
+                    size="small"
+                    style="width: 80px; margin: 0"
+                  />
+                  <span class="text-xs text-blue-600"
+                    >{{ row.uploadTask.progress }}%</span
+                  >
                 </div>
-                <div v-else-if="row.uploadTask.status === 'processing'" class="flex items-center gap-1">
+                <div
+                  v-else-if="row.uploadTask.status === 'processing'"
+                  class="flex items-center gap-1"
+                >
                   <Spin size="small" />
                   <span class="text-xs text-yellow-600">处理中...</span>
                 </div>
-                <div v-else-if="row.uploadTask.status === 'completed'" class="text-xs text-green-600">
-                  <span class="i-ant-design:check-circle-outlined mr-1" />上传成功
+                <div
+                  v-else-if="row.uploadTask.status === 'completed'"
+                  class="text-xs text-green-600"
+                >
+                  <span
+                    class="i-ant-design:check-circle-outlined mr-1"
+                  />上传成功
                 </div>
-                <div v-else-if="row.uploadTask.status === 'failed'" class="text-xs text-red-600">
-                  <span class="i-ant-design:close-circle-outlined mr-1" />上传失败
+                <div
+                  v-else-if="row.uploadTask.status === 'failed'"
+                  class="text-xs text-red-600"
+                >
+                  <span
+                    class="i-ant-design:close-circle-outlined mr-1"
+                  />上传失败
                 </div>
               </div>
             </template>
@@ -922,18 +1171,32 @@ const folderSelectData = computed((): FolderSelectNode[] => {
 
           <!-- 存储列 -->
           <template #storage="{ row }">
-            <Tag :color="storageTypeLabels[row.storageType]?.color || 'default'">
-              {{ storageTypeLabels[row.storageType]?.label || row.storageType || '本地' }}
+            <Tag
+              :color="storageTypeLabels[row.storageType]?.color || 'default'"
+            >
+              {{
+                storageTypeLabels[row.storageType]?.label ||
+                row.storageType ||
+                '本地'
+              }}
             </Tag>
           </template>
 
           <!-- 标签列 -->
           <template #tags="{ row }">
             <template v-if="row.tags && row.tags.length > 0">
-              <Tag v-for="tag in row.tags.slice(0, 3)" :key="tag.id" :color="tag.color" class="mr-1 mb-1">
+              <Tag
+                v-for="tag in row.tags.slice(0, 3)"
+                :key="tag.id"
+                :color="tag.color"
+                class="mr-1 mb-1"
+              >
                 {{ tag.icon }} {{ tag.name }}
               </Tag>
-              <Tooltip v-if="row.tags.length > 3" :title="row.tags.map((t) => `${t.icon} ${t.name}`).join(', ')">
+              <Tooltip
+                v-if="row.tags.length > 3"
+                :title="row.tags.map((t) => `${t.icon} ${t.name}`).join(', ')"
+              >
                 <Tag>+{{ row.tags.length - 3 }}</Tag>
               </Tooltip>
             </template>
@@ -944,29 +1207,51 @@ const folderSelectData = computed((): FolderSelectNode[] => {
           <template #action="{ row }">
             <!-- 上传任务操作 -->
             <template v-if="row.isUploadTask">
-              <Button type="link" size="small" @click="showUploadDetail(row.uploadTask!)">详情</Button>
+              <Button
+                type="link"
+                size="small"
+                @click="showUploadDetail(row.uploadTask!)"
+                >详情</Button
+              >
             </template>
             <!-- 正常文件操作 -->
             <template v-else>
               <div class="flex items-center gap-1">
-                <Button type="link" size="small" @click="handlePreview(row)">预览</Button>
-                <Button type="link" size="small" @click="handleDownload(row)">下载</Button>
+                <Button type="link" size="small" @click="handlePreview(row)"
+                  >预览</Button
+                >
+                <Button type="link" size="small" @click="handleDownload(row)"
+                  >下载</Button
+                >
                 <Dropdown :trigger="['click']">
                   <Button type="link" size="small">
                     更多 <span class="i-ant-design:down-outlined ml-1" />
                   </Button>
                   <template #overlay>
-                    <Menu @click="({ key }: { key: string | number }) => handleFileAction(String(key), row)">
+                    <Menu
+                      @click="
+                        ({ key }: { key: string | number }) =>
+                          handleFileAction(String(key), row)
+                      "
+                    >
                       <MenuItem v-if="hasSharePermission" key="share">
-                        <span class="i-ant-design:share-alt-outlined mr-2" />分享
+                        <span
+                          class="i-ant-design:share-alt-outlined mr-2"
+                        />分享
                       </MenuItem>
                       <MenuItem key="tag">
                         <span class="i-ant-design:tags-outlined mr-2" />标签
                       </MenuItem>
                       <MenuItem v-if="hasManagePermission" key="move">
-                        <span class="i-ant-design:folder-open-outlined mr-2" />移动
+                        <span
+                          class="i-ant-design:folder-open-outlined mr-2"
+                        />移动
                       </MenuItem>
-                      <MenuItem v-if="hasDeletePermission" key="delete" class="text-red-500">
+                      <MenuItem
+                        v-if="hasDeletePermission"
+                        key="delete"
+                        class="text-red-500"
+                      >
                         <span class="i-ant-design:delete-outlined mr-2" />删除
                       </MenuItem>
                     </Menu>
@@ -982,51 +1267,104 @@ const folderSelectData = computed((): FolderSelectNode[] => {
     <!-- ==================== 弹窗 ==================== -->
 
     <!-- 新建文件夹 -->
-    <Modal v-model:open="newFolderModalVisible" title="新建文件夹" @ok="handleCreateFolder">
+    <Modal
+      v-model:open="newFolderModalVisible"
+      title="新建文件夹"
+      @ok="handleCreateFolder"
+    >
       <Form layout="vertical">
-        <FormItem label="名称"><Input v-model:value="newFolderName" placeholder="输入文件夹名称" /></FormItem>
+        <FormItem label="名称"
+          ><Input v-model:value="newFolderName" placeholder="输入文件夹名称"
+        /></FormItem>
       </Form>
     </Modal>
 
     <!-- 重命名文件夹 -->
-    <Modal v-model:open="renameFolderModalVisible" title="重命名文件夹" @ok="handleRenameFolder">
+    <Modal
+      v-model:open="renameFolderModalVisible"
+      title="重命名文件夹"
+      @ok="handleRenameFolder"
+    >
       <Form layout="vertical">
-        <FormItem label="新名称"><Input v-model:value="renameFolderName" placeholder="输入新名称" /></FormItem>
+        <FormItem label="新名称"
+          ><Input v-model:value="renameFolderName" placeholder="输入新名称"
+        /></FormItem>
       </Form>
     </Modal>
 
     <!-- 删除文件夹 -->
-    <Modal v-model:open="deleteFolderModalVisible" title="删除文件夹" @ok="handleDeleteFolder">
+    <Modal
+      v-model:open="deleteFolderModalVisible"
+      title="删除文件夹"
+      @ok="handleDeleteFolder"
+    >
       <p>确定删除文件夹 "{{ deleteFolderName }}" 吗？</p>
       <p class="text-red-500">文件夹内的所有文件也将被删除！</p>
     </Modal>
 
     <!-- 移动文件 -->
-    <Modal v-model:open="moveFileModalVisible" title="移动文件" @ok="handleMoveFile">
+    <Modal
+      v-model:open="moveFileModalVisible"
+      title="移动文件"
+      @ok="handleMoveFile"
+    >
       <Form layout="vertical">
-        <FormItem label="目标文件夹"><TreeSelect v-model:value="moveTargetFolderId" :tree-data="folderSelectData" placeholder="选择文件夹" allow-clear /></FormItem>
+        <FormItem label="目标文件夹"
+          ><TreeSelect
+            v-model:value="moveTargetFolderId"
+            :tree-data="folderSelectData"
+            placeholder="选择文件夹"
+            allow-clear
+        /></FormItem>
       </Form>
     </Modal>
 
     <!-- 批量移动 -->
-    <Modal v-model:open="batchMoveModalVisible" title="批量移动" @ok="handleBatchMove">
+    <Modal
+      v-model:open="batchMoveModalVisible"
+      title="批量移动"
+      @ok="handleBatchMove"
+    >
       <p class="mb-2">将移动 {{ validFileIds.length }} 个文件</p>
       <Form layout="vertical">
-        <FormItem label="目标文件夹"><TreeSelect v-model:value="batchTargetFolderId" :tree-data="folderSelectData" placeholder="选择文件夹" allow-clear /></FormItem>
+        <FormItem label="目标文件夹"
+          ><TreeSelect
+            v-model:value="batchTargetFolderId"
+            :tree-data="folderSelectData"
+            placeholder="选择文件夹"
+            allow-clear
+        /></FormItem>
       </Form>
     </Modal>
 
     <!-- 分享 -->
-    <Modal v-model:open="shareModalVisible" title="创建分享链接" :closable="true" :maskClosable="false">
+    <Modal
+      v-model:open="shareModalVisible"
+      title="创建分享链接"
+      :closable="true"
+      :maskClosable="false"
+    >
       <template #footer>
-        <Button @click="closeShareModal">{{ hasShareResult ? '关闭' : '取消' }}</Button>
-        <Button v-if="!hasShareResult" type="primary" :loading="shareLoading" @click="confirmShare">确定</Button>
+        <Button @click="closeShareModal">{{
+          hasShareResult ? '关闭' : '取消'
+        }}</Button>
+        <Button
+          v-if="!hasShareResult"
+          type="primary"
+          :loading="shareLoading"
+          @click="confirmShare"
+          >确定</Button
+        >
       </template>
       <div v-if="!hasShareResult">
         <Form layout="vertical">
           <FormItem label="过期时间">
             <Space>
-              <InputNumber v-model:value="shareExpireHours" :min="0" style="width: 100px" />
+              <InputNumber
+                v-model:value="shareExpireHours"
+                :min="0"
+                style="width: 100px"
+              />
               <span>小时（0表示永久有效）</span>
             </Space>
           </FormItem>
@@ -1046,7 +1384,9 @@ const folderSelectData = computed((): FolderSelectNode[] => {
       v-model:open="previewVisible"
       :title="previewName"
       :footer="null"
-      :width="previewType === 'video' ? 960 : previewType === 'audio' ? 500 : 800"
+      :width="
+        previewType === 'video' ? 960 : previewType === 'audio' ? 500 : 800
+      "
       :maskClosable="true"
       :keyboard="true"
       :destroyOnClose="true"
@@ -1055,20 +1395,48 @@ const folderSelectData = computed((): FolderSelectNode[] => {
       <div v-if="previewType === 'image' && previewUrl" class="text-center p-6">
         <Image :src="previewUrl" class="max-w-full" style="max-height: 600px" />
       </div>
-      <iframe v-else-if="previewType === 'pdf' && previewUrl" :src="previewUrl" style="width: 100%; height: 600px; border: none;" />
-      <div v-else-if="previewType === 'video' && previewUrl" class="video-container">
-        <video :src="previewUrl" controls autoplay preload="auto" playsinline style="width: 100%; max-height: 70vh; display: block; background: #000;" />
+      <iframe
+        v-else-if="previewType === 'pdf' && previewUrl"
+        :src="previewUrl"
+        style="width: 100%; height: 600px; border: none"
+      />
+      <div
+        v-else-if="previewType === 'video' && previewUrl"
+        class="video-container"
+      >
+        <video
+          :src="previewUrl"
+          controls
+          autoplay
+          preload="auto"
+          playsinline
+          style="
+            display: block;
+            width: 100%;
+            max-height: 70vh;
+            background: #000;
+          "
+        />
       </div>
       <div v-else-if="previewType === 'audio' && previewUrl" class="p-6">
         <div class="text-center mb-4">
           <span class="i-ant-design:sound-outlined text-6xl text-blue-500" />
         </div>
-        <audio :src="previewUrl" controls autoplay preload="auto" style="width: 100%;" />
+        <audio
+          :src="previewUrl"
+          controls
+          autoplay
+          preload="auto"
+          style="width: 100%"
+        />
       </div>
       <div v-else-if="previewVisible" class="py-12 text-center text-gray-500">
-        <Spin size="large" /><p class="mt-4">加载中...</p>
+        <Spin size="large" />
+        <p class="mt-4">加载中...</p>
       </div>
-      <div v-else class="py-12 text-center text-gray-500">该文件类型不支持预览</div>
+      <div v-else class="py-12 text-center text-gray-500">
+        该文件类型不支持预览
+      </div>
     </Modal>
 
     <!-- 文件夹操作 -->
@@ -1076,17 +1444,28 @@ const folderSelectData = computed((): FolderSelectNode[] => {
       <div class="flex flex-col gap-2">
         <Button block @click="folderMenuAction('new')">新建子文件夹</Button>
         <Button block @click="folderMenuAction('rename')">重命名</Button>
-        <Button block type="primary" @click="folderMenuAction('share')">分享文件夹</Button>
-        <Button block danger @click="folderMenuAction('delete')">删除文件夹</Button>
+        <Button block type="primary" @click="folderMenuAction('share')"
+          >分享文件夹</Button
+        >
+        <Button block danger @click="folderMenuAction('delete')"
+          >删除文件夹</Button
+        >
       </div>
     </Modal>
 
     <!-- 文件标签编辑 -->
-    <Modal v-model:open="tagEditModalVisible" :title="`编辑标签 - ${tagEditFileName}`" @ok="handleTagEditSubmit" width="500px">
+    <Modal
+      v-model:open="tagEditModalVisible"
+      :title="`编辑标签 - ${tagEditFileName}`"
+      @ok="handleTagEditSubmit"
+      width="500px"
+    >
       <div class="mb-4">
         <p class="text-gray-500 mb-2">当前标签：</p>
         <div v-if="fileTags.length > 0" class="flex flex-wrap gap-2">
-          <Tag v-for="tag in fileTags" :key="tag.id" :color="tag.color">{{ tag.icon }} {{ tag.name }}</Tag>
+          <Tag v-for="tag in fileTags" :key="tag.id" :color="tag.color"
+            >{{ tag.icon }} {{ tag.name }}</Tag
+          >
         </div>
         <span v-else class="text-gray-400">暂无标签</span>
       </div>
@@ -1097,18 +1476,33 @@ const folderSelectData = computed((): FolderSelectNode[] => {
           mode="multiple"
           placeholder="选择标签"
           style="width: 100%"
-          :options="availableTags.map(t => ({ label: `${t.icon} ${t.name}`, value: t.id }))"
+          :options="
+            availableTags.map((t) => ({
+              label: `${t.icon} ${t.name}`,
+              value: t.id,
+            }))
+          "
         />
       </div>
     </Modal>
 
     <!-- 文件夹分享 -->
-    <Modal v-model:open="folderShareModalVisible" title="创建文件夹分享链接" @ok="confirmFolderShare">
+    <Modal
+      v-model:open="folderShareModalVisible"
+      title="创建文件夹分享链接"
+      @ok="confirmFolderShare"
+    >
       <Form layout="vertical">
-        <FormItem label="文件夹"><Input :value="folderShareName" readonly /></FormItem>
+        <FormItem label="文件夹"
+          ><Input :value="folderShareName" readonly
+        /></FormItem>
         <FormItem label="过期时间">
           <Space>
-            <InputNumber v-model:value="folderShareExpireHours" :min="0" style="width: 100px" />
+            <InputNumber
+              v-model:value="folderShareExpireHours"
+              :min="0"
+              style="width: 100px"
+            />
             <span>小时（0表示永久有效）</span>
           </Space>
         </FormItem>
@@ -1123,24 +1517,72 @@ const folderSelectData = computed((): FolderSelectNode[] => {
     </Modal>
 
     <!-- 上传详情 -->
-    <Modal v-model:open="uploadDetailVisible" title="上传详情" :footer="null" width="700px">
+    <Modal
+      v-model:open="uploadDetailVisible"
+      title="上传详情"
+      :footer="null"
+      width="700px"
+    >
       <div v-if="uploadDetailTask" class="space-y-4">
         <Descriptions bordered size="small">
-          <DescriptionsItem label="文件名">{{ uploadDetailTask.fileName }}</DescriptionsItem>
-          <DescriptionsItem label="文件大小">{{ formatFileSize(uploadDetailTask.fileSize) }}</DescriptionsItem>
-          <DescriptionsItem label="总分片数">{{ uploadDetailTask.totalParts }}</DescriptionsItem>
-          <DescriptionsItem label="已上传">{{ uploadDetailTask.uploadedParts }} / {{ uploadDetailTask.totalParts }}</DescriptionsItem>
+          <DescriptionsItem label="文件名">{{
+            uploadDetailTask.fileName
+          }}</DescriptionsItem>
+          <DescriptionsItem label="文件大小">{{
+            formatFileSize(uploadDetailTask.fileSize)
+          }}</DescriptionsItem>
+          <DescriptionsItem label="总分片数">{{
+            uploadDetailTask.totalParts
+          }}</DescriptionsItem>
+          <DescriptionsItem label="已上传"
+            >{{ uploadDetailTask.uploadedParts }} /
+            {{ uploadDetailTask.totalParts }}</DescriptionsItem
+          >
           <DescriptionsItem label="状态">
-            <Tag :color="uploadDetailTask.status === 'completed' ? 'green' : uploadDetailTask.status === 'failed' ? 'red' : 'blue'">
-              {{ uploadDetailTask.status === 'uploading' ? '上传中' : uploadDetailTask.status === 'processing' ? '处理中' : uploadDetailTask.status === 'completed' ? '已完成' : '失败' }}
+            <Tag
+              :color="
+                uploadDetailTask.status === 'completed'
+                  ? 'green'
+                  : uploadDetailTask.status === 'failed'
+                    ? 'red'
+                    : 'blue'
+              "
+            >
+              {{
+                uploadDetailTask.status === 'uploading'
+                  ? '上传中'
+                  : uploadDetailTask.status === 'processing'
+                    ? '处理中'
+                    : uploadDetailTask.status === 'completed'
+                      ? '已完成'
+                      : '失败'
+              }}
             </Tag>
           </DescriptionsItem>
-          <DescriptionsItem label="进度">{{ uploadDetailTask.progress }}%</DescriptionsItem>
-          <DescriptionsItem label="开始时间">{{ new Date(uploadDetailTask.startTime).toLocaleString() }}</DescriptionsItem>
-          <DescriptionsItem v-if="uploadDetailTask.endTime" label="结束时间">{{ new Date(uploadDetailTask.endTime).toLocaleString() }}</DescriptionsItem>
-          <DescriptionsItem v-if="uploadDetailTask.totalDuration" label="总耗时">{{ formatDuration(uploadDetailTask.totalDuration) }}</DescriptionsItem>
-          <DescriptionsItem v-if="uploadDetailTask.errorMessage" label="错误信息" :span="2">
-            <span class="text-red-500">{{ uploadDetailTask.errorMessage }}</span>
+          <DescriptionsItem label="进度"
+            >{{ uploadDetailTask.progress }}%</DescriptionsItem
+          >
+          <DescriptionsItem label="开始时间">{{
+            new Date(uploadDetailTask.startTime).toLocaleString()
+          }}</DescriptionsItem>
+          <DescriptionsItem v-if="uploadDetailTask.endTime" label="结束时间">{{
+            new Date(uploadDetailTask.endTime).toLocaleString()
+          }}</DescriptionsItem>
+          <DescriptionsItem
+            v-if="uploadDetailTask.totalDuration"
+            label="总耗时"
+            >{{
+              formatDuration(uploadDetailTask.totalDuration)
+            }}</DescriptionsItem
+          >
+          <DescriptionsItem
+            v-if="uploadDetailTask.errorMessage"
+            label="错误信息"
+            :span="2"
+          >
+            <span class="text-red-500">{{
+              uploadDetailTask.errorMessage
+            }}</span>
           </DescriptionsItem>
         </Descriptions>
 
@@ -1161,12 +1603,30 @@ const folderSelectData = computed((): FolderSelectNode[] => {
           >
             <template #bodyCell="{ column, record }">
               <template v-if="column.key === 'partStatus'">
-                <Tag :color="record.status === 'completed' ? 'green' : record.status === 'uploading' ? 'blue' : 'default'">
-                  {{ record.status === 'completed' ? '已完成' : record.status === 'uploading' ? '上传中' : '待上传' }}
+                <Tag
+                  :color="
+                    record.status === 'completed'
+                      ? 'green'
+                      : record.status === 'uploading'
+                        ? 'blue'
+                        : 'default'
+                  "
+                >
+                  {{
+                    record.status === 'completed'
+                      ? '已完成'
+                      : record.status === 'uploading'
+                        ? '上传中'
+                        : '待上传'
+                  }}
                 </Tag>
               </template>
               <template v-if="column.key === 'partStart'">
-                {{ record.startTime ? new Date(record.startTime).toLocaleTimeString() : '-' }}
+                {{
+                  record.startTime
+                    ? new Date(record.startTime).toLocaleTimeString()
+                    : '-'
+                }}
               </template>
               <template v-if="column.key === 'partDuration'">
                 {{ formatDuration(record.duration) }}
@@ -1178,18 +1638,41 @@ const folderSelectData = computed((): FolderSelectNode[] => {
     </Modal>
 
     <!-- 下载进度 -->
-    <Modal v-model:open="downloadProgressVisible" title="文件下载" :footer="null" :closable="downloadStatus !== 'downloading'" :mask-closable="false" width="400px">
+    <Modal
+      v-model:open="downloadProgressVisible"
+      title="文件下载"
+      :footer="null"
+      :closable="downloadStatus !== 'downloading'"
+      :mask-closable="false"
+      width="400px"
+    >
       <div class="py-4">
-        <div class="mb-3 text-sm text-gray-600 truncate">{{ downloadFileName }}</div>
+        <div class="mb-3 text-sm text-gray-600 truncate">
+          {{ downloadFileName }}
+        </div>
         <Progress
           :percent="downloadProgress"
-          :status="downloadStatus === 'error' ? 'exception' : downloadStatus === 'done' ? 'success' : 'active'"
+          :status="
+            downloadStatus === 'error'
+              ? 'exception'
+              : downloadStatus === 'done'
+                ? 'success'
+                : 'active'
+          "
         />
         <div class="mt-2 text-center text-sm">
-          <span v-if="downloadStatus === 'downloading'" class="text-blue-500">下载中... {{ downloadProgress }}%</span>
-          <span v-else-if="downloadStatus === 'saving'" class="text-blue-500">正在保存文件...</span>
-          <span v-else-if="downloadStatus === 'done'" class="text-green-500">下载完成</span>
-          <span v-else-if="downloadStatus === 'error'" class="text-red-500">下载失败</span>
+          <span v-if="downloadStatus === 'downloading'" class="text-blue-500"
+            >下载中... {{ downloadProgress }}%</span
+          >
+          <span v-else-if="downloadStatus === 'saving'" class="text-blue-500"
+            >正在保存文件...</span
+          >
+          <span v-else-if="downloadStatus === 'done'" class="text-green-500"
+            >下载完成</span
+          >
+          <span v-else-if="downloadStatus === 'error'" class="text-red-500"
+            >下载失败</span
+          >
         </div>
       </div>
     </Modal>
@@ -1200,14 +1683,14 @@ const folderSelectData = computed((): FolderSelectNode[] => {
 .video-container {
   position: relative;
   width: 100%;
-  background: #000;
   overflow: hidden;
+  background: #000;
 }
 
 .video-container video {
+  display: block;
   width: 100%;
   max-height: 70vh;
-  display: block;
 }
 </style>
 
@@ -1217,14 +1700,14 @@ const folderSelectData = computed((): FolderSelectNode[] => {
 }
 
 .preview-modal .ant-modal-close {
-  z-index: 10;
-  color: #fff;
   top: 8px;
   right: 8px;
+  z-index: 10;
+  color: #fff;
 }
 
 .preview-modal .ant-modal-close:hover {
-  color: rgba(255, 255, 255, 0.8);
+  color: rgb(255 255 255 / 80%);
 }
 
 .preview-modal video::-webkit-media-controls {

@@ -38,7 +38,9 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const emit = defineEmits<{
-  success: [data: { captchaCode: string; captchaId: string; startTime: number }];
+  success: [
+    data: { captchaCode: string; captchaId: string; startTime: number },
+  ];
   refresh: [];
 }>();
 
@@ -60,7 +62,7 @@ const thumbRef = useTemplateRef<HTMLImageElement>('thumbRef');
 // 点选验证码相关
 const clickPoints = ref<Array<{ x: number; y: number }>>([]);
 const pointChars = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧'];
-// @ts-ignore - 暂时未使用，保留以备将来使用
+// @ts-expect-error - 暂时未使用，保留以备将来使用
 const expectedPointCount = ref(4); // 期望点击的点数（从后端获取）
 
 // 后端图片实际尺寸（go-captcha 配置）
@@ -83,12 +85,6 @@ const isSliderMode = computed(
 
 // 点选模式
 const isPointMode = computed(() => props.captchaType === 'point');
-
-// 直接映射：滑块拖动距离 = 图片 X 坐标
-// 由于滑块轨道宽度已补偿 action button，moveX 可以直接作为 X 坐标
-const mappedX = computed(() => {
-  return Math.round(sliderMoveX.value);
-});
 
 // 滑块缩略图在图片上的位置（直接映射，1:1）
 const thumbLeft = computed(() => {
@@ -126,7 +122,10 @@ function handleSliderEnd() {
   // 提交坐标：X=用户拖动位置，Y=缩略图初始位置（答案Y）
   emit('success', {
     captchaId: props.serverCaptchaId,
-    captchaCode: JSON.stringify({ x: Math.round(finalX), y: props.serverThumbY }),
+    captchaCode: JSON.stringify({
+      x: Math.round(finalX),
+      y: props.serverThumbY,
+    }),
     startTime: startTime.value,
   });
 }
@@ -212,7 +211,10 @@ defineExpose({ refresh: handleRefresh });
       <div
         ref="imageContainerRef"
         class="relative overflow-hidden rounded border border-border"
-        :style="{ width: `${IMAGE_WIDTH}px`, height: `${IMAGE_HEIGHT_SLIDER}px` }"
+        :style="{
+          width: `${IMAGE_WIDTH}px`,
+          height: `${IMAGE_HEIGHT_SLIDER}px`,
+        }"
       >
         <img
           :src="serverImage"
@@ -228,7 +230,7 @@ defineExpose({ refresh: handleRefresh });
           :style="{
             top: `${serverThumbY}px`,
             left: `${thumbLeft}px`,
-            transition: (isVerified || isDragging) ? 'none' : 'left 0.05s linear',
+            transition: isVerified || isDragging ? 'none' : 'left 0.05s linear',
           }"
         >
           <img
@@ -267,7 +269,10 @@ defineExpose({ refresh: handleRefresh });
       <div
         ref="imageContainerRef"
         class="relative cursor-pointer overflow-hidden rounded border border-border"
-        :style="{ width: `${IMAGE_WIDTH}px`, height: `${IMAGE_HEIGHT_POINT}px` }"
+        :style="{
+          width: `${IMAGE_WIDTH}px`,
+          height: `${IMAGE_HEIGHT_POINT}px`,
+        }"
         @click="handleImageClick"
       >
         <img
@@ -300,9 +305,14 @@ defineExpose({ refresh: handleRefresh });
       </div>
 
       <!-- 操作提示 -->
-      <div class="mt-2 flex items-center justify-between text-sm" style="width: 320px;">
+      <div
+        class="mt-2 flex items-center justify-between text-sm"
+        style="width: 320px"
+      >
         <span class="text-foreground/80">
-          {{ props.hintText || ($t('ui.captcha.clickInOrder') || '请依次点击文字') }}
+          {{
+            props.hintText || $t('ui.captcha.clickInOrder') || '请依次点击文字'
+          }}
           ({{ clickPoints.length }}/{{ props.pointCount }})
         </span>
         <button

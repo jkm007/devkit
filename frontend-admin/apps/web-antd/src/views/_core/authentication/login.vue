@@ -1,13 +1,16 @@
 <script lang="ts" setup>
 import type { VbenFormSchema } from '@vben/common-ui';
 
-import { computed, defineAsyncComponent, markRaw, onMounted, ref, watch } from 'vue';
-
 import {
-  AuthenticationLogin,
-  VbenIconButton,
-  z,
-} from '@vben/common-ui';
+  computed,
+  defineAsyncComponent,
+  markRaw,
+  onMounted,
+  ref,
+  watch,
+} from 'vue';
+
+import { AuthenticationLogin, VbenIconButton, z } from '@vben/common-ui';
 import { SvgGithubIcon, SvgGoogleIcon, SvgWeChatIcon } from '@vben/icons';
 import { $t } from '@vben/locales';
 import { message } from 'ant-design-vue';
@@ -17,11 +20,11 @@ import { getCaptcha, getPublicSettings } from '#/api/system/settings';
 import { useAuthStore } from '#/store';
 
 // 动态导入验证码组件，避免影响其他 authentication 页面
-const CaptchaModal = defineAsyncComponent(() =>
-  import('#/components/captcha/captcha-modal.vue')
+const CaptchaModal = defineAsyncComponent(
+  () => import('#/components/captcha/captcha-modal.vue'),
 );
 const NumericCaptcha = defineAsyncComponent(() =>
-  import('@vben/common-ui').then((m) => m.NumericCaptcha)
+  import('@vben/common-ui').then((m) => m.NumericCaptcha),
 );
 
 defineOptions({ name: 'Login' });
@@ -44,7 +47,11 @@ const settingsLoaded = ref(false);
 // 弹框验证码状态
 const captchaModalVisible = ref(false);
 const captchaVerified = ref(false);
-const captchaResult = ref<{ captchaId: string; captchaCode: string; startTime?: number } | null>(null);
+const captchaResult = ref<{
+  captchaId: string;
+  captchaCode: string;
+  startTime?: number;
+} | null>(null);
 
 // 待登录参数（验证成功后继续登录）
 const pendingLoginParams = ref<Record<string, any> | null>(null);
@@ -66,7 +73,7 @@ const shouldShowCaptcha = computed(() => {
 
 // 验证码类型判断
 const isNumericCaptcha = computed(() => captchaType.value === 'numeric');
-// @ts-ignore - 暂时未使用，保留以备将来使用
+// @ts-expect-error - 暂时未使用，保留以备将来使用
 const isModalCaptcha = computed(() =>
   ['slider', 'puzzle', 'rotation', 'point'].includes(captchaType.value),
 );
@@ -104,7 +111,9 @@ async function loadSettings() {
         settings.auth.login_oauth_enabled === true ||
         settings.auth.login_oauth_enabled === 'true';
       if (settings.auth.login_oauth_providers) {
-        loginOauthProviders.value = Array.isArray(settings.auth.login_oauth_providers)
+        loginOauthProviders.value = Array.isArray(
+          settings.auth.login_oauth_providers,
+        )
           ? settings.auth.login_oauth_providers
           : [];
       }
@@ -138,13 +147,17 @@ async function fetchNumericCaptcha() {
 }
 
 // 打开验证码弹框
-// @ts-ignore - 暂时未使用，保留以备将来使用
+// @ts-expect-error - 暂时未使用，保留以备将来使用
 function openCaptchaModal() {
   captchaModalVisible.value = true;
 }
 
 // 弹框验证完成（收集到验证码数据，准备提交登录）
-function onCaptchaModalSuccess(data: { captchaId: string; captchaCode: string; startTime?: number }) {
+function onCaptchaModalSuccess(data: {
+  captchaId: string;
+  captchaCode: string;
+  startTime?: number;
+}) {
   captchaVerified.value = true;
   captchaResult.value = data;
 
@@ -156,14 +169,16 @@ function onCaptchaModalSuccess(data: { captchaId: string; captchaCode: string; s
 }
 
 // 弹框验证失败
-// @ts-ignore - 暂时未使用，保留以备将来使用
 function onCaptchaModalFail(_msg: string) {
   captchaVerified.value = false;
   captchaResult.value = null;
 }
 
 // 数字验证码成功
-function handleNumericCaptchaSuccess(data: { captchaId: string; code: string }) {
+function handleNumericCaptchaSuccess(data: {
+  captchaId: string;
+  code: string;
+}) {
   captchaVerified.value = true;
   captchaResult.value = { captchaId: data.captchaId, captchaCode: data.code };
 }
@@ -239,7 +254,10 @@ const formSchema = computed((): VbenFormSchema[] => {
 
 // ==================== 登录 ====================
 // 执行登录（带验证码数据）
-function doLogin(params: Record<string, any>, captchaData?: { captchaId: string; captchaCode: string }) {
+function doLogin(
+  params: Record<string, any>,
+  captchaData?: { captchaId: string; captchaCode: string },
+) {
   const loginParams: Record<string, any> = {
     username: params.username,
     password: params.password,
@@ -324,27 +342,51 @@ async function handleOAuthLogin(provider: string) {
     :form-schema="formSchema"
     :loading="authStore.loginLoading"
     :show-code-login="loginEmailEnabled || loginPhoneEnabled"
-    :show-third-party-login="loginOauthEnabled && loginOauthProviders.length > 0"
+    :show-third-party-login="
+      loginOauthEnabled && loginOauthProviders.length > 0
+    "
     @submit="handleSubmit"
   >
     <!-- 自定义第三方登录（绑定实际 OAuth 跳转） -->
     <template #third-party-login>
-      <div v-if="loginOauthEnabled && loginOauthProviders.length > 0" class="w-full sm:mx-auto md:max-w-md">
+      <div
+        v-if="loginOauthEnabled && loginOauthProviders.length > 0"
+        class="w-full sm:mx-auto md:max-w-md"
+      >
         <div class="mt-4 flex items-center justify-between">
-          <span class="w-[35%] border-b border-input dark:border-gray-600"></span>
+          <span
+            class="w-[35%] border-b border-input dark:border-gray-600"
+          ></span>
           <span class="text-center text-xs text-muted-foreground uppercase">
             其他登录方式
           </span>
-          <span class="w-[35%] border-b border-input dark:border-gray-600"></span>
+          <span
+            class="w-[35%] border-b border-input dark:border-gray-600"
+          ></span>
         </div>
         <div class="mt-4 flex flex-wrap justify-center gap-4">
-          <VbenIconButton v-if="loginOauthProviders.includes('wechat')" tooltip="微信登录" tooltip-side="top" @click="handleOAuthLogin('wechat')">
+          <VbenIconButton
+            v-if="loginOauthProviders.includes('wechat')"
+            tooltip="微信登录"
+            tooltip-side="top"
+            @click="handleOAuthLogin('wechat')"
+          >
             <SvgWeChatIcon />
           </VbenIconButton>
-          <VbenIconButton v-if="loginOauthProviders.includes('github')" tooltip="GitHub 登录" tooltip-side="top" @click="handleOAuthLogin('github')">
+          <VbenIconButton
+            v-if="loginOauthProviders.includes('github')"
+            tooltip="GitHub 登录"
+            tooltip-side="top"
+            @click="handleOAuthLogin('github')"
+          >
             <SvgGithubIcon />
           </VbenIconButton>
-          <VbenIconButton v-if="loginOauthProviders.includes('google')" tooltip="Google 登录" tooltip-side="top" @click="handleOAuthLogin('google')">
+          <VbenIconButton
+            v-if="loginOauthProviders.includes('google')"
+            tooltip="Google 登录"
+            tooltip-side="top"
+            @click="handleOAuthLogin('google')"
+          >
             <SvgGoogleIcon />
           </VbenIconButton>
         </div>

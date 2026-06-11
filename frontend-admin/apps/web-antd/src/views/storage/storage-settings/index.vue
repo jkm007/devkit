@@ -19,10 +19,7 @@ import {
   Tooltip,
 } from 'ant-design-vue';
 
-import {
-  getAllSettings,
-  updateSettingsByGroup,
-} from '#/api/system/settings';
+import { getAllSettings, updateSettingsByGroup } from '#/api/system/settings';
 import { $t } from '#/locales';
 
 // ==================== State ====================
@@ -35,7 +32,8 @@ const formValues = reactive<Record<string, any>>({});
 // ==================== Computed ====================
 const storageItems = computed(() => {
   return (allSettings.value.storage || []).filter(
-    (i) => i.key === 'storage_local_path' || i.key === 'storage_local_url_prefix',
+    (i) =>
+      i.key === 'storage_local_path' || i.key === 'storage_local_url_prefix',
   );
 });
 
@@ -108,7 +106,10 @@ onMounted(() => {
         <div class="settings-section">
           <h3 class="settings-section-title">⚙️ 存储管理入口</h3>
           <div class="flex flex-wrap gap-3">
-            <Button type="primary" @click="$router.push('/storage/storage-manage')">
+            <Button
+              type="primary"
+              @click="$router.push('/storage/storage-manage')"
+            >
               📡 存储管理
             </Button>
             <Button @click="$router.push('/storage/tag-routing')">
@@ -120,8 +121,13 @@ onMounted(() => {
           </div>
           <div class="mt-4 text-sm text-gray-500">
             <ul class="list-disc pl-5 space-y-1">
-              <li><b>存储配置</b>：管理存储连接信息（MinIO/OSS/COS 的 endpoint、密钥等），支持多个同类型配置</li>
-              <li><b>存储桶</b>：管理具体的存储桶，自动使用存储配置中的连接信息</li>
+              <li>
+                <b>存储配置</b>：管理存储连接信息（MinIO/OSS/COS 的
+                endpoint、密钥等），支持多个同类型配置
+              </li>
+              <li>
+                <b>存储桶</b>：管理具体的存储桶，自动使用存储配置中的连接信息
+              </li>
               <li><b>标签路由</b>：根据文件类型自动选择存储到哪个桶</li>
             </ul>
           </div>
@@ -136,11 +142,7 @@ onMounted(() => {
             <Tag color="green" class="ml-2">始终启用</Tag>
           </h3>
           <Row :gutter="[16, 16]">
-            <Col
-              v-for="item in storageItems"
-              :key="item.key"
-              :span="12"
-            >
+            <Col v-for="item in storageItems" :key="item.key" :span="12">
               <div class="setting-item">
                 <label class="setting-label">
                   {{ item.label }}
@@ -168,11 +170,7 @@ onMounted(() => {
         <!-- 保存按钮 -->
         <Divider />
         <div class="flex justify-end">
-          <Button
-            type="primary"
-            :loading="saving"
-            @click="handleSave"
-          >
+          <Button type="primary" :loading="saving" @click="handleSave">
             {{ $t('system.settings.saveGroup') }}
           </Button>
         </div>
@@ -185,19 +183,22 @@ onMounted(() => {
 .settings-section {
   margin-bottom: 8px;
 }
+
 .settings-section-title {
+  margin-bottom: 12px;
   font-size: 14px;
   font-weight: 600;
-  margin-bottom: 12px;
-  color: rgba(0, 0, 0, 0.85);
+  color: rgb(0 0 0 / 85%);
 }
+
 .setting-item {
   margin-bottom: 8px;
 }
+
 .setting-label {
   display: block;
+  margin-bottom: 4px;
   font-size: 13px;
   font-weight: 500;
-  margin-bottom: 4px;
 }
 </style>

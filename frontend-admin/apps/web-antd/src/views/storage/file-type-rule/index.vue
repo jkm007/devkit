@@ -63,10 +63,7 @@ const fileTypeOptions = computed(() => {
       rules.value.map((r) => r.fileType).filter((t) => !defaultValues.has(t)),
     ),
   ];
-  return [
-    ...defaultTypes,
-    ...customTypes.map((t) => ({ label: t, value: t })),
-  ];
+  return [...defaultTypes, ...customTypes.map((t) => ({ label: t, value: t }))];
 });
 
 // 文件类型颜色映射（默认类型 + 动态扩展）
@@ -120,9 +117,9 @@ onMounted(() => {
 });
 
 // 打开编辑弹窗
-const openModal = (rule?: FileTypeRule) => {
+const openModal = (rule?: FileTypeRule | Record<string, any>) => {
   if (rule) {
-    editing.value = rule;
+    editing.value = rule as FileTypeRule;
     form.extension = rule.extension;
     form.fileType = rule.fileType;
     form.description = rule.description;
@@ -221,11 +218,16 @@ const typeCounts = computed(() => {
         :key="type"
         size="small"
         hoverable
-        :class="filterType === type ? 'border-blue-500 shadow' : 'cursor-pointer'"
+        :class="
+          filterType === type ? 'border-blue-500 shadow' : 'cursor-pointer'
+        "
         @click="filterType = filterType === type ? '' : (type as string)"
       >
         <div class="text-center py-1">
-          <Tag :color="fileTypeColors[type as string] || 'default'" class="mb-1">
+          <Tag
+            :color="fileTypeColors[type as string] || 'default'"
+            class="mb-1"
+          >
             {{ type }}
           </Tag>
           <div class="text-xl font-bold text-blue-500">{{ count }}</div>
@@ -277,7 +279,11 @@ const typeCounts = computed(() => {
         :loading="loading"
         row-key="id"
         size="middle"
-        :pagination="{ pageSize: 20, showSizeChanger: true, showTotal: (t: number) => `共 ${t} 条` }"
+        :pagination="{
+          pageSize: 20,
+          showSizeChanger: true,
+          showTotal: (t: number) => `共 ${t} 条`,
+        }"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.dataIndex === 'extension'">
@@ -294,7 +300,11 @@ const typeCounts = computed(() => {
             </Tag>
           </template>
           <template v-if="column.dataIndex === 'createdAt'">
-            {{ record.createdAt ? new Date(record.createdAt).toLocaleString() : '-' }}
+            {{
+              record.createdAt
+                ? new Date(record.createdAt).toLocaleString()
+                : '-'
+            }}
           </template>
           <template v-if="column.key === 'action'">
             <Space>
@@ -338,17 +348,17 @@ const typeCounts = computed(() => {
             v-model:value="form.extension"
             placeholder="例如: .jpg 或 jpg"
           />
-          <div class="text-gray-400 text-xs mt-1">
-            不带点号会自动添加
-          </div>
+          <div class="text-gray-400 text-xs mt-1">不带点号会自动添加</div>
         </Form.Item>
         <Form.Item label="文件类型" required>
           <AutoComplete
             v-model:value="form.fileType"
             :options="fileTypeOptions"
             placeholder="输入自定义类型，如 design、cad、font"
-            :filter-option="(input: string, option: any) =>
-              option.value.toLowerCase().includes(input.toLowerCase())"
+            :filter-option="
+              (input: string, option: any) =>
+                option.value.toLowerCase().includes(input.toLowerCase())
+            "
           />
           <div class="mt-2">
             <span class="text-gray-400 text-xs">快速选择：</span>
@@ -372,7 +382,7 @@ const typeCounts = computed(() => {
         <Form.Item label="状态">
           <Switch
             :checked="form.status === 1"
-            @change="(checked: boolean) => (form.status = checked ? 1 : 0)"
+            @change="(checked) => (form.status = checked ? 1 : 0)"
             checked-children="启用"
             un-checked-children="禁用"
           />

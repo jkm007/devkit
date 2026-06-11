@@ -33,8 +33,8 @@ import {
   testStorageConfigByDataApi,
   testStorageConfigConnectionApi,
   updateStorageConfigApi,
-  type StorageConfigApi,
 } from '#/api/system/storage-config';
+import type { StorageConfigApi } from '#/api/system/storage-config';
 import {
   createStorageBucketApi,
   deleteStorageBucketApi,
@@ -43,11 +43,13 @@ import {
   testStorageBucketByDriverApi,
   testStorageBucketConnectionApi,
   updateStorageBucketApi,
-  type StorageBucketApi,
 } from '#/api/system/storage-bucket';
+import type { StorageBucketApi } from '#/api/system/storage-bucket';
 
 const { hasAccessByCodes } = useAccess();
-const canEdit = computed(() => hasAccessByCodes(['storage:bucket:edit', 'storage:config:edit']));
+const canEdit = computed(() =>
+  hasAccessByCodes(['storage:bucket:edit', 'storage:config:edit']),
+);
 
 // ==================== State ====================
 const activeTab = ref<'bucket' | 'config'>('config');
@@ -132,42 +134,56 @@ const configStats = computed(() => {
   const total = configList.value.length;
   const enabled = configList.value.filter((c) => c.status === 1).length;
   const defaultCfg = configList.value.find((c) => c.isDefault);
-  return { total, enabled, disabled: total - enabled, defaultName: defaultCfg?.name || '-' };
+  return {
+    total,
+    enabled,
+    disabled: total - enabled,
+    defaultName: defaultCfg?.name || '-',
+  };
 });
 
 const bucketStats = computed(() => {
   const total = bucketList.value.length;
   const enabled = bucketList.value.filter((b) => b.status === 1).length;
   const defaultBkt = bucketList.value.find((b) => b.isDefault);
-  return { total, enabled, disabled: total - enabled, defaultName: defaultBkt?.name || '-' };
+  return {
+    total,
+    enabled,
+    disabled: total - enabled,
+    defaultName: defaultBkt?.name || '-',
+  };
 });
 
 // ==================== Helpers ====================
 function getDriverInfo(driver: string) {
-  return driverOptions.find((d) => d.value === driver) || { icon: '❓', label: driver, color: 'default' };
+  return (
+    driverOptions.find((d) => d.value === driver) || {
+      icon: '❓',
+      label: driver,
+      color: 'default',
+    }
+  );
 }
 
 function getPurposeLabel(purpose: string) {
   return purposeOptions.find((p) => p.value === purpose)?.label || purpose;
 }
 
-function maskKey(key: string) {
-  if (!key || key === '******') return '******';
-  if (key.length <= 8) return '******';
-  return `${key.slice(0, 4)}****${key.slice(-4)}`;
-}
-
 // ==================== Load Data ====================
 async function loadConfigs() {
   try {
     configList.value = await getAllStorageConfigsApi();
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 async function loadBuckets() {
   try {
     bucketList.value = await getAllStorageBucketsApi();
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 async function loadData() {
@@ -183,14 +199,26 @@ async function loadData() {
 function handleAddConfig() {
   editingId.value = null;
   Object.assign(configForm, {
-    name: '', driver: 'minio', endpoint: '', accessKey: '', secretKey: '',
-    bucket: '', region: '', useSsl: false, cdnDomain: '', isDefault: false,
-    presignedUrlExpiry: 3600, status: 1, description: '',
+    name: '',
+    driver: 'minio',
+    endpoint: '',
+    accessKey: '',
+    secretKey: '',
+    bucket: '',
+    region: '',
+    useSsl: false,
+    cdnDomain: '',
+    isDefault: false,
+    presignedUrlExpiry: 3600,
+    status: 1,
+    description: '',
   });
   modalVisible.value = true;
 }
 
-function handleEditConfig(record: StorageConfigApi.StorageConfig) {
+function handleEditConfig(
+  record: StorageConfigApi.StorageConfig | Record<string, any>,
+) {
   editingId.value = record.id;
   Object.assign(configForm, {
     name: record.name,
@@ -211,7 +239,10 @@ function handleEditConfig(record: StorageConfigApi.StorageConfig) {
 }
 
 async function handleSaveConfig() {
-  if (!configForm.name.trim()) { message.warning('请输入配置名称'); return; }
+  if (!configForm.name.trim()) {
+    message.warning('请输入配置名称');
+    return;
+  }
   saveLoading.value = true;
   try {
     const payload: any = { ...configForm };
@@ -243,7 +274,9 @@ async function handleDeleteConfig(id: number) {
   }
 }
 
-async function handleSetDefaultConfig(record: StorageConfigApi.StorageConfig) {
+async function handleSetDefaultConfig(
+  record: StorageConfigApi.StorageConfig | Record<string, any>,
+) {
   try {
     await setDefaultStorageConfigApi(record.id);
     message.success(`已将「${record.name}」设为默认`);
@@ -253,7 +286,9 @@ async function handleSetDefaultConfig(record: StorageConfigApi.StorageConfig) {
   }
 }
 
-async function handleTestConfig(record?: StorageConfigApi.StorageConfig) {
+async function handleTestConfig(
+  record?: StorageConfigApi.StorageConfig | Record<string, any>,
+) {
   const id = record?.id || -1;
   testLoadingId.value = id;
   try {
@@ -274,13 +309,21 @@ async function handleTestConfig(record?: StorageConfigApi.StorageConfig) {
 function handleAddBucket() {
   editingId.value = null;
   Object.assign(bucketForm, {
-    name: '', driver: 'minio', bucket: '', pathPrefix: '',
-    purpose: 'file', isDefault: false, status: 1, description: '',
+    name: '',
+    driver: 'minio',
+    bucket: '',
+    pathPrefix: '',
+    purpose: 'file',
+    isDefault: false,
+    status: 1,
+    description: '',
   });
   modalVisible.value = true;
 }
 
-function handleEditBucket(record: StorageBucketApi.StorageBucket) {
+function handleEditBucket(
+  record: StorageBucketApi.StorageBucket | Record<string, any>,
+) {
   editingId.value = record.id;
   Object.assign(bucketForm, {
     name: record.name,
@@ -296,7 +339,10 @@ function handleEditBucket(record: StorageBucketApi.StorageBucket) {
 }
 
 async function handleSaveBucket() {
-  if (!bucketForm.name.trim()) { message.warning('请输入桶名称'); return; }
+  if (!bucketForm.name.trim()) {
+    message.warning('请输入桶名称');
+    return;
+  }
   saveLoading.value = true;
   try {
     if (editingId.value) {
@@ -325,7 +371,9 @@ async function handleDeleteBucket(id: number) {
   }
 }
 
-async function handleSetDefaultBucket(record: StorageBucketApi.StorageBucket) {
+async function handleSetDefaultBucket(
+  record: StorageBucketApi.StorageBucket | Record<string, any>,
+) {
   try {
     await setDefaultStorageBucketApi(record.id);
     message.success(`已将「${record.name}」设为默认`);
@@ -335,14 +383,19 @@ async function handleSetDefaultBucket(record: StorageBucketApi.StorageBucket) {
   }
 }
 
-async function handleTestBucket(record?: StorageBucketApi.StorageBucket) {
+async function handleTestBucket(
+  record?: StorageBucketApi.StorageBucket | Record<string, any>,
+) {
   const id = record?.id || -1;
   testLoadingId.value = id;
   try {
     if (record?.id) {
       await testStorageBucketConnectionApi(record.id);
     } else {
-      await testStorageBucketByDriverApi({ driver: bucketForm.driver, bucket: bucketForm.bucket } as any);
+      await testStorageBucketByDriverApi({
+        driver: bucketForm.driver,
+        bucket: bucketForm.bucket,
+      } as any);
     }
     message.success('连接测试成功 ✓');
   } catch (e: any) {
@@ -358,11 +411,6 @@ function handleSave() {
   else handleSaveBucket();
 }
 
-function handleTest() {
-  if (activeTab.value === 'config') handleTestConfig();
-  else handleTestBucket();
-}
-
 // ==================== Lifecycle ====================
 onMounted(() => loadData());
 </script>
@@ -373,25 +421,43 @@ onMounted(() => loadData());
     <div class="mb-4 grid grid-cols-4 gap-4">
       <Card size="small">
         <div class="text-center">
-          <div class="text-2xl font-bold text-blue-500">{{ activeTab === 'config' ? configStats.total : bucketStats.total }}</div>
+          <div class="text-2xl font-bold text-blue-500">
+            {{ activeTab === 'config' ? configStats.total : bucketStats.total }}
+          </div>
           <div class="text-foreground/50 text-xs">总数</div>
         </div>
       </Card>
       <Card size="small">
         <div class="text-center">
-          <div class="text-2xl font-bold text-green-500">{{ activeTab === 'config' ? configStats.enabled : bucketStats.enabled }}</div>
+          <div class="text-2xl font-bold text-green-500">
+            {{
+              activeTab === 'config' ? configStats.enabled : bucketStats.enabled
+            }}
+          </div>
           <div class="text-foreground/50 text-xs">已启用</div>
         </div>
       </Card>
       <Card size="small">
         <div class="text-center">
-          <div class="text-2xl font-bold text-orange-500">{{ activeTab === 'config' ? configStats.disabled : bucketStats.disabled }}</div>
+          <div class="text-2xl font-bold text-orange-500">
+            {{
+              activeTab === 'config'
+                ? configStats.disabled
+                : bucketStats.disabled
+            }}
+          </div>
           <div class="text-foreground/50 text-xs">已禁用</div>
         </div>
       </Card>
       <Card size="small">
         <div class="text-center">
-          <div class="truncate text-sm font-medium text-blue-600">{{ activeTab === 'config' ? configStats.defaultName : bucketStats.defaultName }}</div>
+          <div class="truncate text-sm font-medium text-blue-600">
+            {{
+              activeTab === 'config'
+                ? configStats.defaultName
+                : bucketStats.defaultName
+            }}
+          </div>
           <div class="text-foreground/50 text-xs">当前默认</div>
         </div>
       </Card>
@@ -401,16 +467,28 @@ onMounted(() => loadData());
     <Card>
       <div class="mb-4 flex items-center justify-between">
         <div class="flex gap-1">
-          <Button :type="activeTab === 'config' ? 'primary' : 'default'" @click="activeTab = 'config'">
+          <Button
+            :type="activeTab === 'config' ? 'primary' : 'default'"
+            @click="activeTab = 'config'"
+          >
             ⚙️ 存储配置
           </Button>
-          <Button :type="activeTab === 'bucket' ? 'primary' : 'default'" @click="activeTab = 'bucket'">
+          <Button
+            :type="activeTab === 'bucket' ? 'primary' : 'default'"
+            @click="activeTab = 'bucket'"
+          >
             📦 存储桶
           </Button>
         </div>
         <Space>
           <Button @click="loadData">🔄 刷新</Button>
-          <Button v-if="canEdit" type="primary" @click="activeTab === 'config' ? handleAddConfig() : handleAddBucket()">
+          <Button
+            v-if="canEdit"
+            type="primary"
+            @click="
+              activeTab === 'config' ? handleAddConfig() : handleAddBucket()
+            "
+          >
             <Plus class="mr-1 size-4" />
             {{ activeTab === 'config' ? '新增配置' : '新增桶' }}
           </Button>
@@ -431,27 +509,55 @@ onMounted(() => loadData());
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'driver'">
             <Tag :color="getDriverInfo(record.driver).color">
-              {{ getDriverInfo(record.driver).icon }} {{ getDriverInfo(record.driver).label }}
+              {{ getDriverInfo(record.driver).icon }}
+              {{ getDriverInfo(record.driver).label }}
             </Tag>
           </template>
           <template v-else-if="column.key === 'connection'">
-            <span v-if="record.driver === 'local'" class="text-gray-400">本地存储</span>
+            <span v-if="record.driver === 'local'" class="text-gray-400"
+              >本地存储</span
+            >
             <Tooltip v-else :title="record.endpoint">
               <span class="text-sm">{{ record.endpoint || '-' }}</span>
             </Tooltip>
           </template>
           <template v-else-if="column.key === 'status'">
-            <Badge :status="record.status === 1 ? 'success' : 'default'" :text="record.status === 1 ? '启用' : '禁用'" />
+            <Badge
+              :status="record.status === 1 ? 'success' : 'default'"
+              :text="record.status === 1 ? '启用' : '禁用'"
+            />
           </template>
           <template v-else-if="column.key === 'isDefault'">
             <Tag v-if="record.isDefault" color="blue">默认</Tag>
           </template>
           <template v-else-if="column.key === 'action'">
             <Space>
-              <Button v-if="canEdit" type="link" size="small" @click="handleEditConfig(record)">编辑</Button>
-              <Button type="link" size="small" :loading="testLoadingId === record.id" @click="handleTestConfig(record)">测试</Button>
-              <Button v-if="canEdit && !record.isDefault && record.status === 1" type="link" size="small" @click="handleSetDefaultConfig(record)">设为默认</Button>
-              <Popconfirm v-if="canEdit && record.driver !== 'local'" title="确定删除此配置？" @confirm="handleDeleteConfig(record.id)">
+              <Button
+                v-if="canEdit"
+                type="link"
+                size="small"
+                @click="handleEditConfig(record)"
+                >编辑</Button
+              >
+              <Button
+                type="link"
+                size="small"
+                :loading="testLoadingId === record.id"
+                @click="handleTestConfig(record)"
+                >测试</Button
+              >
+              <Button
+                v-if="canEdit && !record.isDefault && record.status === 1"
+                type="link"
+                size="small"
+                @click="handleSetDefaultConfig(record)"
+                >设为默认</Button
+              >
+              <Popconfirm
+                v-if="canEdit && record.driver !== 'local'"
+                title="确定删除此配置？"
+                @confirm="handleDeleteConfig(record.id)"
+              >
                 <Button type="link" size="small" danger>删除</Button>
               </Popconfirm>
             </Space>
@@ -473,30 +579,58 @@ onMounted(() => loadData());
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'driver'">
             <Tag :color="getDriverInfo(record.driver).color">
-              {{ getDriverInfo(record.driver).icon }} {{ getDriverInfo(record.driver).label }}
+              {{ getDriverInfo(record.driver).icon }}
+              {{ getDriverInfo(record.driver).label }}
             </Tag>
           </template>
           <template v-else-if="column.key === 'bucketPath'">
             <div>
               <span class="font-medium">{{ record.bucket }}</span>
-              <span v-if="record.pathPrefix" class="ml-1 text-gray-400">/ {{ record.pathPrefix }}</span>
+              <span v-if="record.pathPrefix" class="ml-1 text-gray-400"
+                >/ {{ record.pathPrefix }}</span
+              >
             </div>
           </template>
           <template v-else-if="column.key === 'purpose'">
             <Tag>{{ getPurposeLabel(record.purpose) }}</Tag>
           </template>
           <template v-else-if="column.key === 'status'">
-            <Badge :status="record.status === 1 ? 'success' : 'default'" :text="record.status === 1 ? '启用' : '禁用'" />
+            <Badge
+              :status="record.status === 1 ? 'success' : 'default'"
+              :text="record.status === 1 ? '启用' : '禁用'"
+            />
           </template>
           <template v-else-if="column.key === 'isDefault'">
             <Tag v-if="record.isDefault" color="blue">默认</Tag>
           </template>
           <template v-else-if="column.key === 'action'">
             <Space>
-              <Button v-if="canEdit" type="link" size="small" @click="handleEditBucket(record)">编辑</Button>
-              <Button type="link" size="small" :loading="testLoadingId === record.id" @click="handleTestBucket(record)">测试</Button>
-              <Button v-if="canEdit && !record.isDefault && record.status === 1" type="link" size="small" @click="handleSetDefaultBucket(record)">设为默认</Button>
-              <Popconfirm v-if="canEdit && !record.isDefault" title="确定删除此桶？" @confirm="handleDeleteBucket(record.id)">
+              <Button
+                v-if="canEdit"
+                type="link"
+                size="small"
+                @click="handleEditBucket(record)"
+                >编辑</Button
+              >
+              <Button
+                type="link"
+                size="small"
+                :loading="testLoadingId === record.id"
+                @click="handleTestBucket(record)"
+                >测试</Button
+              >
+              <Button
+                v-if="canEdit && !record.isDefault && record.status === 1"
+                type="link"
+                size="small"
+                @click="handleSetDefaultBucket(record)"
+                >设为默认</Button
+              >
+              <Popconfirm
+                v-if="canEdit && !record.isDefault"
+                title="确定删除此桶？"
+                @confirm="handleDeleteBucket(record.id)"
+              >
                 <Button type="link" size="small" danger>删除</Button>
               </Popconfirm>
             </Space>
@@ -519,12 +653,23 @@ onMounted(() => loadData());
           <Row :gutter="16">
             <Col :span="12">
               <div class="mb-1 text-sm font-medium">配置名称 *</div>
-              <Input v-model:value="configForm.name" placeholder="如：生产环境 MinIO" />
+              <Input
+                v-model:value="configForm.name"
+                placeholder="如：生产环境 MinIO"
+              />
             </Col>
             <Col :span="12">
               <div class="mb-1 text-sm font-medium">存储驱动 *</div>
-              <Select v-model:value="configForm.driver" class="w-full" :disabled="!!editingId">
-                <SelectOption v-for="d in driverOptions" :key="d.value" :value="d.value">
+              <Select
+                v-model:value="configForm.driver"
+                class="w-full"
+                :disabled="!!editingId"
+              >
+                <SelectOption
+                  v-for="d in driverOptions"
+                  :key="d.value"
+                  :value="d.value"
+                >
                   {{ d.icon }} {{ d.label }}
                 </SelectOption>
               </Select>
@@ -534,32 +679,63 @@ onMounted(() => loadData());
           <template v-if="configForm.driver !== 'local'">
             <Row :gutter="16">
               <Col :span="configForm.driver === 'cos' ? 12 : 24">
-                <div class="mb-1 text-sm font-medium">{{ configForm.driver === 'cos' ? '地域' : 'Endpoint *' }}</div>
-                <Input v-model:value="configForm[configForm.driver === 'cos' ? 'region' : 'endpoint']" :placeholder="configForm.driver === 'cos' ? 'ap-guangzhou' : 'https://minio.example.com'" />
+                <div class="mb-1 text-sm font-medium">
+                  {{ configForm.driver === 'cos' ? '地域' : 'Endpoint *' }}
+                </div>
+                <Input
+                  v-model:value="
+                    configForm[
+                      configForm.driver === 'cos' ? 'region' : 'endpoint'
+                    ]
+                  "
+                  :placeholder="
+                    configForm.driver === 'cos'
+                      ? 'ap-guangzhou'
+                      : 'https://minio.example.com'
+                  "
+                />
               </Col>
               <Col v-if="configForm.driver === 'cos'" :span="12">
                 <div class="mb-1 text-sm font-medium">Endpoint</div>
-                <Input v-model:value="configForm.endpoint" placeholder="可选，自定义域名" />
+                <Input
+                  v-model:value="configForm.endpoint"
+                  placeholder="可选，自定义域名"
+                />
               </Col>
             </Row>
             <Row :gutter="16">
               <Col :span="12">
-                <div class="mb-1 text-sm font-medium">{{ configForm.driver === 'cos' ? 'Secret ID' : 'Access Key' }}</div>
-                <Input v-model:value="configForm.accessKey" placeholder="访问密钥" />
+                <div class="mb-1 text-sm font-medium">
+                  {{ configForm.driver === 'cos' ? 'Secret ID' : 'Access Key' }}
+                </div>
+                <Input
+                  v-model:value="configForm.accessKey"
+                  placeholder="访问密钥"
+                />
               </Col>
               <Col :span="12">
                 <div class="mb-1 text-sm font-medium">Secret Key</div>
-                <Input v-model:value="configForm.secretKey" type="password" placeholder="密钥" />
+                <Input
+                  v-model:value="configForm.secretKey"
+                  type="password"
+                  placeholder="密钥"
+                />
               </Col>
             </Row>
             <Row :gutter="16">
               <Col :span="12">
                 <div class="mb-1 text-sm font-medium">桶名称 *</div>
-                <Input v-model:value="configForm.bucket" placeholder="my-bucket" />
+                <Input
+                  v-model:value="configForm.bucket"
+                  placeholder="my-bucket"
+                />
               </Col>
               <Col :span="12">
                 <div class="mb-1 text-sm font-medium">CDN 域名</div>
-                <Input v-model:value="configForm.cdnDomain" placeholder="可选" />
+                <Input
+                  v-model:value="configForm.cdnDomain"
+                  placeholder="可选"
+                />
               </Col>
             </Row>
             <Row :gutter="16">
@@ -573,11 +749,20 @@ onMounted(() => loadData());
           <Row :gutter="16">
             <Col :span="12">
               <div class="mb-1 text-sm font-medium">签名 URL 有效期 (秒)</div>
-              <InputNumber v-model:value="configForm.presignedUrlExpiry" :min="60" :max="604800" class="w-full" />
+              <InputNumber
+                v-model:value="configForm.presignedUrlExpiry"
+                :min="60"
+                :max="604800"
+                class="w-full"
+              />
             </Col>
             <Col :span="6">
               <div class="mb-1 text-sm font-medium">启用</div>
-              <Switch v-model:checked="configForm.status" :checked-value="1" :un-checked-value="0" />
+              <Switch
+                v-model:checked="configForm.status"
+                :checked-value="1"
+                :un-checked-value="0"
+              />
             </Col>
             <Col :span="6">
               <div class="mb-1 text-sm font-medium">设为默认</div>
@@ -587,11 +772,17 @@ onMounted(() => loadData());
 
           <div>
             <div class="mb-1 text-sm font-medium">说明</div>
-            <Input.TextArea v-model:value="configForm.description" :rows="2" placeholder="备注" />
+            <Input.TextArea
+              v-model:value="configForm.description"
+              :rows="2"
+              placeholder="备注"
+            />
           </div>
 
           <div class="flex justify-end">
-            <Button :loading="testLoadingId === -1" @click="handleTestConfig()">🔌 测试连接</Button>
+            <Button :loading="testLoadingId === -1" @click="handleTestConfig()"
+              >🔌 测试连接</Button
+            >
           </div>
         </div>
       </template>
@@ -602,12 +793,19 @@ onMounted(() => loadData());
           <Row :gutter="16">
             <Col :span="12">
               <div class="mb-1 text-sm font-medium">桶名称 *</div>
-              <Input v-model:value="bucketForm.name" placeholder="如：用户文件存储" />
+              <Input
+                v-model:value="bucketForm.name"
+                placeholder="如：用户文件存储"
+              />
             </Col>
             <Col :span="12">
               <div class="mb-1 text-sm font-medium">存储驱动 *</div>
               <Select v-model:value="bucketForm.driver" class="w-full">
-                <SelectOption v-for="d in driverOptions" :key="d.value" :value="d.value">
+                <SelectOption
+                  v-for="d in driverOptions"
+                  :key="d.value"
+                  :value="d.value"
+                >
                   {{ d.icon }} {{ d.label }}
                 </SelectOption>
               </Select>
@@ -616,25 +814,39 @@ onMounted(() => loadData());
           <Row :gutter="16">
             <Col :span="12">
               <div class="mb-1 text-sm font-medium">桶 *</div>
-              <Input v-model:value="bucketForm.bucket" placeholder="bucket-name" />
+              <Input
+                v-model:value="bucketForm.bucket"
+                placeholder="bucket-name"
+              />
             </Col>
             <Col :span="12">
               <div class="mb-1 text-sm font-medium">路径前缀</div>
-              <Input v-model:value="bucketForm.pathPrefix" placeholder="可选，如 uploads/" />
+              <Input
+                v-model:value="bucketForm.pathPrefix"
+                placeholder="可选，如 uploads/"
+              />
             </Col>
           </Row>
           <Row :gutter="16">
             <Col :span="12">
               <div class="mb-1 text-sm font-medium">用途</div>
               <Select v-model:value="bucketForm.purpose" class="w-full">
-                <SelectOption v-for="p in purposeOptions" :key="p.value" :value="p.value">
+                <SelectOption
+                  v-for="p in purposeOptions"
+                  :key="p.value"
+                  :value="p.value"
+                >
                   {{ p.label }}
                 </SelectOption>
               </Select>
             </Col>
             <Col :span="6">
               <div class="mb-1 text-sm font-medium">启用</div>
-              <Switch v-model:checked="bucketForm.status" :checked-value="1" :un-checked-value="0" />
+              <Switch
+                v-model:checked="bucketForm.status"
+                :checked-value="1"
+                :un-checked-value="0"
+              />
             </Col>
             <Col :span="6">
               <div class="mb-1 text-sm font-medium">设为默认</div>
@@ -643,10 +855,16 @@ onMounted(() => loadData());
           </Row>
           <div>
             <div class="mb-1 text-sm font-medium">说明</div>
-            <Input.TextArea v-model:value="bucketForm.description" :rows="2" placeholder="备注" />
+            <Input.TextArea
+              v-model:value="bucketForm.description"
+              :rows="2"
+              placeholder="备注"
+            />
           </div>
           <div class="flex justify-end">
-            <Button :loading="testLoadingId === -1" @click="handleTestBucket()">🔌 测试连接</Button>
+            <Button :loading="testLoadingId === -1" @click="handleTestBucket()"
+              >🔌 测试连接</Button
+            >
           </div>
         </div>
       </template>

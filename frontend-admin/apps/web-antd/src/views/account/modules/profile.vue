@@ -147,7 +147,9 @@ async function handleAvatarSuccess(url: string) {
         <Col :span="12">
           <FormItem :label="$t('account.profile.gender')">
             <RadioGroup v-model:value="formState.gender">
-              <Radio :value="0">{{ $t('account.profile.genderUnknown') }}</Radio>
+              <Radio :value="0">{{
+                $t('account.profile.genderUnknown')
+              }}</Radio>
               <Radio :value="1">{{ $t('account.profile.genderMale') }}</Radio>
               <Radio :value="2">{{ $t('account.profile.genderFemale') }}</Radio>
             </RadioGroup>
@@ -190,8 +192,8 @@ async function handleAvatarSuccess(url: string) {
 <style scoped>
 .avatar-wrapper {
   position: relative;
-  border-radius: 50%;
   overflow: hidden;
+  border-radius: 50%;
 }
 
 .avatar-wrapper:hover .avatar-overlay {
@@ -205,10 +207,10 @@ async function handleAvatarSuccess(url: string) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
+  color: white;
+  background: rgb(0 0 0 / 50%);
   border-radius: 50%;
   opacity: 0;
   transition: opacity 0.2s ease;
-  color: white;
 }
 </style>
