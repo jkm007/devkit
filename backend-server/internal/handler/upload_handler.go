@@ -11,9 +11,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// 确保 service 包被使用
-var _ = service.TaskStatusResponse{}
-
 // UploadHandler 文件上传处理器
 type UploadHandler struct {
 	uploadService *service.UploadService
