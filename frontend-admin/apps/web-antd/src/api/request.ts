@@ -56,16 +56,15 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
    */
   async function doRefreshToken() {
     const accessStore = useAccessStore();
-    const resp = await refreshTokenApi() as any;
-    // baseRequestClient 返回原始 axios response，resp.data = { code, data, message }
-    const result = resp?.data?.data ?? resp?.data;
-    const newAccessToken = result?.accessToken || result;
-    const newRefreshToken = result?.refreshToken;
-    accessStore.setAccessToken(newAccessToken);
-    if (newRefreshToken) {
-      accessStore.setRefreshToken(newRefreshToken);
+    // baseRequestClient 无拦截器，返回原始 Axios response
+    // resp.data = { code, data: { accessToken, refreshToken }, message }
+    const resp = await refreshTokenApi();
+    const { accessToken, refreshToken } = resp.data.data;
+    accessStore.setAccessToken(accessToken);
+    if (refreshToken) {
+      accessStore.setRefreshToken(refreshToken);
     }
-    return newAccessToken;
+    return accessToken;
   }
 
   function formatToken(token: null | string) {
@@ -78,7 +77,12 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
       const accessStore = useAccessStore();
 
       // 登录/注册/验证码等接口不需要携带token
-      const skipAuthUrls = ['/auth/login', '/auth/register', '/auth/captcha', '/system/settings/public'];
+      const skipAuthUrls = [
+        '/auth/login',
+        '/auth/register',
+        '/auth/captcha',
+        '/system/settings/public',
+      ];
       if (!skipAuthUrls.some((url) => config.url?.includes(url))) {
         config.headers.Authorization = formatToken(accessStore.accessToken);
       }
@@ -113,7 +117,9 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
                 ...originalHeaders,
                 'X-Captcha-Id': result.captchaId,
                 'X-Captcha-Code': result.captchaCode,
-                'X-Captcha-Start-Time': result.startTime ? String(result.startTime) : '',
+                'X-Captcha-Start-Time': result.startTime
+                  ? String(result.startTime)
+                  : '',
               },
             });
             const retryBody = retryResp?.data;
@@ -130,7 +136,8 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
             }
             if (retryBody?.code === 403001) {
               // 验证码错误，更新为后端返回的新随机类型，继续循环弹框
-              currentCaptchaType = retryBody?.data?.captcha_type || currentCaptchaType;
+              currentCaptchaType =
+                retryBody?.data?.captcha_type || currentCaptchaType;
               continue;
             }
             // 其他业务错误
