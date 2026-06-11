@@ -24,6 +24,14 @@ import { refreshTokenApi } from './core';
 
 const { apiURL } = useAppConfig(import.meta.env, import.meta.env.PROD);
 
+/**
+ * 读取指定 Cookie 的值
+ */
+function getCookie(name: string): string | undefined {
+  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+  return match ? match[2] : undefined;
+}
+
 // 干净的 axios 实例（无拦截器），专门用于验证码重试请求
 const captchaRetryAxios = axios.create({ baseURL: apiURL, timeout: 10_000 });
 
@@ -88,6 +96,17 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
       }
       config.headers['Accept-Language'] = preferences.app.locale;
       config.headers['X-Device-ID'] = getDeviceId();
+
+      // CSRF Token：从 Cookie 读取并放入请求头（Double Submit Cookie 模式）
+      // 非安全方法（POST/PUT/DELETE/PATCH）必须携带
+      const method = config.method?.toUpperCase();
+      if (method && !['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+        const csrfToken = getCookie('csrf_token');
+        if (csrfToken) {
+          config.headers['X-CSRF-Token'] = csrfToken;
+        }
+      }
+
       return config;
     },
   });

@@ -610,14 +610,23 @@ func (s *AuthService) loadPermissionCodesFromDB(userID uint) ([]string, error) {
 			continue
 		}
 		var codes []string
-		if err := json.Unmarshal([]byte(role.Permissions), &codes); err == nil {
+		// 清理 JSON 字符串（去除 BOM 和不可见字符）
+		cleanPerms := strings.TrimSpace(role.Permissions)
+		// 去除 UTF-8 BOM（如果存在）
+		if len(cleanPerms) >= 3 && cleanPerms[0] == 0xEF && cleanPerms[1] == 0xBB && cleanPerms[2] == 0xBF {
+			cleanPerms = cleanPerms[3:]
+		}
+		if err := json.Unmarshal([]byte(cleanPerms), &codes); err == nil {
 			for _, code := range codes {
 				codeSet[code] = true
 			}
 		} else {
-			// 兼容逗号分隔格式
-			for _, code := range strings.Split(role.Permissions, ",") {
+			// 兼容逗号分隔格式（仅在 JSON 解析失败时使用）
+			fmt.Printf("[auth] JSON 解析失败，使用逗号分隔格式: role=%s, err=%v, perms_len=%d\n", role.Name, err, len(cleanPerms))
+			for _, code := range strings.Split(cleanPerms, ",") {
 				code = strings.TrimSpace(code)
+				// 去除可能的引号和方括号
+				code = strings.Trim(code, "[]\"' ")
 				if code != "" {
 					codeSet[code] = true
 				}

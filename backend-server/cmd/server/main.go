@@ -126,7 +126,7 @@ func main() {
 	service.InitScheduledTasks()
 
 	// 10. 初始化路由
-	r := router.Setup(cfg, hub)
+	r := router.Setup(context.Background(), cfg, hub)
 
 	// 10. 启动 HTTP 服务
 	srv := &http.Server{
