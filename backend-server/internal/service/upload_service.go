@@ -83,8 +83,15 @@ func (s *UploadService) CheckUpload(fileHash string, fileSize int64) (*CheckResu
 	if asset.StorageType != currentDriver {
 		return &CheckResult{Exists: false}, nil
 	}
-	// 秒传命中，增加引用计数
-	s.assetRepo.IncrementRefCount(asset.ID)
+	// 秒传命中，在事务中原子递增引用计数，避免并发场景下引用计数不准确
+	db := database.GetMySQL()
+	err = db.Transaction(func(tx *gorm.DB) error {
+		return tx.Model(&model.FileAsset{}).Where("id = ?", asset.ID).
+			Update("ref_count", gorm.Expr("ref_count + 1")).Error
+	})
+	if err != nil {
+		return nil, fmt.Errorf("更新引用计数失败: %w", err)
+	}
 	return &CheckResult{
 		Exists:    true,
 		ObjectKey: asset.ObjectKey,
