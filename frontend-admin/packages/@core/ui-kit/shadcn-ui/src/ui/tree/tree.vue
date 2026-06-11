@@ -295,9 +295,10 @@ function onSelect(item: FlattenedItem<Recordable<any>>, isSelected: boolean) {
   emits('select', item);
 }
 
-// check-strictly 模式下判断节点是否半选（部分子节点选中）
+// 判断节点是否半选（部分子节点选中）
+// 兼容 check-strictly 和非 check-strictly 模式
 function isNodeIndeterminate(nodeValue: Recordable<any>): boolean {
-  if (!props.checkStrictly || !props.multiple) return false;
+  if (!props.multiple) return false;
   if (!Array.isArray(modelValue.value)) return false;
 
   const nodeKey = get(nodeValue, props.valueField);
