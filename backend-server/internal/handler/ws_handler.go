@@ -15,14 +15,17 @@ import (
 	"go.uber.org/zap"
 )
 
+// wsMaxMessageSize WebSocket 消息最大字节数（64KB）
+const wsMaxMessageSize = 64 << 10
+
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
 		origin := r.Header.Get("Origin")
+		// 拒绝空 Origin，防止绕过来源校验
 		if origin == "" {
-			// 允许空 Origin（某些客户端如移动应用不发送 Origin）
-			return true
+			return false
 		}
 		// 从配置中获取允许的来源
 		cfg := config.Get()
@@ -92,6 +95,9 @@ func (h *WSHandler) readPump(client *ws.Client) {
 			)
 		}
 	}()
+
+	// 设置单条消息大小上限，防止恶意客户端发送超大消息耗尽内存
+	client.Conn.SetReadLimit(wsMaxMessageSize)
 
 	var closeOnce sync.Once
 	close := func() {
