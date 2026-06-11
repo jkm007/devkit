@@ -6,8 +6,9 @@
 
 ```
 backend-server/
-├── cmd/server/
-│   └── main.go                          # 程序入口：配置 → 日志 → MySQL → Redis → 迁移 → 默认数据 → WebSocket → 路由 → HTTP 服务
+├── cmd/
+│   ├── server/main.go                   # 程序入口：配置 → 日志 → MySQL → Redis → 迁移 → 默认数据 → WebSocket → 路由 → HTTP 服务
+│   └── migrate/main.go                  # 数据库迁移工具入口
 ├── config/
 │   ├── config.go                        # 配置结构体定义 + Viper 加载逻辑
 │   └── config.yaml                      # 配置文件模板（数据库、Redis、JWT、存储、邮箱等）
@@ -90,6 +91,8 @@ backend-server/
 │   │   └── hub.go                       # WebSocket Hub（按用户分组、广播/点对点消息）
 │   ├── task/
 │   │   └── scheduler.go                 # 后台任务调度（Go Channel 异步任务、Redis 延迟队列消费）
+│   ├── worker/
+│   │   └── transcode_worker.go          # 转码工作者（视频/音频转码）
 │   └── validator/
 │       └── validator.go                 # 自定义参数校验器（注册到 go-playground/validator）
 ├── pkg/                                 # 可复用工具包（可被其他项目引用）
@@ -129,10 +132,19 @@ backend-server/
 │   │   ├── minio.go                     # MinIO 对象存储实现（私有化部署）
 │   │   ├── oss.go                       # 阿里云 OSS 实现
 │   │   └── cos.go                       # 腾讯云 COS 实现
-│   └── cdn/
-│       └── cdn.go                       # CDN URL 生成、图片处理（缩略图、裁剪）
+│   ├── cdn/
+│   │   └── cdn.go                       # CDN URL 生成、图片处理（缩略图、裁剪）
+│   ├── fileutil/
+│   │   └── fileutil.go                  # 文件工具函数（MIME 检测、文件大小格式化）
+│   ├── oauth/
+│   │   └── oauth.go                     # OAuth 第三方登录（GitHub、Google、微信）
+│   ├── sms/
+│   │   └── sms.go                       # 短信发送（阿里云、腾讯云）
+│   └── wechat/
+│       └── wechat.go                    # 微信公众号/小程序集成
 ├── migrations/
-│   └── migrate.go                       # 数据库迁移（GORM AutoMigrate）
+│   ├── migrate.go                       # 数据库迁移（GORM AutoMigrate）
+│   └── *.sql                            # SQL 迁移文件（012-026）
 ├── docs/
 │   ├── docs.go                          # Swagger 生成文件
 │   ├── swagger.go                       # Swagger 入口
@@ -142,7 +154,9 @@ backend-server/
 │   ├── init.sql                         # 建表 DDL
 │   ├── init_menu.sql                    # 菜单种子数据（Dashboard + 系统管理 + 按钮权限）
 │   ├── init_data.sql                    # 默认角色和用户种子数据
-│   └── init_system_settings.sql         # 系统配置种子数据（基础配置 + 验证码配置 + 风险评分规则）
+│   ├── init_system_settings.sql         # 系统配置种子数据（基础配置 + 验证码配置 + 风险评分规则）
+│   ├── auth_settings.sql               # 认证配置种子数据
+│   └── migrate_file_tags.sql           # 文件标签迁移脚本
 ├── Dockerfile                           # 多阶段构建镜像
 ├── docker-compose.yml                   # 本地开发环境编排（MySQL、Redis、MinIO）
 ├── Makefile                             # 常用命令快捷入口
