@@ -118,10 +118,11 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	if err != nil {
 		// 记录登录失败日志（保留完整错误信息用于内部排查）
 		h.authService.RecordSecurityLog(0, "login_fail", fmt.Sprintf("用户[%s]登录失败: %s", req.Username, err.Error()), c.ClientIP(), c.GetHeader("User-Agent"), 0)
-		// 验证码相关错误需要展示给用户以便重试，其余统一返回通用错误消息，避免泄露账号是否存在等内部信息
+		// 统一返回通用错误消息，不暴露内部实现细节（如账号是否存在、账号状态、验证码系统细节等）
+		// 完整错误信息已记录到安全日志，供内部排查使用
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "验证码") || strings.Contains(errMsg, "captcha") {
-			response.Forbidden(c, errMsg)
+			response.Forbidden(c, "验证码错误，请刷新后重试")
 		} else {
 			response.Forbidden(c, "用户名或密码错误")
 		}
@@ -351,7 +352,12 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 	}
 
 	if err := h.authService.ChangePassword(userID, &req, c.ClientIP(), c.GetHeader("User-Agent"), tokenStr); err != nil {
-		response.BadRequest(c, err.Error())
+		// 用户输入校验类错误允许展示，其余返回通用消息避免暴露内部实现细节
+		if isUserInputError(err.Error()) {
+			response.BadRequest(c, err.Error())
+		} else {
+			response.BadRequest(c, "密码修改失败，请稍后重试")
+		}
 		return
 	}
 
@@ -387,7 +393,8 @@ func (h *AuthHandler) LoginByEmail(c *gin.Context) {
 
 	// 图形验证码校验（与密码登录一致）
 	if err := h.checkCaptchaForAltLogin(req.CaptchaID, req.CaptchaCode, req.StartTime, req.Points); err != nil {
-		response.BadRequest(c, err.Error())
+		// 统一返回通用验证码错误消息，不暴露验证码系统的内部实现细节
+		response.BadRequest(c, "验证码错误，请刷新后重试")
 		return
 	}
 
@@ -443,7 +450,8 @@ func (h *AuthHandler) LoginByPhone(c *gin.Context) {
 
 	// 图形验证码校验（与密码登录一致）
 	if err := h.checkCaptchaForAltLogin(req.CaptchaID, req.CaptchaCode, req.StartTime, req.Points); err != nil {
-		response.BadRequest(c, err.Error())
+		// 统一返回通用验证码错误消息，不暴露验证码系统的内部实现细节
+		response.BadRequest(c, "验证码错误，请刷新后重试")
 		return
 	}
 
@@ -550,6 +558,23 @@ func (h *AuthHandler) GetPermissionVersion(c *gin.Context) {
 	sort.Strings(codes)
 	hash := sha256HashString(strings.Join(codes, ","))
 	response.Success(c, hash)
+}
+
+// isUserInputError 判断错误是否属于用户输入校验类错误（允许展示给用户）
+// 仅匹配已知的用户输入校验错误关键词，其余一律视为内部错误不予暴露
+func isUserInputError(errMsg string) bool {
+	userInputKeywords := []string{
+		"验证码",
+		"密码不一致",
+		"密码长度",
+		"旧密码错误",
+	}
+	for _, keyword := range userInputKeywords {
+		if strings.Contains(errMsg, keyword) {
+			return true
+		}
+	}
+	return false
 }
 
 // sha256HashString 计算 SHA-256 哈希
