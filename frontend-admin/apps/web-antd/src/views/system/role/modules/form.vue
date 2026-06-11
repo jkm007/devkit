@@ -161,14 +161,17 @@ function filterPermissionTree(nodes: any[]): any[] {
   function process(nodes: any[]): any[] {
     return nodes
       .map((node) => {
+        // 先处理父节点，再处理子节点（前序遍历）
+        // 用 id 做唯一性判断，而不是 authCode（父子菜单可以共享权限码）
+        const nodeKey = String(node.id);
+        if (seen.has(nodeKey)) {
+          return null;
+        }
+        seen.add(nodeKey);
+
         const children = node.children ? process(node.children) : [];
         if (node.authCode || children.length > 0) {
           const authCode = node.authCode || `__catalog_${node.id}`;
-          // 去重：相同 authCode 的节点只保留第一个
-          if (seen.has(authCode)) {
-            return null;
-          }
-          seen.add(authCode);
           return {
             ...node,
             authCode,
