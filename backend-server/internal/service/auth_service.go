@@ -1111,6 +1111,41 @@ func (s *AuthService) Logout(userID uint) error {
 	return rdb.Del(context.Background(), fmt.Sprintf("refresh_token:%d", userID)).Err()
 }
 
+// InitDefaultSettings 初始化默认验证码配置
+// 如果 sys_system_settings 表中 captcha 组无数据，则写入默认值（captcha_enabled 默认为 true）
+func InitDefaultSettings() error {
+	db := database.GetMySQL()
+
+	// 检查是否已有 captcha 配置
+	var count int64
+	if err := db.Model(&model.SystemSetting{}).Where("group_key = ?", "captcha").Count(&count).Error; err != nil {
+		return fmt.Errorf("查询验证码配置失败: %w", err)
+	}
+	if count > 0 {
+		return nil // 已有配置，不覆盖
+	}
+
+	// 默认验证码配置项（captcha_enabled 默认开启）
+	defaults := []model.SystemSetting{
+		{GroupKey: "captcha", Key: "captcha_enabled", Value: "true", Label: "启用验证码", Type: "boolean", Tip: "登录时是否需要验证码", Sort: 1, IsPublic: 1},
+		{GroupKey: "captcha", Key: "captcha_type", Value: `"slider"`, Label: "验证码类型", Type: "select", Options: `[{"label":"滑块","value":"slider"},{"label":"拼图","value":"puzzle"},{"label":"旋转","value":"rotation"},{"label":"点选","value":"point"},{"label":"数字","value":"numeric"}]`, Tip: "验证码展示形式", Sort: 2, IsPublic: 1},
+		{GroupKey: "captcha", Key: "captcha_expire", Value: "120", Label: "验证码有效期(秒)", Type: "number", Tip: "验证码有效时间", Sort: 3},
+		{GroupKey: "captcha", Key: "captcha_max_fail", Value: "5", Label: "最大失败次数", Type: "number", Tip: "连续验证失败后刷新验证码", Sort: 4},
+		{GroupKey: "captcha", Key: "captcha_login_trigger", Value: "3", Label: "触发阈值", Type: "number", Tip: "登录失败几次后开始要求验证码（0=始终开启）", Sort: 5},
+		{GroupKey: "captcha", Key: "captcha_min_duration", Value: "500", Label: "最短操作时间(ms)", Type: "number", Tip: "操作时间小于此值判定为机器人", Sort: 6},
+	}
+
+	// 批量插入
+	return db.Transaction(func(tx *gorm.DB) error {
+		for i := range defaults {
+			if err := tx.Create(&defaults[i]).Error; err != nil {
+				return fmt.Errorf("插入验证码配置 %s 失败: %w", defaults[i].Key, err)
+			}
+		}
+		return nil
+	})
+}
+
 // InitDefaultUsers 初始化默认用户
 func (s *AuthService) InitDefaultUsers() error {
 	// 检查是否已有用户
