@@ -426,12 +426,17 @@ func (s *AuthService) collectRoleNames(user *model.User) ([]string, error) {
 		}
 	}
 
-	roleNames := make([]string, 0, len(roleIDSet))
+	// 批量查询角色（消除 N+1 查询）
+	roleIDs := make([]uint, 0, len(roleIDSet))
 	for roleID := range roleIDSet {
-		role, err := s.roleRepo.GetByID(roleID)
-		if err != nil {
-			continue
-		}
+		roleIDs = append(roleIDs, roleID)
+	}
+	roles, err := s.roleRepo.GetByIDs(roleIDs)
+	if err != nil {
+		return nil, err
+	}
+	roleNames := make([]string, 0, len(roles))
+	for _, role := range roles {
 		roleNames = append(roleNames, role.Name)
 	}
 	return roleNames, nil
@@ -511,13 +516,18 @@ func (s *AuthService) loadPermissionCodesFromDB(userID uint) ([]string, error) {
 		}
 	}
 
-	// 3. 收集所有权限码（去重），统一使用 JSON 数组 + 逗号分隔双兼容
-	codeSet := make(map[string]bool)
+	// 3. 批量查询角色并收集所有权限码（去重），消除 N+1 查询
+	roleIDs := make([]uint, 0, len(roleIDSet))
 	for roleID := range roleIDSet {
-		role, err := s.roleRepo.GetByID(roleID)
-		if err != nil {
-			continue
-		}
+		roleIDs = append(roleIDs, roleID)
+	}
+	roles, err := s.roleRepo.GetByIDs(roleIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	codeSet := make(map[string]bool)
+	for _, role := range roles {
 		if role.Permissions == "" {
 			continue
 		}
@@ -576,13 +586,17 @@ func (s *AuthService) GetUserInfo(userID uint) (*LoginResponse, error) {
 		}
 	}
 
-	// 3. 收集所有角色名称
-	roleNames := make([]string, 0, len(roleIDSet))
+	// 3. 批量查询角色并收集所有角色名称（消除 N+1 查询）
+	roleIDs := make([]uint, 0, len(roleIDSet))
 	for roleID := range roleIDSet {
-		role, err := s.roleRepo.GetByID(roleID)
-		if err != nil {
-			continue
-		}
+		roleIDs = append(roleIDs, roleID)
+	}
+	roles, err := s.roleRepo.GetByIDs(roleIDs)
+	if err != nil {
+		return nil, err
+	}
+	roleNames := make([]string, 0, len(roles))
+	for _, role := range roles {
 		roleNames = append(roleNames, role.Name)
 	}
 

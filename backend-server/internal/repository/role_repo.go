@@ -79,6 +79,18 @@ func (r *RoleRepo) GetByName(name string) (*model.Role, error) {
 	return &role, nil
 }
 
+// GetByIDs 批量根据 ID 列表获取角色（消除 N+1 查询）
+func (r *RoleRepo) GetByIDs(ids []uint) ([]model.Role, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	var roles []model.Role
+	if err := r.db.Where("id IN ?", ids).Find(&roles).Error; err != nil {
+		return nil, err
+	}
+	return roles, nil
+}
+
 // Create 创建角色
 func (r *RoleRepo) Create(role *model.Role) error {
 	return r.db.Create(role).Error
