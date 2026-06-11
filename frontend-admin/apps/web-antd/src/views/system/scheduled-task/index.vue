@@ -27,15 +27,16 @@ import {
   updateScheduledTask,
   updateScheduledTaskEnabled,
 } from '#/api/system/scheduled-task';
-import type { ScheduledTask } from '#/api/system/scheduled-task';
+import type { ScheduledTask, TaskConfig } from '#/api/system/scheduled-task';
 
 defineOptions({ name: 'SystemScheduledTask' });
 
 /**
- * 将 Table bodyCell slot 中的 Record<string, any> 安全转换为 ScheduledTask
- * bodyCell 的 record 类型为 Record<string, any>，需要类型收窄到具体类型
+ * 将 Table bodyCell slot 中的 record 安全转换为 ScheduledTask
+ * ant-design-vue 的 bodyCell slot 将 record 类型定义为 Record<string, any>，
+ * 实际运行时 record 即为 ScheduledTask 实例，此处通过 unknown 做安全类型收窄
  */
-function toTask(record: Record<string, any>): ScheduledTask {
+function toTask(record: Record<string, unknown>): ScheduledTask {
   return record as unknown as ScheduledTask;
 }
 
@@ -89,7 +90,7 @@ const columns: ColumnType<ScheduledTask>[] = [
     title: '配置',
     dataIndex: 'config',
     width: 200,
-    customRender: ({ text }: { text: Record<string, any> }) => {
+    customRender: ({ text }: { text: TaskConfig }) => {
       if (!text) return '-';
       const parts = [];
       if (text.retention_days !== undefined)

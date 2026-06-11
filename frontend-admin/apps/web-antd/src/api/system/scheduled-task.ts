@@ -1,12 +1,18 @@
 import { requestClient } from '#/api/request';
 
+/** 定时任务配置 */
+export interface TaskConfig {
+  /** 回收站清理保留天数 */
+  retention_days?: number;
+}
+
 /** 定时任务 */
 export interface ScheduledTask {
   id: number;
   name: string;
   taskType: string;
   cronExpr: string;
-  config: Record<string, any>;
+  config: TaskConfig;
   enabled: boolean;
   status: string;
   lastRunAt?: string;
@@ -27,7 +33,7 @@ export function createScheduledTask(data: {
   name: string;
   taskType: string;
   cronExpr: string;
-  config?: Record<string, any>;
+  config?: TaskConfig;
 }) {
   return requestClient.post<ScheduledTask>('/system/scheduled-tasks', data);
 }
@@ -41,7 +47,7 @@ export function getScheduledTaskById(id: number) {
 export function updateScheduledTask(id: number, data: {
   name: string;
   cronExpr: string;
-  config?: Record<string, any>;
+  config?: TaskConfig;
   enabled?: boolean;
 }) {
   return requestClient.put(`/system/scheduled-tasks/${id}`, data);
