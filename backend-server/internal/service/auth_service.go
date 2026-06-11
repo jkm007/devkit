@@ -1012,25 +1012,13 @@ func (s *AuthService) Register(req *RegisterRequest, ip, userAgent string) (uint
 		return 0, errors.New("验证码错误")
 	}
 
-	// 检查用户名是否已存在
-	existingUser, _ := s.userRepo.GetByUsername(req.Username)
-	if existingUser != nil && existingUser.ID > 0 {
-		return 0, errors.New("用户名已存在")
-	}
-
-	// 检查邮箱是否已存在（一个邮箱只能注册一个账号）
-	existingByEmail, _ := s.userRepo.GetByEmail(req.Email)
-	if existingByEmail != nil && existingByEmail.ID > 0 {
-		return 0, errors.New("该邮箱已被注册，一个邮箱只能绑定一个账号")
-	}
-
 	// 加密密码
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return 0, fmt.Errorf("密码加密失败: %w", err)
 	}
 
-	// 创建用户（事务保护：用户创建 + 角色分配必须原子）
+	// 创建用户（事务保护：用户名/邮箱唯一性检查 + 用户创建 + 角色分配必须原子）
 	user := &model.User{
 		Name:     req.Username,
 		Email:    req.Email,
@@ -1041,6 +1029,22 @@ func (s *AuthService) Register(req *RegisterRequest, ip, userAgent string) (uint
 
 	db := database.GetMySQL()
 	err = db.Transaction(func(tx *gorm.DB) error {
+		// 在事务内检查用户名是否已存在（避免并发注册导致的 TOCTOU 竞态）
+		var existingUser model.User
+		if err := tx.Where("name = ?", req.Username).First(&existingUser).Error; err == nil {
+			return errors.New("用户名已存在")
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("检查用户名失败: %w", err)
+		}
+
+		// 在事务内检查邮箱是否已存在（一个邮箱只能注册一个账号）
+		var existingByEmail model.User
+		if err := tx.Where("email = ?", req.Email).First(&existingByEmail).Error; err == nil {
+			return errors.New("该邮箱已被注册，一个邮箱只能绑定一个账号")
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("检查邮箱失败: %w", err)
+		}
+
 		// 创建用户
 		if err := tx.Create(user).Error; err != nil {
 			return fmt.Errorf("创建用户失败: %w", err)
