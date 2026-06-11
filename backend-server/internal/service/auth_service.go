@@ -616,7 +616,10 @@ func (s *AuthService) loadPermissionCodesFromDB(userID uint) ([]string, error) {
 		if len(cleanPerms) >= 3 && cleanPerms[0] == 0xEF && cleanPerms[1] == 0xBB && cleanPerms[2] == 0xBF {
 			cleanPerms = cleanPerms[3:]
 		}
+		// 调试日志：打印原始数据长度
+		fmt.Printf("[auth] 解析角色权限: role=%s, raw_len=%d, clean_len=%d\n", role.Name, len(role.Permissions), len(cleanPerms))
 		if err := json.Unmarshal([]byte(cleanPerms), &codes); err == nil {
+			fmt.Printf("[auth] JSON 解析成功: codes_count=%d, 前10个=%v\n", len(codes), codes[:min(10, len(codes))])
 			for _, code := range codes {
 				codeSet[code] = true
 			}
@@ -640,6 +643,7 @@ func (s *AuthService) loadPermissionCodesFromDB(userID uint) ([]string, error) {
 		permissionCodes = append(permissionCodes, code)
 	}
 
+	fmt.Printf("[auth] 权限码加载完成: total_unique_codes=%d\n", len(permissionCodes))
 	return permissionCodes, nil
 }
 
