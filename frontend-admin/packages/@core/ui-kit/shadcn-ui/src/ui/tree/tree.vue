@@ -233,106 +233,40 @@ function onSelect(item: FlattenedItem<Recordable<any>>, isSelected: boolean) {
     return;
   }
 
-  // check-strictly 模式：点击父节点时向下传播到所有叶子节点
+  // check-strictly 模式：手动处理选中/取消
   if (props.checkStrictly && props.multiple && Array.isArray(modelValue.value)) {
     const nodeKey = get(item.value, props.valueField);
     const leaves = getNodeLeafKeys(nodeKey);
-    if (leaves.length > 0) {
-      const allSelected = leaves.every((leaf) =>
-        (modelValue.value as unknown[]).includes(leaf),
-      );
+
+    if (leaves.length > 1) {
+      // 父节点：向下传播到所有叶子
+      const selectedSet = new Set(modelValue.value as unknown[]);
+      const allSelected = leaves.every((leaf) => selectedSet.has(leaf));
       if (allSelected) {
-        // 全选 → 取消所有叶子，同时移除父节点 key
         modelValue.value = (modelValue.value as unknown[]).filter(
           (v) => !leaves.includes(v) && v !== nodeKey,
         );
       } else {
-        // 未全选 → 添加所有叶子，移除父节点 key（状态由计算得出）
         const set = new Set(
           (modelValue.value as unknown[]).filter((v) => v !== nodeKey),
         );
         leaves.forEach((leaf) => set.add(leaf));
         modelValue.value = [...set];
       }
-      updateTreeValue();
-      emits('select', item);
-      return;
-    }
-  }
-
-  if (
-    !props.checkStrictly &&
-    props.multiple &&
-    props.autoCheckParent &&
-    isSelected
-  ) {
-    flattenData.value
-      .find((i) => {
-        return (
-          get(i.value, props.valueField) === get(item.value, props.valueField)
+    } else {
+      // 叶子节点：切换自身选中状态
+      const idx = (modelValue.value as unknown[]).indexOf(nodeKey);
+      if (idx !== -1) {
+        modelValue.value = (modelValue.value as unknown[]).filter(
+          (v) => v !== nodeKey,
         );
-      })
-      ?.parents?.filter((item) => !get(item, props.disabledField))
-      ?.forEach((p) => {
-        if (Array.isArray(modelValue.value) && !modelValue.value.includes(p)) {
-          modelValue.value.push(p);
-        }
-      });
-  }
-  if (
-    !props.checkStrictly &&
-    props.multiple &&
-    props.autoCheckParent &&
-    !isSelected
-  ) {
-    flattenData.value
-      .find((i) => {
-        return (
-          get(i.value, props.valueField) === get(item.value, props.valueField)
-        );
-      })
-      ?.parents?.filter((item) => !get(item, props.disabledField))
-      ?.toReversed()
-      .forEach((p) => {
-        const children = flattenData.value.filter((i) => {
-          return (
-            i.parents.length > 0 &&
-            i.parents.includes(p) &&
-            i.id !== item._id &&
-            i.parentId === p
-          );
-        });
-        if (Array.isArray(modelValue.value)) {
-          const hasSelectedChild = children.some((child) =>
-            (modelValue.value as unknown[]).includes(
-              get(child.value, props.valueField),
-            ),
-          );
-          if (!hasSelectedChild) {
-            const index = modelValue.value.indexOf(p);
-            if (index !== -1) {
-              modelValue.value.splice(index, 1);
-            }
-          }
-        }
-      });
-  }
-
-  // 移除 modelValue 中的父节点 key（父节点状态由 isNodeAllSelected/isNodeIndeterminate 计算）
-  if (props.checkStrictly && props.multiple && Array.isArray(modelValue.value)) {
-    const nodeKey = get(item.value, props.valueField);
-    const leaves = getNodeLeafKeys(nodeKey);
-    if (leaves.length === 0) {
-      // 当前是叶子节点，移除其所有祖先 key
-      const parents = item.parents || [];
-      for (const p of parents) {
-        const parentKey = get(p, props.valueField);
-        const idx = (modelValue.value as unknown[]).indexOf(parentKey);
-        if (idx !== -1) {
-          (modelValue.value as unknown[]).splice(idx, 1);
-        }
+      } else {
+        modelValue.value = [...(modelValue.value as unknown[]), nodeKey];
       }
     }
+    updateTreeValue();
+    emits('select', item);
+    return;
   }
 
   updateTreeValue();
