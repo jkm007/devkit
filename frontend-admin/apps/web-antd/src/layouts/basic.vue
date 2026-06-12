@@ -88,13 +88,6 @@ const showDot = computed(() =>
 const menus = computed(() => [
   {
     handler: () => {
-      router.push({ name: 'AccountIndex' });
-    },
-    icon: 'lucide:user',
-    text: $t('page.auth.profile'),
-  },
-  {
-    handler: () => {
       openWindow(VBEN_DOC_URL, {
         target: '_blank',
       });
