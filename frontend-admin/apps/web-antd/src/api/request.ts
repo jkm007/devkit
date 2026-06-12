@@ -22,17 +22,6 @@ import { getDeviceId } from '#/utils/device-id';
 import { showCaptchaVerify } from '#/utils/captcha-verify';
 import { refreshTokenApi } from './core';
 
-/**
- * 登录页面自己的 CaptchaModal 是否正在显示
- * 由 login.vue 设置，request.ts 的 403001 拦截器检查
- * 当为 true 时，拦截器跳过全局弹窗，由 login.vue 自行处理
- */
-export let loginCaptchaModalActive = false;
-
-export function setLoginCaptchaModalActive(active: boolean) {
-  loginCaptchaModalActive = active;
-}
-
 const { apiURL } = useAppConfig(import.meta.env, import.meta.env.PROD);
 
 /**
@@ -139,19 +128,18 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
     fulfilled: async (response: any) => {
       const data = response?.data;
       if (data?.code === 403001) {
-        // 登录页面有自己的 CaptchaModal 正在显示时，通知 CaptchaModal 刷新
-        if (loginCaptchaModalActive) {
-          window.dispatchEvent(
-            new CustomEvent('captcha:login-verify-error', {
-              detail: { message: data?.message || '验证码错误，请重试' },
-            }),
-          );
-          // 拒绝请求，__captchaError 标记让 errorMessageResponseInterceptor 跳过提示
-          const err: any = new Error(data?.message || '验证码错误');
-          err.__captchaError = true;
-          err.data = data;
-          err.response = response;
-          throw err;
+        // 登录/注册/找回密码等页面有自己的验证码流程，直接放行让页面处理
+        const url = response.config.url || '';
+        const isAuthPage =
+          url.includes('/auth/login') ||
+          url.includes('/auth/login-by-email') ||
+          url.includes('/auth/login-by-phone') ||
+          url.includes('/auth/register') ||
+          url.includes('/auth/forget-password') ||
+          url.includes('/auth/send-code') ||
+          url.includes('/auth/send-sms-code');
+        if (isAuthPage) {
+          return response;
         }
         try {
           // 从后端响应中读取指定的验证码类型（随机类型）
@@ -254,10 +242,10 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
   client.addResponseInterceptor(
     errorMessageResponseInterceptor((msg: string, error) => {
       // 403001 验证码错误由页面自行处理，不显示全局错误提示
-      if (error?.__captchaError) return;
+      const responseData = error?.response?.data ?? {};
+      if (responseData?.code === 403001) return;
       // 这里可以根据业务进行定制,你可以拿到 error 内的信息进行定制化处理，根据不同的 code 做不同的提示，而不是直接使用 message.error 提示 msg
       // 当前mock接口返回的错误字段是 error 或者 message
-      const responseData = error?.response?.data ?? {};
       const errorMessage = responseData?.error ?? responseData?.message ?? '';
       // 如果没有错误信息，则会根据状态码进行提示
       message.error(errorMessage || msg);

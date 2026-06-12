@@ -17,7 +17,6 @@ import { message } from 'ant-design-vue';
 
 import { getOAuthUrl } from '#/api/core/auth';
 import { getCaptcha, getPublicSettings } from '#/api/system/settings';
-import { setLoginCaptchaModalActive } from '#/api/request';
 import { useAuthStore } from '#/store';
 
 // 动态导入验证码组件，避免影响其他 authentication 页面
@@ -245,6 +244,14 @@ const formSchema = computed((): VbenFormSchema[] => {
   return schema;
 });
 
+// ==================== 辅助函数 ====================
+// 重置验证码相关状态
+function resetCaptchaState() {
+  captchaVerified.value = false;
+  captchaResult.value = null;
+  pendingLoginParams.value = null;
+}
+
 // ==================== 登录 ====================
 // 执行登录（带验证码数据）
 function doLogin(
@@ -277,9 +284,10 @@ function doLogin(
   authStore.authLogin(loginParams).then((result: any) => {
     if (!result?.userInfo) {
       loginFailCount.value++;
-      // 登录失败，重置验证码状态
-      captchaVerified.value = false;
-      captchaResult.value = null;
+      resetCaptchaState();
+
+      // 关闭弹窗，下次重新打开
+      captchaModalVisible.value = false;
 
       // 数字验证码需要重新获取
       if (isNumericCaptcha.value && shouldShowCaptcha.value) {
@@ -288,24 +296,18 @@ function doLogin(
     } else {
       // 登录成功，关闭弹窗
       captchaModalVisible.value = false;
-      setLoginCaptchaModalActive(false);
+      resetCaptchaState();
     }
   }).catch((error: any) => {
-    // 检查是否是 403001 验证码错误（authLogin 会重新抛出）
+    // 403001 验证码错误：关闭弹窗，显示错误，下次重新打开
     const responseData = error?.data || error?.response?.data;
     if (responseData?.code === 403001) {
-      // 验证码错误：事件处理器 captcha:login-verify-error 已处理弹窗刷新
-      // 这里只重置登录状态，不重复操作 verifyResult
-      captchaVerified.value = false;
-      captchaResult.value = null;
-    } else {
-      // 其他错误，关闭弹窗
-      captchaModalVisible.value = false;
-      setLoginCaptchaModalActive(false);
-      loginFailCount.value++;
-      captchaVerified.value = false;
-      captchaResult.value = null;
+      message.error(responseData?.message || '验证码错误，请重试');
     }
+    // 所有错误都关闭弹窗并重置状态
+    captchaModalVisible.value = false;
+    loginFailCount.value++;
+    resetCaptchaState();
   });
 }
 
@@ -335,7 +337,6 @@ function handleSubmit(params: Record<string, any>) {
     // 未验证，弹出验证框，保存登录参数待验证成功后继续
     pendingLoginParams.value = params;
     captchaModalVisible.value = true;
-    setLoginCaptchaModalActive(true);
   }
 }
 

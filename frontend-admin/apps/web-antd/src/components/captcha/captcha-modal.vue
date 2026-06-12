@@ -6,7 +6,7 @@
  * 公开模式 (public=true)：用于登录等未认证场景，只获取图片，不验证
  * 私有模式 (public=false)：用于已认证场景（如系统设置测试），自动验证
  */
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import { Modal } from 'ant-design-vue';
 
@@ -50,7 +50,6 @@ const emit = defineEmits<{
 // ==================== 状态 ====================
 const loading = ref(false);
 const verifying = ref(false);
-const pending = ref(false); // 等待后端验证
 const errorMsg = ref(''); // 错误提示
 const captchaId = ref('');
 const captchaImage = ref('');
@@ -92,7 +91,6 @@ async function loadCaptcha() {
   if (!props.visible) return;
 
   loading.value = true;
-  pending.value = false;
   errorMsg.value = '';
   captchaResult.value = null;
   resetState();
@@ -146,10 +144,9 @@ async function handleCaptchaSuccess(data: {
   captchaId: string;
   startTime?: number;
 }) {
-  // 公开模式：返回验证数据，等待父组件确认后再关闭
-  // startTime 使用用户完成验证的时间（Date.now()），用于后端检测操作耗时
+  // 公开模式：直接返回验证数据给父组件，不设 pending 状态
+  // 父组件负责关闭弹窗或处理错误
   if (props.public) {
-    pending.value = true;
     errorMsg.value = '';
     emit('success', {
       captchaId: captchaId.value,
@@ -227,38 +224,20 @@ watch(
   },
 );
 
-// 监听验证结果
+// 监听验证结果（用于 API 拦截器的全局验证码弹窗场景）
 watch(
   () => props.verifyResult,
   (val) => {
     if (val === true) {
       // 验证成功：关闭弹窗
-      pending.value = false;
       modalVisible.value = false;
     } else if (val === false) {
-      // 验证失败：显示错误，刷新验证码，重置 pending 状态
-      pending.value = false;
+      // 验证失败：显示错误，刷新验证码
       errorMsg.value = props.verifyMessage || '验证码错误，请重试';
       loadCaptcha();
     }
   },
 );
-
-// 直接监听验证码错误事件（由 request.ts 的 403001 拦截器触发）
-function handleVerifyError(event: Event) {
-  const detail = (event as CustomEvent)?.detail;
-  pending.value = false;
-  errorMsg.value = detail?.message || '验证码错误，请重试';
-  loadCaptcha();
-}
-
-onMounted(() => {
-  window.addEventListener('captcha:login-verify-error', handleVerifyError as EventListener);
-});
-
-onUnmounted(() => {
-  window.removeEventListener('captcha:login-verify-error', handleVerifyError as EventListener);
-});
 </script>
 
 <template>
@@ -332,11 +311,6 @@ onUnmounted(() => {
         <span class="text-sm font-medium text-red-500">
           {{ errorMsg }}
         </span>
-      </div>
-
-      <!-- 验证中提示 -->
-      <div v-if="pending" class="mt-3 text-center">
-        <span class="text-sm text-blue-500">验证中...</span>
       </div>
 
       <!-- 验证结果提示（私有模式才显示） -->
