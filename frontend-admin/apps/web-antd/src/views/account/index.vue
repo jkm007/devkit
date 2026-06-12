@@ -13,6 +13,7 @@ import OauthTab from './modules/oauth.vue';
 import ProfileTab from './modules/profile.vue';
 import SecurityTab from './modules/security.vue';
 import PrivacyTab from './modules/privacy.vue';
+import RealNameTab from './modules/real-name.vue';
 
 const activeKey = ref<string[]>(['profile']);
 const userInfo = ref<AccountApi.UserInfo>({} as AccountApi.UserInfo);
@@ -21,15 +22,24 @@ const menuItems = computed(() => [
   { key: 'profile', label: $t('account.profile.title'), icon: 'lucide:user' },
   {
     key: 'security',
-    label: $t('account.security.changePassword'),
-    icon: 'lucide:shield',
+    label: $t('account.security.loginDevices'),
+    icon: 'lucide:monitor',
   },
   {
     key: 'oauth',
     label: $t('account.security.oauthBindings'),
     icon: 'lucide:link',
   },
-  { key: 'privacy', label: $t('account.privacy.title'), icon: 'lucide:lock' },
+  {
+    key: 'privacy',
+    label: $t('account.privacy.privacySettings'),
+    icon: 'lucide:shield',
+  },
+  {
+    key: 'realName',
+    label: $t('account.privacy.realName'),
+    icon: 'lucide:fingerprint',
+  },
 ]);
 
 async function loadUserInfo() {
@@ -101,6 +111,7 @@ onMounted(() => {
         <SecurityTab v-else-if="activeKey[0] === 'security'" />
         <OauthTab v-else-if="activeKey[0] === 'oauth'" />
         <PrivacyTab v-else-if="activeKey[0] === 'privacy'" />
+        <RealNameTab v-else-if="activeKey[0] === 'realName'" />
       </Card>
     </div>
   </Page>
