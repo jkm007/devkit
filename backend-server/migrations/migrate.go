@@ -40,5 +40,9 @@ func Run(db *gorm.DB) error {
 		&model.ScheduledTask{},
 		&model.Notification{},
 		&model.NotificationRead{},
+		&model.ExamCategory{},
+		&model.Exam{},
+		&model.Subject{},
+		&model.Category{},
 	)
 }

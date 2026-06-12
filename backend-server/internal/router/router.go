@@ -130,6 +130,12 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	// WebSocket 连接（独立于 JWT 中间件，自行从 query 参数验证 token）
 	apiV1.GET("/ws", wsHandler.Handle)
 
+	// 题库管理处理器
+	examCategoryHandler := handler.NewExamCategoryHandler()
+	examHandler := handler.NewExamHandler()
+	subjectHandler := handler.NewSubjectHandler()
+	questionCategoryHandler := handler.NewQuestionCategoryHandler()
+
 	// 需要认证的接口
 	authorized := apiV1.Group("")
 	authorized.Use(middleware.JWTAuth())
@@ -386,6 +392,39 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 			// 通知公告管理（管理员）
 			system.GET("/notifications", middleware.Permission("system:notification:view"), notificationHandler.AdminList)
 			system.POST("/notifications/announcement", middleware.Permission("system:notification:publish"), notificationHandler.PublishAnnouncement)
+
+			// 题库管理 - 分类科目
+			// 考试大类
+			system.GET("/exam-categories", middleware.Permission("question:category"), examCategoryHandler.List)
+			system.GET("/exam-categories/all", middleware.Permission("question:category"), examCategoryHandler.GetAll)
+			system.GET("/exam-categories/:id", middleware.Permission("question:category"), examCategoryHandler.GetDetail)
+			system.POST("/exam-categories", middleware.Permission("question:category:add"), examCategoryHandler.Create)
+			system.PUT("/exam-categories/:id", middleware.Permission("question:category:edit"), examCategoryHandler.Update)
+			system.DELETE("/exam-categories/:id", middleware.Permission("question:category:delete"), examCategoryHandler.Delete)
+
+			// 具体考试
+			system.GET("/exams", middleware.Permission("question:category"), examHandler.List)
+			system.GET("/exams/all", middleware.Permission("question:category"), examHandler.GetAll)
+			system.GET("/exams/:id", middleware.Permission("question:category"), examHandler.GetDetail)
+			system.POST("/exams", middleware.Permission("question:exam:manage"), examHandler.Create)
+			system.PUT("/exams/:id", middleware.Permission("question:exam:manage"), examHandler.Update)
+			system.DELETE("/exams/:id", middleware.Permission("question:exam:manage"), examHandler.Delete)
+
+			// 科目
+			system.GET("/subjects", middleware.Permission("question:category"), subjectHandler.List)
+			system.GET("/subjects/all", middleware.Permission("question:category"), subjectHandler.GetAll)
+			system.GET("/subjects/:id", middleware.Permission("question:category"), subjectHandler.GetDetail)
+			system.POST("/subjects", middleware.Permission("question:subject:manage"), subjectHandler.Create)
+			system.PUT("/subjects/:id", middleware.Permission("question:subject:manage"), subjectHandler.Update)
+			system.DELETE("/subjects/:id", middleware.Permission("question:subject:manage"), subjectHandler.Delete)
+
+			// 章节分类
+			system.GET("/question-categories", middleware.Permission("question:category"), questionCategoryHandler.List)
+			system.GET("/question-categories/all", middleware.Permission("question:category"), questionCategoryHandler.GetAll)
+			system.GET("/question-categories/:id", middleware.Permission("question:category"), questionCategoryHandler.GetDetail)
+			system.POST("/question-categories", middleware.Permission("question:category:add"), questionCategoryHandler.Create)
+			system.PUT("/question-categories/:id", middleware.Permission("question:category:edit"), questionCategoryHandler.Update)
+			system.DELETE("/question-categories/:id", middleware.Permission("question:category:delete"), questionCategoryHandler.Delete)
 
 			// 定时任务管理
 			system.GET("/scheduled-tasks", middleware.Permission("system:task:view"), scheduledTaskHandler.List)
