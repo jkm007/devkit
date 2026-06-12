@@ -5,7 +5,8 @@ import { computed, onMounted, ref } from 'vue';
 
 import {
   Button,
-  InputPassword,
+  Card,
+  Empty,
   message,
   Popconfirm,
   Select,
@@ -15,68 +16,12 @@ import {
 } from 'ant-design-vue';
 
 import {
-  changePassword,
   getLoginDevices,
   kickAllOtherDevices,
   kickDevice,
 } from '#/api';
 import { $t } from '#/locales';
 import { getDeviceId } from '#/utils/device-id';
-import { showCaptchaVerify } from '#/utils/captcha-verify';
-
-// ==================== 修改密码 ====================
-const passwordForm = ref({
-  oldPassword: '',
-  newPassword: '',
-  confirmPassword: '',
-});
-const changingPassword = ref(false);
-
-async function handleChangePassword() {
-  if (!passwordForm.value.oldPassword?.trim()) {
-    message.warning('请输入当前密码');
-    return;
-  }
-  if (!passwordForm.value.newPassword?.trim()) {
-    message.warning('请输入新密码');
-    return;
-  }
-  if (!passwordForm.value.confirmPassword?.trim()) {
-    message.warning('请输入确认密码');
-    return;
-  }
-  if (passwordForm.value.newPassword !== passwordForm.value.confirmPassword) {
-    message.warning($t('account.security.passwordMismatch'));
-    return;
-  }
-
-  // 先弹验证码
-  let captchaResult: { captchaId: string; captchaCode: string };
-  try {
-    captchaResult = await showCaptchaVerify();
-  } catch {
-    return; // 用户取消
-  }
-
-  changingPassword.value = true;
-  try {
-    await changePassword({
-      ...passwordForm.value,
-      captchaId: captchaResult.captchaId,
-      captchaCode: captchaResult.captchaCode,
-    });
-    message.success($t('account.security.changePasswordSuccess'));
-    passwordForm.value = {
-      oldPassword: '',
-      newPassword: '',
-      confirmPassword: '',
-    };
-  } catch {
-    message.error('密码修改失败');
-  } finally {
-    changingPassword.value = false;
-  }
-}
 
 // ==================== 登录设备 ====================
 const devices = ref<AccountApi.LoginDevice[]>([]);
@@ -84,7 +29,6 @@ const loadingDevices = ref(false);
 const currentDeviceId = getDeviceId();
 const deviceTypeFilter = ref<AccountApi.DeviceType | undefined>();
 
-// 前端判断是否是当前设备（用 localStorage 中的设备ID比对）
 function isCurrentDevice(device: AccountApi.LoginDevice): boolean {
   return device.deviceId === currentDeviceId;
 }
@@ -200,101 +144,74 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="space-y-8">
-    <!-- 修改密码 -->
-    <div>
-      <h3 class="mb-4 text-base font-medium">
-        {{ $t('account.security.changePassword') }}
-      </h3>
-      <div class="max-w-md">
-        <div class="mb-3">
-          <label class="mb-1 block text-sm">{{
-            $t('account.security.oldPassword')
-          }}</label>
-          <InputPassword
-            v-model:value="passwordForm.oldPassword"
-            :placeholder="$t('account.security.oldPassword')"
-          />
-        </div>
-        <div class="mb-3">
-          <label class="mb-1 block text-sm">{{
-            $t('account.security.newPassword')
-          }}</label>
-          <InputPassword
-            v-model:value="passwordForm.newPassword"
-            :placeholder="$t('account.security.newPassword')"
-          />
-        </div>
-        <div class="mb-3">
-          <label class="mb-1 block text-sm">{{
-            $t('account.security.confirmPassword')
-          }}</label>
-          <InputPassword
-            v-model:value="passwordForm.confirmPassword"
-            :placeholder="$t('account.security.confirmPassword')"
-          />
-        </div>
-        <Button
-          type="primary"
-          :loading="changingPassword"
-          @click="handleChangePassword"
+  <div>
+    <!-- 标题 & 操作栏 -->
+    <div class="mb-4 flex items-center justify-between">
+      <div>
+        <h3 class="text-base font-medium">
+          {{ $t('account.security.loginDevices') }}
+        </h3>
+        <p class="text-foreground/50 mt-1 text-xs">
+          {{ $t('account.security.deviceCount', [devices.length]) }}
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <Select
+          v-model:value="deviceTypeFilter"
+          allow-clear
+          placeholder="全部设备"
+          size="small"
+          style="width: 120px"
+          @change="loadDevices"
         >
-          {{ $t('account.security.changePasswordBtn') }}
-        </Button>
+          <SelectOption value="web">Web</SelectOption>
+          <SelectOption value="h5">H5</SelectOption>
+          <SelectOption value="app">App</SelectOption>
+          <SelectOption value="miniapp">小程序</SelectOption>
+        </Select>
+        <Popconfirm
+          v-if="devices.length > 1"
+          :title="$t('account.security.kickAllOthersConfirm')"
+          @confirm="handleKickAllOthers"
+        >
+          <Button danger size="small">
+            {{ $t('account.security.kickAllOthers') }}
+          </Button>
+        </Popconfirm>
       </div>
     </div>
 
-    <!-- 登录设备管理 -->
-    <div>
-      <div class="mb-4 flex items-center justify-between">
-        <div>
-          <h3 class="text-base font-medium">
-            {{ $t('account.security.loginDevices') }}
-          </h3>
-          <p class="text-foreground/50 mt-1 text-xs">
-            {{ $t('account.security.deviceCount', [devices.length]) }}
-          </p>
-        </div>
-        <div class="flex items-center gap-2">
-          <Select
-            v-model:value="deviceTypeFilter"
-            allow-clear
-            placeholder="全部设备"
-            size="small"
-            style="width: 120px"
-            @change="loadDevices"
-          >
-            <SelectOption value="web">Web</SelectOption>
-            <SelectOption value="h5">H5</SelectOption>
-            <SelectOption value="app">App</SelectOption>
-            <SelectOption value="miniapp">小程序</SelectOption>
-          </Select>
-          <Popconfirm
-            v-if="devices.length > 1"
-            :title="$t('account.security.kickAllOthersConfirm')"
-            @confirm="handleKickAllOthers"
-          >
-            <Button danger size="small">
-              {{ $t('account.security.kickAllOthers') }}
-            </Button>
-          </Popconfirm>
-        </div>
-      </div>
+    <!-- 设备列表 -->
+    <div v-loading="loadingDevices">
+      <!-- 空状态 -->
+      <Empty
+        v-if="!loadingDevices && devices.length === 0"
+        :description="$t('account.security.noDevices')"
+        class="py-12"
+      />
 
-      <div v-loading="loadingDevices" class="space-y-3">
-        <div
+      <!-- 设备卡片网格 -->
+      <div
+        v-else
+        class="grid grid-cols-1 gap-4 md:grid-cols-2"
+      >
+        <Card
           v-for="device in sortedDevices"
           :key="device.id"
-          class="border-border/60 hover:border-primary/40 rounded-lg border p-4 transition-colors"
+          size="small"
+          :bordered="true"
           :class="
-            isCurrentDevice(device) ? 'border-primary/30 bg-primary/2' : ''
+            isCurrentDevice(device)
+              ? 'border-primary shadow-sm'
+              : 'border-border/60 hover:border-primary/40'
           "
+          class="transition-colors"
         >
           <div class="flex items-start justify-between">
             <div class="flex items-start gap-3">
               <!-- 设备图标 -->
               <div
-                class="flex h-10 w-10 items-center justify-center rounded-lg text-lg"
+                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-lg"
                 :class="
                   isCurrentDevice(device)
                     ? 'bg-primary/10'
@@ -304,8 +221,8 @@ onMounted(() => {
                 {{ getBrowserIcon(device.browser) }}
               </div>
               <!-- 设备信息 -->
-              <div>
-                <div class="flex items-center gap-2">
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-1.5">
                   <span class="text-sm font-medium">{{
                     device.deviceName
                   }}</span>
@@ -321,7 +238,7 @@ onMounted(() => {
                   </Tag>
                 </div>
                 <div
-                  class="text-foreground/60 mt-1 flex items-center gap-3 text-xs"
+                  class="text-foreground/60 mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs"
                 >
                   <span class="flex items-center gap-1">
                     {{ getBrowserIcon(device.browser) }} {{ device.browser }}
@@ -338,7 +255,7 @@ onMounted(() => {
                     device.appVersion ||
                     device.channel
                   "
-                  class="text-foreground/50 mt-1 flex flex-wrap items-center gap-3 text-xs"
+                  class="text-foreground/50 mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs"
                 >
                   <span v-if="device.deviceModel">📱 {{ device.deviceModel }}</span>
                   <span v-if="device.systemVersion">⚙️ {{ device.systemVersion }}</span>
@@ -346,7 +263,7 @@ onMounted(() => {
                   <span v-if="device.channel">📦 {{ device.channel }}</span>
                 </div>
                 <div
-                  class="text-foreground/40 mt-1 flex items-center gap-3 text-xs"
+                  class="text-foreground/40 mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs"
                 >
                   <Tooltip
                     v-if="device.lastActiveAt"
@@ -370,15 +287,7 @@ onMounted(() => {
               </Button>
             </Popconfirm>
           </div>
-        </div>
-
-        <!-- 空状态 -->
-        <div
-          v-if="!loadingDevices && devices.length === 0"
-          class="text-foreground/40 py-8 text-center text-sm"
-        >
-          {{ $t('account.security.noDevices') }}
-        </div>
+        </Card>
       </div>
     </div>
   </div>
