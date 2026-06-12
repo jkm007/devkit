@@ -11,10 +11,8 @@ import { $t } from '#/locales';
 
 import OauthTab from './modules/oauth.vue';
 import ProfileTab from './modules/profile.vue';
-import SecurityLogTab from './modules/security-log.vue';
 import SecurityTab from './modules/security.vue';
 import PrivacyTab from './modules/privacy.vue';
-import RoleApplicationTab from './modules/role-application.vue';
 
 const activeKey = ref<string[]>(['profile']);
 const userInfo = ref<AccountApi.UserInfo>({} as AccountApi.UserInfo);
@@ -31,13 +29,7 @@ const menuItems = computed(() => [
     label: $t('account.security.oauthBindings'),
     icon: 'lucide:link',
   },
-  {
-    key: 'securityLog',
-    label: $t('account.security.securityLogs'),
-    icon: 'lucide:file-text',
-  },
   { key: 'privacy', label: $t('account.privacy.title'), icon: 'lucide:lock' },
-  { key: 'roleApplication', label: '角色申请', icon: 'lucide:user-plus' },
 ]);
 
 async function loadUserInfo() {
@@ -93,9 +85,7 @@ onMounted(() => {
         <ProfileTab v-if="activeKey[0] === 'profile'" />
         <SecurityTab v-else-if="activeKey[0] === 'security'" />
         <OauthTab v-else-if="activeKey[0] === 'oauth'" />
-        <SecurityLogTab v-else-if="activeKey[0] === 'securityLog'" />
         <PrivacyTab v-else-if="activeKey[0] === 'privacy'" />
-        <RoleApplicationTab v-else-if="activeKey[0] === 'roleApplication'" />
       </Card>
     </div>
   </Page>
