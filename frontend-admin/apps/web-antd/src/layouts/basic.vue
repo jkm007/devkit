@@ -162,6 +162,11 @@ async function handleNoticeClear() {
   unreadCount.value = 0;
 }
 
+// 查看全部 - 跳转到个人中心安全日志页
+function handleViewAll() {
+  router.push({ path: '/account/index', query: { tab: 'security' } });
+}
+
 async function markReadItem(id: number | string) {
   const numId = Number(id);
   try {
@@ -199,10 +204,6 @@ async function handleMakeAll() {
     // 静默失败
   }
 }
-
-const viewAll = () => {
-  // 未来可扩展为跳转通知列表页
-};
 
 const handleClick = (item: NotificationItem) => {
   if (item.link) {
@@ -343,11 +344,11 @@ watch(
         :dot="showDot"
         :notifications="notifications"
         @clear="handleNoticeClear"
-        @read="(item) => item.id && markReadItem(item.id)"
-        @remove="(item) => item.id && removeItem(item.id)"
-        @make-all="handleMakeAll"
-        @on-click="handleClick"
-        @view-all="viewAll"
+        @read="(item: any) => item.id && markReadItem(item.id)"
+        @remove="(item: any) => item.id && removeItem(item.id)"
+        @makeAll="handleMakeAll"
+        @onClick="handleClick"
+        @viewAll="handleViewAll"
       />
     </template>
     <template #extra>
