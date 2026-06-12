@@ -13,6 +13,15 @@ const routes: RouteRecordRaw[] = [
     path: '/question',
     children: [
       {
+        path: '/question/list',
+        name: 'QuestionList',
+        meta: {
+          icon: 'mdi:file-question-outline',
+          title: '题目管理',
+        },
+        component: () => import('#/views/question/list/index.vue'),
+      },
+      {
         path: '/question/category',
         name: 'QuestionCategory',
         meta: {

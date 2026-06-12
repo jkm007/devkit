@@ -137,6 +137,7 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	questionCategoryHandler := handler.NewQuestionCategoryHandler()
 	knowledgePointHandler := handler.NewKnowledgePointHandler()
 	questionSourceHandler := handler.NewQuestionSourceHandler()
+	questionHandler := handler.NewQuestionHandler()
 
 	// 需要认证的接口
 	authorized := apiV1.Group("")
@@ -442,6 +443,20 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 			system.POST("/question-sources", middleware.Permission("question:source:manage"), questionSourceHandler.Create)
 			system.PUT("/question-sources/:id", middleware.Permission("question:source:manage"), questionSourceHandler.Update)
 			system.DELETE("/question-sources/:id", middleware.Permission("question:source:manage"), questionSourceHandler.Delete)
+
+			// 题目管理
+			system.GET("/questions", middleware.Permission("question:view"), questionHandler.List)
+			system.GET("/questions/types", middleware.Permission("question:view"), questionHandler.GetTypes)
+			system.GET("/questions/stats", middleware.Permission("question:view"), questionHandler.GetStats)
+			system.GET("/questions/:id", middleware.Permission("question:view"), questionHandler.GetDetail)
+			system.POST("/questions", middleware.Permission("question:create"), questionHandler.Create)
+			system.PUT("/questions/:id", middleware.Permission("question:edit"), questionHandler.Update)
+			system.DELETE("/questions/:id", middleware.Permission("question:delete"), questionHandler.Delete)
+			system.POST("/questions/:id/publish", middleware.Permission("question:publish"), questionHandler.Publish)
+			system.POST("/questions/:id/archive", middleware.Permission("question:archive"), questionHandler.Archive)
+			system.POST("/questions/:id/submit-audit", middleware.Permission("question:audit:submit"), questionHandler.SubmitAudit)
+			system.POST("/questions/:id/audit/approve", middleware.Permission("question:audit:approve"), questionHandler.Approve)
+			system.POST("/questions/:id/audit/reject", middleware.Permission("question:audit:reject"), questionHandler.Reject)
 
 			// 定时任务管理
 			system.GET("/scheduled-tasks", middleware.Permission("system:task:view"), scheduledTaskHandler.List)
