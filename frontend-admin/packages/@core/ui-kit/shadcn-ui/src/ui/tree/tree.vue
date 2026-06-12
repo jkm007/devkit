@@ -101,10 +101,14 @@ onMounted(() => {
   });
 
   // 外部 modelValue 变化时同步内部状态
-  watch(modelValue, () => {
+  // 注意：不调用 updateTreeValue() 避免反馈循环（它会读取旧的 modelValue 并覆盖 proxy）
+  watch(modelValue, (newVal) => {
     syncSelectedKeysSet();
-    if (flattenData.value.length > 0) {
-      updateTreeValue();
+    if (flattenData.value.length > 0 && Array.isArray(newVal)) {
+      // 直接用新 keys 映射 treeValue，不通过 updateTreeValue() 避免副作用
+      treeValue.value = newVal
+        .map((v) => getItemByValue(v))
+        .filter((item) => item && !get(item, props.disabledField));
     }
   });
 });
@@ -258,13 +262,13 @@ function onSelect(item: FlattenedItem<Recordable<any>>, isSelected: boolean) {
       // 父节点：向下传播到所有叶子
       const allSelected = leaves.every((leaf) => currentSet.has(leaf));
       if (allSelected) {
-        // 全选 → 全部取消
+        // 全选 → 全部取消（包括父节点）
         leaves.forEach((leaf) => currentSet.delete(leaf));
         currentSet.delete(nodeKey);
       } else {
-        // 部分/未选 → 全部选中
+        // 部分/未选 → 全部选中（包括父节点）
         leaves.forEach((leaf) => currentSet.add(leaf));
-        currentSet.delete(nodeKey);
+        currentSet.add(nodeKey);
       }
     } else {
       // 叶子节点：reka-ui 已通过 proxy 处理，这里只同步 selectedKeysSet
@@ -468,9 +472,7 @@ defineExpose({
               event.stopPropagation();
               return;
             }
-            // checkStrictly 模式：不阻止 reka-ui 的默认处理，避免双路径竞争
-            // 非 checkStrictly 模式：阻止 reka-ui 的默认处理，由 updateTreeValue 处理
-            if (!checkStrictly && event.detail.originalEvent.type === 'click') {
+            if (event.detail.originalEvent.type === 'click') {
               event.preventDefault();
             }
             onSelect(item, event.detail.isSelected);
