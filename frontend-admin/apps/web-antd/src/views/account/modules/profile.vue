@@ -22,10 +22,12 @@ import {
 
 import { changePassword, getUserInfo, updateProfile } from '#/api';
 import { $t } from '#/locales';
+import { useAuthStore } from '#/store/auth';
 import { showCaptchaVerify } from '#/utils/captcha-verify';
 
 import AvatarUpload from '#/components/avatar-upload/index.vue';
 
+const authStore = useAuthStore();
 const loading = ref(false);
 const saving = ref(false);
 const userInfo = ref<AccountApi.UserInfo>({} as AccountApi.UserInfo);
@@ -144,6 +146,8 @@ async function handleChangePassword() {
     message.success($t('account.security.changePasswordSuccess'));
     passwordModalVisible.value = false;
     passwordForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' };
+    // 密码修改成功后立即退出登录（token 已被后端失效）
+    await authStore.logout();
   } catch {
     // 通知验证码弹窗关闭（失败也要关闭）
     window.dispatchEvent(new CustomEvent('captcha:verify-success'));
