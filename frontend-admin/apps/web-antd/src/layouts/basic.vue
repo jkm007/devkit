@@ -153,13 +153,15 @@ async function handleLogout() {
 }
 
 async function handleNoticeClear() {
+  // 先更新 UI
+  notifications.value.forEach((item) => (item.isRead = true));
+  unreadCount.value = 0;
+  // 再同步后端
   try {
     await markAllRead();
   } catch {
-    // 静默失败
+    // 静默失败，UI 已更新
   }
-  notifications.value.forEach((item) => (item.isRead = true));
-  unreadCount.value = 0;
 }
 
 // 查看全部 - 跳转到个人中心安全日志页
