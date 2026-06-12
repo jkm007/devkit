@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"backend-server/internal/model"
@@ -40,6 +41,11 @@ func (s *LoginDeviceService) CreateOrUpdateDevice(device *model.LoginDevice) err
 		existing.OS = device.OS
 		existing.IP = device.IP
 		existing.Location = device.Location
+		existing.AppVersion = device.AppVersion
+		existing.SystemVersion = device.SystemVersion
+		existing.DeviceModel = device.DeviceModel
+		existing.Platform = device.Platform
+		existing.Channel = device.Channel
 		existing.TokenJTI = device.TokenJTI
 		existing.LastActiveAt = device.LastActiveAt
 		existing.IsCurrent = 1
@@ -66,7 +72,21 @@ func (s *LoginDeviceService) CreateOrUpdateDevice(device *model.LoginDevice) err
 
 // List 获取用户的设备列表
 func (s *LoginDeviceService) List(userID uint) ([]model.LoginDevice, error) {
-	return s.repo.ListByUser(userID)
+	return s.ListByType(userID, "")
+}
+
+// ListByType 获取用户的设备列表，支持按设备类型过滤
+func (s *LoginDeviceService) ListByType(userID uint, deviceType string) ([]model.LoginDevice, error) {
+	deviceType = strings.ToLower(strings.TrimSpace(deviceType))
+	if deviceType == "" {
+		return s.repo.ListByUserAndType(userID, "")
+	}
+	switch deviceType {
+	case "web", "h5", "app", "miniapp":
+		return s.repo.ListByUserAndType(userID, deviceType)
+	default:
+		return nil, errors.New("invalid device type")
+	}
 }
 
 // KickDevice 踢出指定设备

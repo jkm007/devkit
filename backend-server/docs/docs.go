@@ -169,7 +169,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "获取当前用户所有已登录设备",
+                "description": "获取当前用户所有已登录设备，可按设备类型过滤",
                 "produces": [
                     "application/json"
                 ],
@@ -177,6 +177,14 @@ const docTemplate = `{
                     "登录设备"
                 ],
                 "summary": "获取登录设备列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "设备类型: web/h5/app/miniapp",
+                        "name": "deviceType",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "成功",
@@ -197,6 +205,12 @@ const docTemplate = `{
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
                         }
                     },
                     "401": {
@@ -10313,13 +10327,22 @@ const docTemplate = `{
         "model.LoginDevice": {
             "type": "object",
             "properties": {
+                "appVersion": {
+                    "type": "string"
+                },
                 "browser": {
+                    "type": "string"
+                },
+                "channel": {
                     "type": "string"
                 },
                 "createdAt": {
                     "type": "string"
                 },
                 "deviceId": {
+                    "type": "string"
+                },
+                "deviceModel": {
                     "type": "string"
                 },
                 "deviceName": {
@@ -10344,6 +10367,12 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "os": {
+                    "type": "string"
+                },
+                "platform": {
+                    "type": "string"
+                },
+                "systemVersion": {
                     "type": "string"
                 },
                 "userId": {

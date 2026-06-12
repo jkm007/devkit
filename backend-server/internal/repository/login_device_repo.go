@@ -28,8 +28,17 @@ func (r *LoginDeviceRepo) Update(device *model.LoginDevice) error {
 
 // ListByUser 获取用户的设备列表
 func (r *LoginDeviceRepo) ListByUser(userID uint) ([]model.LoginDevice, error) {
+	return r.ListByUserAndType(userID, "")
+}
+
+// ListByUserAndType 获取用户的设备列表，支持按设备类型过滤
+func (r *LoginDeviceRepo) ListByUserAndType(userID uint, deviceType string) ([]model.LoginDevice, error) {
 	var devices []model.LoginDevice
-	err := r.db.Where("user_id = ?", userID).Order("last_active_at DESC").Find(&devices).Error
+	query := r.db.Where("user_id = ?", userID)
+	if deviceType != "" {
+		query = query.Where("device_type = ?", deviceType)
+	}
+	err := query.Order("last_active_at DESC").Find(&devices).Error
 	return devices, err
 }
 

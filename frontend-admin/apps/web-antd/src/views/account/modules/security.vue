@@ -8,6 +8,8 @@ import {
   InputPassword,
   message,
   Popconfirm,
+  Select,
+  SelectOption,
   Tag,
   Tooltip,
 } from 'ant-design-vue';
@@ -80,6 +82,7 @@ async function handleChangePassword() {
 const devices = ref<AccountApi.LoginDevice[]>([]);
 const loadingDevices = ref(false);
 const currentDeviceId = getDeviceId();
+const deviceTypeFilter = ref<AccountApi.DeviceType | undefined>();
 
 // 前端判断是否是当前设备（用 localStorage 中的设备ID比对）
 function isCurrentDevice(device: AccountApi.LoginDevice): boolean {
@@ -103,6 +106,26 @@ function getBrowserIcon(browser: string): string {
   if (b.includes('edge')) return '📐';
   if (b.includes('opera')) return '🔴';
   return '🌍';
+}
+
+function getDeviceTypeColor(type: string): string {
+  const colorMap: Record<string, string> = {
+    app: 'purple',
+    h5: 'cyan',
+    miniapp: 'green',
+    web: 'blue',
+  };
+  return colorMap[type] || 'default';
+}
+
+function getDeviceTypeText(type: string): string {
+  const textMap: Record<string, string> = {
+    app: 'App',
+    h5: 'H5',
+    miniapp: '小程序',
+    web: 'Web',
+  };
+  return textMap[type] || type || '未知';
 }
 
 function getOSIcon(os: string): string {
@@ -139,7 +162,9 @@ function formatTime(timeStr: string | null): string {
 async function loadDevices() {
   loadingDevices.value = true;
   try {
-    devices.value = await getLoginDevices();
+    devices.value = await getLoginDevices({
+      deviceType: deviceTypeFilter.value,
+    });
   } catch {
     devices.value = [];
   } finally {
@@ -230,15 +255,30 @@ onMounted(() => {
             {{ $t('account.security.deviceCount', [devices.length]) }}
           </p>
         </div>
-        <Popconfirm
-          v-if="devices.length > 1"
-          :title="$t('account.security.kickAllOthersConfirm')"
-          @confirm="handleKickAllOthers"
-        >
-          <Button danger size="small">
-            {{ $t('account.security.kickAllOthers') }}
-          </Button>
-        </Popconfirm>
+        <div class="flex items-center gap-2">
+          <Select
+            v-model:value="deviceTypeFilter"
+            allow-clear
+            placeholder="全部设备"
+            size="small"
+            style="width: 120px"
+            @change="loadDevices"
+          >
+            <SelectOption value="web">Web</SelectOption>
+            <SelectOption value="h5">H5</SelectOption>
+            <SelectOption value="app">App</SelectOption>
+            <SelectOption value="miniapp">小程序</SelectOption>
+          </Select>
+          <Popconfirm
+            v-if="devices.length > 1"
+            :title="$t('account.security.kickAllOthersConfirm')"
+            @confirm="handleKickAllOthers"
+          >
+            <Button danger size="small">
+              {{ $t('account.security.kickAllOthers') }}
+            </Button>
+          </Popconfirm>
+        </div>
       </div>
 
       <div v-loading="loadingDevices" class="space-y-3">
@@ -269,6 +309,9 @@ onMounted(() => {
                   <span class="text-sm font-medium">{{
                     device.deviceName
                   }}</span>
+                  <Tag :color="getDeviceTypeColor(device.deviceType)" class="ml-0">
+                    {{ getDeviceTypeText(device.deviceType) }}
+                  </Tag>
                   <Tag
                     v-if="isCurrentDevice(device)"
                     color="processing"
@@ -287,6 +330,20 @@ onMounted(() => {
                     {{ getOSIcon(device.os) }} {{ device.os }}
                   </span>
                   <span>🌐 {{ device.ip }}</span>
+                </div>
+                <div
+                  v-if="
+                    device.deviceModel ||
+                    device.systemVersion ||
+                    device.appVersion ||
+                    device.channel
+                  "
+                  class="text-foreground/50 mt-1 flex flex-wrap items-center gap-3 text-xs"
+                >
+                  <span v-if="device.deviceModel">📱 {{ device.deviceModel }}</span>
+                  <span v-if="device.systemVersion">⚙️ {{ device.systemVersion }}</span>
+                  <span v-if="device.appVersion">🏷️ v{{ device.appVersion }}</span>
+                  <span v-if="device.channel">📦 {{ device.channel }}</span>
                 </div>
                 <div
                   class="text-foreground/40 mt-1 flex items-center gap-3 text-xs"

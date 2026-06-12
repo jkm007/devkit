@@ -61,6 +61,16 @@ func getClientType(c *gin.Context) string {
 	}
 }
 
+func getDeviceMeta(c *gin.Context) service.DeviceMeta {
+	return service.DeviceMeta{
+		AppVersion:    strings.TrimSpace(c.GetHeader("X-App-Version")),
+		SystemVersion: strings.TrimSpace(c.GetHeader("X-System-Version")),
+		DeviceModel:   strings.TrimSpace(c.GetHeader("X-Device-Model")),
+		Platform:      strings.TrimSpace(c.GetHeader("X-Platform")),
+		Channel:       strings.TrimSpace(c.GetHeader("X-Channel")),
+	}
+}
+
 // Login 用户登录
 // @Summary      用户登录
 // @Description  用户名密码登录，返回 AccessToken 和用户信息
@@ -98,7 +108,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	h.authService.RecordSecurityLog(result.ID, "login", fmt.Sprintf("登录成功, 来源: %s", result.RegisterSource), c.ClientIP(), c.GetHeader("User-Agent"), 1)
 	// 使用前端传来的 X-Device-ID，没有则用 User-Agent+IP 生成
 	deviceID := c.GetHeader("X-Device-ID")
-	h.authService.RecordLoginDevice(result.ID, c.ClientIP(), c.GetHeader("User-Agent"), deviceID, getClientType(c))
+	h.authService.RecordLoginDevice(result.ID, c.ClientIP(), c.GetHeader("User-Agent"), deviceID, getClientType(c), getDeviceMeta(c))
 
 	// 双重返回 Token：Cookie 用于浏览器自动携带认证，响应体用于前端显式管理（如存入内存或 localStorage）
 	// Cookie MaxAge 与对应 Token TTL 保持一致，避免 Cookie 存活超过 Token 有效期
@@ -394,7 +404,7 @@ func (h *AuthHandler) LoginByEmail(c *gin.Context) {
 	// 记录登录成功日志
 	h.authService.RecordSecurityLog(result.ID, "login", fmt.Sprintf("邮箱验证码登录成功, 来源: %s", result.RegisterSource), c.ClientIP(), c.GetHeader("User-Agent"), 1)
 	deviceID := c.GetHeader("X-Device-ID")
-	h.authService.RecordLoginDevice(result.ID, c.ClientIP(), c.GetHeader("User-Agent"), deviceID, getClientType(c))
+	h.authService.RecordLoginDevice(result.ID, c.ClientIP(), c.GetHeader("User-Agent"), deviceID, getClientType(c), getDeviceMeta(c))
 
 	// 双重返回 Token：Cookie 用于浏览器自动携带认证，响应体用于前端显式管理
 	accessTokenMaxAge := int(h.cfg.JWT.AccessTokenTTL.Seconds())
@@ -440,7 +450,7 @@ func (h *AuthHandler) LoginByPhone(c *gin.Context) {
 	// 记录登录成功日志
 	h.authService.RecordSecurityLog(result.ID, "login", fmt.Sprintf("手机号验证码登录成功, 来源: %s", result.RegisterSource), c.ClientIP(), c.GetHeader("User-Agent"), 1)
 	deviceID := c.GetHeader("X-Device-ID")
-	h.authService.RecordLoginDevice(result.ID, c.ClientIP(), c.GetHeader("User-Agent"), deviceID, getClientType(c))
+	h.authService.RecordLoginDevice(result.ID, c.ClientIP(), c.GetHeader("User-Agent"), deviceID, getClientType(c), getDeviceMeta(c))
 
 	// 双重返回 Token：Cookie 用于浏览器自动携带认证，响应体用于前端显式管理
 	accessTokenMaxAge := int(h.cfg.JWT.AccessTokenTTL.Seconds())

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"backend-server/pkg/jwt"
 	"backend-server/pkg/response"
 
 	"github.com/gin-gonic/gin"
@@ -81,6 +82,13 @@ func CSRF() gin.HandlerFunc {
 			}
 		}
 
+		// 纯 Authorization Token 模式的移动端/H5/App/小程序请求不依赖 Cookie 认证，
+		// 不存在浏览器自动携带认证 Cookie 导致的 CSRF 风险，跳过 CSRF 校验。
+		if isAuthorizationTokenMode(c) {
+			c.Next()
+			return
+		}
+
 		// 确保 CSRF Cookie 存在（首次请求时自动设置）
 		ensureCSRFCookie(c)
 
@@ -109,6 +117,31 @@ func CSRF() gin.HandlerFunc {
 
 		c.Next()
 	}
+}
+
+// isAuthorizationTokenMode 判断是否为移动端纯 Authorization Token 模式。
+// 只有显式声明 X-Mobile-Token-Mode=true 且使用 Bearer Token 时才跳过 CSRF，
+// 避免攻击者仅伪造 X-Client-Type 就绕过 Web Cookie 模式的 CSRF 防护。
+func isAuthorizationTokenMode(c *gin.Context) bool {
+	tokenMode := strings.EqualFold(strings.TrimSpace(c.GetHeader("X-Mobile-Token-Mode")), "true")
+	if !tokenMode {
+		return false
+	}
+
+	clientType := strings.ToLower(strings.TrimSpace(c.GetHeader("X-Client-Type")))
+	switch clientType {
+	case "h5", "app", "miniapp":
+	default:
+		return false
+	}
+
+	authHeader := strings.TrimSpace(c.GetHeader("Authorization"))
+	if !strings.HasPrefix(authHeader, "Bearer ") || len(authHeader) <= len("Bearer ") {
+		return false
+	}
+
+	_, err := jwt.Parse(strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer ")))
+	return err == nil
 }
 
 // ensureCSRFCookie 确保 CSRF Token Cookie 存在

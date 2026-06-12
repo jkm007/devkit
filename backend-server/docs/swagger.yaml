@@ -450,11 +450,17 @@ definitions:
     type: object
   model.LoginDevice:
     properties:
+      appVersion:
+        type: string
       browser:
+        type: string
+      channel:
         type: string
       createdAt:
         type: string
       deviceId:
+        type: string
+      deviceModel:
         type: string
       deviceName:
         type: string
@@ -471,6 +477,10 @@ definitions:
       location:
         type: string
       os:
+        type: string
+      platform:
+        type: string
+      systemVersion:
         type: string
       userId:
         type: integer
@@ -1511,7 +1521,12 @@ paths:
       - 认证
   /auth/devices:
     get:
-      description: 获取当前用户所有已登录设备
+      description: 获取当前用户所有已登录设备，可按设备类型过滤
+      parameters:
+      - description: '设备类型: web/h5/app/miniapp'
+        in: query
+        name: deviceType
+        type: string
       produces:
       - application/json
       responses:
@@ -1526,6 +1541,10 @@ paths:
                     $ref: '#/definitions/model.LoginDevice'
                   type: array
               type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
         "401":
           description: 未授权
           schema:

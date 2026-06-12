@@ -46,6 +46,8 @@ export namespace AccountApi {
     captchaCode?: string;
   }
 
+  export type DeviceType = 'app' | 'h5' | 'miniapp' | 'web';
+
   /** 登录设备 */
   export interface LoginDevice {
     id: number;
@@ -56,6 +58,11 @@ export namespace AccountApi {
     os: string;
     ip: string;
     location: string;
+    appVersion: string;
+    systemVersion: string;
+    deviceModel: string;
+    platform: string;
+    channel: string;
     lastActiveAt: string;
     isCurrent: boolean;
     createdAt: string;
@@ -142,8 +149,10 @@ export function checkPasswordHistory(data: { newPassword: string }) {
 // ==================== 登录设备 ====================
 
 /** 获取登录设备列表 */
-export function getLoginDevices() {
-  return requestClient.get<AccountApi.LoginDevice[]>('/auth/devices');
+export function getLoginDevices(params?: { deviceType?: AccountApi.DeviceType }) {
+  return requestClient.get<AccountApi.LoginDevice[]>('/auth/devices', {
+    params,
+  });
 }
 
 /** 踢出指定设备 */

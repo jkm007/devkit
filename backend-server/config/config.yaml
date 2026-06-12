@@ -67,6 +67,12 @@ cors:
     - X-Device-ID
     - X-Client-Type
     - X-Refresh-Token
+    - X-App-Version
+    - X-System-Version
+    - X-Device-Model
+    - X-Platform
+    - X-Channel
+    - X-Mobile-Token-Mode
     - X-Captcha-Id
     - X-Captcha-Code
     - X-Captcha-Start-Time

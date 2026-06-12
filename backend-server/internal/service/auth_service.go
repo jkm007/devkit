@@ -775,24 +775,41 @@ func (s *AuthService) GetUserInfo(userID uint) (*LoginResponse, error) {
 	}, nil
 }
 
+// DeviceMeta 登录设备扩展信息
+// H5/App/小程序可通过 Header 上报这些字段，用于设备管理和审计展示。
+type DeviceMeta struct {
+	AppVersion    string
+	SystemVersion string
+	DeviceModel   string
+	Platform      string
+	Channel       string
+}
+
 // RecordLoginDevice 记录登录设备
-func (s *AuthService) RecordLoginDevice(userID uint, ip, userAgent, deviceID, clientType string) {
+func (s *AuthService) RecordLoginDevice(userID uint, ip, userAgent, deviceID, clientType string, meta DeviceMeta) {
 	if s.loginDeviceSvc != nil {
 		// 优先使用前端传来的 X-Device-ID，没有则用 UA+IP 生成
 		if deviceID == "" {
 			deviceID = generateDeviceID(userAgent, ip)
 		}
+		clientType = normalizeClientType(clientType)
+		platform := normalizePlatform(meta.Platform, clientType)
 		now := time.Now()
 		device := &model.LoginDevice{
-			UserID:       userID,
-			DeviceID:     deviceID,
-			DeviceType:   normalizeClientType(clientType),
-			DeviceName:   parseDeviceName(userAgent),
-			Browser:      parseBrowser(userAgent),
-			OS:           parseOS(userAgent),
-			IP:           ip,
-			Location:     "",
-			LastActiveAt: &now,
+			UserID:        userID,
+			DeviceID:      deviceID,
+			DeviceType:    clientType,
+			DeviceName:    parseDeviceName(userAgent),
+			Browser:       parseBrowser(userAgent),
+			OS:            parseOS(userAgent),
+			IP:            ip,
+			Location:      "",
+			AppVersion:    trimDeviceMeta(meta.AppVersion, 50),
+			SystemVersion: trimDeviceMeta(meta.SystemVersion, 100),
+			DeviceModel:   trimDeviceMeta(meta.DeviceModel, 100),
+			Platform:      platform,
+			Channel:       trimDeviceMeta(meta.Channel, 50),
+			LastActiveAt:  &now,
 		}
 		_ = s.loginDeviceSvc.CreateOrUpdateDevice(device)
 	}
@@ -1066,6 +1083,24 @@ func normalizeClientType(clientType string) string {
 	default:
 		return "web"
 	}
+}
+
+func normalizePlatform(platform, fallback string) string {
+	platform = strings.ToLower(strings.TrimSpace(platform))
+	switch platform {
+	case "web", "h5", "ios", "android", "miniapp", "windows", "macos", "linux":
+		return platform
+	default:
+		return normalizeClientType(fallback)
+	}
+}
+
+func trimDeviceMeta(value string, max int) string {
+	value = strings.TrimSpace(value)
+	if len(value) > max {
+		return value[:max]
+	}
+	return value
 }
 
 // Register 用户注册

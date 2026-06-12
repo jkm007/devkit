@@ -113,6 +113,7 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
       config.headers['Accept-Language'] = preferences.app.locale;
       config.headers['X-Device-ID'] = getDeviceId();
       config.headers['X-Client-Type'] = CLIENT_TYPE;
+      config.headers['X-Platform'] = CLIENT_TYPE;
 
       // CSRF Token：从 Cookie 读取并放入请求头（Double Submit Cookie 模式）
       // 非安全方法（POST/PUT/DELETE/PATCH）必须携带
