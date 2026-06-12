@@ -22,6 +22,17 @@ import { getDeviceId } from '#/utils/device-id';
 import { showCaptchaVerify } from '#/utils/captcha-verify';
 import { refreshTokenApi } from './core';
 
+/**
+ * 登录页面自己的 CaptchaModal 是否正在显示
+ * 由 login.vue 设置，request.ts 的 403001 拦截器检查
+ * 当为 true 时，拦截器跳过全局弹窗，由 login.vue 自行处理
+ */
+export let loginCaptchaModalActive = false;
+
+export function setLoginCaptchaModalActive(active: boolean) {
+  loginCaptchaModalActive = active;
+}
+
 const { apiURL } = useAppConfig(import.meta.env, import.meta.env.PROD);
 
 /**
@@ -128,15 +139,8 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
     fulfilled: async (response: any) => {
       const data = response?.data;
       if (data?.code === 403001) {
-        // 登录/注册/找回密码等页面有自己的 CaptchaModal，跳过全局弹窗
-        const url = response.config.url || '';
-        if (
-          url.includes('/auth/login') ||
-          url.includes('/auth/email-login') ||
-          url.includes('/auth/register') ||
-          url.includes('/auth/forget-password') ||
-          url.includes('/auth/send-code')
-        ) {
+        // 登录页面有自己的 CaptchaModal 正在显示时，跳过全局弹窗
+        if (loginCaptchaModalActive) {
           // 抛出带标记的错误，绕过 errorMessageResponseInterceptor 的默认提示
           const captchaError: any = new Error(data?.message || '需要验证码');
           captchaError.__captchaError = true;

@@ -17,6 +17,7 @@ import { message } from 'ant-design-vue';
 
 import { getOAuthUrl } from '#/api/core/auth';
 import { getCaptcha, getPublicSettings } from '#/api/system/settings';
+import { setLoginCaptchaModalActive } from '#/api/request';
 import { useAuthStore } from '#/store';
 
 // 动态导入验证码组件，避免影响其他 authentication 页面
@@ -287,12 +288,13 @@ function doLogin(
     } else {
       // 登录成功，关闭弹窗
       captchaModalVisible.value = false;
+      setLoginCaptchaModalActive(false);
     }
   }).catch((error: any) => {
     // 检查是否是 403001 验证码错误（authLogin 会重新抛出）
     const responseData = error?.data || error?.response?.data;
     if (responseData?.code === 403001) {
-      // 验证码错误，刷新验证码并显示错误
+      // 验证码错误，刷新验证码并显示错误（弹窗保持打开）
       captchaVerifyResult.value = false;
       captchaVerifyMessage.value = responseData?.message || '验证码错误，请重试';
       // 重置状态以便下次触发
@@ -302,6 +304,7 @@ function doLogin(
     } else {
       // 其他错误，关闭弹窗
       captchaModalVisible.value = false;
+      setLoginCaptchaModalActive(false);
       loginFailCount.value++;
       captchaVerified.value = false;
       captchaResult.value = null;
@@ -335,6 +338,7 @@ function handleSubmit(params: Record<string, any>) {
     // 未验证，弹出验证框，保存登录参数待验证成功后继续
     pendingLoginParams.value = params;
     captchaModalVisible.value = true;
+    setLoginCaptchaModalActive(true);
   }
 }
 

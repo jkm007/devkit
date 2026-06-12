@@ -234,7 +234,7 @@ watch(
       pending.value = false;
       modalVisible.value = false;
     } else if (val === false) {
-      // 验证失败：显示错误，刷新验证码
+      // 验证失败：显示错误，刷新验证码，重置 pending 状态
       pending.value = false;
       errorMsg.value = props.verifyMessage || '验证码错误，请重试';
       loadCaptcha();
