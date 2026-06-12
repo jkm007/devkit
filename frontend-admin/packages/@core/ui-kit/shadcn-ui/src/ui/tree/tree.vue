@@ -503,26 +503,30 @@ defineExpose({
           "
         />
         <div v-else class="h-4 w-4"></div>
-        <div class="flex items-center gap-1 item-checkbox">
+        <div
+          class="flex items-center gap-1 item-checkbox"
+          @pointerdown.stop
+          @click="
+            (event: MouseEvent) => {
+              if (isNodeDisabled(item)) {
+                event.preventDefault();
+                event.stopPropagation();
+                return;
+              }
+              event.preventDefault();
+              event.stopPropagation();
+              if (checkStrictly) {
+                onSelect(item);
+              } else {
+                handleSelect();
+              }
+            }
+          "
+        >
           <Checkbox
             v-if="multiple"
             :model-value="isNodeIndeterminate(item.value) && !isNodeDisabled(item) ? 'indeterminate' : (isNodeAllSelected(item.value) && !isNodeDisabled(item))"
             :disabled="isNodeDisabled(item)"
-            @click="
-              (event: MouseEvent) => {
-                if (isNodeDisabled(item)) {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  return;
-                }
-                // checkStrictly 模式：直接调用 onSelect 避免 reka-ui proxy 双重 toggle
-                if (checkStrictly) {
-                  onSelect(item);
-                } else {
-                  handleSelect();
-                }
-              }
-            "
           />
           <div
             class="flex items-center gap-1 item-checkbox"
