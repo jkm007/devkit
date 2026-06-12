@@ -54,7 +54,8 @@ async function loadCaptcha() {
       }
     }
   } catch {
-    // ignore
+    visible.value = false;
+    window.dispatchEvent(new CustomEvent('captcha:verify-cancel'));
   } finally {
     loading.value = false;
   }
@@ -86,7 +87,7 @@ function handleSuccess(result: {
       detail: {
         captchaId: result.captchaId,
         captchaCode: result.captchaCode,
-        startTime: result.startTime,
+        startTime: Date.now(),
       },
     }),
   );

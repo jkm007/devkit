@@ -30,25 +30,10 @@ onMounted(async () => {
   try {
     const result = await handleOAuthCallback(provider, code, state);
     if (result?.accessToken) {
-      // 使用 authStore 的 handleLoginResult 处理登录后的通用逻辑
-      // 但这里直接调用 API，所以手动处理
-      const { useAccessStore } = await import('@vben/stores');
-      const accessStore = useAccessStore();
-
-      accessStore.setAccessToken(result.accessToken);
-      if (result.refreshToken) {
-        accessStore.setRefreshToken(result.refreshToken);
-      }
-
-      // 获取用户信息
-      await authStore.fetchUserInfo();
-
       statusText.value = '登录成功，正在跳转...';
-
-      // 跳转到首页
-      setTimeout(() => {
-        router.replace('/');
-      }, 500);
+      await authStore.handleLoginResult(result, async () => {
+        await router.replace('/');
+      });
     } else {
       statusText.value = '登录失败，请重试';
       isError.value = true;

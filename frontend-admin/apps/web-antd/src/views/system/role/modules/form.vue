@@ -32,35 +32,6 @@ const permissions = ref<DataNode[]>([]);
 const loadingPermissions = ref(false);
 const selectedKeys = ref<string[]>([]);
 
-// 收集某个节点下所有叶子节点的 authCode
-function collectLeafKeys(node: any): string[] {
-  if (!node.children || node.children.length === 0) {
-    return node.authCode.startsWith('__catalog_') ? [] : [node.authCode];
-  }
-  return node.children.flatMap((c: any) => collectLeafKeys(c));
-}
-
-/** 为全选的父节点补上 authCode，让树组件显示完整勾选 */
-function enrichWithParentKeys(leafKeys: string[]): string[] {
-  const keySet = new Set(leafKeys);
-  const result = [...leafKeys];
-
-  function walk(nodes: any[]) {
-    for (const node of nodes) {
-      if (!node.children || node.children.length === 0) continue;
-      walk(node.children);
-      if (node.authCode && !keySet.has(node.authCode)) {
-        const leaves = collectLeafKeys(node);
-        if (leaves.length > 0 && leaves.every((k) => keySet.has(k))) {
-          keySet.add(node.authCode);
-          result.push(node.authCode);
-        }
-      }
-    }
-  }
-  walk(permissions.value);
-  return result;
-}
 
 // 处理选中变化 — 直接保留树组件返回的完整 keys（含父节点），保存时再过滤
 function handleUpdateValue(keys: string[]) {

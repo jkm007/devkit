@@ -11,7 +11,6 @@ import (
 	"backend-server/config"
 	"backend-server/internal/middleware"
 	"backend-server/internal/service"
-	"backend-server/pkg/captcha"
 	"backend-server/pkg/database"
 	"backend-server/pkg/jwt"
 	"backend-server/pkg/response"
@@ -49,51 +48,6 @@ func (h *AuthHandler) setCookie(c *gin.Context, name, value string, maxAge int) 
 		Secure:   h.cookieSecure(),
 		SameSite: http.SameSiteLaxMode,
 	})
-}
-
-// checkCaptchaForAltLogin 验证码校验（邮箱/短信登录共用）
-// 读取验证码系统设置，根据配置判断是否需要图形验证码
-func (h *AuthHandler) checkCaptchaForAltLogin(captchaID, captchaCode string, startTime int64, points []captcha.Point) error {
-	// 获取验证码设置
-	settings := h.getCaptchaSettings()
-	enabled, _ := settings["enabled"].(bool)
-	if !enabled {
-		return nil
-	}
-
-	// 需要验证码但未提供
-	if captchaID == "" {
-		return fmt.Errorf("请完成图形验证码验证")
-	}
-
-	// 服务端验证码验证
-	valid, msg := captcha.Verify(captchaID, captchaCode, startTime, points)
-	if !valid {
-		return fmt.Errorf("%s", msg)
-	}
-
-	return nil
-}
-
-// getCaptchaSettings 获取验证码设置
-// 从 sys_system_settings 表读取 captcha 组的配置项
-func (h *AuthHandler) getCaptchaSettings() map[string]interface{} {
-	db := database.GetMySQL()
-	var settings []struct {
-		Key   string
-		Value string
-	}
-	db.Raw("SELECT `key`, `value` FROM sys_system_settings WHERE group_key = ? AND deleted_at IS NULL", "captcha").Scan(&settings)
-
-	result := map[string]interface{}{
-		"enabled": false,
-	}
-	for _, s := range settings {
-		if s.Key == "captcha_enabled" {
-			result["enabled"] = s.Value == "true"
-		}
-	}
-	return result
 }
 
 // Login 用户登录
@@ -166,14 +120,18 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	if tokenStr == "" {
 		tokenStr, _ = c.Cookie("access_token")
 	}
+	var tokenUserID uint
 	if tokenStr != "" {
 		// 将 Token 加入 Redis 黑名单，TTL 与 access token 一致
 		claims, err := jwt.Parse(tokenStr)
 		ttl := h.cfg.JWT.AccessTokenTTL
-		if err == nil && claims.ExpiresAt != nil {
-			remaining := time.Until(claims.ExpiresAt.Time)
-			if remaining > 0 {
-				ttl = remaining
+		if err == nil {
+			tokenUserID = claims.UserID
+			if claims.ExpiresAt != nil {
+				remaining := time.Until(claims.ExpiresAt.Time)
+				if remaining > 0 {
+					ttl = remaining
+				}
 			}
 		}
 		// 使用 SHA-256 哈希存储，减少内存占用并降低 Token 泄露风险
@@ -181,8 +139,11 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 		database.GetRedis().Set(c, blacklistKey, "1", ttl)
 	}
 
-	// 同时清除 refresh token
+	// 同时清除 refresh token。Logout 是公开路由，未经过 JWTAuth 时从 token claims 回退获取用户 ID。
 	userID := middleware.GetCurrentUserID(c)
+	if userID == 0 {
+		userID = tokenUserID
+	}
 	if userID > 0 {
 		_ = h.authService.Logout(userID)
 	}
@@ -366,12 +327,8 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 
 // LoginByEmailRequest 邮箱验证码登录请求
 type LoginByEmailRequest struct {
-	Email       string         `json:"email" binding:"required,email"`
-	Code        string         `json:"code" binding:"required,len=6"`
-	CaptchaID   string         `json:"captchaId"`   // 图形验证码 ID
-	CaptchaCode string         `json:"captchaCode"` // 图形验证码值
-	Points      []captcha.Point `json:"points"`      // 点选验证码坐标
-	StartTime   int64          `json:"startTime"`   // 验证码生成时间（毫秒）
+	Email string `json:"email" binding:"required,email"`
+	Code  string `json:"code" binding:"required,len=6"`
 }
 
 // LoginByEmail 邮箱验证码登录
@@ -388,13 +345,6 @@ func (h *AuthHandler) LoginByEmail(c *gin.Context) {
 	var req LoginByEmailRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "请求参数错误")
-		return
-	}
-
-	// 图形验证码校验（与密码登录一致）
-	if err := h.checkCaptchaForAltLogin(req.CaptchaID, req.CaptchaCode, req.StartTime, req.Points); err != nil {
-		// 统一返回通用验证码错误消息，不暴露验证码系统的内部实现细节
-		response.BadRequest(c, "验证码错误，请刷新后重试")
 		return
 	}
 
@@ -423,12 +373,8 @@ func (h *AuthHandler) LoginByEmail(c *gin.Context) {
 
 // LoginByPhoneRequest 手机号验证码登录请求
 type LoginByPhoneRequest struct {
-	Phone       string         `json:"phone" binding:"required,len=11"`
-	Code        string         `json:"code" binding:"required,len=6"`
-	CaptchaID   string         `json:"captchaId"`   // 图形验证码 ID
-	CaptchaCode string         `json:"captchaCode"` // 图形验证码值
-	Points      []captcha.Point `json:"points"`      // 点选验证码坐标
-	StartTime   int64          `json:"startTime"`   // 验证码生成时间（毫秒）
+	Phone string `json:"phone" binding:"required,len=11"`
+	Code  string `json:"code" binding:"required,len=6"`
 }
 
 // LoginByPhone 手机号验证码登录
@@ -445,13 +391,6 @@ func (h *AuthHandler) LoginByPhone(c *gin.Context) {
 	var req LoginByPhoneRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "请求参数错误")
-		return
-	}
-
-	// 图形验证码校验（与密码登录一致）
-	if err := h.checkCaptchaForAltLogin(req.CaptchaID, req.CaptchaCode, req.StartTime, req.Points); err != nil {
-		// 统一返回通用验证码错误消息，不暴露验证码系统的内部实现细节
-		response.BadRequest(c, "验证码错误，请刷新后重试")
 		return
 	}
 

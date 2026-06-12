@@ -31,12 +31,12 @@ import (
 
 // AuthService 认证服务
 type AuthService struct {
-	userRepo         *repository.UserRepo
-	roleRepo         *repository.RoleRepo
-	menuRepo         *repository.MenuRepo
-	groupRepo        *repository.GroupRepo
-	securityLogSvc   *SecurityLogService
-	loginDeviceSvc   *LoginDeviceService
+	userRepo       *repository.UserRepo
+	roleRepo       *repository.RoleRepo
+	menuRepo       *repository.MenuRepo
+	groupRepo      *repository.GroupRepo
+	securityLogSvc *SecurityLogService
+	loginDeviceSvc *LoginDeviceService
 }
 
 // NewAuthService 创建认证服务
@@ -54,13 +54,13 @@ func NewAuthService() *AuthService {
 
 // LoginRequest 登录请求
 type LoginRequest struct {
-	Username    string           `json:"username" binding:"required"`
-	Password    string           `json:"password" binding:"required"`
-	CaptchaID   string           `json:"captchaId"`   // 验证码 ID
-	CaptchaCode string           `json:"captchaCode"` // 验证码值
-	CaptchaType string           `json:"captchaType"` // 验证码类型
-	Points      []captcha.Point  `json:"points"`      // 点选验证码坐标
-	StartTime   int64            `json:"startTime"`   // 验证码生成时间（毫秒，用于时间检测）
+	Username    string          `json:"username" binding:"required"`
+	Password    string          `json:"password" binding:"required"`
+	CaptchaID   string          `json:"captchaId"`   // 验证码 ID
+	CaptchaCode string          `json:"captchaCode"` // 验证码值
+	CaptchaType string          `json:"captchaType"` // 验证码类型
+	Points      []captcha.Point `json:"points"`      // 点选验证码坐标
+	StartTime   int64           `json:"startTime"`   // 验证码生成时间（毫秒，用于时间检测）
 }
 
 // LoginResponse 登录响应
@@ -102,9 +102,9 @@ type captchaSettingsCacheItem struct {
 
 var (
 	// 验证码配置内存缓存（避免每次登录都查数据库）
-	captchaSettingsCache     *captchaSettingsCacheItem
-	captchaSettingsCacheMu   sync.RWMutex
-	captchaSettingsCacheTTL  = 5 * time.Minute
+	captchaSettingsCache    *captchaSettingsCacheItem
+	captchaSettingsCacheMu  sync.RWMutex
+	captchaSettingsCacheTTL = 5 * time.Minute
 )
 
 // getCaptchaSettings 获取验证码设置（带内存缓存，TTL 5 分钟）
@@ -283,9 +283,11 @@ func (s *AuthService) LoginByEmail(email, code, clientIP string) (*LoginResponse
 	verifyCodeService := NewVerifyCodeService()
 	valid, err := verifyCodeService.VerifyCode(email, code, "login")
 	if err != nil {
+		s.recordLoginFail(clientIP, email)
 		return nil, fmt.Errorf("验证码验证失败: %w", err)
 	}
 	if !valid {
+		s.recordLoginFail(clientIP, email)
 		return nil, errors.New("验证码错误")
 	}
 
@@ -293,12 +295,14 @@ func (s *AuthService) LoginByEmail(email, code, clientIP string) (*LoginResponse
 	user, err := s.userRepo.GetByEmail(email)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			s.recordLoginFail(clientIP, email)
 			return nil, errors.New("该邮箱未注册")
 		}
 		logger.Error("邮箱登录时数据库查询失败", zap.Error(err))
 		return nil, errors.New("系统错误，请稍后重试")
 	}
 	if user == nil || user.ID == 0 {
+		s.recordLoginFail(clientIP, email)
 		return nil, errors.New("该邮箱未注册")
 	}
 
@@ -307,6 +311,7 @@ func (s *AuthService) LoginByEmail(email, code, clientIP string) (*LoginResponse
 		return nil, errors.New("账号已被禁用")
 	}
 
+	s.clearLoginFail(clientIP, email)
 	return s.generateLoginResponse(user, clientIP)
 }
 
@@ -316,9 +321,11 @@ func (s *AuthService) LoginByPhone(phone, code, clientIP string) (*LoginResponse
 	verifyCodeService := NewVerifyCodeService()
 	valid, err := verifyCodeService.VerifySMSCode(phone, code, "login")
 	if err != nil {
+		s.recordLoginFail(clientIP, phone)
 		return nil, fmt.Errorf("验证码验证失败: %w", err)
 	}
 	if !valid {
+		s.recordLoginFail(clientIP, phone)
 		return nil, errors.New("验证码错误")
 	}
 
@@ -326,12 +333,14 @@ func (s *AuthService) LoginByPhone(phone, code, clientIP string) (*LoginResponse
 	user, err := s.userRepo.GetByPhone(phone)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			s.recordLoginFail(clientIP, phone)
 			return nil, errors.New("该手机号未注册")
 		}
 		logger.Error("手机登录时数据库查询失败", zap.Error(err))
 		return nil, errors.New("系统错误，请稍后重试")
 	}
 	if user == nil || user.ID == 0 {
+		s.recordLoginFail(clientIP, phone)
 		return nil, errors.New("该手机号未注册")
 	}
 
@@ -340,6 +349,7 @@ func (s *AuthService) LoginByPhone(phone, code, clientIP string) (*LoginResponse
 		return nil, errors.New("账号已被禁用")
 	}
 
+	s.clearLoginFail(clientIP, phone)
 	return s.generateLoginResponse(user, clientIP)
 }
 
@@ -873,9 +883,9 @@ type UpdateProfileRequest struct {
 	Nickname string  `json:"nickname"`
 	Email    string  `json:"email"`
 	Phone    string  `json:"phone"`
-	Gender   *int    `json:"gender"`   // nil=不更新, 非nil=显式设置（0=未知 1=男 2=女）
+	Gender   *int    `json:"gender"` // nil=不更新, 非nil=显式设置（0=未知 1=男 2=女）
 	Birthday string  `json:"birthday"`
-	Bio      *string `json:"bio"`      // nil=不更新, 非nil=显式设置（包括清空）
+	Bio      *string `json:"bio"` // nil=不更新, 非nil=显式设置（包括清空）
 	Avatar   string  `json:"avatar"`
 }
 
@@ -1012,8 +1022,8 @@ func (s *AuthService) ChangePassword(userID uint, req *ChangePasswordRequest, ip
 			remaining := time.Until(claims.ExpiresAt.Time)
 			if remaining > 0 {
 				// 使用 SHA-256 哈希存储，减少内存占用并降低 Token 泄露风险
-			tokenHash := sha256.Sum256([]byte(accessToken))
-			blacklistKey := fmt.Sprintf("token_blacklist:%s", hex.EncodeToString(tokenHash[:]))
+				tokenHash := sha256.Sum256([]byte(accessToken))
+				blacklistKey := fmt.Sprintf("token_blacklist:%s", hex.EncodeToString(tokenHash[:]))
 				rdb.Set(ctx, blacklistKey, "1", remaining)
 			}
 		}
@@ -1335,9 +1345,9 @@ func (s *AuthService) InitDefaultUsers() error {
 		}
 
 		user := &model.User{
-			Name:              u.Name,
-			Password:          string(hashedPassword),
-			Status:            1,
+			Name:               u.Name,
+			Password:           string(hashedPassword),
+			Status:             1,
 			MustChangePassword: true, // 首次登录必须修改密码
 		}
 		if err := s.userRepo.Create(user); err != nil {

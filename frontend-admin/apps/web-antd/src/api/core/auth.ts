@@ -32,7 +32,7 @@ export async function loginApi(data: AuthApi.LoginParams) {
 export async function refreshTokenApi() {
   // baseRequestClient 不解包响应，返回原始 AxiosResponse
   // resp.data = { code, data: { accessToken, refreshToken }, message }
-  return baseRequestClient.post('/auth/refresh', {
+  return baseRequestClient.post('/auth/refresh', undefined, {
     withCredentials: true,
   });
 }
@@ -41,9 +41,7 @@ export async function refreshTokenApi() {
  * 退出登录
  */
 export async function logoutApi() {
-  return baseRequestClient.post('/auth/logout', {
-    withCredentials: true,
-  });
+  return requestClient.post('/auth/logout');
 }
 
 /**

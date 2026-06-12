@@ -223,7 +223,7 @@ const selectAllStatus = computed<'indeterminate' | boolean>(() => {
 
   const allValues = flattenData.value
     .filter((item) => !get(item.value, props.disabledField))
-    .map((item) => get(item.value, props.valueField));
+    .map((item) => get(item.value, props.valueField) as number | string);
 
   const selectedCount = allValues.filter((v) =>
     selectedKeysSet.value.has(v),
@@ -245,7 +245,7 @@ function onSelectAllChange(checked: 'indeterminate' | boolean) {
 function onToggle(item: FlattenedItem<Recordable<any>>) {
   emits('expand', item);
 }
-function onSelect(item: FlattenedItem<Recordable<any>>, isSelected: boolean) {
+function onSelect(item: FlattenedItem<Recordable<any>>) {
   if (isNodeDisabled(item)) {
     return;
   }
@@ -254,7 +254,7 @@ function onSelect(item: FlattenedItem<Recordable<any>>, isSelected: boolean) {
   // reka-ui 的 rootContext.onSelect 已通过 @select 事件更新了 proxy（点击的节点）
   // 这里只负责父子联动 + 同步到 modelValue
   if (props.checkStrictly && props.multiple) {
-    const nodeKey = get(item.value, props.valueField);
+    const nodeKey = get(item.value, props.valueField) as number | string;
     const leaves = getNodeLeafKeys(nodeKey);
     const currentSet = new Set(selectedKeysSet.value);
 
@@ -292,13 +292,13 @@ function onSelect(item: FlattenedItem<Recordable<any>>, isSelected: boolean) {
 }
 
 // 预计算：每个节点的叶子节点 key 列表（只在 treeData 变化时重建）
-const leafKeysMap = ref<Map<number | string, unknown[]>>(new Map());
+const leafKeysMap = ref<Map<number | string, Array<number | string>>>(new Map());
 
 function buildLeafKeysMap() {
-  const map = new Map<number | string, unknown[]>();
+  const map = new Map<number | string, Array<number | string>>();
   // 从叶子节点向上构建
   for (const item of flattenData.value) {
-    const key = get(item.value, props.valueField);
+    const key = get(item.value, props.valueField) as number | string;
     const children = flattenData.value.filter((i) => i.parentId === key);
     if (children.length === 0) {
       // 叶子节点，自身就是叶子
@@ -310,17 +310,17 @@ function buildLeafKeysMap() {
   for (let round = 0; round < 10; round++) {
     let changed = false;
     for (const item of flattenData.value) {
-      const key = get(item.value, props.valueField);
+      const key = get(item.value, props.valueField) as number | string;
       if (map.has(key)) continue;
       const children = flattenData.value.filter((i) => i.parentId === key);
       if (children.length === 0) continue;
       const allChildrenResolved = children.every((c) =>
-        map.has(get(c.value, props.valueField)),
+        map.has((get(c.value, props.valueField) as number | string)),
       );
       if (!allChildrenResolved) continue;
-      const leaves: unknown[] = [];
+      const leaves: Array<number | string> = [];
       for (const c of children) {
-        leaves.push(...(map.get(get(c.value, props.valueField)) || []));
+        leaves.push(...(map.get((get(c.value, props.valueField) as number | string)) || []));
       }
       map.set(key, leaves);
       changed = true;
@@ -340,7 +340,7 @@ watch(
   },
 );
 
-function getNodeLeafKeys(nodeKey: number | string): unknown[] {
+function getNodeLeafKeys(nodeKey: number | string): Array<number | string> {
   return leafKeysMap.value.get(nodeKey) || [];
 }
 
@@ -348,7 +348,7 @@ function getNodeLeafKeys(nodeKey: number | string): unknown[] {
 function isNodeIndeterminate(nodeValue: Recordable<any>): boolean {
   if (!props.multiple) return false;
 
-  const nodeKey = get(nodeValue, props.valueField);
+  const nodeKey = get(nodeValue, props.valueField) as number | string;
   const leaves = getNodeLeafKeys(nodeKey);
   if (leaves.length <= 1) return false;
 
@@ -363,7 +363,7 @@ function isNodeIndeterminate(nodeValue: Recordable<any>): boolean {
 function isNodeAllSelected(nodeValue: Recordable<any>): boolean {
   if (!props.multiple) return false;
 
-  const nodeKey = get(nodeValue, props.valueField);
+  const nodeKey = get(nodeValue, props.valueField) as number | string;
   const leaves = getNodeLeafKeys(nodeKey);
   if (leaves.length === 0) return false;
   if (leaves.length === 1 && leaves[0] === nodeKey) {
@@ -446,8 +446,6 @@ defineExpose({
         v-for="item in flattenItems"
         v-slot="{
           isExpanded,
-          isSelected,
-          isIndeterminate,
           handleSelect,
           handleToggle,
         }"
@@ -475,7 +473,7 @@ defineExpose({
             if (event.detail.originalEvent.type === 'click') {
               event.preventDefault();
             }
-            onSelect(item, event.detail.isSelected);
+            onSelect(item);
           }
         "
         @toggle="

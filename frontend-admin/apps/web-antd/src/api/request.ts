@@ -67,11 +67,8 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
     // baseRequestClient 无拦截器，返回原始 Axios response（框架 request() 内部 as T 转换导致类型不精确）
     // 运行时 resp 实际是 AxiosResponse，resp.data = { code, data: { accessToken, refreshToken }, message }
     const resp = await refreshTokenApi();
-    const { accessToken, refreshToken } = (resp as any).data.data;
+    const { accessToken } = (resp as any).data.data;
     accessStore.setAccessToken(accessToken);
-    if (refreshToken) {
-      accessStore.setRefreshToken(refreshToken);
-    }
     return accessToken;
   }
 
@@ -87,11 +84,25 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
       // 登录/注册/验证码等接口不需要携带token
       const skipAuthUrls = [
         '/auth/login',
+        '/auth/login-by-email',
+        '/auth/login-by-phone',
         '/auth/register',
         '/auth/captcha',
+        '/auth/refresh',
+        '/auth/send-code',
+        '/auth/verify-code',
+        '/auth/send-sms-code',
+        '/auth/reset-password',
+        '/auth/oauth/authorize',
+        '/auth/oauth/callback',
+        '/auth/wechat/',
+        '/share/',
         '/system/settings/public',
       ];
-      if (!skipAuthUrls.some((url) => config.url?.includes(url))) {
+      const shouldSkipAuth = skipAuthUrls.some((url) =>
+        config.url?.includes(url),
+      );
+      if (!shouldSkipAuth && accessStore.accessToken) {
         config.headers.Authorization = formatToken(accessStore.accessToken);
       }
       config.headers['Accept-Language'] = preferences.app.locale;

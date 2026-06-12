@@ -9693,30 +9693,11 @@ const docTemplate = `{
                 "email"
             ],
             "properties": {
-                "captchaCode": {
-                    "description": "图形验证码值",
-                    "type": "string"
-                },
-                "captchaId": {
-                    "description": "图形验证码 ID",
-                    "type": "string"
-                },
                 "code": {
                     "type": "string"
                 },
                 "email": {
                     "type": "string"
-                },
-                "points": {
-                    "description": "点选验证码坐标",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/captcha.Point"
-                    }
-                },
-                "startTime": {
-                    "description": "验证码生成时间（毫秒）",
-                    "type": "integer"
                 }
             }
         },
@@ -9727,30 +9708,11 @@ const docTemplate = `{
                 "phone"
             ],
             "properties": {
-                "captchaCode": {
-                    "description": "图形验证码值",
-                    "type": "string"
-                },
-                "captchaId": {
-                    "description": "图形验证码 ID",
-                    "type": "string"
-                },
                 "code": {
                     "type": "string"
                 },
                 "phone": {
                     "type": "string"
-                },
-                "points": {
-                    "description": "点选验证码坐标",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/captcha.Point"
-                    }
-                },
-                "startTime": {
-                    "description": "验证码生成时间（毫秒）",
-                    "type": "integer"
                 }
             }
         },
