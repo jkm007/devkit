@@ -95,8 +95,12 @@ export const useAuthStore = defineStore('auth', () => {
       loginLoading.value = true;
       const result = await loginApi(params);
       return await handleLoginResult(result, onSuccess);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login failed:', error);
+      // 403001 需要验证码处理，抛出让调用方处理
+      if (error?.data?.code === 403001 || error?.code === 403001) {
+        throw error;
+      }
       return { userInfo: null };
     } finally {
       loginLoading.value = false;
@@ -114,8 +118,12 @@ export const useAuthStore = defineStore('auth', () => {
       loginLoading.value = true;
       const result = await loginByEmailApi(params);
       return await handleLoginResult(result, onSuccess);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Email login failed:', error);
+      // 403001 需要验证码处理，抛出让调用方处理
+      if (error?.data?.code === 403001 || error?.code === 403001) {
+        throw error;
+      }
       return { userInfo: null };
     } finally {
       loginLoading.value = false;

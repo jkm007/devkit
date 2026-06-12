@@ -128,6 +128,22 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
     fulfilled: async (response: any) => {
       const data = response?.data;
       if (data?.code === 403001) {
+        // 登录/注册/找回密码等页面有自己的 CaptchaModal，跳过全局弹窗
+        const url = response.config.url || '';
+        if (
+          url.includes('/auth/login') ||
+          url.includes('/auth/email-login') ||
+          url.includes('/auth/register') ||
+          url.includes('/auth/forget-password') ||
+          url.includes('/auth/send-code')
+        ) {
+          // 抛出带标记的错误，绕过 errorMessageResponseInterceptor 的默认提示
+          const captchaError: any = new Error(data?.message || '需要验证码');
+          captchaError.__captchaError = true;
+          captchaError.data = data;
+          captchaError.response = response;
+          throw captchaError;
+        }
         try {
           // 从后端响应中读取指定的验证码类型（随机类型）
           let currentCaptchaType = data?.data?.captcha_type || '';
@@ -228,6 +244,8 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
   // 通用的错误处理,如果没有进入上面的错误处理逻辑，就会进入这里
   client.addResponseInterceptor(
     errorMessageResponseInterceptor((msg: string, error) => {
+      // 403001 验证码错误由页面自行处理，不显示全局错误提示
+      if (error?.__captchaError) return;
       // 这里可以根据业务进行定制,你可以拿到 error 内的信息进行定制化处理，根据不同的 code 做不同的提示，而不是直接使用 message.error 提示 msg
       // 当前mock接口返回的错误字段是 error 或者 message
       const responseData = error?.response?.data ?? {};

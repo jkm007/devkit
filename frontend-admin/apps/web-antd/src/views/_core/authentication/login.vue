@@ -286,13 +286,13 @@ function doLogin(
       }
     } else {
       // 登录成功，关闭弹窗
-      captchaVerifyResult.value = true;
+      captchaModalVisible.value = false;
     }
   }).catch((error: any) => {
-    // 检查是否是 403001 验证码错误
-    const responseData = error?.response?.data;
+    // 检查是否是 403001 验证码错误（authLogin 会重新抛出）
+    const responseData = error?.data || error?.response?.data;
     if (responseData?.code === 403001) {
-      // 验证码错误，通知弹窗刷新
+      // 验证码错误，刷新验证码并显示错误
       captchaVerifyResult.value = false;
       captchaVerifyMessage.value = responseData?.message || '验证码错误，请重试';
       // 重置状态以便下次触发
@@ -301,7 +301,7 @@ function doLogin(
       }, 100);
     } else {
       // 其他错误，关闭弹窗
-      captchaVerifyResult.value = true;
+      captchaModalVisible.value = false;
       loginFailCount.value++;
       captchaVerified.value = false;
       captchaResult.value = null;
