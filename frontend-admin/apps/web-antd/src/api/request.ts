@@ -134,9 +134,10 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
           // 保留原始请求头（含 Authorization、Accept-Language 等）
           const originalHeaders = { ...response.config.headers };
           const maxRetries = 5;
-          // 循环：验证码错误时重新弹出验证框，直到成功或达到上限
+          // 循环：验证码错误时复用已有弹窗刷新验证码，直到成功或达到上限
           for (let retry = 0; retry < maxRetries; retry++) {
-            const result = await showCaptchaVerify(currentCaptchaType);
+            // 第一次弹出弹窗，后续复用已有弹窗（弹窗自行刷新验证码）
+            const result = await showCaptchaVerify(currentCaptchaType, retry > 0);
             // 用干净的 axios 实例重试（无拦截器），避免响应被二次处理
             const retryResp = await captchaRetryAxios.request({
               url: response.config.url,
