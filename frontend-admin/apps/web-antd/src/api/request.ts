@@ -22,6 +22,8 @@ import { getDeviceId } from '#/utils/device-id';
 import { showCaptchaVerify } from '#/utils/captcha-verify';
 import { refreshTokenApi } from './core';
 
+const CLIENT_TYPE = 'web';
+
 const { apiURL } = useAppConfig(import.meta.env, import.meta.env.PROD);
 
 /**
@@ -66,9 +68,12 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
     const accessStore = useAccessStore();
     // baseRequestClient 无拦截器，返回原始 Axios response（框架 request() 内部 as T 转换导致类型不精确）
     // 运行时 resp 实际是 AxiosResponse，resp.data = { code, data: { accessToken, refreshToken }, message }
-    const resp = await refreshTokenApi();
-    const { accessToken } = (resp as any).data.data;
+    const resp = await refreshTokenApi(accessStore.refreshToken);
+    const { accessToken, refreshToken } = (resp as any).data.data;
     accessStore.setAccessToken(accessToken);
+    if (refreshToken) {
+      accessStore.setRefreshToken(refreshToken);
+    }
     return accessToken;
   }
 
@@ -107,6 +112,7 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
       }
       config.headers['Accept-Language'] = preferences.app.locale;
       config.headers['X-Device-ID'] = getDeviceId();
+      config.headers['X-Client-Type'] = CLIENT_TYPE;
 
       // CSRF Token：从 Cookie 读取并放入请求头（Double Submit Cookie 模式）
       // 非安全方法（POST/PUT/DELETE/PATCH）必须携带

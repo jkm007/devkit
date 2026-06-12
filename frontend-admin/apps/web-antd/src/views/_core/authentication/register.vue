@@ -114,6 +114,7 @@ async function handleSubmit() {
       emailCode: formData.value.emailCode,
       password: formData.value.password,
       confirmPassword: formData.value.confirmPassword,
+      registerSource: 'web',
     });
     message.success('注册成功，请登录');
     router.push('/auth/login');

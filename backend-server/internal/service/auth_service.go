@@ -776,7 +776,7 @@ func (s *AuthService) GetUserInfo(userID uint) (*LoginResponse, error) {
 }
 
 // RecordLoginDevice 记录登录设备
-func (s *AuthService) RecordLoginDevice(userID uint, ip, userAgent, deviceID string) {
+func (s *AuthService) RecordLoginDevice(userID uint, ip, userAgent, deviceID, clientType string) {
 	if s.loginDeviceSvc != nil {
 		// 优先使用前端传来的 X-Device-ID，没有则用 UA+IP 生成
 		if deviceID == "" {
@@ -786,7 +786,7 @@ func (s *AuthService) RecordLoginDevice(userID uint, ip, userAgent, deviceID str
 		device := &model.LoginDevice{
 			UserID:       userID,
 			DeviceID:     deviceID,
-			DeviceType:   "web",
+			DeviceType:   normalizeClientType(clientType),
 			DeviceName:   parseDeviceName(userAgent),
 			Browser:      parseBrowser(userAgent),
 			OS:           parseOS(userAgent),
@@ -1045,6 +1045,7 @@ type RegisterRequest struct {
 	EmailCode       string `json:"emailCode" binding:"required,len=6"`
 	Password        string `json:"password" binding:"required,min=6,max=128"`
 	ConfirmPassword string `json:"confirmPassword" binding:"required"`
+	RegisterSource  string `json:"registerSource"`
 }
 
 // validUsername 验证用户名格式（只允许字母、数字、下划线、连字符）
@@ -1055,6 +1056,16 @@ func validUsername(username string) bool {
 		}
 	}
 	return true
+}
+
+func normalizeClientType(clientType string) string {
+	clientType = strings.ToLower(strings.TrimSpace(clientType))
+	switch clientType {
+	case "web", "h5", "app", "miniapp":
+		return clientType
+	default:
+		return "web"
+	}
 }
 
 // Register 用户注册
@@ -1085,13 +1096,16 @@ func (s *AuthService) Register(req *RegisterRequest, ip, userAgent string) (uint
 		return 0, fmt.Errorf("密码加密失败: %w", err)
 	}
 
+	registerSource := normalizeClientType(req.RegisterSource)
+
 	// 创建用户（事务保护：用户名/邮箱唯一性检查 + 用户创建 + 角色分配必须原子）
 	user := &model.User{
-		Name:     req.Username,
-		Email:    req.Email,
-		Password: string(hashedPassword),
-		Status:   1,
-		Nickname: req.Username,
+		Name:           req.Username,
+		Email:          req.Email,
+		Password:       string(hashedPassword),
+		Status:         1,
+		Nickname:       req.Username,
+		RegisterSource: registerSource,
 	}
 
 	db := database.GetMySQL()

@@ -50,6 +50,17 @@ func (h *AuthHandler) setCookie(c *gin.Context, name, value string, maxAge int) 
 	})
 }
 
+// getClientType 获取客户端类型，默认 web；允许 web/h5/app/miniapp。
+func getClientType(c *gin.Context) string {
+	clientType := strings.ToLower(strings.TrimSpace(c.GetHeader("X-Client-Type")))
+	switch clientType {
+	case "h5", "app", "miniapp", "web":
+		return clientType
+	default:
+		return "web"
+	}
+}
+
 // Login 用户登录
 // @Summary      用户登录
 // @Description  用户名密码登录，返回 AccessToken 和用户信息
@@ -87,7 +98,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	h.authService.RecordSecurityLog(result.ID, "login", fmt.Sprintf("登录成功, 来源: %s", result.RegisterSource), c.ClientIP(), c.GetHeader("User-Agent"), 1)
 	// 使用前端传来的 X-Device-ID，没有则用 User-Agent+IP 生成
 	deviceID := c.GetHeader("X-Device-ID")
-	h.authService.RecordLoginDevice(result.ID, c.ClientIP(), c.GetHeader("User-Agent"), deviceID)
+	h.authService.RecordLoginDevice(result.ID, c.ClientIP(), c.GetHeader("User-Agent"), deviceID, getClientType(c))
 
 	// 双重返回 Token：Cookie 用于浏览器自动携带认证，响应体用于前端显式管理（如存入内存或 localStorage）
 	// Cookie MaxAge 与对应 Token TTL 保持一致，避免 Cookie 存活超过 Token 有效期
@@ -155,18 +166,35 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	response.Success(c, "")
 }
 
+// RefreshTokenRequest 刷新 Token 请求
+// H5/App 等 Cookie 不稳定的客户端可通过 Body 传递 refreshToken。
+type RefreshTokenRequest struct {
+	RefreshToken string `json:"refreshToken"`
+}
+
 // RefreshToken 刷新 AccessToken（带 Token 轮换）
 // @Summary      刷新 AccessToken
-// @Description  使用 Cookie 中的 RefreshToken 获取新的 AccessToken + RefreshToken（Token 轮换，旧 Token 自动失效）
+// @Description  使用 Cookie/Header/Body 中的 RefreshToken 获取新的 AccessToken + RefreshToken（Token 轮换，旧 Token 自动失效）
 // @Tags         认证
+// @Accept       json
 // @Produce      json
+// @Param        request body handler.RefreshTokenRequest false "刷新 Token 请求（H5/App 可选）"
 // @Success      200  {object}  response.Response{data=service.TokenRefreshResponse} "成功"
 // @Failure      403  {object}  response.Response "RefreshToken 无效或已过期"
 // @Router       /auth/refresh [post]
 func (h *AuthHandler) RefreshToken(c *gin.Context) {
-	// 从 Cookie 获取 RefreshToken
+	// 优先从 Cookie 获取 RefreshToken，兼容 H5/App 从 Header 或 Body 传递
 	refreshToken, err := c.Cookie("refresh_token")
-	if err != nil {
+	if err != nil || refreshToken == "" {
+		refreshToken = strings.TrimSpace(c.GetHeader("X-Refresh-Token"))
+	}
+	if refreshToken == "" {
+		var req RefreshTokenRequest
+		if err := c.ShouldBindJSON(&req); err == nil {
+			refreshToken = strings.TrimSpace(req.RefreshToken)
+		}
+	}
+	if refreshToken == "" {
 		response.Forbidden(c, "Forbidden Exception")
 		return
 	}
@@ -366,7 +394,7 @@ func (h *AuthHandler) LoginByEmail(c *gin.Context) {
 	// 记录登录成功日志
 	h.authService.RecordSecurityLog(result.ID, "login", fmt.Sprintf("邮箱验证码登录成功, 来源: %s", result.RegisterSource), c.ClientIP(), c.GetHeader("User-Agent"), 1)
 	deviceID := c.GetHeader("X-Device-ID")
-	h.authService.RecordLoginDevice(result.ID, c.ClientIP(), c.GetHeader("User-Agent"), deviceID)
+	h.authService.RecordLoginDevice(result.ID, c.ClientIP(), c.GetHeader("User-Agent"), deviceID, getClientType(c))
 
 	// 双重返回 Token：Cookie 用于浏览器自动携带认证，响应体用于前端显式管理
 	accessTokenMaxAge := int(h.cfg.JWT.AccessTokenTTL.Seconds())
@@ -412,7 +440,7 @@ func (h *AuthHandler) LoginByPhone(c *gin.Context) {
 	// 记录登录成功日志
 	h.authService.RecordSecurityLog(result.ID, "login", fmt.Sprintf("手机号验证码登录成功, 来源: %s", result.RegisterSource), c.ClientIP(), c.GetHeader("User-Agent"), 1)
 	deviceID := c.GetHeader("X-Device-ID")
-	h.authService.RecordLoginDevice(result.ID, c.ClientIP(), c.GetHeader("User-Agent"), deviceID)
+	h.authService.RecordLoginDevice(result.ID, c.ClientIP(), c.GetHeader("User-Agent"), deviceID, getClientType(c))
 
 	// 双重返回 Token：Cookie 用于浏览器自动携带认证，响应体用于前端显式管理
 	accessTokenMaxAge := int(h.cfg.JWT.AccessTokenTTL.Seconds())

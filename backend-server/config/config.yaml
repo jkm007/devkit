@@ -65,6 +65,8 @@ cors:
     - Authorization
     - Content-Type
     - X-Device-ID
+    - X-Client-Type
+    - X-Refresh-Token
     - X-Captcha-Id
     - X-Captcha-Code
     - X-Captcha-Start-Time

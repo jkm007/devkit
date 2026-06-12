@@ -42,11 +42,14 @@ export const useAuthStore = defineStore('auth', () => {
     onSuccess?: () => Promise<void> | void,
   ): Promise<{ userInfo: null | UserInfo }> {
     let userInfo: null | UserInfo = null;
-    const { accessToken } = result;
+    const { accessToken, refreshToken } = result;
 
     if (!accessToken) return { userInfo: null };
 
     accessStore.setAccessToken(accessToken);
+    if (refreshToken) {
+      accessStore.setRefreshToken(refreshToken);
+    }
 
     // 获取用户信息、权限码、权限版本
     const [fetchUserInfoResult, accessCodes, permVersion] = await Promise.all([

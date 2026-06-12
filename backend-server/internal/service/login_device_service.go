@@ -34,6 +34,7 @@ func (s *LoginDeviceService) CreateOrUpdateDevice(device *model.LoginDevice) err
 
 	if existing != nil {
 		// 更新已有设备
+		existing.DeviceType = device.DeviceType
 		existing.DeviceName = device.DeviceName
 		existing.Browser = device.Browser
 		existing.OS = device.OS

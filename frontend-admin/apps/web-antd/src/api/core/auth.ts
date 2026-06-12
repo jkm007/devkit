@@ -17,6 +17,15 @@ export namespace AuthApi {
     refreshToken?: string;
   }
 
+  export interface RegisterParams {
+    username: string;
+    email: string;
+    emailCode: string;
+    password: string;
+    confirmPassword: string;
+    registerSource?: 'app' | 'h5' | 'miniapp' | 'web';
+  }
+
   export interface RefreshTokenResult {
     accessToken: string;
     refreshToken?: string;
@@ -33,12 +42,17 @@ export async function loginApi(data: AuthApi.LoginParams) {
 /**
  * 刷新accessToken
  */
-export async function refreshTokenApi() {
+export async function refreshTokenApi(refreshToken?: string | null) {
   // baseRequestClient 不解包响应，返回原始 AxiosResponse
   // resp.data = { code, data: { accessToken, refreshToken }, message }
-  return baseRequestClient.post('/auth/refresh', undefined, {
-    withCredentials: true,
-  });
+  return baseRequestClient.post(
+    '/auth/refresh',
+    refreshToken ? { refreshToken } : undefined,
+    {
+      headers: refreshToken ? { 'X-Refresh-Token': refreshToken } : undefined,
+      withCredentials: true,
+    },
+  );
 }
 
 /**
@@ -116,13 +130,7 @@ export async function loginByPhoneApi(data: { phone: string; code: string }) {
 /**
  * 用户注册
  */
-export async function registerApi(data: {
-  username: string;
-  email: string;
-  emailCode: string;
-  password: string;
-  confirmPassword: string;
-}) {
+export async function registerApi(data: AuthApi.RegisterParams) {
   return requestClient.post('/auth/register', data);
 }
 

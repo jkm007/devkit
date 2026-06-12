@@ -237,8 +237,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "object",
                                             "additionalProperties": {
-                                                "type": "integer",
-                                                "format": "int64"
+                                                "type": "integer"
                                             }
                                         }
                                     }
@@ -852,7 +851,10 @@ const docTemplate = `{
         },
         "/auth/refresh": {
             "post": {
-                "description": "使用 Cookie 中的 RefreshToken 获取新的 AccessToken + RefreshToken（Token 轮换，旧 Token 自动失效）",
+                "description": "使用 Cookie/Header/Body 中的 RefreshToken 获取新的 AccessToken + RefreshToken（Token 轮换，旧 Token 自动失效）",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
@@ -860,6 +862,16 @@ const docTemplate = `{
                     "认证"
                 ],
                 "summary": "刷新 AccessToken",
+                "parameters": [
+                    {
+                        "description": "刷新 Token 请求（H5/App 可选）",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/handler.RefreshTokenRequest"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "成功",
@@ -9779,6 +9791,14 @@ const docTemplate = `{
                 }
             }
         },
+        "handler.RefreshTokenRequest": {
+            "type": "object",
+            "properties": {
+                "refreshToken": {
+                    "type": "string"
+                }
+            }
+        },
         "handler.SendCodeRequest": {
             "type": "object",
             "required": [
@@ -10887,6 +10907,9 @@ const docTemplate = `{
                 "status"
             ],
             "properties": {
+                "allowApply": {
+                    "type": "integer"
+                },
                 "name": {
                     "type": "string"
                 },
@@ -11253,6 +11276,9 @@ const docTemplate = `{
                     "maxLength": 128,
                     "minLength": 6
                 },
+                "registerSource": {
+                    "type": "string"
+                },
                 "username": {
                     "type": "string",
                     "maxLength": 50,
@@ -11382,6 +11408,9 @@ const docTemplate = `{
         "service.RoleResponse": {
             "type": "object",
             "properties": {
+                "allowApply": {
+                    "type": "integer"
+                },
                 "createTime": {
                     "type": "string"
                 },
@@ -11577,6 +11606,9 @@ const docTemplate = `{
         "service.UpdateRoleRequest": {
             "type": "object",
             "properties": {
+                "allowApply": {
+                    "type": "integer"
+                },
                 "name": {
                     "type": "string"
                 },
