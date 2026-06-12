@@ -57,6 +57,24 @@ const routes: RouteRecordRaw[] = [
         },
         component: () => import('#/views/question/source/index.vue'),
       },
+      {
+        path: '/question/audit',
+        name: 'QuestionAudit',
+        meta: {
+          icon: 'mdi:check-decagram',
+          title: '审核发布',
+        },
+        component: () => import('#/views/question/audit/index.vue'),
+      },
+      {
+        path: '/question/statistics',
+        name: 'QuestionStatistics',
+        meta: {
+          icon: 'mdi:chart-bar',
+          title: '题库统计',
+        },
+        component: () => import('#/views/question/statistics/index.vue'),
+      },
     ],
   },
 ];
