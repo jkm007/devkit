@@ -23,6 +23,10 @@ interface Props {
   visible?: boolean;
   /** 公开模式（无需认证），用于登录等场景 */
   public?: boolean;
+  /** 验证结果：true=成功关闭, false=失败刷新, null=无操作 */
+  verifyResult?: boolean | null;
+  /** 验证失败消息 */
+  verifyMessage?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -30,6 +34,8 @@ const props = withDefaults(defineProps<Props>(), {
   title: '',
   visible: false,
   public: false,
+  verifyResult: null,
+  verifyMessage: '',
 });
 
 const emit = defineEmits<{
@@ -44,6 +50,8 @@ const emit = defineEmits<{
 // ==================== 状态 ====================
 const loading = ref(false);
 const verifying = ref(false);
+const pending = ref(false); // 等待后端验证
+const errorMsg = ref(''); // 错误提示
 const captchaId = ref('');
 const captchaImage = ref('');
 const captchaThumb = ref('');
@@ -136,17 +144,16 @@ async function handleCaptchaSuccess(data: {
   captchaId: string;
   startTime?: number;
 }) {
-  // 公开模式：直接返回验证数据，不调用验证接口
+  // 公开模式：返回验证数据，等待父组件确认后再关闭
   // startTime 使用用户完成验证的时间（Date.now()），用于后端检测操作耗时
   if (props.public) {
+    pending.value = true;
+    errorMsg.value = '';
     emit('success', {
       captchaId: captchaId.value,
       captchaCode: data.captchaCode,
       startTime: Date.now(),
     });
-    setTimeout(() => {
-      modalVisible.value = false;
-    }, 500);
     return;
   }
 
@@ -217,6 +224,23 @@ watch(
     }
   },
 );
+
+// 监听验证结果
+watch(
+  () => props.verifyResult,
+  (val) => {
+    if (val === true) {
+      // 验证成功：关闭弹窗
+      pending.value = false;
+      modalVisible.value = false;
+    } else if (val === false) {
+      // 验证失败：显示错误，刷新验证码
+      pending.value = false;
+      errorMsg.value = props.verifyMessage || '验证码错误，请重试';
+      loadCaptcha();
+    }
+  },
+);
 </script>
 
 <template>
@@ -283,6 +307,18 @@ watch(
         >
           点击顺序：{{ captchaChars.join(' → ') }}
         </div>
+      </div>
+
+      <!-- 错误提示 -->
+      <div v-if="errorMsg" class="mt-3 text-center">
+        <span class="text-sm font-medium text-red-500">
+          {{ errorMsg }}
+        </span>
+      </div>
+
+      <!-- 验证中提示 -->
+      <div v-if="pending" class="mt-3 text-center">
+        <span class="text-sm text-blue-500">验证中...</span>
       </div>
 
       <!-- 验证结果提示（私有模式才显示） -->

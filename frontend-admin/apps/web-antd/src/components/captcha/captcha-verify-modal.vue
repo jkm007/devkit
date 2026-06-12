@@ -20,6 +20,8 @@ import { getCaptcha } from '#/api/system/settings';
 // 弹窗状态
 const visible = ref(false);
 const loading = ref(false);
+const pending = ref(false); // 等待后端验证
+const errorMsg = ref(''); // 错误提示
 
 // 验证码数据
 const captchaId = ref('');
@@ -81,7 +83,8 @@ function handleSuccess(result: {
   captchaId: string;
   startTime: number;
 }) {
-  visible.value = false;
+  pending.value = true;
+  errorMsg.value = '';
   window.dispatchEvent(
     new CustomEvent('captcha:verify-result', {
       detail: {
@@ -96,7 +99,8 @@ function handleSuccess(result: {
 function handleNumericSubmit() {
   if (!numericCode.value || numericCode.value.length !== captchaLength.value)
     return;
-  visible.value = false;
+  pending.value = true;
+  errorMsg.value = '';
   window.dispatchEvent(
     new CustomEvent('captcha:verify-result', {
       detail: {
@@ -114,11 +118,27 @@ function handleCancel() {
 }
 
 function handleRefresh() {
+  errorMsg.value = '';
+  loadCaptcha();
+}
+
+// 验证成功：关闭弹窗
+function handleVerifySuccess() {
+  pending.value = false;
+  visible.value = false;
+}
+
+// 验证失败：显示错误，刷新验证码
+function handleVerifyError(event: CustomEvent) {
+  pending.value = false;
+  errorMsg.value = event.detail?.message || '验证码错误，请重试';
   loadCaptcha();
 }
 
 onMounted(() => {
   window.addEventListener('captcha:show-verify', handleShow as EventListener);
+  window.addEventListener('captcha:verify-success', handleVerifySuccess as EventListener);
+  window.addEventListener('captcha:verify-error', handleVerifyError as EventListener);
 });
 
 onUnmounted(() => {
@@ -126,6 +146,8 @@ onUnmounted(() => {
     'captcha:show-verify',
     handleShow as EventListener,
   );
+  window.removeEventListener('captcha:verify-success', handleVerifySuccess as EventListener);
+  window.removeEventListener('captcha:verify-error', handleVerifyError as EventListener);
 });
 </script>
 
@@ -202,6 +224,22 @@ onUnmounted(() => {
         @success="handleSuccess"
         @refresh="handleRefresh"
       />
+
+      <!-- 错误提示 -->
+      <div
+        v-if="errorMsg"
+        style="color: #ff4d4f; font-size: 13px; margin-top: 8px; text-align: center"
+      >
+        {{ errorMsg }}
+      </div>
+
+      <!-- 验证中提示 -->
+      <div
+        v-if="pending"
+        style="color: #1890ff; font-size: 13px; margin-top: 8px; text-align: center"
+      >
+        验证中...
+      </div>
 
       <div
         v-else-if="loading"

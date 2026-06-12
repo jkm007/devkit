@@ -154,7 +154,9 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
             });
             const retryBody = retryResp?.data;
             if (retryBody?.code === 0) {
-              // 验证成功：构造一个符合 axios 响应格式的伪响应对象
+              // 验证成功：通知弹窗关闭
+              window.dispatchEvent(new CustomEvent('captcha:verify-success'));
+              // 构造一个符合 axios 响应格式的伪响应对象
               // 传给后续的 defaultResponseInterceptor 进行统一解包
               return {
                 data: retryBody,
@@ -165,19 +167,27 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
               };
             }
             if (retryBody?.code === 403001) {
-              // 验证码错误，更新为后端返回的新随机类型，继续循环弹框
+              // 验证码错误：通知弹窗刷新验证码并显示错误
+              window.dispatchEvent(
+                new CustomEvent('captcha:verify-error', {
+                  detail: { message: retryBody?.message || '验证码错误，请重试' },
+                }),
+              );
               currentCaptchaType =
                 retryBody?.data?.captcha_type || currentCaptchaType;
               continue;
             }
             // 其他业务错误
+            window.dispatchEvent(new CustomEvent('captcha:verify-success'));
             throw Object.assign({}, retryResp, { response: retryResp });
           }
           // 达到重试上限
+          window.dispatchEvent(new CustomEvent('captcha:verify-success'));
           message.warning('验证码验证次数过多，请稍后再试');
           return Promise.reject(new Error('验证码验证次数超限'));
         } catch (e: any) {
           // 区分用户取消和真实错误
+          window.dispatchEvent(new CustomEvent('captcha:verify-success'));
           if (e?.message === '用户取消验证码验证') {
             message.warning('操作已取消');
           } else {

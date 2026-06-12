@@ -72,11 +72,11 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	if err != nil {
 		// 记录登录失败日志（保留完整错误信息用于内部排查）
 		h.authService.RecordSecurityLog(0, "login_fail", fmt.Sprintf("用户[%s]登录失败: %s", req.Username, err.Error()), c.ClientIP(), c.GetHeader("User-Agent"), 0)
-		// 统一返回通用错误消息，不暴露内部实现细节（如账号是否存在、账号状态、验证码系统细节等）
-		// 完整错误信息已记录到安全日志，供内部排查使用
+		// 区分验证码错误和账号错误
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "验证码") || strings.Contains(errMsg, "captcha") || strings.Contains(errMsg, "验证失败") {
-			response.Forbidden(c, "验证码错误，请刷新后重试")
+			// 返回 403001 让前端弹出验证码（不关闭弹窗，刷新验证码重试）
+			response.CaptchaRequired(c, "验证码错误，请重新验证")
 		} else {
 			response.Forbidden(c, "用户名或密码错误")
 		}

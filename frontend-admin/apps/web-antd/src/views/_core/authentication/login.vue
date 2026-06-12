@@ -52,6 +52,8 @@ const captchaResult = ref<{
   captchaCode: string;
   startTime?: number;
 } | null>(null);
+const captchaVerifyResult = ref<boolean | null>(null); // 验证结果
+const captchaVerifyMessage = ref(''); // 验证失败消息
 
 // 待登录参数（验证成功后继续登录）
 const pendingLoginParams = ref<Record<string, any> | null>(null);
@@ -282,6 +284,27 @@ function doLogin(
       if (isNumericCaptcha.value && shouldShowCaptcha.value) {
         fetchNumericCaptcha();
       }
+    } else {
+      // 登录成功，关闭弹窗
+      captchaVerifyResult.value = true;
+    }
+  }).catch((error: any) => {
+    // 检查是否是 403001 验证码错误
+    const responseData = error?.response?.data;
+    if (responseData?.code === 403001) {
+      // 验证码错误，通知弹窗刷新
+      captchaVerifyResult.value = false;
+      captchaVerifyMessage.value = responseData?.message || '验证码错误，请重试';
+      // 重置状态以便下次触发
+      setTimeout(() => {
+        captchaVerifyResult.value = null;
+      }, 100);
+    } else {
+      // 其他错误，关闭弹窗
+      captchaVerifyResult.value = true;
+      loginFailCount.value++;
+      captchaVerified.value = false;
+      captchaResult.value = null;
     }
   });
 }
@@ -389,6 +412,8 @@ async function handleOAuthLogin(provider: string) {
     v-model:visible="captchaModalVisible"
     :captcha-type="captchaType"
     :public="true"
+    :verify-result="captchaVerifyResult"
+    :verify-message="captchaVerifyMessage"
     title="请完成安全验证"
     @success="onCaptchaModalSuccess"
     @fail="onCaptchaModalFail"
