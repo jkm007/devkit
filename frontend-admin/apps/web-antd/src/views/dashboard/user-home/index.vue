@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { IconifyIcon } from '@vben/icons';
@@ -6,10 +7,57 @@ import { Page } from '@vben/common-ui';
 import { preferences } from '@vben/preferences';
 import { useUserStore } from '@vben/stores';
 
-import { Card, Empty } from 'ant-design-vue';
+import { Badge, Card, Empty, Progress, Tag, Tooltip } from 'ant-design-vue';
+
+import type { HomeData } from '#/api/user-home';
+import { getHomeData } from '#/api/user-home';
 
 const userStore = useUserStore();
 const router = useRouter();
+
+const homeData = ref<HomeData | null>(null);
+const loading = ref(true);
+
+onMounted(async () => {
+  try {
+    homeData.value = await getHomeData();
+  } catch {
+    // 静默失败
+  } finally {
+    loading.value = false;
+  }
+});
+
+// 格式化文件大小
+function formatSize(bytes: number): string {
+  if (bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return `${(bytes / 1024 ** i).toFixed(1)} ${units[i]}`;
+}
+
+// 存储进度条颜色
+function getStorageColor(percent: number): string {
+  if (percent >= 90) return '#ff4d4f';
+  if (percent >= 70) return '#faad14';
+  return '#52c41a';
+}
+
+// 设备类型图标
+const deviceIconMap: Record<string, string> = {
+  web: 'lucide:monitor',
+  h5: 'lucide:smartphone',
+  app: 'lucide:smartphone',
+  miniapp: 'lucide:layout-grid',
+};
+
+// 设备类型中文
+const deviceTypeMap: Record<string, string> = {
+  web: 'Web浏览器',
+  h5: 'H5移动端',
+  app: 'APP',
+  miniapp: '小程序',
+};
 
 // 快捷入口
 const quickLinks = [
@@ -78,6 +126,57 @@ const displayName =
       </div>
     </div>
 
+    <!-- 存储使用 + 角色信息 -->
+    <div class="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <!-- 存储使用 -->
+      <Card title="存储空间" :bordered="true">
+        <div v-if="homeData?.storage" class="space-y-4">
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-muted-foreground">已使用</span>
+            <span class="text-lg font-semibold">
+              {{ formatSize(homeData.storage.used) }}
+              <span v-if="homeData.storage.quota > 0" class="text-sm font-normal text-muted-foreground">
+                / {{ formatSize(homeData.storage.quota) }}
+              </span>
+              <span v-else class="text-sm font-normal text-muted-foreground">
+                （不限制）
+              </span>
+            </span>
+          </div>
+          <Progress
+            v-if="homeData.storage.quota > 0"
+            :percent="Math.min(homeData.storage.usedPercent, 100)"
+            :stroke-color="getStorageColor(homeData.storage.usedPercent)"
+            :show-text="true"
+            :format="(p: number) => `${p.toFixed(1)}%`"
+          />
+          <div v-else class="text-sm text-muted-foreground">
+            您的存储空间没有容量限制
+          </div>
+          <div v-if="homeData.storage.quota > 0 && homeData.storage.usedPercent >= 80" class="rounded-lg bg-orange-50 p-3 text-sm text-orange-600">
+            ⚠️ 存储空间即将用尽，请及时清理文件或联系管理员扩容
+          </div>
+        </div>
+        <Empty v-else-if="!loading" description="暂无数据" />
+      </Card>
+
+      <!-- 角色信息 -->
+      <Card title="我的角色" :bordered="true">
+        <div v-if="homeData?.roles && homeData.roles.length > 0" class="space-y-3">
+          <div v-for="role in homeData.roles" :key="role.id" class="flex items-center gap-3 rounded-lg border border-border p-3">
+            <div class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-500">
+              <IconifyIcon icon="lucide:shield-check" class="size-5" />
+            </div>
+            <div>
+              <div class="font-medium text-foreground">{{ role.name }}</div>
+              <div class="text-xs text-muted-foreground">{{ role.code }}</div>
+            </div>
+          </div>
+        </div>
+        <Empty v-else-if="!loading" description="暂无角色信息" />
+      </Card>
+    </div>
+
     <!-- 快捷入口 -->
     <Card title="快捷入口" class="mb-6" :bordered="true">
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -101,56 +200,37 @@ const displayName =
       </div>
     </Card>
 
-    <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      <!-- 系统公告 -->
-      <Card title="系统公告" :bordered="true">
-        <Empty description="暂无公告" />
-      </Card>
-
-      <!-- 最近访问 -->
-      <Card title="最近访问" :bordered="true">
-        <Empty description="暂无访问记录" />
-      </Card>
-    </div>
-
-    <!-- 使用提示 -->
-    <Card title="使用提示" class="mt-6" :bordered="true">
-      <ul class="space-y-3 text-sm text-muted-foreground">
-        <li class="flex items-start gap-2">
-          <span
-            class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs text-blue-500"
-            >1</span
-          >
-          <span
-            >您可以在<strong class="text-foreground">文件管理</strong>中上传、下载和管理您的文件。</span
-          >
-        </li>
-        <li class="flex items-start gap-2">
-          <span
-            class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-purple-50 text-xs text-purple-500"
-            >2</span
-          >
-          <span
-            >通过<strong class="text-foreground">分享管理</strong>可以创建文件分享链接，方便与他人共享文件。</span
-          >
-        </li>
-        <li class="flex items-start gap-2">
-          <span
-            class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-orange-50 text-xs text-orange-500"
-            >3</span
-          >
-          <span
-            >删除的文件会进入<strong class="text-foreground">回收站</strong>，您可以在回收站中恢复或彻底删除文件。</span
-          >
-        </li>
-        <li class="flex items-start gap-2">
-          <span
-            class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-50 text-xs text-green-500"
-            >4</span
-          >
-          <span>请定期修改密码，保障您的账户安全。</span>
-        </li>
-      </ul>
+    <!-- 登录设备 -->
+    <Card title="登录设备" :bordered="true">
+      <div v-if="homeData?.devices && homeData.devices.length > 0" class="space-y-3">
+        <div
+          v-for="device in homeData.devices"
+          :key="device.id"
+          class="flex items-center gap-4 rounded-lg border border-border p-4 transition-colors hover:bg-muted/50"
+        >
+          <div class="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+            <IconifyIcon :icon="deviceIconMap[device.deviceType] || 'lucide:monitor'" class="size-5 text-muted-foreground" />
+          </div>
+          <div class="flex-1">
+            <div class="flex items-center gap-2">
+              <span class="font-medium text-foreground">
+                {{ device.deviceName || deviceTypeMap[device.deviceType] || '未知设备' }}
+              </span>
+              <Badge v-if="device.isCurrent" status="success" text="当前设备" />
+            </div>
+            <div class="mt-1 text-xs text-muted-foreground">
+              <span v-if="device.browser">{{ device.browser }}</span>
+              <span v-if="device.os"> · {{ device.os }}</span>
+              <span v-if="device.ip"> · {{ device.ip }}</span>
+            </div>
+          </div>
+          <div class="text-right text-xs text-muted-foreground">
+            <div v-if="device.lastActiveAt">{{ device.lastActiveAt }}</div>
+            <Tag v-if="device.platform" size="small">{{ device.platform }}</Tag>
+          </div>
+        </div>
+      </div>
+      <Empty v-else-if="!loading" description="暂无登录设备" />
     </Card>
   </Page>
 </template>

@@ -64,6 +64,8 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	rateLimitRuleHandler := handler.NewRateLimitRuleHandler()
 	recycleBinHandler := handler.NewRecycleBinHandler()
 	scheduledTaskHandler := handler.NewScheduledTaskHandler()
+	notificationHandler := handler.NewNotificationHandler()
+	userHomeHandler := handler.NewUserHomeHandler()
 
 	// 健康检查（不需要 /api/v1 前缀）
 	r.GET("/health", func(c *gin.Context) {
@@ -140,6 +142,16 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 
 		// WebSocket 连接
 		authorized.GET("/ws", wsHandler.Handle)
+
+		// 用户首页数据
+		authorized.GET("/user/home", userHomeHandler.GetHomeData)
+
+		// 通知消息
+		authorized.GET("/notifications", notificationHandler.List)
+		authorized.GET("/notifications/unread-count", notificationHandler.GetUnreadCount)
+		authorized.PUT("/notifications/:id/read", notificationHandler.MarkRead)
+		authorized.PUT("/notifications/read-all", notificationHandler.MarkAllRead)
+		authorized.DELETE("/notifications/:id", notificationHandler.Delete)
 
 		// 菜单（用户菜单）
 		authorized.GET("/menu/all", menuHandler.GetAll)
@@ -370,6 +382,10 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 			system.PUT("/file-type-rules/:id", middleware.Permission("storage:file-type:edit"), fileTypeRuleHandler.Update)
 			system.DELETE("/file-type-rules/:id", middleware.Permission("storage:file-type:delete"), fileTypeRuleHandler.Delete)
 			system.POST("/file-type-rules/refresh", middleware.Permission("storage:file-type:edit"), fileTypeRuleHandler.RefreshAutoTagger)
+
+			// 通知公告管理（管理员）
+			system.GET("/notifications", middleware.Permission("system:notification:view"), notificationHandler.AdminList)
+			system.POST("/notifications/announcement", middleware.Permission("system:notification:publish"), notificationHandler.PublishAnnouncement)
 
 			// 定时任务管理
 			system.GET("/scheduled-tasks", middleware.Permission("system:task:view"), scheduledTaskHandler.List)

@@ -956,8 +956,14 @@ async function handleUpload(file: File) {
     await uploadStore.uploadFile(file, currentFolderId.value ?? undefined);
     message.success(`${file.name} 上传成功`);
     onRefresh();
-  } catch (err) {
-    message.error(`上传失败: ${err}`);
+  } catch (err: any) {
+    const msg =
+      err?.message || err?.response?.data?.message || err?.response?.data?.error || String(err);
+    if (msg.includes('存储空间不足')) {
+      message.warning(msg);
+    } else {
+      message.error(`上传失败: ${msg}`);
+    }
   }
   return false;
 }

@@ -110,6 +110,9 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	deviceID := c.GetHeader("X-Device-ID")
 	h.authService.RecordLoginDevice(result.ID, c.ClientIP(), c.GetHeader("User-Agent"), deviceID, getClientType(c), getDeviceMeta(c))
 
+	// 异步发送登录通知（不阻塞响应）
+	go service.NewNotificationService().NotifyLoginAlert(result.ID, "", c.ClientIP(), "")
+
 	// 双重返回 Token：Cookie 用于浏览器自动携带认证，响应体用于前端显式管理（如存入内存或 localStorage）
 	// Cookie MaxAge 与对应 Token TTL 保持一致，避免 Cookie 存活超过 Token 有效期
 	accessTokenMaxAge := int(h.cfg.JWT.AccessTokenTTL.Seconds())
@@ -406,6 +409,9 @@ func (h *AuthHandler) LoginByEmail(c *gin.Context) {
 	deviceID := c.GetHeader("X-Device-ID")
 	h.authService.RecordLoginDevice(result.ID, c.ClientIP(), c.GetHeader("User-Agent"), deviceID, getClientType(c), getDeviceMeta(c))
 
+	// 异步发送登录通知
+	go service.NewNotificationService().NotifyLoginAlert(result.ID, "", c.ClientIP(), "")
+
 	// 双重返回 Token：Cookie 用于浏览器自动携带认证，响应体用于前端显式管理
 	accessTokenMaxAge := int(h.cfg.JWT.AccessTokenTTL.Seconds())
 	refreshTokenMaxAge := int(h.cfg.JWT.RefreshTokenTTL.Seconds())
@@ -451,6 +457,9 @@ func (h *AuthHandler) LoginByPhone(c *gin.Context) {
 	h.authService.RecordSecurityLog(result.ID, "login", fmt.Sprintf("手机号验证码登录成功, 来源: %s", result.RegisterSource), c.ClientIP(), c.GetHeader("User-Agent"), 1)
 	deviceID := c.GetHeader("X-Device-ID")
 	h.authService.RecordLoginDevice(result.ID, c.ClientIP(), c.GetHeader("User-Agent"), deviceID, getClientType(c), getDeviceMeta(c))
+
+	// 异步发送登录通知
+	go service.NewNotificationService().NotifyLoginAlert(result.ID, "", c.ClientIP(), "")
 
 	// 双重返回 Token：Cookie 用于浏览器自动携带认证，响应体用于前端显式管理
 	accessTokenMaxAge := int(h.cfg.JWT.AccessTokenTTL.Seconds())

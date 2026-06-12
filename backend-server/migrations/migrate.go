@@ -38,5 +38,7 @@ func Run(db *gorm.DB) error {
 		&model.FileTypeRule{},
 		&model.RateLimitRule{},
 		&model.ScheduledTask{},
+		&model.Notification{},
+		&model.NotificationRead{},
 	)
 }

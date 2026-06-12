@@ -84,6 +84,15 @@ const routes: RouteRecordRaw[] = [
           icon: 'lucide:clock',
         },
       },
+      {
+        name: 'SystemAnnouncement',
+        path: '/system/announcement',
+        component: () => import('#/views/system/announcement/index.vue'),
+        meta: {
+          title: '公告管理',
+          icon: 'lucide:megaphone',
+        },
+      },
     ],
   },
 ];

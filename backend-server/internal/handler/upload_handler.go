@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 
 	"backend-server/internal/middleware"
 	"backend-server/internal/service"
@@ -49,7 +50,11 @@ func (h *UploadHandler) CheckUpload(c *gin.Context) {
 	userID := middleware.GetCurrentUserID(c)
 	result, err := h.uploadService.CheckUpload(userID, req.FileHash, req.FileSize, req.FolderID)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		if isQuotaError(err) {
+			response.QuotaExceeded(c, err.Error())
+		} else {
+			response.InternalError(c, err.Error())
+		}
 		return
 	}
 
@@ -96,11 +101,20 @@ func (h *UploadHandler) InitUpload(c *gin.Context) {
 	userID := middleware.GetCurrentUserID(c)
 	result, err := h.uploadService.InitUpload(userID, req.FileName, req.FileSize, req.FileHash, req.ContentType, req.TotalParts, req.FolderID)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		if isQuotaError(err) {
+			response.QuotaExceeded(c, err.Error())
+		} else {
+			response.InternalError(c, err.Error())
+		}
 		return
 	}
 
 	response.Success(c, result)
+}
+
+// isQuotaError 判断是否为配额超出错误
+func isQuotaError(err error) bool {
+	return strings.Contains(err.Error(), "存储空间不足")
 }
 
 // UploadPart 上传分片

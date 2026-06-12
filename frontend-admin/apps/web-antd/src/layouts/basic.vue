@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { NotificationItem } from '@vben/layouts';
 
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { AuthenticationLoginExpiredModal } from '@vben/common-ui';
@@ -18,62 +18,86 @@ import { preferences, usePreferences } from '@vben/preferences';
 import { useAccessStore, useUserStore } from '@vben/stores';
 import { openWindow } from '@vben/utils';
 
+import {
+  deleteNotification,
+  getNotifications,
+  getUnreadCount,
+  markAllRead,
+  markRead,
+} from '#/api/notification';
 import { $t } from '#/locales';
 import { useAuthStore } from '#/store';
 import LoginForm from '#/views/_core/authentication/login.vue';
 
-const notifications = ref<NotificationItem[]>([
-  {
-    id: 1,
-    avatar: 'https://avatar.vercel.sh/vercel.svg?text=VB',
-    date: '3小时前',
-    isRead: true,
-    message: '描述信息描述信息描述信息',
-    title: '收到了 14 份新周报',
-  },
-  {
-    id: 2,
-    avatar: 'https://avatar.vercel.sh/1',
-    date: '刚刚',
-    isRead: false,
-    message: '描述信息描述信息描述信息',
-    title: '朱偏右 回复了你',
-  },
-  {
-    id: 3,
-    avatar: 'https://avatar.vercel.sh/1',
-    date: '2024-01-01',
-    isRead: false,
-    message: '描述信息描述信息描述信息',
-    title: '曲丽丽 评论了你',
-  },
-  {
-    id: 4,
-    avatar: 'https://avatar.vercel.sh/satori',
-    date: '1天前',
-    isRead: false,
-    message: '描述信息描述信息描述信息',
-    title: '代办提醒',
-  },
-  {
-    id: 5,
-    avatar: 'https://avatar.vercel.sh/satori',
-    date: '1天前',
-    isRead: false,
-    message: '描述信息描述信息描述信息',
-    title: '跳转Workspace示例',
-    link: '/workspace',
-  },
-  {
-    id: 6,
-    avatar: 'https://avatar.vercel.sh/satori',
-    date: '1天前',
-    isRead: false,
-    message: '描述信息描述信息描述信息',
-    title: '跳转外部链接示例',
-    link: 'https://doc.vben.pro',
-  },
-]);
+const notifications = ref<NotificationItem[]>([]);
+const unreadCount = ref(0);
+let pollTimer: ReturnType<typeof setInterval> | null = null;
+
+// 通知类型图标映射
+const typeAvatarMap: Record<string, string> = {
+  login_alert: 'https://avatar.vercel.sh/login?text=🔐',
+  upload_done: 'https://avatar.vercel.sh/upload?text=📁',
+  role_change: 'https://avatar.vercel.sh/role?text=👤',
+  role_approved: 'https://avatar.vercel.sh/approved?text=✅',
+  role_rejected: 'https://avatar.vercel.sh/rejected?text=❌',
+  announcement: 'https://avatar.vercel.sh/announce?text=📢',
+  storage_warn: 'https://avatar.vercel.sh/storage?text=💾',
+  security_warn: 'https://avatar.vercel.sh/security?text=⚠️',
+};
+
+// 时间格式化
+function formatRelativeTime(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+  const minutes = Math.floor(diff / 60_000);
+  if (minutes < 1) return '刚刚';
+  if (minutes < 60) return `${minutes}分钟前`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}小时前`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}天前`;
+  return date.toLocaleDateString('zh-CN');
+}
+
+// 加载通知列表
+async function loadNotifications() {
+  try {
+    const res = await getNotifications({ page: 1, pageSize: 20 });
+    notifications.value = (res.items || []).map((n) => ({
+      id: n.id,
+      avatar: typeAvatarMap[n.type] || 'https://avatar.vercel.sh/default?text=🔔',
+      date: formatRelativeTime(n.createdAt),
+      isRead: n.isRead,
+      message: n.content,
+      title: n.title,
+      link: n.link || undefined,
+    }));
+  } catch {
+    // 静默失败
+  }
+}
+
+// 加载未读数量
+async function loadUnreadCount() {
+  try {
+    const res = await getUnreadCount();
+    unreadCount.value = res.count || 0;
+  } catch {
+    // 静默失败
+  }
+}
+
+// 初始化
+onMounted(async () => {
+  await Promise.all([loadNotifications(), loadUnreadCount()]);
+  // 每30秒轮询未读数量
+  pollTimer = setInterval(loadUnreadCount, 30_000);
+});
+
+onUnmounted(() => {
+  if (pollTimer) clearInterval(pollTimer);
+});
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -81,9 +105,7 @@ const authStore = useAuthStore();
 const accessStore = useAccessStore();
 const { destroyWatermark, updateWatermark } = useWatermark();
 const { isDark } = usePreferences();
-const showDot = computed(() =>
-  notifications.value.some((item) => !item.isRead),
-);
+const showDot = computed(() => unreadCount.value > 0);
 
 const menus = computed(() => [
   {
@@ -130,29 +152,54 @@ async function handleLogout() {
   await authStore.logout(false);
 }
 
-function handleNoticeClear() {
+async function handleNoticeClear() {
   notifications.value = [];
+  unreadCount.value = 0;
 }
 
-function markRead(id: number | string) {
-  const item = notifications.value.find((item) => item.id === id);
-  if (item) {
-    item.isRead = true;
+async function markReadItem(id: number | string) {
+  const numId = Number(id);
+  try {
+    await markRead(numId);
+    const item = notifications.value.find((item) => item.id === id);
+    if (item) {
+      item.isRead = true;
+      unreadCount.value = Math.max(0, unreadCount.value - 1);
+    }
+  } catch {
+    // 静默失败
   }
 }
 
-function remove(id: number | string) {
-  notifications.value = notifications.value.filter((item) => item.id !== id);
+async function removeItem(id: number | string) {
+  const numId = Number(id);
+  try {
+    await deleteNotification(numId);
+    const item = notifications.value.find((item) => item.id === id);
+    notifications.value = notifications.value.filter((item) => item.id !== id);
+    if (item && !item.isRead) {
+      unreadCount.value = Math.max(0, unreadCount.value - 1);
+    }
+  } catch {
+    // 静默失败
+  }
 }
 
-function handleMakeAll() {
-  notifications.value.forEach((item) => (item.isRead = true));
+async function handleMakeAll() {
+  try {
+    await markAllRead();
+    notifications.value.forEach((item) => (item.isRead = true));
+    unreadCount.value = 0;
+  } catch {
+    // 静默失败
+  }
 }
 
-const viewAll = () => {};
+const viewAll = () => {
+  // 未来可扩展为跳转通知列表页
+};
 
 const handleClick = (item: NotificationItem) => {
-  // 如果通知项有链接，点击时跳转
   if (item.link) {
     navigateTo(item.link, item.query, item.state);
   }
@@ -164,10 +211,8 @@ function navigateTo(
   state?: Record<string, any>,
 ) {
   if (link.startsWith('http://') || link.startsWith('https://')) {
-    // 外部链接，在新标签页打开
     window.open(link, '_blank', 'noopener,noreferrer');
   } else {
-    // 内部路由链接，支持 query 参数和 state
     router.push({
       path: link,
       query: query || {},
@@ -175,6 +220,54 @@ function navigateTo(
     });
   }
 }
+
+// WebSocket 实时通知
+let wsInstance: WebSocket | null = null;
+function connectWebSocket() {
+  const accessStore = useAccessStore();
+  if (!accessStore.accessToken) return;
+
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const host = window.location.host;
+  const wsUrl = `${protocol}//${host}/api/v1/ws`;
+
+  try {
+    wsInstance = new WebSocket(wsUrl);
+    wsInstance.onopen = () => {
+      // 发送认证
+      wsInstance?.send(JSON.stringify({ type: 'auth', token: accessStore.accessToken }));
+    };
+    wsInstance.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'notification') {
+          // 收到新通知，刷新列表和未读数
+          loadNotifications();
+          loadUnreadCount();
+        }
+      } catch {
+        // 忽略非 JSON 消息
+      }
+    };
+    wsInstance.onclose = () => {
+      // 断线重连（30秒后）
+      setTimeout(connectWebSocket, 30_000);
+    };
+  } catch {
+    // WebSocket 连接失败，静默处理
+  }
+}
+
+onMounted(() => {
+  connectWebSocket();
+});
+
+onUnmounted(() => {
+  if (wsInstance) {
+    wsInstance.close();
+    wsInstance = null;
+  }
+});
 
 watch(
   () => ({
@@ -236,8 +329,8 @@ watch(
         :dot="showDot"
         :notifications="notifications"
         @clear="handleNoticeClear"
-        @read="(item) => item.id && markRead(item.id)"
-        @remove="(item) => item.id && remove(item.id)"
+        @read="(item) => item.id && markReadItem(item.id)"
+        @remove="(item) => item.id && removeItem(item.id)"
         @make-all="handleMakeAll"
         @on-click="handleClick"
         @view-all="viewAll"

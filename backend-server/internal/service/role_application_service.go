@@ -232,6 +232,9 @@ func (s *RoleApplicationService) Approve(id, reviewerID uint, note string) error
 	// 清除用户权限缓存，使新角色权限立即生效
 	ctx := context.Background()
 	_ = cache.Delete(ctx, fmt.Sprintf("permission_codes:%d", app.UserID))
+
+	// 异步通知申请人
+	go NewNotificationService().NotifyRoleApplication(app.UserID, role.Name, "approved")
 	return nil
 }
 
@@ -251,7 +254,18 @@ func (s *RoleApplicationService) Reject(id, reviewerID uint, note string) error 
 	app.ReviewedAt = &now
 	app.ReviewNote = note
 
-	return s.repo.Update(app)
+	if err := s.repo.Update(app); err != nil {
+		return err
+	}
+
+	// 获取角色名称并异步通知申请人
+	roleName := ""
+	if role, err := s.roleRepo.GetByID(app.RoleID); err == nil {
+		roleName = role.Name
+	}
+	go NewNotificationService().NotifyRoleApplication(app.UserID, roleName, "rejected")
+
+	return nil
 }
 
 func (s *RoleApplicationService) buildApplicationItems(list []model.RoleApplication) []RoleApplicationItem {

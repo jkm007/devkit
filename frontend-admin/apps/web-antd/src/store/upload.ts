@@ -165,13 +165,15 @@ export const useUploadStore = defineStore('upload', () => {
       setTimeout(() => {
         removeTask(`temp-${tempId}`);
       }, 3000);
-    } catch (err) {
+    } catch (err: any) {
       console.error('上传失败:', err);
 
+      const errMsg =
+        err?.message || err?.response?.data?.message || err?.response?.data?.error || String(err);
       const endTime = Date.now();
       updateTask(`temp-${tempId}`, {
         status: 'failed',
-        errorMessage: String(err),
+        errorMessage: errMsg,
         endTime,
         totalDuration: endTime - startTime,
         file: undefined,
@@ -182,7 +184,7 @@ export const useUploadStore = defineStore('upload', () => {
         removeTask(`temp-${tempId}`);
       }, 10000);
 
-      throw err;
+      throw new Error(errMsg);
     } finally {
       uploadingCount.value--;
     }

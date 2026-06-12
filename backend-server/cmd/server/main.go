@@ -131,6 +131,7 @@ func main() {
 	// 8. 启动 WebSocket Hub
 	hub := ws.NewHub()
 	go hub.Run()
+	service.SetGlobalHub(hub)
 
 	// 8.1 从数据库加载文件类型规则到 AutoTagger
 	initFileTypeRules()
