@@ -27,6 +27,20 @@ export function useFormSchema(): VbenFormSchema[] {
       label: $t('system.role.status'),
     },
     {
+      component: 'RadioGroup',
+      componentProps: {
+        buttonStyle: 'solid',
+        options: [
+          { label: '是', value: 1 },
+          { label: '否', value: 0 },
+        ],
+        optionType: 'button',
+      },
+      defaultValue: 0,
+      fieldName: 'allowApply',
+      label: $t('system.role.allowApply'),
+    },
+    {
       component: 'Textarea',
       fieldName: 'remark',
       label: $t('system.role.remark'),
@@ -96,6 +110,14 @@ export function useColumns<T = SystemRoleApi.SystemRole>(
       field: 'status',
       title: $t('system.role.status'),
       width: 100,
+    },
+    {
+      field: 'allowApply',
+      title: $t('system.role.allowApply'),
+      width: 120,
+      formatter({ cellValue }: any) {
+        return cellValue === 1 ? '是' : '否';
+      },
     },
     {
       field: 'remark',

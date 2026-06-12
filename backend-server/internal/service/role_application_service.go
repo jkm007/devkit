@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"backend-server/internal/model"
@@ -75,8 +74,6 @@ type RoleApplicationItem struct {
 	CreatedAt    time.Time  `json:"createdAt"`
 }
 
-var forbiddenApplyRoleNames = []string{"admin", "super", "super_admin", "administrator"}
-
 // Create 创建角色申请
 func (s *RoleApplicationService) Create(userID uint, req *RoleApplicationRequest) error {
 	role, err := s.roleRepo.GetByID(req.RoleID)
@@ -86,7 +83,7 @@ func (s *RoleApplicationService) Create(userID uint, req *RoleApplicationRequest
 	if role.Status != 1 {
 		return errors.New("该角色已禁用，不能申请")
 	}
-	if isForbiddenApplyRole(role.Name) {
+	if role.AllowApply != 1 {
 		return errors.New("该角色不允许申请")
 	}
 
@@ -138,7 +135,7 @@ func (s *RoleApplicationService) ListAvailableRoles(userID uint) ([]AvailableRol
 		excludeIDs = append(excludeIDs, id)
 	}
 
-	roles, err := s.roleRepo.ListAvailableForApply(excludeIDs, forbiddenApplyRoleNames)
+	roles, err := s.roleRepo.ListAvailableForApply(excludeIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -207,9 +204,6 @@ func (s *RoleApplicationService) Approve(id, reviewerID uint, note string) error
 	}
 	if role.Status != 1 {
 		return errors.New("申请角色已禁用，不能通过")
-	}
-	if isForbiddenApplyRole(role.Name) {
-		return errors.New("该角色不允许申请")
 	}
 
 	roleIDs, err := s.userRepo.GetUserRoleIDs(app.UserID)
@@ -323,16 +317,6 @@ func (s *RoleApplicationService) buildApplicationItems(list []model.RoleApplicat
 func containsUint(values []uint, target uint) bool {
 	for _, value := range values {
 		if value == target {
-			return true
-		}
-	}
-	return false
-}
-
-func isForbiddenApplyRole(name string) bool {
-	name = strings.ToLower(strings.TrimSpace(name))
-	for _, forbidden := range forbiddenApplyRoleNames {
-		if name == forbidden {
 			return true
 		}
 	}

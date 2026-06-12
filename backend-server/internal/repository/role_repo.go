@@ -92,14 +92,11 @@ func (r *RoleRepo) GetByIDs(ids []uint) ([]model.Role, error) {
 }
 
 // ListAvailableForApply 获取可申请角色列表
-func (r *RoleRepo) ListAvailableForApply(excludeIDs []uint, excludeNames []string) ([]model.Role, error) {
+func (r *RoleRepo) ListAvailableForApply(excludeIDs []uint) ([]model.Role, error) {
 	var roles []model.Role
-	query := r.db.Model(&model.Role{}).Where("status = ?", 1)
+	query := r.db.Model(&model.Role{}).Where("status = 1 AND allow_apply = 1")
 	if len(excludeIDs) > 0 {
 		query = query.Where("id NOT IN ?", excludeIDs)
-	}
-	if len(excludeNames) > 0 {
-		query = query.Where("name NOT IN ?", excludeNames)
 	}
 	if err := query.Order("created_at DESC").Find(&roles).Error; err != nil {
 		return nil, err

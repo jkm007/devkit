@@ -36,6 +36,7 @@ type RoleResponse struct {
 	ID          uint     `json:"id"`
 	Name        string   `json:"name"`
 	Status      int      `json:"status"`
+	AllowApply  int      `json:"allowApply"`
 	Permissions []string `json:"permissions"`
 	Remark      string   `json:"remark"`
 	CreatedAt   string   `json:"createTime"`
@@ -61,6 +62,7 @@ func toRoleResponse(role *model.Role) RoleResponse {
 		ID:          role.ID,
 		Name:        role.Name,
 		Status:      role.Status,
+		AllowApply:  role.AllowApply,
 		Permissions: permissions,
 		Remark:      role.Remark,
 		CreatedAt:   role.CreatedAt.Format("2006-01-02T15:04:05.000-07:00"),
@@ -81,18 +83,20 @@ type ListRoleRequest struct {
 
 // CreateRoleRequest 创建角色请求
 type CreateRoleRequest struct {
-	Name        string   `json:"name" binding:"required"`
-	Status      int      `json:"status" binding:"required"`
+	Name       string   `json:"name" binding:"required"`
+	Status     int      `json:"status" binding:"required"`
+	AllowApply int      `json:"allowApply"`
 	Permissions []string `json:"permissions"`
-	Remark      string   `json:"remark"`
+	Remark     string   `json:"remark"`
 }
 
 // UpdateRoleRequest 更新角色请求
 type UpdateRoleRequest struct {
-	Name        string   `json:"name"`
-	Status      int      `json:"status"`
+	Name       string   `json:"name"`
+	Status     int      `json:"status"`
+	AllowApply *int     `json:"allowApply"`
 	Permissions []string `json:"permissions"`
-	Remark      string   `json:"remark"`
+	Remark     string   `json:"remark"`
 }
 
 // List 获取角色列表
@@ -135,9 +139,10 @@ func (s *RoleService) GetByID(id uint) (*model.Role, error) {
 // Create 创建角色
 func (s *RoleService) Create(req *CreateRoleRequest) error {
 	role := &model.Role{
-		Name:   req.Name,
-		Status: req.Status,
-		Remark: req.Remark,
+		Name:       req.Name,
+		Status:     req.Status,
+		AllowApply: req.AllowApply,
+		Remark:     req.Remark,
 	}
 
 	// 将权限列表转换为 JSON 字符串
@@ -164,6 +169,9 @@ func (s *RoleService) Update(id uint, req *UpdateRoleRequest) error {
 	}
 	// Status 始终更新（0=禁用, 1=启用）
 	role.Status = req.Status
+	if req.AllowApply != nil {
+		role.AllowApply = *req.AllowApply
+	}
 	if req.Remark != "" {
 		role.Remark = req.Remark
 	}
