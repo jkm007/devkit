@@ -7,6 +7,7 @@ import (
 	"backend-server/config"
 	"backend-server/internal/middleware"
 	"backend-server/internal/ws"
+	"backend-server/pkg/jwt"
 	"backend-server/pkg/logger"
 	"backend-server/pkg/response"
 
@@ -50,18 +51,34 @@ func NewWSHandler(hub *ws.Hub) *WSHandler {
 
 // Handle WebSocket 连接处理
 // @Summary      WebSocket 连接
-// @Description  建立 WebSocket 连接，用于实时消息推送。客户端需在 Header 中携带 JWT Token 完成认证后升级协议。
+// @Description  建立 WebSocket 连接，用于实时消息推送。支持通过 query 参数 ?token=xxx 传递 JWT Token。
 // @Tags         WebSocket
 // @Produce      json
 // @Security     BearerAuth
+// @Param        token  query  string  false  "JWT Token（浏览器 WebSocket 不支持自定义 Header，需通过 query 传递）"
 // @Success      101  {string}  string  "Switching Protocols (WebSocket 升级成功)"
 // @Failure      401  {object}  response.Response "未授权"
 // @Router       /ws [get]
 func (h *WSHandler) Handle(c *gin.Context) {
 	userID := middleware.GetCurrentUserID(c)
 	if userID == 0 {
-		response.Unauthorized(c, "Unauthorized")
-		return
+		// Header 中没有 token，尝试从 query 参数获取
+		token := c.Query("token")
+		if token == "" {
+			response.Unauthorized(c, "Unauthorized")
+			return
+		}
+		// 验证 query token
+		claims, err := jwt.Parse(token)
+		if err != nil {
+			response.Unauthorized(c, "Token 无效或已过期")
+			return
+		}
+		userID = claims.UserID
+		// 存入上下文供后续使用
+		c.Set("user_id", claims.UserID)
+		c.Set("username", claims.Username)
+		c.Set("roles", claims.Roles)
 	}
 
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)

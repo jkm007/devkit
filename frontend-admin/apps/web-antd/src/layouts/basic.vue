@@ -238,14 +238,13 @@ function connectWebSocket() {
 
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const host = window.location.host;
-  const wsUrl = `${protocol}//${host}/api/v1/ws`;
+  // token 通过 query 参数传递（浏览器 WebSocket 不支持自定义 Header）
+  const wsUrl = `${protocol}//${host}/api/v1/ws?token=${encodeURIComponent(accessStore.accessToken)}`;
 
   try {
     wsInstance = new WebSocket(wsUrl);
     wsInstance.onopen = () => {
       wsRetryCount = 0;
-      // 发送认证
-      wsInstance?.send(JSON.stringify({ type: 'auth', token: accessStore.accessToken }));
     };
     wsInstance.onmessage = (event) => {
       try {
