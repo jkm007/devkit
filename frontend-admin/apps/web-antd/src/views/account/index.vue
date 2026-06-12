@@ -49,8 +49,8 @@ onMounted(() => {
   <Page auto-content-height>
     <div class="flex h-full gap-4">
       <!-- 左侧用户卡片 -->
-      <Card class="w-64 shrink-0">
-        <div class="flex flex-col items-center py-4">
+      <Card class="w-72 shrink-0">
+        <div class="flex flex-col items-center py-6">
           <VbenAvatar
             :src="userInfo.avatar"
             :alt="userInfo.username || 'avatar'"
@@ -66,6 +66,18 @@ onMounted(() => {
           <div v-if="userInfo.email" class="text-foreground/40 mt-2 text-xs">
             {{ userInfo.email }}
           </div>
+          <div
+            v-if="userInfo.roles?.length"
+            class="mt-3 flex flex-wrap justify-center gap-1"
+          >
+            <span
+              v-for="role in userInfo.roles"
+              :key="role"
+              class="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-xs"
+            >
+              {{ role }}
+            </span>
+          </div>
         </div>
 
         <Menu
@@ -75,13 +87,16 @@ onMounted(() => {
           class="bg-transparent"
         >
           <MenuItem v-for="item in menuItems" :key="item.key">
+            <template #icon>
+              <span :class="item.icon" class="size-4" />
+            </template>
             {{ item.label }}
           </MenuItem>
         </Menu>
       </Card>
 
       <!-- 右侧内容区 -->
-      <Card class="flex-1">
+      <Card class="min-w-0 flex-1">
         <ProfileTab v-if="activeKey[0] === 'profile'" />
         <SecurityTab v-else-if="activeKey[0] === 'security'" />
         <OauthTab v-else-if="activeKey[0] === 'oauth'" />
