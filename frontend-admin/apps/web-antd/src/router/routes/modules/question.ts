@@ -22,6 +22,15 @@ const routes: RouteRecordRaw[] = [
         component: () => import('#/views/question/list/index.vue'),
       },
       {
+        path: '/question/import',
+        name: 'QuestionImport',
+        meta: {
+          icon: 'mdi:import',
+          title: '题目导入',
+        },
+        component: () => import('#/views/question/import/index.vue'),
+      },
+      {
         path: '/question/category',
         name: 'QuestionCategory',
         meta: {
