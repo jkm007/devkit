@@ -515,11 +515,7 @@ defineExpose({
                   event.stopPropagation();
                   return;
                 }
-                // checkStrictly 模式：不调用 handleSelect，避免与 reka-ui proxy 竞争
-                // 由 TreeItem 的 @select 事件 → onSelect 统一处理
-                if (!checkStrictly) {
-                  handleSelect();
-                }
+                handleSelect();
               }
             "
           />
@@ -533,9 +529,7 @@ defineExpose({
                   event.stopPropagation();
                   return;
                 }
-                if (!checkStrictly) {
-                  handleSelect();
-                }
+                handleSelect();
               }
             "
           >
