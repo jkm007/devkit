@@ -30,7 +30,7 @@ func NewRiskScoreHandler() *RiskScoreHandler {
 // @Param        limit  query  int  false  "返回数量限制，默认100"
 // @Success      200  {object}  response.Response{data=[]service.RiskScoreItem} "成功"
 // @Failure      401  {object}  response.Response "未授权"
-// @Router       /risk/scores [get]
+// @Router       /system/risk/scores [get]
 func (h *RiskScoreHandler) GetRiskScores(c *gin.Context) {
 	limitStr := c.DefaultQuery("limit", "100")
 	limit, err := strconv.Atoi(limitStr)
@@ -59,7 +59,7 @@ func (h *RiskScoreHandler) GetRiskScores(c *gin.Context) {
 // @Param        ip  query  string  true  "IP 地址"
 // @Success      200  {object}  response.Response{data=service.RiskScoreItem} "成功"
 // @Failure      401  {object}  response.Response "未授权"
-// @Router       /risk/score [get]
+// @Router       /system/risk/score [get]
 func (h *RiskScoreHandler) GetRiskScoreByIP(c *gin.Context) {
 	ip := c.Query("ip")
 	if ip == "" {
@@ -85,7 +85,7 @@ func (h *RiskScoreHandler) GetRiskScoreByIP(c *gin.Context) {
 // @Param        ip  query  string  true  "IP 地址"
 // @Success      200  {object}  response.Response "成功"
 // @Failure      401  {object}  response.Response "未授权"
-// @Router       /risk/clear [post]
+// @Router       /system/risk/clear [post]
 func (h *RiskScoreHandler) ClearRiskScore(c *gin.Context) {
 	ip := c.Query("ip")
 	if ip == "" {
@@ -110,7 +110,7 @@ func (h *RiskScoreHandler) ClearRiskScore(c *gin.Context) {
 // @Security     BearerAuth
 // @Success      200  {object}  response.Response "成功"
 // @Failure      401  {object}  response.Response "未授权"
-// @Router       /risk/stats [get]
+// @Router       /system/risk/stats [get]
 func (h *RiskScoreHandler) GetRiskScoreStats(c *gin.Context) {
 	stats, err := h.riskScoreService.GetRiskScoreStats()
 	if err != nil {

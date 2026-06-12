@@ -60,7 +60,7 @@ func (h *ShareHandler) hasSharePermission(userID uint, permission string) bool {
 }
 
 // CreateFileShare 创建文件分享
-// @Router /files/:id/share [post]
+// @Router /files/{id}/share [post]
 func (h *ShareHandler) CreateFileShare(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
@@ -92,7 +92,7 @@ func (h *ShareHandler) CreateFileShare(c *gin.Context) {
 }
 
 // CreateFolderShare 创建文件夹分享
-// @Router /folders/:id/share [post]
+// @Router /folders/{id}/share [post]
 func (h *ShareHandler) CreateFolderShare(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
@@ -124,7 +124,7 @@ func (h *ShareHandler) CreateFolderShare(c *gin.Context) {
 }
 
 // GetShareInfo 获取分享信息（公开）
-// @Router /share/:code [get]
+// @Router /share/{code} [get]
 func (h *ShareHandler) GetShareInfo(c *gin.Context) {
 	code := c.Param("code")
 
@@ -138,7 +138,7 @@ func (h *ShareHandler) GetShareInfo(c *gin.Context) {
 }
 
 // GetShareFolderFiles 获取分享文件夹内的文件列表（公开，支持分页和搜索）
-// @Router /share/:code/files [get]
+// @Router /share/{code}/files [get]
 func (h *ShareHandler) GetShareFolderFiles(c *gin.Context) {
 	code := c.Param("code")
 
@@ -190,10 +190,10 @@ func (h *ShareHandler) GetShareFolderFiles(c *gin.Context) {
 }
 
 // GetShareFile 获取分享的文件内容（公开，支持 Range 请求）
-// 支持：/share/:code/file (文件分享)
-// 支持：/share/:code/file/:fileId (文件夹分享中指定文件)
-// @Router /share/:code/file [get]
-// @Router /share/:code/file/:fileId [get]
+// 支持：/share/{code}/file (文件分享)
+// 支持：/share/{code}/file/{fileId} (文件夹分享中指定文件)
+// @Router /share/{code}/file [get]
+// @Router /share/{code}/file/{fileId} [get]
 func (h *ShareHandler) GetShareFile(c *gin.Context) {
 	code := c.Param("code")
 	fileIDStr := c.Param("fileId") // 可选，文件夹分享时指定具体文件
@@ -388,7 +388,7 @@ func (h *ShareHandler) GetMyShares(c *gin.Context) {
 }
 
 // DeleteShare 删除分享
-// @Router /shares/:id [delete]
+// @Router /shares/{id} [delete]
 func (h *ShareHandler) DeleteShare(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
@@ -473,7 +473,7 @@ func (h *ShareHandler) GetUserShares(c *gin.Context) {
 }
 
 // RenewShare 续签分享
-// @Router /files/shares/:id/renew [put]
+// @Router /files/shares/{id}/renew [put]
 func (h *ShareHandler) RenewShare(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
@@ -503,7 +503,7 @@ func (h *ShareHandler) RenewShare(c *gin.Context) {
 }
 
 // ExpireShare 立即过期分享
-// @Router /files/shares/:id/expire [put]
+// @Router /files/shares/{id}/expire [put]
 func (h *ShareHandler) ExpireShare(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
@@ -525,7 +525,7 @@ func (h *ShareHandler) ExpireShare(c *gin.Context) {
 }
 
 // UpdateShareExpiry 修改分享到期时间
-// @Router /files/shares/:id/expiry [put]
+// @Router /files/shares/{id}/expiry [put]
 func (h *ShareHandler) UpdateShareExpiry(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
@@ -565,7 +565,7 @@ func (h *ShareHandler) UpdateShareExpiry(c *gin.Context) {
 }
 
 // DisableShare 禁用分享
-// @Router /files/shares/:id/disable [put]
+// @Router /files/shares/{id}/disable [put]
 func (h *ShareHandler) DisableShare(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
@@ -587,7 +587,7 @@ func (h *ShareHandler) DisableShare(c *gin.Context) {
 }
 
 // EnableShare 启用分享
-// @Router /files/shares/:id/enable [put]
+// @Router /files/shares/{id}/enable [put]
 func (h *ShareHandler) EnableShare(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {

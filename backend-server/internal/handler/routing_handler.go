@@ -22,6 +22,16 @@ func NewRoutingHandler(routingService *service.RoutingService) *RoutingHandler {
 }
 
 // GetAllRules 获取所有路由规则
+// @Summary      获取路由规则列表
+// @Description  获取所有标签路由规则
+// @Tags         标签路由
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  response.Response{data=[]model.TagRouting} "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/routing-rules [get]
 func (h *RoutingHandler) GetAllRules(c *gin.Context) {
 	rules, err := h.routingService.GetAllRules()
 	if err != nil {
@@ -32,6 +42,17 @@ func (h *RoutingHandler) GetAllRules(c *gin.Context) {
 }
 
 // GetRuleByID 根据ID获取规则
+// @Summary      获取路由规则详情
+// @Description  根据 ID 获取标签路由规则详情
+// @Tags         标签路由
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "规则 ID"
+// @Success      200  {object}  response.Response{data=model.TagRouting} "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/routing-rules/{id} [get]
 func (h *RoutingHandler) GetRuleByID(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
@@ -49,6 +70,18 @@ func (h *RoutingHandler) GetRuleByID(c *gin.Context) {
 }
 
 // CreateRule 创建路由规则
+// @Summary      创建路由规则
+// @Description  创建新的标签路由规则
+// @Tags         标签路由
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        data  body  model.TagRouting  true  "路由规则"
+// @Success      200  {object}  response.Response{data=model.TagRouting} "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/routing-rules [post]
 func (h *RoutingHandler) CreateRule(c *gin.Context) {
 	var rule model.TagRouting
 	if err := c.ShouldBindJSON(&rule); err != nil {
@@ -78,6 +111,19 @@ func (h *RoutingHandler) CreateRule(c *gin.Context) {
 }
 
 // UpdateRule 更新路由规则
+// @Summary      更新路由规则
+// @Description  更新指定标签路由规则
+// @Tags         标签路由
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "规则 ID"
+// @Param        data  body  model.TagRouting  true  "路由规则"
+// @Success      200  {object}  response.Response{data=model.TagRouting} "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/routing-rules/{id} [put]
 func (h *RoutingHandler) UpdateRule(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
@@ -111,6 +157,17 @@ func (h *RoutingHandler) UpdateRule(c *gin.Context) {
 }
 
 // DeleteRule 删除路由规则
+// @Summary      删除路由规则
+// @Description  删除指定标签路由规则
+// @Tags         标签路由
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "规则 ID"
+// @Success      200  {object}  response.Response "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/routing-rules/{id} [delete]
 func (h *RoutingHandler) DeleteRule(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
@@ -128,6 +185,19 @@ func (h *RoutingHandler) DeleteRule(c *gin.Context) {
 }
 
 // UpdateStatus 更新规则状态
+// @Summary      更新路由规则状态
+// @Description  更新指定标签路由规则状态
+// @Tags         标签路由
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "规则 ID"
+// @Param        data  body  object  true  "状态"
+// @Success      200  {object}  response.Response "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/routing-rules/{id}/status [put]
 func (h *RoutingHandler) UpdateStatus(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
@@ -153,6 +223,19 @@ func (h *RoutingHandler) UpdateStatus(c *gin.Context) {
 }
 
 // UpdatePriority 更新规则优先级
+// @Summary      更新路由规则优先级
+// @Description  更新指定标签路由规则优先级
+// @Tags         标签路由
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "规则 ID"
+// @Param        data  body  object  true  "优先级"
+// @Success      200  {object}  response.Response "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/routing-rules/{id}/priority [put]
 func (h *RoutingHandler) UpdatePriority(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
@@ -178,6 +261,18 @@ func (h *RoutingHandler) UpdatePriority(c *gin.Context) {
 }
 
 // BatchUpdatePriority 批量更新优先级
+// @Summary      批量更新路由规则优先级
+// @Description  批量更新标签路由规则优先级
+// @Tags         标签路由
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        data  body  object  true  "优先级映射"
+// @Success      200  {object}  response.Response "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/routing-rules/batch-priority [post]
 func (h *RoutingHandler) BatchUpdatePriority(c *gin.Context) {
 	var req struct {
 		Priorities map[int64]int `json:"priorities"`
@@ -196,6 +291,19 @@ func (h *RoutingHandler) BatchUpdatePriority(c *gin.Context) {
 }
 
 // TestRule 测试规则匹配
+// @Summary      测试路由规则
+// @Description  测试指定标签路由规则是否匹配
+// @Tags         标签路由
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "规则 ID"
+// @Param        data  body  object  true  "标签列表"
+// @Success      200  {object}  response.Response "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/routing-rules/{id}/test [post]
 func (h *RoutingHandler) TestRule(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
@@ -222,6 +330,18 @@ func (h *RoutingHandler) TestRule(c *gin.Context) {
 }
 
 // TestRoute 测试文件路由
+// @Summary      测试文件路由
+// @Description  根据文件信息测试路由结果
+// @Tags         标签路由
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        data  body  object  true  "文件信息"
+// @Success      200  {object}  response.Response "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/routing-rules/test-route [post]
 func (h *RoutingHandler) TestRoute(c *gin.Context) {
 	var req struct {
 		FileName    string `json:"fileName"`

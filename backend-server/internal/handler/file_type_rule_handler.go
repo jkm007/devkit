@@ -24,6 +24,16 @@ func NewFileTypeRuleHandler() *FileTypeRuleHandler {
 }
 
 // GetAll 获取所有文件类型规则
+// @Summary      获取文件类型规则列表
+// @Description  获取所有文件类型规则
+// @Tags         文件类型规则
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  response.Response{data=[]model.FileTypeRule} "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/file-type-rules [get]
 func (h *FileTypeRuleHandler) GetAll(c *gin.Context) {
 	rules, err := h.service.GetAll()
 	if err != nil {
@@ -34,6 +44,16 @@ func (h *FileTypeRuleHandler) GetAll(c *gin.Context) {
 }
 
 // GetGrouped 获取按类型分组的规则
+// @Summary      获取分组文件类型规则
+// @Description  获取按文件类型分组的规则
+// @Tags         文件类型规则
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  response.Response "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/file-type-rules/grouped [get]
 func (h *FileTypeRuleHandler) GetGrouped(c *gin.Context) {
 	groups, err := h.service.GetGroupedByType()
 	if err != nil {
@@ -44,6 +64,18 @@ func (h *FileTypeRuleHandler) GetGrouped(c *gin.Context) {
 }
 
 // Create 创建文件类型规则
+// @Summary      创建文件类型规则
+// @Description  创建新的文件类型规则
+// @Tags         文件类型规则
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        data  body  model.FileTypeRule  true  "文件类型规则"
+// @Success      200  {object}  response.Response{data=model.FileTypeRule} "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/file-type-rules [post]
 func (h *FileTypeRuleHandler) Create(c *gin.Context) {
 	var rule model.FileTypeRule
 	if err := c.ShouldBindJSON(&rule); err != nil {
@@ -73,6 +105,19 @@ func (h *FileTypeRuleHandler) Create(c *gin.Context) {
 }
 
 // Update 更新文件类型规则
+// @Summary      更新文件类型规则
+// @Description  更新指定文件类型规则
+// @Tags         文件类型规则
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "规则 ID"
+// @Param        data  body  model.FileTypeRule  true  "文件类型规则"
+// @Success      200  {object}  response.Response{data=model.FileTypeRule} "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/file-type-rules/{id} [put]
 func (h *FileTypeRuleHandler) Update(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
@@ -110,6 +155,17 @@ func (h *FileTypeRuleHandler) Update(c *gin.Context) {
 }
 
 // Delete 删除文件类型规则
+// @Summary      删除文件类型规则
+// @Description  删除指定文件类型规则
+// @Tags         文件类型规则
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "规则 ID"
+// @Success      200  {object}  response.Response "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/file-type-rules/{id} [delete]
 func (h *FileTypeRuleHandler) Delete(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
@@ -131,6 +187,16 @@ func (h *FileTypeRuleHandler) Delete(c *gin.Context) {
 }
 
 // RefreshAutoTagger 刷新 AutoTagger 的文件类型规则
+// @Summary      刷新自动标签器规则
+// @Description  从数据库刷新 AutoTagger 的文件类型规则
+// @Tags         文件类型规则
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  response.Response "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/file-type-rules/refresh [post]
 func (h *FileTypeRuleHandler) RefreshAutoTagger(c *gin.Context) {
 	rules, err := h.service.GetAllEnabled()
 	if err != nil {

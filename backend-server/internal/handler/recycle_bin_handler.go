@@ -22,6 +22,19 @@ func NewRecycleBinHandler() *RecycleBinHandler {
 }
 
 // List 回收站列表
+// @Summary      获取回收站列表
+// @Description  分页获取回收站文件列表
+// @Tags         回收站
+// @Produce      json
+// @Security     BearerAuth
+// @Param        page      query  int     false  "页码"
+// @Param        pageSize  query  int     false  "每页数量"
+// @Param        scope     query  string  false  "范围：own/all"
+// @Success      200  {object}  response.Response{data=response.PageData} "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /files/recycle/list [get]
 func (h *RecycleBinHandler) List(c *gin.Context) {
 	userID := middleware.GetCurrentUserID(c)
 
@@ -62,6 +75,16 @@ func (h *RecycleBinHandler) List(c *gin.Context) {
 }
 
 // GetCount 获取回收站文件数量
+// @Summary      获取回收站数量
+// @Description  获取当前用户回收站文件数量
+// @Tags         回收站
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  response.Response "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /files/recycle/count [get]
 func (h *RecycleBinHandler) GetCount(c *gin.Context) {
 	userID := middleware.GetCurrentUserID(c)
 	count, err := h.recycleService.GetRecycleBinCount(userID)
@@ -73,6 +96,17 @@ func (h *RecycleBinHandler) GetCount(c *gin.Context) {
 }
 
 // Restore 恢复文件
+// @Summary      恢复回收站文件
+// @Description  从回收站恢复指定文件
+// @Tags         回收站
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "文件 ID"
+// @Success      200  {object}  response.Response "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /files/recycle/restore/{id} [post]
 func (h *RecycleBinHandler) Restore(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
@@ -92,6 +126,18 @@ func (h *RecycleBinHandler) Restore(c *gin.Context) {
 }
 
 // BatchRestore 批量恢复
+// @Summary      批量恢复文件
+// @Description  从回收站批量恢复文件
+// @Tags         回收站
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        data  body  object  true  "文件 ID 列表"
+// @Success      200  {object}  response.Response "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /files/recycle/batch-restore [post]
 func (h *RecycleBinHandler) BatchRestore(c *gin.Context) {
 	var req struct {
 		FileIDs []uint `json:"fileIds" binding:"required,min=1"`
@@ -113,6 +159,17 @@ func (h *RecycleBinHandler) BatchRestore(c *gin.Context) {
 }
 
 // PermanentDelete 永久删除
+// @Summary      永久删除文件
+// @Description  永久删除回收站中的指定文件
+// @Tags         回收站
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "文件 ID"
+// @Success      200  {object}  response.Response "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /files/recycle/{id} [delete]
 func (h *RecycleBinHandler) PermanentDelete(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
@@ -132,6 +189,18 @@ func (h *RecycleBinHandler) PermanentDelete(c *gin.Context) {
 }
 
 // BatchPermanentDelete 批量永久删除
+// @Summary      批量永久删除文件
+// @Description  批量永久删除回收站中的文件
+// @Tags         回收站
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        data  body  object  true  "文件 ID 列表"
+// @Success      200  {object}  response.Response "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /files/recycle/batch-delete [post]
 func (h *RecycleBinHandler) BatchPermanentDelete(c *gin.Context) {
 	var req struct {
 		FileIDs []uint `json:"fileIds" binding:"required,min=1"`
@@ -153,6 +222,16 @@ func (h *RecycleBinHandler) BatchPermanentDelete(c *gin.Context) {
 }
 
 // Empty 清空回收站
+// @Summary      清空回收站
+// @Description  清空当前用户回收站
+// @Tags         回收站
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  response.Response "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /files/recycle/empty [delete]
 func (h *RecycleBinHandler) Empty(c *gin.Context) {
 	userID := middleware.GetCurrentUserID(c)
 

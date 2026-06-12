@@ -27,6 +27,16 @@ func NewStorageBucketHandler(service *service.StorageBucketService) *StorageBuck
 }
 
 // GetAll 获取所有存储桶
+// @Summary      获取存储桶列表
+// @Description  获取所有存储桶配置
+// @Tags         存储桶
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  response.Response{data=[]model.StorageBucket} "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/storage-buckets [get]
 func (h *StorageBucketHandler) GetAll(c *gin.Context) {
 	buckets, err := h.service.GetAll()
 	if err != nil {
@@ -40,6 +50,17 @@ func (h *StorageBucketHandler) GetAll(c *gin.Context) {
 }
 
 // GetByID 根据ID获取存储桶
+// @Summary      获取存储桶详情
+// @Description  根据 ID 获取存储桶配置详情
+// @Tags         存储桶
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "存储桶 ID"
+// @Success      200  {object}  response.Response{data=model.StorageBucket} "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/storage-buckets/{id} [get]
 func (h *StorageBucketHandler) GetByID(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
@@ -58,6 +79,18 @@ func (h *StorageBucketHandler) GetByID(c *gin.Context) {
 }
 
 // Create 创建存储桶
+// @Summary      创建存储桶
+// @Description  创建新的存储桶配置
+// @Tags         存储桶
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        data  body  model.StorageBucket  true  "存储桶配置"
+// @Success      200  {object}  response.Response{data=model.StorageBucket} "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/storage-buckets [post]
 func (h *StorageBucketHandler) Create(c *gin.Context) {
 	var bucket model.StorageBucket
 	if err := c.ShouldBindJSON(&bucket); err != nil {
@@ -84,6 +117,19 @@ func (h *StorageBucketHandler) Create(c *gin.Context) {
 }
 
 // Update 更新存储桶
+// @Summary      更新存储桶
+// @Description  更新指定存储桶配置
+// @Tags         存储桶
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "存储桶 ID"
+// @Param        data  body  model.StorageBucket  true  "存储桶配置"
+// @Success      200  {object}  response.Response{data=model.StorageBucket} "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/storage-buckets/{id} [put]
 func (h *StorageBucketHandler) Update(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
@@ -109,6 +155,17 @@ func (h *StorageBucketHandler) Update(c *gin.Context) {
 }
 
 // Delete 删除存储桶
+// @Summary      删除存储桶
+// @Description  删除指定存储桶配置
+// @Tags         存储桶
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "存储桶 ID"
+// @Success      200  {object}  response.Response "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/storage-buckets/{id} [delete]
 func (h *StorageBucketHandler) Delete(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
@@ -126,6 +183,17 @@ func (h *StorageBucketHandler) Delete(c *gin.Context) {
 }
 
 // SetDefault 设置默认存储桶
+// @Summary      设置默认存储桶
+// @Description  将指定存储桶设为默认
+// @Tags         存储桶
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "存储桶 ID"
+// @Success      200  {object}  response.Response "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/storage-buckets/{id}/default [put]
 func (h *StorageBucketHandler) SetDefault(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
@@ -143,6 +211,17 @@ func (h *StorageBucketHandler) SetDefault(c *gin.Context) {
 }
 
 // GetByDriver 根据驱动获取存储桶
+// @Summary      按驱动获取存储桶
+// @Description  根据存储驱动获取存储桶列表
+// @Tags         存储桶
+// @Produce      json
+// @Security     BearerAuth
+// @Param        driver  path  string  true  "存储驱动"
+// @Success      200  {object}  response.Response{data=[]model.StorageBucket} "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/storage-buckets/driver/{driver} [get]
 func (h *StorageBucketHandler) GetByDriver(c *gin.Context) {
 	driver := c.Param("driver")
 	if driver == "" {
@@ -162,6 +241,17 @@ func (h *StorageBucketHandler) GetByDriver(c *gin.Context) {
 }
 
 // GetByPurpose 根据用途获取存储桶
+// @Summary      按用途获取存储桶
+// @Description  根据用途获取存储桶列表
+// @Tags         存储桶
+// @Produce      json
+// @Security     BearerAuth
+// @Param        purpose  path  string  true  "用途"
+// @Success      200  {object}  response.Response{data=[]model.StorageBucket} "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/storage-buckets/purpose/{purpose} [get]
 func (h *StorageBucketHandler) GetByPurpose(c *gin.Context) {
 	purpose := c.Param("purpose")
 	if purpose == "" {
@@ -181,6 +271,16 @@ func (h *StorageBucketHandler) GetByPurpose(c *gin.Context) {
 }
 
 // GetDefault 获取默认存储桶
+// @Summary      获取默认存储桶
+// @Description  获取当前默认存储桶配置
+// @Tags         存储桶
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  response.Response{data=model.StorageBucket} "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/storage-buckets/default [get]
 func (h *StorageBucketHandler) GetDefault(c *gin.Context) {
 	bucket, err := h.service.GetDefault()
 	if err != nil {
@@ -192,6 +292,17 @@ func (h *StorageBucketHandler) GetDefault(c *gin.Context) {
 }
 
 // TestConnection 测试存储桶连接
+// @Summary      测试存储桶连接
+// @Description  测试指定存储桶连接是否可用
+// @Tags         存储桶
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "存储桶 ID"
+// @Success      200  {object}  response.Response "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/storage-buckets/{id}/test [post]
 func (h *StorageBucketHandler) TestConnection(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
@@ -210,12 +321,34 @@ func (h *StorageBucketHandler) TestConnection(c *gin.Context) {
 }
 
 // GetEnabledDrivers 获取已启用的存储驱动列表
+// @Summary      获取已启用存储驱动
+// @Description  获取当前已启用的存储驱动列表
+// @Tags         存储桶
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  response.Response "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/storage-buckets/enabled-drivers [get]
 func (h *StorageBucketHandler) GetEnabledDrivers(c *gin.Context) {
 	drivers := service.GetEnabledDrivers()
 	response.Success(c, drivers)
 }
 
 // TestConnectionByDriver 根据驱动和桶名测试连接（无需先保存）
+// @Summary      按驱动测试连接
+// @Description  根据驱动和桶名测试连接，无需保存配置
+// @Tags         存储桶
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        data  body  object  true  "测试参数"
+// @Success      200  {object}  response.Response "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/storage-buckets/test-by-driver [post]
 func (h *StorageBucketHandler) TestConnectionByDriver(c *gin.Context) {
 	var req struct {
 		Driver     string `json:"driver" binding:"required"`

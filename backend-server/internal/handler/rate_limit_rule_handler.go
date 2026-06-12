@@ -35,6 +35,16 @@ type rateLimitRuleRequest struct {
 }
 
 // List 获取所有限流规则
+// @Summary      获取限流规则列表
+// @Description  获取所有接口限流规则
+// @Tags         限流规则
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  response.Response{data=[]model.RateLimitRule} "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/rate-limit-rules [get]
 func (h *RateLimitRuleHandler) List(c *gin.Context) {
 	rules, err := h.service.GetAll()
 	if err != nil {
@@ -45,6 +55,17 @@ func (h *RateLimitRuleHandler) List(c *gin.Context) {
 }
 
 // GetByID 获取单个规则
+// @Summary      获取限流规则详情
+// @Description  根据 ID 获取限流规则详情
+// @Tags         限流规则
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "规则 ID"
+// @Success      200  {object}  response.Response{data=model.RateLimitRule} "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/rate-limit-rules/{id} [get]
 func (h *RateLimitRuleHandler) GetByID(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
@@ -61,6 +82,18 @@ func (h *RateLimitRuleHandler) GetByID(c *gin.Context) {
 }
 
 // Create 创建规则
+// @Summary      创建限流规则
+// @Description  创建新的接口限流规则
+// @Tags         限流规则
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        data  body  rateLimitRuleRequest  true  "限流规则"
+// @Success      200  {object}  response.Response{data=model.RateLimitRule} "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/rate-limit-rules [post]
 func (h *RateLimitRuleHandler) Create(c *gin.Context) {
 	var req rateLimitRuleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -100,6 +133,19 @@ func (h *RateLimitRuleHandler) Create(c *gin.Context) {
 }
 
 // Update 更新规则
+// @Summary      更新限流规则
+// @Description  更新指定接口限流规则
+// @Tags         限流规则
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "规则 ID"
+// @Param        data  body  rateLimitRuleRequest  true  "限流规则"
+// @Success      200  {object}  response.Response{data=model.RateLimitRule} "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/rate-limit-rules/{id} [put]
 func (h *RateLimitRuleHandler) Update(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
@@ -143,6 +189,17 @@ func (h *RateLimitRuleHandler) Update(c *gin.Context) {
 }
 
 // Delete 删除规则
+// @Summary      删除限流规则
+// @Description  删除指定接口限流规则
+// @Tags         限流规则
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "规则 ID"
+// @Success      200  {object}  response.Response "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/rate-limit-rules/{id} [delete]
 func (h *RateLimitRuleHandler) Delete(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
@@ -158,6 +215,19 @@ func (h *RateLimitRuleHandler) Delete(c *gin.Context) {
 }
 
 // UpdateStatus 更新启用状态
+// @Summary      更新限流规则状态
+// @Description  启用或禁用指定限流规则
+// @Tags         限流规则
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "规则 ID"
+// @Param        data  body  object  true  "启用状态"
+// @Success      200  {object}  response.Response "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/rate-limit-rules/{id}/status [put]
 func (h *RateLimitRuleHandler) UpdateStatus(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {

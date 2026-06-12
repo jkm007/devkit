@@ -89,7 +89,7 @@ func (h *LoginDeviceHandler) Kick(c *gin.Context) {
 // @Security     BearerAuth
 // @Success      200  {object}  response.Response{data=map[string]int64} "成功"
 // @Failure      401  {object}  response.Response "未授权"
-// @Router       /auth/devices/all [delete]
+// @Router       /auth/devices/kick-all [delete]
 func (h *LoginDeviceHandler) KickAllOther(c *gin.Context) {
 	userID := middleware.GetCurrentUserID(c)
 	if userID == 0 {

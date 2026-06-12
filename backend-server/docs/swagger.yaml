@@ -1,4 +1,476 @@
+basePath: /api/v1
 definitions:
+  captcha.CaptchaData:
+    properties:
+      captcha_id:
+        type: string
+      chars:
+        description: 点选验证码的字符列表
+        items:
+          type: string
+        type: array
+      height:
+        description: 图片高度（前端可能需要）
+        type: integer
+      hint_text:
+        description: 点选验证码的提示文字
+        type: string
+      image:
+        description: 主图片（base64 或 URL）
+        type: string
+      length:
+        description: 数字验证码长度
+        type: integer
+      start_time:
+        description: 验证码生成时间戳（毫秒，用于时间检测）
+        type: integer
+      thumb:
+        description: 缩略图（base64）
+        type: string
+      thumb_x:
+        description: 缩略图初始 X 位置（滑块/拼图）
+        type: integer
+      thumb_y:
+        description: 缩略图初始 Y 位置（滑块/拼图）
+        type: integer
+      type:
+        description: 验证码类型
+        type: string
+      width:
+        description: 图片宽度（前端可能需要）
+        type: integer
+    type: object
+  captcha.Point:
+    properties:
+      x:
+        type: integer
+      "y":
+        type: integer
+    type: object
+  handler.CreateRequest:
+    properties:
+      config:
+        $ref: '#/definitions/model.JSONMap'
+      cronExpr:
+        type: string
+      name:
+        type: string
+      taskType:
+        enum:
+        - recycle_cleanup
+        type: string
+    required:
+    - cronExpr
+    - name
+    - taskType
+    type: object
+  handler.LoginByEmailRequest:
+    properties:
+      captchaCode:
+        description: 图形验证码值
+        type: string
+      captchaId:
+        description: 图形验证码 ID
+        type: string
+      code:
+        type: string
+      email:
+        type: string
+      points:
+        description: 点选验证码坐标
+        items:
+          $ref: '#/definitions/captcha.Point'
+        type: array
+      startTime:
+        description: 验证码生成时间（毫秒）
+        type: integer
+    required:
+    - code
+    - email
+    type: object
+  handler.LoginByPhoneRequest:
+    properties:
+      captchaCode:
+        description: 图形验证码值
+        type: string
+      captchaId:
+        description: 图形验证码 ID
+        type: string
+      code:
+        type: string
+      phone:
+        type: string
+      points:
+        description: 点选验证码坐标
+        items:
+          $ref: '#/definitions/captcha.Point'
+        type: array
+      startTime:
+        description: 验证码生成时间（毫秒）
+        type: integer
+    required:
+    - code
+    - phone
+    type: object
+  handler.MiniAppLoginRequest:
+    properties:
+      code:
+        type: string
+    required:
+    - code
+    type: object
+  handler.SendCodeRequest:
+    properties:
+      captchaCode:
+        maxLength: 256
+        minLength: 1
+        type: string
+      captchaId:
+        type: string
+      email:
+        type: string
+      purpose:
+        enum:
+        - register
+        - reset_password
+        - login
+        type: string
+      startTime:
+        description: 前端记录的验证码开始时间戳（毫秒）
+        type: integer
+    required:
+    - captchaCode
+    - captchaId
+    - email
+    - purpose
+    type: object
+  handler.SendSMSCodeRequest:
+    properties:
+      captchaCode:
+        maxLength: 256
+        minLength: 1
+        type: string
+      captchaId:
+        type: string
+      phone:
+        type: string
+      purpose:
+        enum:
+        - login
+        type: string
+      startTime:
+        description: 前端记录的验证码开始时间戳（毫秒）
+        type: integer
+    required:
+    - captchaCode
+    - captchaId
+    - phone
+    - purpose
+    type: object
+  handler.UpdateRequest:
+    properties:
+      config:
+        $ref: '#/definitions/model.JSONMap'
+      cronExpr:
+        type: string
+      enabled:
+        type: boolean
+      name:
+        type: string
+    required:
+    - cronExpr
+    - name
+    type: object
+  handler.VerifyCaptchaRequest:
+    properties:
+      captchaCode:
+        type: string
+      captchaId:
+        type: string
+      points:
+        description: 点选验证码的点击坐标序列
+        items:
+          $ref: '#/definitions/captcha.Point'
+        type: array
+      startTime:
+        description: 前端记录的开始时间戳（毫秒）
+        type: integer
+    type: object
+  handler.VerifyCaptchaResponse:
+    properties:
+      message:
+        type: string
+      valid:
+        type: boolean
+    type: object
+  handler.VerifyCodeRequest:
+    properties:
+      code:
+        type: string
+      email:
+        type: string
+      purpose:
+        enum:
+        - register
+        - reset_password
+        - login
+        type: string
+    required:
+    - code
+    - email
+    - purpose
+    type: object
+  handler.abortRequest:
+    properties:
+      uploadId:
+        type: string
+    required:
+    - uploadId
+    type: object
+  handler.batchDeleteRequest:
+    properties:
+      fileIds:
+        items:
+          type: integer
+        minItems: 1
+        type: array
+    required:
+    - fileIds
+    type: object
+  handler.batchMoveRequest:
+    properties:
+      fileIds:
+        items:
+          type: integer
+        minItems: 1
+        type: array
+      targetFolderId:
+        type: integer
+    required:
+    - fileIds
+    type: object
+  handler.checkRequest:
+    properties:
+      fileHash:
+        type: string
+      fileSize:
+        type: integer
+      folderId:
+        type: integer
+    required:
+    - fileHash
+    - fileSize
+    type: object
+  handler.completeRequest:
+    properties:
+      uploadId:
+        type: string
+    required:
+    - uploadId
+    type: object
+  handler.createFolderRequest:
+    properties:
+      name:
+        maxLength: 255
+        type: string
+      parentId:
+        type: integer
+    required:
+    - name
+    type: object
+  handler.createStorageConfigRequest:
+    properties:
+      accessKey:
+        type: string
+      bucket:
+        type: string
+      cdnDomain:
+        type: string
+      description:
+        type: string
+      driver:
+        enum:
+        - local
+        - minio
+        - oss
+        - cos
+        type: string
+      endpoint:
+        type: string
+      isDefault:
+        type: boolean
+      name:
+        maxLength: 100
+        type: string
+      presignedUrlExpiry:
+        type: integer
+      region:
+        type: string
+      secretKey:
+        type: string
+      status:
+        type: integer
+      useSsl:
+        type: boolean
+    required:
+    - driver
+    - name
+    type: object
+  handler.initRequest:
+    properties:
+      contentType:
+        type: string
+      fileHash:
+        type: string
+      fileName:
+        type: string
+      fileSize:
+        type: integer
+      folderId:
+        type: integer
+      totalParts:
+        minimum: 1
+        type: integer
+    required:
+    - fileHash
+    - fileName
+    - fileSize
+    - totalParts
+    type: object
+  handler.moveRequest:
+    properties:
+      fileId:
+        type: integer
+      targetFolderId:
+        type: integer
+    required:
+    - fileId
+    type: object
+  handler.rateLimitRuleRequest:
+    properties:
+      blockDuration:
+        maximum: 604800
+        minimum: 0
+        type: integer
+      burst:
+        type: integer
+      cooldown:
+        maximum: 86400
+        minimum: 0
+        type: integer
+      description:
+        maxLength: 500
+        type: string
+      enabled:
+        type: boolean
+      maxViolations:
+        maximum: 10000
+        minimum: 0
+        type: integer
+      method:
+        type: string
+      pathPattern:
+        type: string
+      priority:
+        maximum: 9999
+        minimum: 0
+        type: integer
+      rate:
+        type: number
+      violationScore:
+        maximum: 1000
+        minimum: 0
+        type: integer
+    required:
+    - burst
+    - pathPattern
+    - rate
+    type: object
+  handler.renameFolderRequest:
+    properties:
+      name:
+        maxLength: 255
+        type: string
+    required:
+    - name
+    type: object
+  handler.testConnectionByDataRequest:
+    properties:
+      accessKey:
+        type: string
+      bucket:
+        type: string
+      driver:
+        type: string
+      endpoint:
+        type: string
+      region:
+        type: string
+      secretKey:
+        type: string
+      useSsl:
+        type: boolean
+    required:
+    - driver
+    type: object
+  handler.updateStorageConfigRequest:
+    properties:
+      accessKey:
+        type: string
+      bucket:
+        type: string
+      cdnDomain:
+        type: string
+      description:
+        type: string
+      driver:
+        enum:
+        - local
+        - minio
+        - oss
+        - cos
+        type: string
+      endpoint:
+        type: string
+      isDefault:
+        type: boolean
+      name:
+        maxLength: 100
+        type: string
+      presignedUrlExpiry:
+        type: integer
+      region:
+        type: string
+      secretKey:
+        type: string
+      status:
+        type: integer
+      useSsl:
+        type: boolean
+    required:
+    - driver
+    - name
+    type: object
+  model.FileTypeRule:
+    properties:
+      createdAt:
+        type: string
+      description:
+        type: string
+      extension:
+        type: string
+      fileType:
+        type: string
+      id:
+        type: integer
+      status:
+        type: integer
+      updatedAt:
+        type: string
+    type: object
+  model.JSONMap:
+    additionalProperties: true
+    type: object
   model.LoginDevice:
     properties:
       browser:
@@ -26,6 +498,48 @@ definitions:
       userId:
         type: integer
     type: object
+  model.RateLimitRule:
+    properties:
+      blockDuration:
+        description: 封禁时长（秒），超过触发次数后封禁 IP
+        type: integer
+      burst:
+        description: 突发容量
+        type: integer
+      cooldown:
+        description: 冷却时间（秒），触发限流后需等待多久恢复
+        type: integer
+      createdAt:
+        type: string
+      description:
+        description: 规则描述
+        type: string
+      enabled:
+        description: 是否启用
+        type: boolean
+      id:
+        type: integer
+      maxViolations:
+        description: 最大违规次数，超过后触发封禁（0=不封禁）
+        type: integer
+      method:
+        description: HTTP 方法：GET/POST/PUT/DELETE/* (所有)
+        type: string
+      pathPattern:
+        description: 路径模式，支持 * 通配符
+        type: string
+      priority:
+        description: 优先级，数值越大越先匹配
+        type: integer
+      rate:
+        description: 每秒请求数
+        type: number
+      updatedAt:
+        type: string
+      violationScore:
+        description: 违规风险分，触发限流时累加到风险评分系统（0=不累加）
+        type: integer
+    type: object
   model.RoleApplication:
     properties:
       createdAt:
@@ -47,6 +561,35 @@ definitions:
       userId:
         type: integer
     type: object
+  model.ScheduledTask:
+    properties:
+      config:
+        $ref: '#/definitions/model.JSONMap'
+      createdAt:
+        type: string
+      cronExpr:
+        type: string
+      enabled:
+        type: boolean
+      id:
+        type: integer
+      lastResult:
+        type: string
+      lastRunAt:
+        type: string
+      name:
+        type: string
+      nextRunAt:
+        type: string
+      runCount:
+        type: integer
+      status:
+        type: string
+      taskType:
+        type: string
+      updatedAt:
+        type: string
+    type: object
   model.SecurityLog:
     properties:
       createdAt:
@@ -66,6 +609,150 @@ definitions:
       userId:
         type: integer
       username:
+        type: string
+    type: object
+  model.StorageBucket:
+    properties:
+      accessKey:
+        type: string
+      bucket:
+        type: string
+      cdnDomain:
+        type: string
+      createdAt:
+        type: string
+      description:
+        type: string
+      driver:
+        type: string
+      endpoint:
+        type: string
+      id:
+        type: integer
+      isDefault:
+        type: boolean
+      name:
+        type: string
+      pathPrefix:
+        type: string
+      purpose:
+        type: string
+      region:
+        type: string
+      secretKey:
+        type: string
+      status:
+        type: integer
+      updatedAt:
+        type: string
+      useSsl:
+        type: boolean
+    type: object
+  model.StorageConfig:
+    properties:
+      accessKey:
+        type: string
+      bucket:
+        type: string
+      cdnDomain:
+        type: string
+      createdAt:
+        type: string
+      description:
+        type: string
+      driver:
+        type: string
+      endpoint:
+        type: string
+      id:
+        type: integer
+      isDefault:
+        type: boolean
+      name:
+        type: string
+      presignedUrlExpiry:
+        type: integer
+      region:
+        type: string
+      secretKey:
+        type: string
+      status:
+        type: integer
+      updatedAt:
+        type: string
+      useSsl:
+        type: boolean
+    type: object
+  model.Tag:
+    properties:
+      color:
+        type: string
+      createdAt:
+        type: string
+      description:
+        type: string
+      icon:
+        type: string
+      id:
+        type: integer
+      isSystem:
+        type: boolean
+      sortOrder:
+        type: integer
+      status:
+        type: integer
+      tagKey:
+        type: string
+      tagName:
+        type: string
+      tagValue:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  model.TagCondition:
+    properties:
+      key:
+        type: string
+      value:
+        type: string
+    type: object
+  model.TagConditions:
+    properties:
+      tags:
+        items:
+          $ref: '#/definitions/model.TagCondition'
+        type: array
+    type: object
+  model.TagRouting:
+    properties:
+      bucket:
+        type: string
+      conditions:
+        $ref: '#/definitions/model.TagConditions'
+      createdAt:
+        type: string
+      description:
+        type: string
+      driver:
+        type: string
+      extraConfig:
+        type: string
+      id:
+        type: integer
+      isDefault:
+        type: boolean
+      matchType:
+        type: string
+      pathPrefix:
+        type: string
+      priority:
+        type: integer
+      ruleName:
+        type: string
+      status:
+        type: integer
+      updatedAt:
         type: string
     type: object
   model.UserPrivacy:
@@ -125,6 +812,10 @@ definitions:
     type: object
   service.ChangePasswordRequest:
     properties:
+      captchaCode:
+        type: string
+      captchaId:
+        type: string
       confirmPassword:
         type: string
       newPassword:
@@ -174,6 +865,8 @@ definitions:
       path:
         type: string
       pid:
+        type: integer
+      sort:
         type: integer
       status:
         type: integer
@@ -258,8 +951,25 @@ definitions:
     type: object
   service.LoginRequest:
     properties:
+      captchaCode:
+        description: 验证码值
+        type: string
+      captchaId:
+        description: 验证码 ID
+        type: string
+      captchaType:
+        description: 验证码类型
+        type: string
       password:
         type: string
+      points:
+        description: 点选验证码坐标
+        items:
+          $ref: '#/definitions/captcha.Point'
+        type: array
+      startTime:
+        description: 验证码生成时间（毫秒，用于时间检测）
+        type: integer
       username:
         type: string
     required:
@@ -284,11 +994,18 @@ definitions:
         type: string
       id:
         type: integer
+      mustChangePassword:
+        description: 首次登录或管理员重置密码后需强制修改
+        type: boolean
       nickname:
         type: string
       phone:
         type: string
       realName:
+        type: string
+      refreshToken:
+        type: string
+      registerSource:
         type: string
       roles:
         items:
@@ -321,6 +1038,8 @@ definitions:
         type: integer
       redirect:
         type: string
+      sort:
+        type: integer
       status:
         type: integer
       type:
@@ -390,6 +1109,64 @@ definitions:
     required:
     - idCard
     - realName
+    type: object
+  service.RegisterRequest:
+    properties:
+      confirmPassword:
+        type: string
+      email:
+        type: string
+      emailCode:
+        type: string
+      password:
+        maxLength: 128
+        minLength: 6
+        type: string
+      username:
+        maxLength: 50
+        minLength: 3
+        type: string
+    required:
+    - confirmPassword
+    - email
+    - emailCode
+    - password
+    - username
+    type: object
+  service.ResetPasswordRequest:
+    properties:
+      confirmPassword:
+        type: string
+      email:
+        type: string
+      emailCode:
+        type: string
+      newPassword:
+        maxLength: 128
+        minLength: 6
+        type: string
+    required:
+    - confirmPassword
+    - email
+    - emailCode
+    - newPassword
+    type: object
+  service.RiskScoreItem:
+    properties:
+      blockedAt:
+        description: 拦截的时间
+        type: string
+      expireAt:
+        type: string
+      ip:
+        type: string
+      score:
+        type: integer
+      triggeredAt:
+        description: 触发验证码的时间
+        type: string
+      updatedAt:
+        type: string
     type: object
   service.RoleApplicationRequest:
     properties:
@@ -497,6 +1274,8 @@ definitions:
         type: string
       pid:
         type: integer
+      sort:
+        type: integer
       status:
         type: integer
       type:
@@ -504,13 +1283,17 @@ definitions:
     type: object
   service.UpdateProfileRequest:
     properties:
+      avatar:
+        type: string
       bio:
+        description: nil=不更新, 非nil=显式设置（包括清空）
         type: string
       birthday:
         type: string
       email:
         type: string
       gender:
+        description: nil=不更新, 非nil=显式设置（0=未知 1=男 2=女）
         type: integer
       nickname:
         type: string
@@ -603,6 +1386,8 @@ definitions:
         type: string
       lastLoginIP:
         type: string
+      mustChangePassword:
+        type: boolean
       name:
         type: string
       nickname:
@@ -624,9 +1409,44 @@ definitions:
       status:
         type: integer
     type: object
+host: localhost:8080
 info:
-  contact: {}
+  contact:
+    email: support@example.com
+    name: API Support
+    url: http://www.example.com/support
+  description: 后端管理服务 API 文档
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Backend Server API
+  version: "1.0"
 paths:
+  /auth/captcha:
+    get:
+      description: 根据 type 参数生成对应类型的验证码
+      parameters:
+      - default: numeric
+        description: '验证码类型: numeric/slider/puzzle/rotation/point'
+        in: query
+        name: type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/captcha.CaptchaData'
+              type: object
+      summary: 获取图形验证码
+      tags:
+      - 认证
   /auth/change-password:
     put:
       consumes:
@@ -740,7 +1560,7 @@ paths:
       summary: 踢出指定设备
       tags:
       - 登录设备
-  /auth/devices/all:
+  /auth/devices/kick-all:
     delete:
       description: 踢出除当前设备外的所有设备
       produces:
@@ -802,9 +1622,71 @@ paths:
       summary: 用户登录
       tags:
       - 认证
+  /auth/login-by-email:
+    post:
+      consumes:
+      - application/json
+      description: 使用邮箱+验证码登录，返回 AccessToken 和用户信息
+      parameters:
+      - description: 邮箱登录请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.LoginByEmailRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.LoginResponse'
+              type: object
+        "400":
+          description: 参数错误或验证码错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 邮箱验证码登录
+      tags:
+      - 认证
+  /auth/login-by-phone:
+    post:
+      consumes:
+      - application/json
+      description: 使用手机号+短信验证码登录，返回 AccessToken 和用户信息
+      parameters:
+      - description: 手机号登录请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.LoginByPhoneRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.LoginResponse'
+              type: object
+        "400":
+          description: 参数错误或验证码错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 手机号验证码登录
+      tags:
+      - 认证
   /auth/logout:
     post:
-      description: 清除登录状态，删除 Cookie 中的 Token
+      description: 清除登录状态，将 Token 加入黑名单
       produces:
       - application/json
       responses:
@@ -815,7 +1697,7 @@ paths:
       summary: 用户登出
       tags:
       - 认证
-  /auth/oauth/bind-url:
+  /auth/oauth/authorize:
     get:
       description: 获取第三方平台的授权页面 URL
       parameters:
@@ -823,10 +1705,6 @@ paths:
         in: query
         name: provider
         required: true
-        type: string
-      - description: 授权完成后的回调地址
-        in: query
-        name: redirectUri
         type: string
       produces:
       - application/json
@@ -846,12 +1724,36 @@ paths:
           description: 参数错误
           schema:
             $ref: '#/definitions/response.Response'
-        "401":
-          description: 未授权
+      summary: 获取第三方授权 URL
+      tags:
+      - OAuth绑定
+  /auth/oauth/bind-url:
+    get:
+      description: 获取第三方平台的授权页面 URL
+      parameters:
+      - description: 提供商：wechat/github/google
+        in: query
+        name: provider
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  additionalProperties:
+                    type: string
+                  type: object
+              type: object
+        "400":
+          description: 参数错误
           schema:
             $ref: '#/definitions/response.Response'
-      security:
-      - BearerAuth: []
       summary: 获取第三方授权 URL
       tags:
       - OAuth绑定
@@ -883,7 +1785,7 @@ paths:
       - OAuth绑定
   /auth/oauth/callback:
     get:
-      description: 第三方平台授权完成后的回调接口
+      description: 第三方平台授权完成后的回调接口，返回 JWT token
       parameters:
       - description: 提供商
         in: query
@@ -906,7 +1808,12 @@ paths:
         "200":
           description: 成功
           schema:
-            $ref: '#/definitions/response.Response'
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.LoginResponse'
+              type: object
         "400":
           description: 参数错误
           schema:
@@ -987,7 +1894,7 @@ paths:
       - 密码历史
   /auth/permission-version:
     get:
-      description: 返回用户当前权限码的 MD5 hash，用于前端检测权限是否变更（轮询比对）
+      description: 返回用户当前权限码的 SHA-256 hash，用于前端检测权限是否变更（轮询比对）
       produces:
       - application/json
       responses:
@@ -1030,6 +1937,50 @@ paths:
           schema:
             $ref: '#/definitions/response.Response'
       summary: 刷新 AccessToken
+      tags:
+      - 认证
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: 新用户注册（需要邮箱验证码）
+      parameters:
+      - description: 注册请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 用户注册
+      tags:
+      - 认证
+  /auth/reset-password:
+    post:
+      consumes:
+      - application/json
+      description: 通过邮箱验证码重置密码
+      parameters:
+      - description: 重置密码请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.ResetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 重置密码
       tags:
       - 认证
   /auth/role-applications:
@@ -1153,6 +2104,1193 @@ paths:
       summary: 获取当前用户的安全日志
       tags:
       - 安全日志
+  /auth/send-code:
+    post:
+      consumes:
+      - application/json
+      description: 向指定邮箱发送验证码（注册/重置密码）
+      parameters:
+      - description: 发送请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.SendCodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 发送邮箱验证码
+      tags:
+      - 认证
+  /auth/send-sms-code:
+    post:
+      consumes:
+      - application/json
+      description: 向指定手机号发送验证码
+      parameters:
+      - description: 发送请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.SendSMSCodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 发送短信验证码
+      tags:
+      - 认证
+  /auth/verify-code:
+    post:
+      consumes:
+      - application/json
+      description: 验证用户提交的邮箱验证码是否正确
+      parameters:
+      - description: 验证请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.VerifyCodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 验证邮箱验证码
+      tags:
+      - 认证
+  /auth/wechat/miniapp-login:
+    post:
+      consumes:
+      - application/json
+      description: 通过 wx.login() 获取的 code 登录，返回 JWT token
+      parameters:
+      - description: 登录请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.MiniAppLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.LoginResponse'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 微信小程序登录
+      tags:
+      - 微信登录
+  /auth/wechat/official-authorize:
+    get:
+      description: 获取微信公众号网页授权页面 URL
+      parameters:
+      - description: '授权范围: snsapi_base 或 snsapi_userinfo'
+        in: query
+        name: scope
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  additionalProperties:
+                    type: string
+                  type: object
+              type: object
+        "400":
+          description: 配置错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取公众号 OAuth 授权 URL
+      tags:
+      - 微信登录
+  /auth/wechat/official-callback:
+    get:
+      description: 微信公众号授权完成后的回调接口，返回 JWT token
+      parameters:
+      - description: 授权码
+        in: query
+        name: code
+        required: true
+        type: string
+      - description: 状态参数
+        in: query
+        name: state
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.LoginResponse'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 公众号授权回调
+      tags:
+      - 微信登录
+  /auth/wechat/web-authorize:
+    get:
+      description: 获取微信网站应用扫码登录的授权页面 URL
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  additionalProperties:
+                    type: string
+                  type: object
+              type: object
+        "400":
+          description: 配置错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取微信扫码授权 URL
+      tags:
+      - 微信登录
+  /auth/wechat/web-callback:
+    get:
+      description: 微信扫码授权完成后的回调接口，返回 JWT token
+      parameters:
+      - description: 授权码
+        in: query
+        name: code
+        required: true
+        type: string
+      - description: 状态参数
+        in: query
+        name: state
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.LoginResponse'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 微信扫码授权回调
+      tags:
+      - 微信登录
+  /files/{id}:
+    delete:
+      parameters:
+      - description: 文件ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 删除文件
+      tags:
+      - 文件管理
+  /files/{id}/direct-url:
+    get:
+      description: 云存储返回 presigned URL，本地存储返回代理 URL
+      parameters:
+      - description: 文件ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取文件直链
+      tags:
+      - 媒体文件
+  /files/{id}/download:
+    get:
+      description: 直接返回文件内容（需认证）
+      parameters:
+      - description: 文件ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+      summary: 下载文件
+      tags:
+      - 媒体文件
+  /files/{id}/hls:
+    get:
+      description: 返回 HLS 播放列表或 TS 分片内容（需认证）
+      parameters:
+      - description: 文件ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: HLS 文件路径（相对于 HLS 目录）
+        in: query
+        name: file
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+      summary: 获取 HLS 流
+      tags:
+      - 媒体文件
+  /files/{id}/metadata:
+    get:
+      description: 获取视频/音频的元数据（时长、分辨率、码率等）
+      parameters:
+      - description: 文件ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取媒体信息
+      tags:
+      - 媒体文件
+  /files/{id}/preview:
+    get:
+      description: 使用临时 token 预览文件（支持 Range 请求）
+      parameters:
+      - description: 文件ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 临时 token
+        in: query
+        name: token
+        required: true
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+      summary: 临时预览文件
+      tags:
+      - 媒体文件
+  /files/{id}/preview-url:
+    get:
+      description: 云存储返回 presigned URL，本地存储返回 JWT token URL
+      parameters:
+      - description: 文件ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取临时预签名 URL
+      tags:
+      - 媒体文件
+  /files/{id}/share:
+    post:
+      responses: {}
+  /files/{id}/shares:
+    get:
+      parameters:
+      - description: 文件ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 检查文件分享
+      tags:
+      - 文件管理
+  /files/{id}/stream:
+    get:
+      description: 返回 HLS 播放地址或原始文件流 API
+      parameters:
+      - description: 文件ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取视频流
+      tags:
+      - 媒体文件
+  /files/{id}/tags:
+    get:
+      description: 获取指定文件的标签列表
+      parameters:
+      - description: 文件 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.Tag'
+                  type: array
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取文件标签
+      tags:
+      - 文件标签
+    post:
+      consumes:
+      - application/json
+      description: 为指定文件添加标签
+      parameters:
+      - description: 文件 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 标签 ID
+        in: body
+        name: data
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 添加文件标签
+      tags:
+      - 文件标签
+    put:
+      consumes:
+      - application/json
+      description: 替换指定文件的标签列表
+      parameters:
+      - description: 文件 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 标签 ID 列表
+        in: body
+        name: data
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 批量更新文件标签
+      tags:
+      - 文件标签
+  /files/{id}/tags/{tagId}:
+    delete:
+      description: 移除指定文件的标签
+      parameters:
+      - description: 文件 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 标签 ID
+        in: path
+        name: tagId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 移除文件标签
+      tags:
+      - 文件标签
+  /files/{id}/view:
+    get:
+      description: 返回文件内容用于预览（需认证，inline 显示，支持 Range 请求用于视频流式播放）
+      parameters:
+      - description: 文件ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 云存储使用 presigned URL 重定向 (true)
+        in: query
+        name: presigned
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+      summary: 查看文件
+      tags:
+      - 媒体文件
+  /files/batch-delete:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 文件ID列表
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.batchDeleteRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 批量删除文件
+      tags:
+      - 文件管理
+  /files/batch-move:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 批量移动参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.batchMoveRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 批量移动文件
+      tags:
+      - 文件管理
+  /files/folder:
+    post:
+      consumes:
+      - application/json
+      description: 创建新文件夹
+      parameters:
+      - description: 文件夹名称
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.createFolderRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 创建文件夹
+      tags:
+      - 文件管理
+  /files/folder/{id}:
+    delete:
+      description: 递归删除文件夹及其内容
+      parameters:
+      - description: 文件夹ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 删除文件夹
+      tags:
+      - 文件管理
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 文件夹ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 新名称
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.renameFolderRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 重命名文件夹
+      tags:
+      - 文件管理
+  /files/list:
+    get:
+      description: 分页获取文件列表，支持搜索和类型过滤
+      parameters:
+      - description: 文件夹ID
+        in: query
+        name: folderId
+        type: integer
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: pageSize
+        type: integer
+      - description: 搜索关键词
+        in: query
+        name: keyword
+        type: string
+      - description: MIME类型前缀
+        in: query
+        name: contentType
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 文件列表
+      tags:
+      - 文件管理
+  /files/move:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 移动参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.moveRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 移动文件
+      tags:
+      - 文件管理
+  /files/recycle/{id}:
+    delete:
+      description: 永久删除回收站中的指定文件
+      parameters:
+      - description: 文件 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 永久删除文件
+      tags:
+      - 回收站
+  /files/recycle/batch-delete:
+    post:
+      consumes:
+      - application/json
+      description: 批量永久删除回收站中的文件
+      parameters:
+      - description: 文件 ID 列表
+        in: body
+        name: data
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 批量永久删除文件
+      tags:
+      - 回收站
+  /files/recycle/batch-restore:
+    post:
+      consumes:
+      - application/json
+      description: 从回收站批量恢复文件
+      parameters:
+      - description: 文件 ID 列表
+        in: body
+        name: data
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 批量恢复文件
+      tags:
+      - 回收站
+  /files/recycle/count:
+    get:
+      description: 获取当前用户回收站文件数量
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取回收站数量
+      tags:
+      - 回收站
+  /files/recycle/empty:
+    delete:
+      description: 清空当前用户回收站
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 清空回收站
+      tags:
+      - 回收站
+  /files/recycle/list:
+    get:
+      description: 分页获取回收站文件列表
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: pageSize
+        type: integer
+      - description: 范围：own/all
+        in: query
+        name: scope
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.PageData'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取回收站列表
+      tags:
+      - 回收站
+  /files/recycle/restore/{id}:
+    post:
+      description: 从回收站恢复指定文件
+      parameters:
+      - description: 文件 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 恢复回收站文件
+      tags:
+      - 回收站
+  /files/shares:
+    get:
+      responses: {}
+  /files/shares/{id}/disable:
+    put:
+      responses: {}
+  /files/shares/{id}/enable:
+    put:
+      responses: {}
+  /files/shares/{id}/expire:
+    put:
+      responses: {}
+  /files/shares/{id}/expiry:
+    put:
+      responses: {}
+  /files/shares/{id}/renew:
+    put:
+      responses: {}
+  /files/tree:
+    get:
+      description: 返回用户的文件夹目录树
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取目录树
+      tags:
+      - 文件管理
+  /files/upload/abort:
+    post:
+      consumes:
+      - application/json
+      description: 取消分片上传，清理临时文件
+      parameters:
+      - description: 上传任务ID
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.abortRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 取消上传
+      tags:
+      - 文件上传
+  /files/upload/check:
+    post:
+      consumes:
+      - application/json
+      description: 通过文件哈希检查是否已存在，实现秒传
+      parameters:
+      - description: 文件哈希和大小
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.checkRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 秒传检查
+      tags:
+      - 文件上传
+  /files/upload/complete:
+    post:
+      consumes:
+      - application/json
+      description: 合并所有分片完成上传
+      parameters:
+      - description: 上传任务ID
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.completeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 合并分片
+      tags:
+      - 文件上传
+  /files/upload/init:
+    post:
+      consumes:
+      - application/json
+      description: 创建上传任务，返回 uploadID 和已上传分片列表
+      parameters:
+      - description: 上传参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.initRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 初始化分片上传
+      tags:
+      - 文件上传
+  /files/upload/part:
+    post:
+      consumes:
+      - multipart/form-data
+      description: 上传单个文件分片
+      parameters:
+      - description: 上传任务ID
+        in: formData
+        name: uploadId
+        required: true
+        type: string
+      - description: 分片序号
+        in: formData
+        name: partNumber
+        required: true
+        type: integer
+      - description: 分片数据
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 上传分片
+      tags:
+      - 文件上传
+  /files/upload/status:
+    get:
+      description: 查询已上传分片列表，用于断点续传
+      parameters:
+      - description: 上传任务ID
+        in: query
+        name: uploadId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取上传状态
+      tags:
+      - 文件上传
+  /files/upload/tasks:
+    get:
+      description: 获取当前用户的上传任务列表，用于显示上传进度
+      parameters:
+      - description: 返回数量限制（默认20）
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取用户的上传任务列表
+      tags:
+      - 文件上传
+  /files/upload/tasks/{id}:
+    get:
+      description: 根据任务ID获取上传任务的详细状态
+      parameters:
+      - description: 任务ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取上传任务状态
+      tags:
+      - 文件上传
+  /folders/{id}/share:
+    post:
+      responses: {}
   /menu/all:
     get:
       description: 登录后获取当前用户可访问的菜单树（过滤按钮类型），用于渲染侧边栏导航
@@ -1179,6 +3317,281 @@ paths:
       summary: 获取用户菜单
       tags:
       - 菜单管理
+  /my-shares:
+    get:
+      responses: {}
+  /share/{code}:
+    get:
+      responses: {}
+  /share/{code}/file:
+    get:
+      responses: {}
+  /share/{code}/file/{fileId}:
+    get:
+      responses: {}
+  /share/{code}/files:
+    get:
+      responses: {}
+  /shares/{id}:
+    delete:
+      responses: {}
+  /system/captcha/test:
+    get:
+      description: 生成一个用于测试的验证码
+      parameters:
+      - default: numeric
+        description: '验证码类型: numeric/slider/puzzle/rotation/point'
+        in: query
+        name: type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/captcha.CaptchaData'
+              type: object
+      summary: 生成测试验证码
+      tags:
+      - 系统设置
+  /system/captcha/verify:
+    post:
+      consumes:
+      - application/json
+      description: 验证用户提交的验证码是否正确
+      parameters:
+      - description: 验证请求
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.VerifyCaptchaRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/handler.VerifyCaptchaResponse'
+              type: object
+      summary: 验证验证码
+      tags:
+      - 系统设置
+  /system/file-type-rules:
+    get:
+      description: 获取所有文件类型规则
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.FileTypeRule'
+                  type: array
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取文件类型规则列表
+      tags:
+      - 文件类型规则
+    post:
+      consumes:
+      - application/json
+      description: 创建新的文件类型规则
+      parameters:
+      - description: 文件类型规则
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/model.FileTypeRule'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.FileTypeRule'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建文件类型规则
+      tags:
+      - 文件类型规则
+  /system/file-type-rules/{id}:
+    delete:
+      description: 删除指定文件类型规则
+      parameters:
+      - description: 规则 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除文件类型规则
+      tags:
+      - 文件类型规则
+    put:
+      consumes:
+      - application/json
+      description: 更新指定文件类型规则
+      parameters:
+      - description: 规则 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 文件类型规则
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/model.FileTypeRule'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.FileTypeRule'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新文件类型规则
+      tags:
+      - 文件类型规则
+  /system/file-type-rules/grouped:
+    get:
+      description: 获取按文件类型分组的规则
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取分组文件类型规则
+      tags:
+      - 文件类型规则
+  /system/file-type-rules/refresh:
+    post:
+      description: 从数据库刷新 AutoTagger 的文件类型规则
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 刷新自动标签器规则
+      tags:
+      - 文件类型规则
   /system/group:
     post:
       consumes:
@@ -1557,6 +3970,236 @@ paths:
       summary: 检查菜单路径是否存在
       tags:
       - 菜单管理
+  /system/rate-limit-rules:
+    get:
+      description: 获取所有接口限流规则
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.RateLimitRule'
+                  type: array
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取限流规则列表
+      tags:
+      - 限流规则
+    post:
+      consumes:
+      - application/json
+      description: 创建新的接口限流规则
+      parameters:
+      - description: 限流规则
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/handler.rateLimitRuleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.RateLimitRule'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建限流规则
+      tags:
+      - 限流规则
+  /system/rate-limit-rules/{id}:
+    delete:
+      description: 删除指定接口限流规则
+      parameters:
+      - description: 规则 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除限流规则
+      tags:
+      - 限流规则
+    get:
+      description: 根据 ID 获取限流规则详情
+      parameters:
+      - description: 规则 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.RateLimitRule'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取限流规则详情
+      tags:
+      - 限流规则
+    put:
+      consumes:
+      - application/json
+      description: 更新指定接口限流规则
+      parameters:
+      - description: 规则 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 限流规则
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/handler.rateLimitRuleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.RateLimitRule'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新限流规则
+      tags:
+      - 限流规则
+  /system/rate-limit-rules/{id}/status:
+    put:
+      consumes:
+      - application/json
+      description: 启用或禁用指定限流规则
+      parameters:
+      - description: 规则 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 启用状态
+        in: body
+        name: data
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新限流规则状态
+      tags:
+      - 限流规则
   /system/real-name/{id}/approve:
     put:
       description: 审核通过用户的实名认证
@@ -1690,6 +4333,111 @@ paths:
       summary: 获取实名认证列表
       tags:
       - 实名认证
+  /system/risk/clear:
+    post:
+      description: 清除指定 IP 的所有风险评分数据（包括频率计数、间隔时间等）
+      parameters:
+      - description: IP 地址
+        in: query
+        name: ip
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 清除风险评分
+      tags:
+      - 风险评分
+  /system/risk/score:
+    get:
+      description: 获取指定 IP 的当前风险评分
+      parameters:
+      - description: IP 地址
+        in: query
+        name: ip
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.RiskScoreItem'
+              type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取指定 IP 风险评分
+      tags:
+      - 风险评分
+  /system/risk/scores:
+    get:
+      description: 获取当前所有 IP 的风险评分，按分数降序排列
+      parameters:
+      - description: 返回数量限制，默认100
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/service.RiskScoreItem'
+                  type: array
+              type: object
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取风险评分列表
+      tags:
+      - 风险评分
+  /system/risk/stats:
+    get:
+      description: 获取风险评分系统的统计数据
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取风险评分统计
+      tags:
+      - 风险评分
   /system/role:
     post:
       consumes:
@@ -2060,6 +4808,648 @@ paths:
       summary: 获取角色列表
       tags:
       - 角色管理
+  /system/routing-rules:
+    get:
+      description: 获取所有标签路由规则
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.TagRouting'
+                  type: array
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取路由规则列表
+      tags:
+      - 标签路由
+    post:
+      consumes:
+      - application/json
+      description: 创建新的标签路由规则
+      parameters:
+      - description: 路由规则
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/model.TagRouting'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.TagRouting'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建路由规则
+      tags:
+      - 标签路由
+  /system/routing-rules/{id}:
+    delete:
+      description: 删除指定标签路由规则
+      parameters:
+      - description: 规则 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除路由规则
+      tags:
+      - 标签路由
+    get:
+      description: 根据 ID 获取标签路由规则详情
+      parameters:
+      - description: 规则 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.TagRouting'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取路由规则详情
+      tags:
+      - 标签路由
+    put:
+      consumes:
+      - application/json
+      description: 更新指定标签路由规则
+      parameters:
+      - description: 规则 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 路由规则
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/model.TagRouting'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.TagRouting'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新路由规则
+      tags:
+      - 标签路由
+  /system/routing-rules/{id}/priority:
+    put:
+      consumes:
+      - application/json
+      description: 更新指定标签路由规则优先级
+      parameters:
+      - description: 规则 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 优先级
+        in: body
+        name: data
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新路由规则优先级
+      tags:
+      - 标签路由
+  /system/routing-rules/{id}/status:
+    put:
+      consumes:
+      - application/json
+      description: 更新指定标签路由规则状态
+      parameters:
+      - description: 规则 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 状态
+        in: body
+        name: data
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新路由规则状态
+      tags:
+      - 标签路由
+  /system/routing-rules/{id}/test:
+    post:
+      consumes:
+      - application/json
+      description: 测试指定标签路由规则是否匹配
+      parameters:
+      - description: 规则 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 标签列表
+        in: body
+        name: data
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 测试路由规则
+      tags:
+      - 标签路由
+  /system/routing-rules/batch-priority:
+    post:
+      consumes:
+      - application/json
+      description: 批量更新标签路由规则优先级
+      parameters:
+      - description: 优先级映射
+        in: body
+        name: data
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 批量更新路由规则优先级
+      tags:
+      - 标签路由
+  /system/routing-rules/test-route:
+    post:
+      consumes:
+      - application/json
+      description: 根据文件信息测试路由结果
+      parameters:
+      - description: 文件信息
+        in: body
+        name: data
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 测试文件路由
+      tags:
+      - 标签路由
+  /system/scheduled-tasks:
+    get:
+      description: 获取所有定时任务
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.ScheduledTask'
+                  type: array
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取定时任务列表
+      tags:
+      - 定时任务
+    post:
+      consumes:
+      - application/json
+      description: 创建新的定时任务
+      parameters:
+      - description: 任务信息
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/handler.CreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.ScheduledTask'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建定时任务
+      tags:
+      - 定时任务
+  /system/scheduled-tasks/{id}:
+    delete:
+      description: 删除指定定时任务
+      parameters:
+      - description: 任务 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除定时任务
+      tags:
+      - 定时任务
+    get:
+      description: 根据 ID 获取定时任务详情
+      parameters:
+      - description: 任务 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.ScheduledTask'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取定时任务详情
+      tags:
+      - 定时任务
+    put:
+      consumes:
+      - application/json
+      description: 更新指定定时任务
+      parameters:
+      - description: 任务 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 任务信息
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/handler.UpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新定时任务
+      tags:
+      - 定时任务
+  /system/scheduled-tasks/{id}/enabled:
+    put:
+      consumes:
+      - application/json
+      description: 启用或禁用指定定时任务
+      parameters:
+      - description: 任务 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 启用状态
+        in: body
+        name: data
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新定时任务启用状态
+      tags:
+      - 定时任务
+  /system/scheduled-tasks/{id}/run:
+    post:
+      description: 手动执行指定定时任务
+      parameters:
+      - description: 任务 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 执行定时任务
+      tags:
+      - 定时任务
   /system/security-logs:
     get:
       description: 管理员查看所有用户的安全日志，用于安全审计
@@ -2411,6 +5801,1037 @@ paths:
       summary: 测试短信发送
       tags:
       - 系统设置
+  /system/storage-buckets:
+    get:
+      description: 获取所有存储桶配置
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.StorageBucket'
+                  type: array
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取存储桶列表
+      tags:
+      - 存储桶
+    post:
+      consumes:
+      - application/json
+      description: 创建新的存储桶配置
+      parameters:
+      - description: 存储桶配置
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/model.StorageBucket'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.StorageBucket'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建存储桶
+      tags:
+      - 存储桶
+  /system/storage-buckets/{id}:
+    delete:
+      description: 删除指定存储桶配置
+      parameters:
+      - description: 存储桶 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除存储桶
+      tags:
+      - 存储桶
+    get:
+      description: 根据 ID 获取存储桶配置详情
+      parameters:
+      - description: 存储桶 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.StorageBucket'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取存储桶详情
+      tags:
+      - 存储桶
+    put:
+      consumes:
+      - application/json
+      description: 更新指定存储桶配置
+      parameters:
+      - description: 存储桶 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 存储桶配置
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/model.StorageBucket'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.StorageBucket'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新存储桶
+      tags:
+      - 存储桶
+  /system/storage-buckets/{id}/default:
+    put:
+      description: 将指定存储桶设为默认
+      parameters:
+      - description: 存储桶 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 设置默认存储桶
+      tags:
+      - 存储桶
+  /system/storage-buckets/{id}/test:
+    post:
+      description: 测试指定存储桶连接是否可用
+      parameters:
+      - description: 存储桶 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 测试存储桶连接
+      tags:
+      - 存储桶
+  /system/storage-buckets/default:
+    get:
+      description: 获取当前默认存储桶配置
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.StorageBucket'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取默认存储桶
+      tags:
+      - 存储桶
+  /system/storage-buckets/driver/{driver}:
+    get:
+      description: 根据存储驱动获取存储桶列表
+      parameters:
+      - description: 存储驱动
+        in: path
+        name: driver
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.StorageBucket'
+                  type: array
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 按驱动获取存储桶
+      tags:
+      - 存储桶
+  /system/storage-buckets/enabled-drivers:
+    get:
+      description: 获取当前已启用的存储驱动列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取已启用存储驱动
+      tags:
+      - 存储桶
+  /system/storage-buckets/purpose/{purpose}:
+    get:
+      description: 根据用途获取存储桶列表
+      parameters:
+      - description: 用途
+        in: path
+        name: purpose
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.StorageBucket'
+                  type: array
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 按用途获取存储桶
+      tags:
+      - 存储桶
+  /system/storage-buckets/test-by-driver:
+    post:
+      consumes:
+      - application/json
+      description: 根据驱动和桶名测试连接，无需保存配置
+      parameters:
+      - description: 测试参数
+        in: body
+        name: data
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 按驱动测试连接
+      tags:
+      - 存储桶
+  /system/storage-configs:
+    get:
+      description: 获取所有存储连接配置
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.StorageConfig'
+                  type: array
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取存储配置列表
+      tags:
+      - 存储配置
+    post:
+      consumes:
+      - application/json
+      description: 创建新的存储连接配置
+      parameters:
+      - description: 存储配置
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/handler.createStorageConfigRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.StorageConfig'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建存储配置
+      tags:
+      - 存储配置
+  /system/storage-configs/{id}:
+    delete:
+      description: 删除指定存储连接配置
+      parameters:
+      - description: 配置 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除存储配置
+      tags:
+      - 存储配置
+    get:
+      description: 根据 ID 获取存储连接配置详情
+      parameters:
+      - description: 配置 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.StorageConfig'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取存储配置详情
+      tags:
+      - 存储配置
+    put:
+      consumes:
+      - application/json
+      description: 更新指定存储连接配置
+      parameters:
+      - description: 配置 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 存储配置
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/handler.updateStorageConfigRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.StorageConfig'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新存储配置
+      tags:
+      - 存储配置
+  /system/storage-configs/{id}/default:
+    put:
+      description: 将指定存储配置设为默认
+      parameters:
+      - description: 配置 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 设置默认存储配置
+      tags:
+      - 存储配置
+  /system/storage-configs/{id}/test:
+    post:
+      description: 测试已有存储配置连接是否可用
+      parameters:
+      - description: 配置 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 测试存储配置连接
+      tags:
+      - 存储配置
+  /system/storage-configs/enabled-drivers:
+    get:
+      description: 获取已启用的存储驱动列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取已启用存储驱动
+      tags:
+      - 存储配置
+  /system/storage-configs/test-by-data:
+    post:
+      consumes:
+      - application/json
+      description: 根据传入配置数据测试存储连接
+      parameters:
+      - description: 测试配置
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/handler.testConnectionByDataRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 按数据测试存储连接
+      tags:
+      - 存储配置
+  /system/tags:
+    get:
+      description: 获取所有标签
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.Tag'
+                  type: array
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取标签列表
+      tags:
+      - 标签
+    post:
+      consumes:
+      - application/json
+      description: 创建新的标签
+      parameters:
+      - description: 标签
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/model.Tag'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.Tag'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建标签
+      tags:
+      - 标签
+  /system/tags/{id}:
+    delete:
+      description: 删除指定标签
+      parameters:
+      - description: 标签 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除标签
+      tags:
+      - 标签
+    get:
+      description: 根据 ID 获取标签详情
+      parameters:
+      - description: 标签 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.Tag'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取标签详情
+      tags:
+      - 标签
+    put:
+      consumes:
+      - application/json
+      description: 更新指定标签
+      parameters:
+      - description: 标签 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 标签
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/model.Tag'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.Tag'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新标签
+      tags:
+      - 标签
+  /system/tags/grouped:
+    get:
+      description: 获取按标签键分组的标签
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取分组标签
+      tags:
+      - 标签
+  /system/tags/key/{key}:
+    get:
+      description: 根据标签键获取标签值列表
+      parameters:
+      - description: 标签键
+        in: path
+        name: key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.Tag'
+                  type: array
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 按键获取标签
+      tags:
+      - 标签
+  /system/tags/stats:
+    get:
+      description: 获取标签使用统计数据
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取标签使用统计
+      tags:
+      - 标签
   /system/user:
     post:
       consumes:
@@ -2607,6 +7028,107 @@ paths:
       summary: 获取用户列表
       tags:
       - 用户管理
+  /tags:
+    get:
+      description: 获取所有标签
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.Tag'
+                  type: array
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取标签列表
+      tags:
+      - 标签
+  /tags/grouped:
+    get:
+      description: 获取按标签键分组的标签
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取分组标签
+      tags:
+      - 标签
+  /tags/key/{key}:
+    get:
+      description: 根据标签键获取标签值列表
+      parameters:
+      - description: 标签键
+        in: path
+        name: key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.Tag'
+                  type: array
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 按键获取标签
+      tags:
+      - 标签
   /user/info:
     get:
       description: 获取当前登录用户的详细信息，包括 ID、用户名、角色列表
@@ -2791,4 +7313,10 @@ paths:
       summary: WebSocket 连接
       tags:
       - WebSocket
+securityDefinitions:
+  BearerAuth:
+    description: JWT Token（格式：Bearer {token}）
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

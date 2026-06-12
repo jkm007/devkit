@@ -29,6 +29,16 @@ func maskSensitiveFields(config *model.StorageConfig) {
 }
 
 // GetAll 获取所有存储配置
+// @Summary      获取存储配置列表
+// @Description  获取所有存储连接配置
+// @Tags         存储配置
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  response.Response{data=[]model.StorageConfig} "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/storage-configs [get]
 func (h *StorageConfigHandler) GetAll(c *gin.Context) {
 	configs, err := h.service.GetAll()
 	if err != nil {
@@ -42,6 +52,17 @@ func (h *StorageConfigHandler) GetAll(c *gin.Context) {
 }
 
 // GetByID 根据ID获取
+// @Summary      获取存储配置详情
+// @Description  根据 ID 获取存储连接配置详情
+// @Tags         存储配置
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "配置 ID"
+// @Success      200  {object}  response.Response{data=model.StorageConfig} "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/storage-configs/{id} [get]
 func (h *StorageConfigHandler) GetByID(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -76,6 +97,18 @@ type createStorageConfigRequest struct {
 }
 
 // Create 创建存储配置
+// @Summary      创建存储配置
+// @Description  创建新的存储连接配置
+// @Tags         存储配置
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        data  body  createStorageConfigRequest  true  "存储配置"
+// @Success      200  {object}  response.Response{data=model.StorageConfig} "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/storage-configs [post]
 func (h *StorageConfigHandler) Create(c *gin.Context) {
 	var req createStorageConfigRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -143,6 +176,19 @@ type updateStorageConfigRequest struct {
 }
 
 // Update 更新存储配置
+// @Summary      更新存储配置
+// @Description  更新指定存储连接配置
+// @Tags         存储配置
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "配置 ID"
+// @Param        data  body  updateStorageConfigRequest  true  "存储配置"
+// @Success      200  {object}  response.Response{data=model.StorageConfig} "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/storage-configs/{id} [put]
 func (h *StorageConfigHandler) Update(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -208,6 +254,17 @@ func (h *StorageConfigHandler) Update(c *gin.Context) {
 }
 
 // Delete 删除存储配置
+// @Summary      删除存储配置
+// @Description  删除指定存储连接配置
+// @Tags         存储配置
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "配置 ID"
+// @Success      200  {object}  response.Response "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/storage-configs/{id} [delete]
 func (h *StorageConfigHandler) Delete(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -227,6 +284,17 @@ func (h *StorageConfigHandler) Delete(c *gin.Context) {
 }
 
 // SetDefault 设置默认
+// @Summary      设置默认存储配置
+// @Description  将指定存储配置设为默认
+// @Tags         存储配置
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "配置 ID"
+// @Success      200  {object}  response.Response "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/storage-configs/{id}/default [put]
 func (h *StorageConfigHandler) SetDefault(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -246,6 +314,17 @@ func (h *StorageConfigHandler) SetDefault(c *gin.Context) {
 }
 
 // TestConnection 测试已有配置的连接
+// @Summary      测试存储配置连接
+// @Description  测试已有存储配置连接是否可用
+// @Tags         存储配置
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "配置 ID"
+// @Success      200  {object}  response.Response "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/storage-configs/{id}/test [post]
 func (h *StorageConfigHandler) TestConnection(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -272,6 +351,18 @@ type testConnectionByDataRequest struct {
 }
 
 // TestConnectionByData 根据传入数据测试连接
+// @Summary      按数据测试存储连接
+// @Description  根据传入配置数据测试存储连接
+// @Tags         存储配置
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        data  body  testConnectionByDataRequest  true  "测试配置"
+// @Success      200  {object}  response.Response "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/storage-configs/test-by-data [post]
 func (h *StorageConfigHandler) TestConnectionByData(c *gin.Context) {
 	var req testConnectionByDataRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -287,6 +378,16 @@ func (h *StorageConfigHandler) TestConnectionByData(c *gin.Context) {
 }
 
 // GetEnabledDrivers 获取已启用的驱动
+// @Summary      获取已启用存储驱动
+// @Description  获取已启用的存储驱动列表
+// @Tags         存储配置
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  response.Response "成功"
+// @Failure      400  {object}  response.Response "参数错误"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      500  {object}  response.Response "服务器错误"
+// @Router       /system/storage-configs/enabled-drivers [get]
 func (h *StorageConfigHandler) GetEnabledDrivers(c *gin.Context) {
 	drivers, err := h.service.GetEnabledDrivers()
 	if err != nil {

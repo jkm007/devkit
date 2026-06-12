@@ -80,6 +80,7 @@ func (h *OAuthHandler) GetBindings(c *gin.Context) {
 // @Success      200  {object}  response.Response{data=map[string]string} "成功"
 // @Failure      400  {object}  response.Response "参数错误"
 // @Router       /auth/oauth/authorize [get]
+// @Router       /auth/oauth/bind-url [get]
 func (h *OAuthHandler) GetBindURL(c *gin.Context) {
 	provider := c.Query("provider")
 	if provider == "" {

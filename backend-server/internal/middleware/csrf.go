@@ -39,7 +39,6 @@ var csrfExemptPaths = []string{
 	"/api/v1/auth/send-sms-code",
 	"/api/v1/auth/refresh",
 	"/api/v1/auth/wechat/",
-	"/api/v1/auth/oauth/",
 	"/api/v1/share/",
 }
 
