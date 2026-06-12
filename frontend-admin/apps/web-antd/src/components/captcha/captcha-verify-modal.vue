@@ -253,7 +253,7 @@ onUnmounted(() => {
         加载中...
       </div>
       <div
-        v-else
+        v-else-if="!captchaImage"
         style="
           display: flex;
           align-items: center;

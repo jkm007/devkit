@@ -139,10 +139,14 @@ async function handleChangePassword() {
       captchaId: captchaResult.captchaId,
       captchaCode: captchaResult.captchaCode,
     });
+    // 通知验证码弹窗关闭
+    window.dispatchEvent(new CustomEvent('captcha:verify-success'));
     message.success($t('account.security.changePasswordSuccess'));
     passwordModalVisible.value = false;
     passwordForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' };
   } catch {
+    // 通知验证码弹窗关闭（失败也要关闭）
+    window.dispatchEvent(new CustomEvent('captcha:verify-success'));
     message.error('密码修改失败');
   } finally {
     changingPassword.value = false;
