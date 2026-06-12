@@ -125,13 +125,13 @@ async function handleChangePassword() {
 
   changingPassword.value = true;
   try {
-    // 直接调用 API，请求拦截器会自动处理 403001 验证码（从 header 读取）
+    // CaptchaGuard 中间件会返回 403001，请求拦截器自动弹验证码并通过 header 重试
     await changePassword({ ...passwordForm.value });
     message.success($t('account.security.changePasswordSuccess'));
     passwordModalVisible.value = false;
     passwordForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' };
   } catch {
-    // 拦截器已处理验证码弹窗，此处只需处理最终失败
+    // 拦截器已处理验证码，此处处理最终失败
   } finally {
     changingPassword.value = false;
   }
