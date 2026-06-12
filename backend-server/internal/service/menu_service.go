@@ -210,12 +210,16 @@ func (s *MenuService) menuToMap(menu model.Menu) *MenuItem {
 				item.Redirect = redirect
 				delete(metaObj, "redirect")
 			}
+			// 确保 meta.order 与 sort 字段同步（前端使用 meta.order 排序）
+			if _, hasOrder := metaObj["order"]; !hasOrder {
+				metaObj["order"] = menu.Sort
+			}
 			item.Meta = metaObj
 		} else {
 			item.Meta = menu.Meta
 		}
 	} else {
-		item.Meta = map[string]interface{}{}
+		item.Meta = map[string]interface{}{"order": menu.Sort}
 	}
 	// 将 icon 字段合并到 meta 中（前端期望 meta.icon）
 	if menu.Icon != "" {
