@@ -6,7 +6,6 @@ import {
   defineAsyncComponent,
   markRaw,
   onMounted,
-  onUnmounted,
   ref,
   watch,
 } from 'vue';
@@ -178,27 +177,12 @@ function handleNumericCaptchaSuccess(data: {
 }
 
 // ==================== 生命周期 ====================
-// 验证码错误事件（由 request.ts 的 403001 拦截器在 loginCaptchaModalActive 时触发）
-function handleLoginCaptchaError(event: Event) {
-  const detail = (event as CustomEvent)?.detail;
-  captchaVerifyResult.value = false;
-  captchaVerifyMessage.value = detail?.message || '验证码错误，请重试';
-  setTimeout(() => {
-    captchaVerifyResult.value = null;
-  }, 100);
-}
-
 onMounted(async () => {
   await loadSettings();
   // 如果需要数字验证码，加载图片
   if (shouldShowCaptcha.value && isNumericCaptcha.value) {
     await fetchNumericCaptcha();
   }
-  window.addEventListener('captcha:login-verify-error', handleLoginCaptchaError);
-});
-
-onUnmounted(() => {
-  window.removeEventListener('captcha:login-verify-error', handleLoginCaptchaError);
 });
 
 watch(shouldShowCaptcha, async (need) => {

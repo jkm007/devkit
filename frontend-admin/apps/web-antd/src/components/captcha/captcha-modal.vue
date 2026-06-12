@@ -6,7 +6,7 @@
  * 公开模式 (public=true)：用于登录等未认证场景，只获取图片，不验证
  * 私有模式 (public=false)：用于已认证场景（如系统设置测试），自动验证
  */
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 
 import { Modal } from 'ant-design-vue';
 
@@ -92,6 +92,8 @@ async function loadCaptcha() {
   if (!props.visible) return;
 
   loading.value = true;
+  pending.value = false;
+  errorMsg.value = '';
   captchaResult.value = null;
   resetState();
 
@@ -241,6 +243,22 @@ watch(
     }
   },
 );
+
+// 直接监听验证码错误事件（由 request.ts 的 403001 拦截器触发）
+function handleVerifyError(event: Event) {
+  const detail = (event as CustomEvent)?.detail;
+  pending.value = false;
+  errorMsg.value = detail?.message || '验证码错误，请重试';
+  loadCaptcha();
+}
+
+onMounted(() => {
+  window.addEventListener('captcha:login-verify-error', handleVerifyError as EventListener);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('captcha:login-verify-error', handleVerifyError as EventListener);
+});
 </script>
 
 <template>

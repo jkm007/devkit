@@ -139,7 +139,7 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
     fulfilled: async (response: any) => {
       const data = response?.data;
       if (data?.code === 403001) {
-        // 登录页面有自己的 CaptchaModal 正在显示时，通知 login.vue 刷新弹窗
+        // 登录页面有自己的 CaptchaModal 正在显示时，通知 CaptchaModal 刷新
         if (loginCaptchaModalActive) {
           window.dispatchEvent(
             new CustomEvent('captcha:login-verify-error', {
