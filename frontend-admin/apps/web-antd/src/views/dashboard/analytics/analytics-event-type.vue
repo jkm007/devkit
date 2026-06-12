@@ -57,5 +57,8 @@ onMounted(async () => {
 </script>
 
 <template>
-  <EchartsUI ref="chartRef" />
+  <div v-if="!data || data.length === 0" class="flex h-64 items-center justify-center text-gray-400">
+    暂无事件数据
+  </div>
+  <EchartsUI v-else ref="chartRef" />
 </template>

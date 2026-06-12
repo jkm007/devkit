@@ -28,7 +28,7 @@ onMounted(async () => {
   if (!data || data.length === 0) return;
 
   renderEcharts({
-    tooltip: { trigger: 'item' },
+    tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
     legend: { bottom: 0, textStyle: { fontSize: 12 } },
     series: [
       {
@@ -50,5 +50,8 @@ onMounted(async () => {
 </script>
 
 <template>
-  <EchartsUI ref="chartRef" />
+  <div v-if="!data || data.length === 0" class="flex h-64 items-center justify-center text-gray-400">
+    暂无平台数据
+  </div>
+  <EchartsUI v-else ref="chartRef" />
 </template>

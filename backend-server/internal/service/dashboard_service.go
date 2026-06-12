@@ -126,7 +126,7 @@ func (s *DashboardService) GetStats() (*DashboardStats, error) {
 	}
 	stats.DeviceByPlatform = deviceByPlatform
 
-	// 最近登录记录
+	// 最近登录记录（JOIN users 表获取用户名）
 	type loginRow struct {
 		Username  string
 		IP        string
@@ -135,12 +135,8 @@ func (s *DashboardService) GetStats() (*DashboardStats, error) {
 		CreatedAt time.Time
 	}
 	var logins []loginRow
-	db.Model(&model.SecurityLog{}).
-		Select("username, ip, user_agent, status, created_at").
-		Where("event_type = 'login'").
-		Order("created_at DESC").
-		Limit(10).
-		Find(&logins)
+	db.Raw("SELECT COALESCE(u.name, '') AS username, l.ip, l.user_agent, l.status, l.created_at FROM sys_security_logs l LEFT JOIN sys_users u ON u.id = l.user_id WHERE l.event_type = 'login' ORDER BY l.created_at DESC LIMIT 10").
+		Scan(&logins)
 	var recentLogins []RecentLogin
 	for _, l := range logins {
 		recentLogins = append(recentLogins, RecentLogin{
