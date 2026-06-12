@@ -12,19 +12,19 @@ import (
 )
 
 type ShareService struct {
-	shareRepo   *repository.FileShareRepo
-	fileRepo    *repository.FileRepo
-	assetRepo   *repository.FileAssetRepo
-	userRepo    *repository.UserRepo
+	shareRepo *repository.FileShareRepo
+	fileRepo  *repository.FileRepo
+	assetRepo *repository.FileAssetRepo
+	userRepo  *repository.UserRepo
 }
 
 func NewShareService() *ShareService {
 	db := database.GetMySQL()
 	return &ShareService{
-		shareRepo:   repository.NewFileShareRepo(db),
-		fileRepo:    repository.NewFileRepo(db),
-		assetRepo:   repository.NewFileAssetRepo(db),
-		userRepo:    repository.NewUserRepo(db),
+		shareRepo: repository.NewFileShareRepo(db),
+		fileRepo:  repository.NewFileRepo(db),
+		assetRepo: repository.NewFileAssetRepo(db),
+		userRepo:  repository.NewUserRepo(db),
 	}
 }
 
@@ -179,15 +179,19 @@ func (s *ShareService) GetShareInfo(code string) (map[string]interface{}, error)
 	return result, nil
 }
 
-// GetShareFolderFiles 获取分享文件夹内的文件列表（支持分页和搜索）
+// GetShareFolderFiles 获取分享文件夹内的文件列表（支持分页、搜索和子目录递归）
 func (s *ShareService) GetShareFolderFiles(folderID uint, page, pageSize int, keyword string) ([]map[string]interface{}, int64, error) {
-	// 使用已有的分页查询方法（userID=0 表示不限制用户）
+	folderIDs, err := s.collectChildFolderIDs(folderID)
+	if err != nil {
+		return nil, 0, fmt.Errorf("获取子目录失败")
+	}
+
 	filters := map[string]interface{}{}
 	if keyword != "" {
 		filters["keyword"] = keyword
 	}
 
-	entries, total, err := s.fileRepo.ListEntries(0, folderID, page, pageSize, filters)
+	entries, total, err := s.fileRepo.ListEntriesInFolders(folderIDs, page, pageSize, filters)
 	if err != nil {
 		return nil, 0, fmt.Errorf("获取文件列表失败")
 	}
@@ -209,6 +213,32 @@ func (s *ShareService) GetShareFolderFiles(folderID uint, page, pageSize int, ke
 	}
 
 	return files, total, nil
+}
+
+func (s *ShareService) collectChildFolderIDs(rootFolderID uint) ([]uint, error) {
+	folderIDs := []uint{rootFolderID}
+	visited := map[uint]bool{rootFolderID: true}
+	queue := []uint{rootFolderID}
+
+	for len(queue) > 0 {
+		currentID := queue[0]
+		queue = queue[1:]
+
+		children, err := s.fileRepo.GetChildFolders(currentID)
+		if err != nil {
+			return nil, err
+		}
+		for _, child := range children {
+			if visited[child.ID] {
+				continue
+			}
+			visited[child.ID] = true
+			folderIDs = append(folderIDs, child.ID)
+			queue = append(queue, child.ID)
+		}
+	}
+
+	return folderIDs, nil
 }
 
 // GetFileInFolder 获取文件夹内指定文件信息（验证文件归属）

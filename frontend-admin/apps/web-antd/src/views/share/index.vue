@@ -10,6 +10,7 @@ import {
   Descriptions,
   DescriptionsItem,
   Image,
+  Modal,
   Spin,
   Table,
 } from 'ant-design-vue';
@@ -32,6 +33,10 @@ const shareCode = route.params.code as string;
 const searchText = ref('');
 const searchDebounceTimer = ref<ReturnType<typeof setTimeout> | null>(null);
 const pagination = ref({ current: 1, pageSize: 20 });
+const previewVisible = ref(false);
+const previewUrl = ref('');
+const previewName = ref('');
+const previewType = ref<'audio' | 'image' | 'pdf' | 'video' | ''>('');
 
 async function loadShareInfo() {
   try {
@@ -76,14 +81,50 @@ watch(searchText, () => {
   }, 300);
 });
 
+function getShareFileUrl(file: any) {
+  return `/api/v1/share/${shareCode}/file/${file.fileId}`;
+}
+
+function getPreviewType(file: any) {
+  const contentType = file.contentType || '';
+  const fileName = file.fileName || '';
+  if (contentType.startsWith('image/')) return 'image';
+  if (contentType.startsWith('video/')) return 'video';
+  if (contentType.startsWith('audio/')) return 'audio';
+  if (contentType.includes('pdf') || fileName.toLowerCase().endsWith('.pdf')) {
+    return 'pdf';
+  }
+  return '';
+}
+
 function viewFile(file: any) {
-  // 文件夹分享的文件访问 URL
-  const url = `/api/v1/share/${shareCode}/file/${file.fileId}`;
-  window.open(url, '_blank', 'noopener,noreferrer');
+  const type = getPreviewType(file);
+  const url = getShareFileUrl(file);
+  if (!type) {
+    Modal.confirm({
+      title: '无法预览',
+      content: `文件 "${file.fileName}" 不支持在线预览，是否在新标签页打开？`,
+      okText: '打开',
+      cancelText: '取消',
+      onOk: () => window.open(url, '_blank', 'noopener,noreferrer'),
+    });
+    return;
+  }
+
+  previewName.value = file.fileName;
+  previewUrl.value = url;
+  previewType.value = type;
+  previewVisible.value = true;
+}
+
+function openPreviewInNewTab() {
+  if (previewUrl.value) {
+    window.open(previewUrl.value, '_blank', 'noopener,noreferrer');
+  }
 }
 
 function downloadFile(file: any) {
-  const url = `/api/v1/share/${shareCode}/file/${file.fileId}`;
+  const url = getShareFileUrl(file);
   const link = document.createElement('a');
   link.href = url;
   link.download = file.fileName;
@@ -315,6 +356,72 @@ onMounted(() => {
             {{ searchText ? '未找到匹配的文件' : '文件夹内暂无文件' }}
           </div>
         </Card>
+
+        <!-- 预览弹窗 -->
+        <Modal
+          v-model:open="previewVisible"
+          :title="previewName"
+          :footer="null"
+          :width="
+            previewType === 'video' ? 960 : previewType === 'audio' ? 500 : 800
+          "
+          :mask-closable="true"
+          :keyboard="true"
+          :destroy-on-close="true"
+        >
+          <div class="mb-3 text-right">
+            <Button size="small" @click="openPreviewInNewTab">
+              在新标签页打开
+            </Button>
+          </div>
+          <div
+            v-if="previewType === 'image' && previewUrl"
+            class="text-center p-6"
+          >
+            <Image
+              :src="previewUrl"
+              class="max-w-full"
+              style="max-height: 600px"
+            />
+          </div>
+          <iframe
+            v-else-if="previewType === 'pdf' && previewUrl"
+            :src="previewUrl"
+            sandbox="allow-scripts allow-same-origin"
+            referrerpolicy="no-referrer"
+            style="width: 100%; height: 600px; border: none"
+          />
+          <div v-else-if="previewType === 'video' && previewUrl">
+            <video
+              :src="previewUrl"
+              controls
+              autoplay
+              preload="auto"
+              playsinline
+              style="
+                display: block;
+                width: 100%;
+                max-height: 70vh;
+                background: #000;
+              "
+            />
+          </div>
+          <div v-else-if="previewType === 'audio' && previewUrl" class="p-6">
+            <div class="text-center mb-4">
+              <span class="i-ant-design:sound-outlined text-6xl text-blue-500" />
+            </div>
+            <audio
+              :src="previewUrl"
+              controls
+              autoplay
+              preload="auto"
+              style="width: 100%"
+            />
+          </div>
+          <div v-else class="py-12 text-center text-gray-500">
+            该文件类型不支持预览
+          </div>
+        </Modal>
 
         <!-- 错误提示 -->
         <Card v-else-if="error">

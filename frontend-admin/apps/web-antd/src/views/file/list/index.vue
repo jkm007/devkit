@@ -955,9 +955,7 @@ async function handleUpload(file: File) {
   try {
     await uploadStore.uploadFile(file, currentFolderId.value ?? undefined);
     message.success(`${file.name} 上传成功`);
-    // 不调用 onRefresh()，上传任务变化由 watcher 通过本地合并更新表格，
-    // 避免触发全表加载状态和多余的后端请求。
-    // 新文件会在用户手动刷新时出现。
+    onRefresh();
   } catch (err) {
     message.error(`上传失败: ${err}`);
   }

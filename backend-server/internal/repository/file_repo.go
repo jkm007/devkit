@@ -194,6 +194,38 @@ func (r *FileRepo) ListEntriesByFolders(folderIDs []uint) ([]model.FileEntry, er
 	return entries, nil
 }
 
+// ListEntriesInFolders 分页获取多个文件夹内的文件（支持搜索）
+func (r *FileRepo) ListEntriesInFolders(folderIDs []uint, page, pageSize int, filters map[string]interface{}) ([]model.FileEntry, int64, error) {
+	if len(folderIDs) == 0 {
+		return []model.FileEntry{}, 0, nil
+	}
+
+	var entries []model.FileEntry
+	var total int64
+
+	query := r.db.Model(&model.FileEntry{}).
+		Where("deleted_at IS NULL").
+		Where("folder_id IN ?", folderIDs)
+
+	if keyword, ok := filters["keyword"].(string); ok && keyword != "" {
+		query = query.Where("name LIKE ?", "%"+escapeLike(keyword)+"%")
+	}
+	if contentType, ok := filters["contentType"].(string); ok && contentType != "" {
+		query = query.Where("content_type LIKE ?", escapeLike(contentType)+"%")
+	}
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * pageSize
+	if err := query.Offset(offset).Limit(pageSize).Order("created_at DESC").Find(&entries).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return entries, total, nil
+}
+
 // --- 回收站 ---
 
 // SoftDeleteEntry 软删除文件（移入回收站）
