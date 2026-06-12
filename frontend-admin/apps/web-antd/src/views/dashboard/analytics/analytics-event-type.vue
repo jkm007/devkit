@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { EchartsUIType } from '@vben/plugins/echarts';
 
-import { ref, watch } from 'vue';
+import { nextTick, onMounted, ref } from 'vue';
 
 import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
@@ -27,7 +27,11 @@ const typeLabel: Record<string, string> = {
   delete: '删除文件',
 };
 
-function render(data: Array<{ type: string; count: number }>) {
+onMounted(async () => {
+  await nextTick();
+  const data = props.data;
+  if (!data || data.length === 0) return;
+
   renderEcharts({
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
     grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
@@ -49,15 +53,7 @@ function render(data: Array<{ type: string; count: number }>) {
       },
     ],
   });
-}
-
-watch(
-  () => props.data,
-  (val) => {
-    if (val && val.length > 0) render(val);
-  },
-  { immediate: true },
-);
+});
 </script>
 
 <template>

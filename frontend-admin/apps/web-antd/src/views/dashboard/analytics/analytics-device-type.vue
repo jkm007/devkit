@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { EchartsUIType } from '@vben/plugins/echarts';
 
-import { ref, watch } from 'vue';
+import { nextTick, onMounted, ref } from 'vue';
 
 import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
@@ -21,7 +21,11 @@ const typeLabel: Record<string, string> = {
 
 const colors = ['#5470c6', '#91cc75', '#fac858', '#ee6666'];
 
-function render(data: Array<{ type: string; count: number }>) {
+onMounted(async () => {
+  await nextTick();
+  const data = props.data;
+  if (!data || data.length === 0) return;
+
   renderEcharts({
     tooltip: { trigger: 'item' },
     legend: { bottom: 0, textStyle: { fontSize: 12 } },
@@ -41,15 +45,7 @@ function render(data: Array<{ type: string; count: number }>) {
       },
     ],
   });
-}
-
-watch(
-  () => props.data,
-  (val) => {
-    if (val && val.length > 0) render(val);
-  },
-  { immediate: true },
-);
+});
 </script>
 
 <template>

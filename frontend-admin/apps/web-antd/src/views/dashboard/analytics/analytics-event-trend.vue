@@ -1,9 +1,7 @@
 <script lang="ts" setup>
 import type { EchartsUIType } from '@vben/plugins/echarts';
 
-import { watch } from 'vue';
-
-import { ref } from 'vue';
+import { nextTick, onMounted, ref } from 'vue';
 
 import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
@@ -14,7 +12,11 @@ const props = defineProps<{
 const chartRef = ref<EchartsUIType>();
 const { renderEcharts } = useEcharts(chartRef);
 
-function render(data: Array<{ date: string; success: number; fail: number }>) {
+onMounted(async () => {
+  await nextTick();
+  const data = props.data;
+  if (!data || data.length === 0) return;
+
   renderEcharts({
     tooltip: { trigger: 'axis' },
     legend: { data: ['成功', '失败'], bottom: 0 },
@@ -46,15 +48,7 @@ function render(data: Array<{ date: string; success: number; fail: number }>) {
       },
     ],
   });
-}
-
-watch(
-  () => props.data,
-  (val) => {
-    if (val && val.length > 0) render(val);
-  },
-  { immediate: true },
-);
+});
 </script>
 
 <template>
