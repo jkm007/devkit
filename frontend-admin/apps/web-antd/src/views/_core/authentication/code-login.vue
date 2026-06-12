@@ -167,12 +167,16 @@ async function handleEmailLogin() {
     return;
   }
 
-  const result = await authStore.authLoginByEmail({
-    email: emailForm.value.email,
-    code: emailForm.value.code,
-  });
-  if (!result?.userInfo) {
-    message.error('登录失败，请检查邮箱和验证码');
+  try {
+    const result = await authStore.authLoginByEmail({
+      email: emailForm.value.email,
+      code: emailForm.value.code,
+    });
+    if (!result?.userInfo) {
+      message.error('登录失败，请检查邮箱和验证码');
+    }
+  } catch {
+    // 错误消息由 request.ts 的 errorMessageResponseInterceptor 统一显示
   }
 }
 
@@ -186,12 +190,16 @@ async function handlePhoneLogin() {
     return;
   }
 
-  const result = await authStore.authLoginByPhone({
-    phone: phoneForm.value.phone,
-    code: phoneForm.value.code,
-  });
-  if (!result?.userInfo) {
-    message.error('登录失败，请检查手机号和验证码');
+  try {
+    const result = await authStore.authLoginByPhone({
+      phone: phoneForm.value.phone,
+      code: phoneForm.value.code,
+    });
+    if (!result?.userInfo) {
+      message.error('登录失败，请检查手机号和验证码');
+    }
+  } catch {
+    // 错误消息由 request.ts 的 errorMessageResponseInterceptor 统一显示
   }
 }
 
