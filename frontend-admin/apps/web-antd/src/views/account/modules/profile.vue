@@ -12,14 +12,17 @@ import {
   Form,
   FormItem,
   Input,
+  InputPassword,
   message,
+  Modal,
   Radio,
   RadioGroup,
   Row,
 } from 'ant-design-vue';
 
-import { getUserInfo, updateProfile } from '#/api';
+import { changePassword, getUserInfo, updateProfile } from '#/api';
 import { $t } from '#/locales';
+import { showCaptchaVerify } from '#/utils/captcha-verify';
 
 import AvatarUpload from '#/components/avatar-upload/index.vue';
 
@@ -82,6 +85,68 @@ function handleAvatarChange() {
 // 头像上传成功后刷新用户信息
 async function handleAvatarSuccess(url: string) {
   userInfo.value.avatar = url;
+}
+
+// ==================== 修改密码 ====================
+const passwordModalVisible = ref(false);
+const changingPassword = ref(false);
+const passwordForm = ref({
+  oldPassword: '',
+  newPassword: '',
+  confirmPassword: '',
+});
+
+function openPasswordModal() {
+  passwordForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' };
+  passwordModalVisible.value = true;
+}
+
+function handlePasswordCancel() {
+  passwordModalVisible.value = false;
+  passwordForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' };
+}
+
+async function handleChangePassword() {
+  if (!passwordForm.value.oldPassword?.trim()) {
+    message.warning($t('account.security.oldPassword'));
+    return;
+  }
+  if (!passwordForm.value.newPassword?.trim()) {
+    message.warning($t('account.security.newPassword'));
+    return;
+  }
+  if (!passwordForm.value.confirmPassword?.trim()) {
+    message.warning($t('account.security.confirmPassword'));
+    return;
+  }
+  if (passwordForm.value.newPassword !== passwordForm.value.confirmPassword) {
+    message.warning($t('account.security.passwordMismatch'));
+    return;
+  }
+
+  // 先弹验证码
+  let captchaResult: { captchaId: string; captchaCode: string };
+  try {
+    captchaResult = await showCaptchaVerify();
+  } catch {
+    return; // 用户取消
+  }
+
+  changingPassword.value = true;
+  try {
+    await changePassword({
+      ...passwordForm.value,
+      captchaId: captchaResult.captchaId,
+      captchaCode: captchaResult.captchaCode,
+    });
+    message.success($t('account.security.changePasswordSuccess'));
+    passwordModalVisible.value = false;
+    passwordForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' };
+  } catch {
+    message.error('密码修改失败');
+  } finally {
+    changingPassword.value = false;
+  }
 }
 </script>
 
@@ -181,11 +246,55 @@ async function handleAvatarSuccess(url: string) {
       </FormItem>
 
       <FormItem>
-        <Button type="primary" :loading="saving" @click="handleSave">
-          {{ $t('account.profile.save') }}
-        </Button>
+        <div class="flex gap-3">
+          <Button type="primary" :loading="saving" @click="handleSave">
+            {{ $t('account.profile.save') }}
+          </Button>
+          <Button @click="openPasswordModal">
+            {{ $t('account.security.changePassword') }}
+          </Button>
+        </div>
       </FormItem>
     </Form>
+
+    <!-- 修改密码弹窗 -->
+    <Modal
+      v-model:open="passwordModalVisible"
+      :title="$t('account.security.changePassword')"
+      :confirm-loading="changingPassword"
+      @ok="handleChangePassword"
+      @cancel="handlePasswordCancel"
+    >
+      <div class="py-4">
+        <div class="mb-4">
+          <label class="mb-1 block text-sm">{{
+            $t('account.security.oldPassword')
+          }}</label>
+          <InputPassword
+            v-model:value="passwordForm.oldPassword"
+            :placeholder="$t('account.security.oldPassword')"
+          />
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm">{{
+            $t('account.security.newPassword')
+          }}</label>
+          <InputPassword
+            v-model:value="passwordForm.newPassword"
+            :placeholder="$t('account.security.newPassword')"
+          />
+        </div>
+        <div class="mb-4">
+          <label class="mb-1 block text-sm">{{
+            $t('account.security.confirmPassword')
+          }}</label>
+          <InputPassword
+            v-model:value="passwordForm.confirmPassword"
+            :placeholder="$t('account.security.confirmPassword')"
+          />
+        </div>
+      </div>
+    </Modal>
   </div>
 </template>
 
