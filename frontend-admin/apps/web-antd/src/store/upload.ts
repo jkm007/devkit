@@ -188,9 +188,15 @@ export const useUploadStore = defineStore('upload', () => {
     }
   }
 
+  function $reset() {
+    tasks.value = [];
+    uploadingCount.value = 0;
+  }
+
   return {
     tasks,
     uploadingCount,
+    $reset,
     addTask,
     updateTask,
     removeTask,
