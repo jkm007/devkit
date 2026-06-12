@@ -271,7 +271,7 @@ function onSelect(item: FlattenedItem<Recordable<any>>) {
         currentSet.add(nodeKey);
       }
     } else {
-      // 叶子节点：reka-ui 已通过 proxy 处理，这里只同步 selectedKeysSet
+      // 叶子节点
       if (currentSet.has(nodeKey)) {
         currentSet.delete(nodeKey);
       } else {
@@ -515,7 +515,12 @@ defineExpose({
                   event.stopPropagation();
                   return;
                 }
-                handleSelect();
+                // checkStrictly 模式：直接调用 onSelect 避免 reka-ui proxy 双重 toggle
+                if (checkStrictly) {
+                  onSelect(item);
+                } else {
+                  handleSelect();
+                }
               }
             "
           />
@@ -529,7 +534,11 @@ defineExpose({
                   event.stopPropagation();
                   return;
                 }
-                handleSelect();
+                if (checkStrictly) {
+                  onSelect(item);
+                } else {
+                  handleSelect();
+                }
               }
             "
           >
