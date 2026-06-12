@@ -58,6 +58,15 @@ const routes: RouteRecordRaw[] = [
         component: () => import('#/views/question/source/index.vue'),
       },
       {
+        path: '/question/share',
+        name: 'QuestionShare',
+        meta: {
+          icon: 'mdi:share-variant',
+          title: '题目分享',
+        },
+        component: () => import('#/views/question/share/index.vue'),
+      },
+      {
         path: '/question/audit',
         name: 'QuestionAudit',
         meta: {

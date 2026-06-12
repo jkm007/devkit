@@ -139,6 +139,7 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	questionSourceHandler := handler.NewQuestionSourceHandler()
 	questionHandler := handler.NewQuestionHandler()
 	questionImportHandler := handler.NewQuestionImportHandler()
+	questionShareHandler := handler.NewQuestionShareHandler()
 
 	// 需要认证的接口
 	authorized := apiV1.Group("")
@@ -465,6 +466,14 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 			system.GET("/question-imports/:id/items", middleware.Permission("question:import"), questionImportHandler.GetItems)
 			system.POST("/question-imports", middleware.Permission("question:import"), questionImportHandler.Create)
 			system.DELETE("/question-imports/:id", middleware.Permission("question:import:delete"), questionImportHandler.Delete)
+
+			// 题目分享
+			system.GET("/question-shares", middleware.Permission("question:share:view"), questionShareHandler.List)
+			system.GET("/question-shares/:id", middleware.Permission("question:share:view"), questionShareHandler.GetDetail)
+			system.POST("/question-shares", middleware.Permission("question:share:create"), questionShareHandler.Create)
+			system.PUT("/question-shares/:id/disable", middleware.Permission("question:share:disable"), questionShareHandler.Disable)
+			system.PUT("/question-shares/:id/enable", middleware.Permission("question:share:enable"), questionShareHandler.Enable)
+			system.DELETE("/question-shares/:id", middleware.Permission("question:share:delete"), questionShareHandler.Delete)
 
 			// 定时任务管理
 			system.GET("/scheduled-tasks", middleware.Permission("system:task:view"), scheduledTaskHandler.List)
