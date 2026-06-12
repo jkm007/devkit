@@ -1507,7 +1507,7 @@ func (s *AuthService) initDefaultMenus() error {
 		{PID: userAuth.ID, Name: "OAuthBinding", Path: "/user-auth/oauth", Component: "/user-auth/oauth/list", Type: "menu", Status: 1, Icon: "lucide:link", AuthCode: "system:oauth:view", Meta: `{"order":3,"title":"OAuth绑定"}`},
 		{PID: userAuth.ID, Name: "RealName", Path: "/user-auth/real-name", Component: "/user-auth/real-name/list", Type: "menu", Status: 1, Icon: "lucide:user-check", AuthCode: "system:realname:view", Meta: `{"order":4,"title":"实名认证"}`},
 		{PID: userAuth.ID, Name: "Privacy", Path: "/user-auth/privacy", Component: "/user-auth/privacy/index", Type: "menu", Status: 1, Icon: "lucide:eye-off", AuthCode: "system:privacy:view", Meta: `{"order":5,"title":"隐私设置"}`},
-		{PID: userAuth.ID, Name: "RoleApplication", Path: "/user-auth/role-app", Component: "/user-auth/role-app/list", Type: "menu", Status: 1, Icon: "lucide:clipboard-check", AuthCode: "system:roleapp:view", Meta: `{"order":6,"title":"角色申请"}`},
+		{PID: userAuth.ID, Name: "RoleApplication", Path: "/user-auth/role-app", Component: "/user-auth/role-app/list", Type: "menu", Status: 1, Icon: "lucide:clipboard-check", AuthCode: "system:roleapp:list", Meta: `{"order":6,"title":"角色申请"}`},
 	}
 	for i := range authMenus {
 		if err := create(&authMenus[i]); err != nil {

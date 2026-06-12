@@ -280,7 +280,7 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 			system.PUT("/real-name/:id/reject", middleware.Permission("security:realname:reject"), userRealNameHandler.Reject)
 
 			// 角色申请管理（管理员）
-			system.GET("/role-applications/list", middleware.Permission("system:roleapp:view"), roleApplicationHandler.GetAllList)
+			system.GET("/role-applications/list", middleware.Permission("system:roleapp:list"), roleApplicationHandler.GetAllList)
 			system.PUT("/role-applications/:id/approve", middleware.Permission("system:roleapp:review"), roleApplicationHandler.Approve)
 			system.PUT("/role-applications/:id/reject", middleware.Permission("system:roleapp:review"), roleApplicationHandler.Reject)
 
