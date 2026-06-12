@@ -75,7 +75,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		// 统一返回通用错误消息，不暴露内部实现细节（如账号是否存在、账号状态、验证码系统细节等）
 		// 完整错误信息已记录到安全日志，供内部排查使用
 		errMsg := err.Error()
-		if strings.Contains(errMsg, "验证码") || strings.Contains(errMsg, "captcha") {
+		if strings.Contains(errMsg, "验证码") || strings.Contains(errMsg, "captcha") || strings.Contains(errMsg, "验证失败") {
 			response.Forbidden(c, "验证码错误，请刷新后重试")
 		} else {
 			response.Forbidden(c, "用户名或密码错误")
@@ -352,8 +352,14 @@ func (h *AuthHandler) LoginByEmail(c *gin.Context) {
 	if err != nil {
 		// 记录登录失败日志（保留完整错误信息用于内部排查）
 		h.authService.RecordSecurityLog(0, "login_fail", fmt.Sprintf("邮箱[%s]登录失败: %s", req.Email, err.Error()), c.ClientIP(), c.GetHeader("User-Agent"), 0)
-		// 统一返回通用错误消息，避免泄露账号是否存在等内部信息
-		response.BadRequest(c, "登录失败，请稍后重试")
+		// 区分验证码错误和账号错误
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "验证码") {
+			response.BadRequest(c, errMsg)
+		} else {
+			// 不泄露账号是否存在
+			response.BadRequest(c, "登录失败，请稍后重试")
+		}
 		return
 	}
 
