@@ -21,6 +21,15 @@ const routes: RouteRecordRaw[] = [
         },
         component: () => import('#/views/question/category/index.vue'),
       },
+      {
+        path: '/question/knowledge',
+        name: 'QuestionKnowledge',
+        meta: {
+          icon: 'mdi:lightbulb-outline',
+          title: '知识考点',
+        },
+        component: () => import('#/views/question/knowledge/index.vue'),
+      },
     ],
   },
 ];

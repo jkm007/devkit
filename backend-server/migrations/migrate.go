@@ -44,5 +44,6 @@ func Run(db *gorm.DB) error {
 		&model.Exam{},
 		&model.Subject{},
 		&model.Category{},
+		&model.KnowledgePoint{},
 	)
 }
