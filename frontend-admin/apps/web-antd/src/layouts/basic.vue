@@ -153,7 +153,12 @@ async function handleLogout() {
 }
 
 async function handleNoticeClear() {
-  notifications.value = [];
+  try {
+    await markAllRead();
+  } catch {
+    // 静默失败
+  }
+  notifications.value.forEach((item) => (item.isRead = true));
   unreadCount.value = 0;
 }
 
@@ -223,9 +228,13 @@ function navigateTo(
 
 // WebSocket 实时通知
 let wsInstance: WebSocket | null = null;
+let wsRetryCount = 0;
+const WS_MAX_RETRY = 5;
+
 function connectWebSocket() {
   const accessStore = useAccessStore();
   if (!accessStore.accessToken) return;
+  if (wsRetryCount >= WS_MAX_RETRY) return;
 
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const host = window.location.host;
@@ -234,6 +243,7 @@ function connectWebSocket() {
   try {
     wsInstance = new WebSocket(wsUrl);
     wsInstance.onopen = () => {
+      wsRetryCount = 0;
       // 发送认证
       wsInstance?.send(JSON.stringify({ type: 'auth', token: accessStore.accessToken }));
     };
@@ -241,7 +251,6 @@ function connectWebSocket() {
       try {
         const msg = JSON.parse(event.data);
         if (msg.type === 'notification') {
-          // 收到新通知，刷新列表和未读数
           loadNotifications();
           loadUnreadCount();
         }
@@ -249,9 +258,15 @@ function connectWebSocket() {
         // 忽略非 JSON 消息
       }
     };
+    wsInstance.onerror = () => {
+      // 静默处理，不输出到控制台
+    };
     wsInstance.onclose = () => {
-      // 断线重连（30秒后）
-      setTimeout(connectWebSocket, 30_000);
+      wsInstance = null;
+      wsRetryCount++;
+      // 指数退避重连：5s, 10s, 20s, 40s, 80s
+      const delay = Math.min(5000 * 2 ** (wsRetryCount - 1), 80_000);
+      setTimeout(connectWebSocket, delay);
     };
   } catch {
     // WebSocket 连接失败，静默处理
