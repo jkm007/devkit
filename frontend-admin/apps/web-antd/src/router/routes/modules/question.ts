@@ -30,6 +30,15 @@ const routes: RouteRecordRaw[] = [
         },
         component: () => import('#/views/question/knowledge/index.vue'),
       },
+      {
+        path: '/question/source',
+        name: 'QuestionSource',
+        meta: {
+          icon: 'mdi:source-branch',
+          title: '来源标签',
+        },
+        component: () => import('#/views/question/source/index.vue'),
+      },
     ],
   },
 ];

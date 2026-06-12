@@ -136,6 +136,7 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	subjectHandler := handler.NewSubjectHandler()
 	questionCategoryHandler := handler.NewQuestionCategoryHandler()
 	knowledgePointHandler := handler.NewKnowledgePointHandler()
+	questionSourceHandler := handler.NewQuestionSourceHandler()
 
 	// 需要认证的接口
 	authorized := apiV1.Group("")
@@ -434,6 +435,13 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 			system.POST("/knowledge-points", middleware.Permission("question:knowledge:add"), knowledgePointHandler.Create)
 			system.PUT("/knowledge-points/:id", middleware.Permission("question:knowledge:edit"), knowledgePointHandler.Update)
 			system.DELETE("/knowledge-points/:id", middleware.Permission("question:knowledge:delete"), knowledgePointHandler.Delete)
+
+			// 来源标签
+			system.GET("/question-sources", middleware.Permission("question:source:view"), questionSourceHandler.List)
+			system.GET("/question-sources/:id", middleware.Permission("question:source:view"), questionSourceHandler.GetDetail)
+			system.POST("/question-sources", middleware.Permission("question:source:manage"), questionSourceHandler.Create)
+			system.PUT("/question-sources/:id", middleware.Permission("question:source:manage"), questionSourceHandler.Update)
+			system.DELETE("/question-sources/:id", middleware.Permission("question:source:manage"), questionSourceHandler.Delete)
 
 			// 定时任务管理
 			system.GET("/scheduled-tasks", middleware.Permission("system:task:view"), scheduledTaskHandler.List)
