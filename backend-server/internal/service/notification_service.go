@@ -192,7 +192,7 @@ func (s *NotificationService) CreateBroadcast(senderID uint, title, content, lin
 func (s *NotificationService) NotifyLoginAlert(userID uint, deviceName, ip, location string) {
 	title := "新设备登录提醒"
 	content := fmt.Sprintf("您的账号在 %s 通过新设备登录（IP: %s，位置: %s）", time.Now().Format("2006-01-02 15:04"), ip, location)
-	s.CreateAndPush(userID, NotifTypeLoginAlert, title, content, "/account/security")
+	s.CreateAndPush(userID, NotifTypeLoginAlert, title, content, "/account/index?tab=security")
 }
 
 // NotifyUploadDone 上传完成通知
@@ -207,7 +207,7 @@ func (s *NotificationService) NotifyUploadDone(userID uint, fileName string, fil
 func (s *NotificationService) NotifyRoleChange(userID uint, roleName, action string) {
 	title := "角色变更通知"
 	content := fmt.Sprintf("您的角色 %s 已被%s", roleName, action)
-	s.CreateAndPush(userID, NotifTypeRoleChange, title, content, "/account/profile")
+	s.CreateAndPush(userID, NotifTypeRoleChange, title, content, "/account/index?tab=profile")
 }
 
 // NotifyRoleApplication 角色申请审批结果

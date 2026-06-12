@@ -1,5 +1,6 @@
 <script lang="ts" setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 
 import { Page, VbenAvatar } from '@vben/common-ui';
 
@@ -15,7 +16,19 @@ import SecurityTab from './modules/security.vue';
 import PrivacyTab from './modules/privacy.vue';
 import RealNameTab from './modules/real-name.vue';
 
+const route = useRoute();
 const activeKey = ref<string[]>(['profile']);
+
+// 支持 ?tab=security 等 query 参数直接切换 tab
+watch(
+  () => route.query.tab,
+  (tab) => {
+    if (tab && typeof tab === 'string') {
+      activeKey.value = [tab];
+    }
+  },
+  { immediate: true },
+);
 const userInfo = ref<AccountApi.UserInfo>({} as AccountApi.UserInfo);
 
 const menuItems = computed(() => [
