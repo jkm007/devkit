@@ -139,14 +139,19 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
     fulfilled: async (response: any) => {
       const data = response?.data;
       if (data?.code === 403001) {
-        // 登录页面有自己的 CaptchaModal 正在显示时，跳过全局弹窗
+        // 登录页面有自己的 CaptchaModal 正在显示时，通知 login.vue 刷新弹窗
         if (loginCaptchaModalActive) {
-          // 抛出带标记的错误，绕过 errorMessageResponseInterceptor 的默认提示
-          const captchaError: any = new Error(data?.message || '需要验证码');
-          captchaError.__captchaError = true;
-          captchaError.data = data;
-          captchaError.response = response;
-          throw captchaError;
+          window.dispatchEvent(
+            new CustomEvent('captcha:login-verify-error', {
+              detail: { message: data?.message || '验证码错误，请重试' },
+            }),
+          );
+          // 拒绝请求，__captchaError 标记让 errorMessageResponseInterceptor 跳过提示
+          const err: any = new Error(data?.message || '验证码错误');
+          err.__captchaError = true;
+          err.data = data;
+          err.response = response;
+          throw err;
         }
         try {
           // 从后端响应中读取指定的验证码类型（随机类型）
