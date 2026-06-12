@@ -27,6 +27,7 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+backend-server/config/config.yaml
 
 # Cache
 .cache/
