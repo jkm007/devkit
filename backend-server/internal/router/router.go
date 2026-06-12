@@ -127,6 +127,9 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		}
 	}
 
+	// WebSocket 连接（独立于 JWT 中间件，自行从 query 参数验证 token）
+	apiV1.GET("/ws", wsHandler.Handle)
+
 	// 需要认证的接口
 	authorized := apiV1.Group("")
 	authorized.Use(middleware.JWTAuth())
@@ -139,9 +142,6 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		authorized.PUT("/auth/change-password", authHandler.ChangePassword)
 		authorized.GET("/auth/codes", authHandler.GetPermissionCodes)
 		authorized.GET("/auth/permission-version", authHandler.GetPermissionVersion)
-
-		// WebSocket 连接
-		authorized.GET("/ws", wsHandler.Handle)
 
 		// 用户首页数据
 		authorized.GET("/user/home", userHomeHandler.GetHomeData)
