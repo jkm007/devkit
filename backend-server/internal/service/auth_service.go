@@ -972,7 +972,14 @@ type ChangePasswordRequest struct {
 // ChangePassword 修改密码
 // accessToken 参数为当前 access token 字符串，修改密码后会加入黑名单使其立即失效
 func (s *AuthService) ChangePassword(userID uint, req *ChangePasswordRequest, ip, userAgent string, accessToken string) error {
-	// 验证码已由 CaptchaGuard 中间件通过 header 验证，此处不再重复校验
+	// 验证码校验（/auth/ 路径被 CaptchaGuard 跳过，此处自行校验）
+	if req.CaptchaID == "" || req.CaptchaCode == "" {
+		return fmt.Errorf("请先完成验证码验证")
+	}
+	valid, _ := captcha.Verify(req.CaptchaID, req.CaptchaCode, 0, nil)
+	if !valid {
+		return fmt.Errorf("验证码错误或已过期")
+	}
 
 	// 校验新密码和确认密码
 	if req.NewPassword != req.ConfirmPassword {

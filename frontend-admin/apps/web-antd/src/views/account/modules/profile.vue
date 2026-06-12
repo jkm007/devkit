@@ -22,6 +22,7 @@ import {
 
 import { changePassword, getUserInfo, updateProfile } from '#/api';
 import { $t } from '#/locales';
+import { showCaptchaVerify } from '#/utils/captcha-verify';
 
 import AvatarUpload from '#/components/avatar-upload/index.vue';
 
@@ -123,15 +124,26 @@ async function handleChangePassword() {
     return;
   }
 
+  // /auth/ 路径被 CaptchaGuard 跳过，需手动弹验证码
+  let captchaResult: { captchaId: string; captchaCode: string };
+  try {
+    captchaResult = await showCaptchaVerify();
+  } catch {
+    return; // 用户取消
+  }
+
   changingPassword.value = true;
   try {
-    // CaptchaGuard 中间件会返回 403001，请求拦截器自动弹验证码并通过 header 重试
-    await changePassword({ ...passwordForm.value });
+    await changePassword({
+      ...passwordForm.value,
+      captchaId: captchaResult.captchaId,
+      captchaCode: captchaResult.captchaCode,
+    });
     message.success($t('account.security.changePasswordSuccess'));
     passwordModalVisible.value = false;
     passwordForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' };
   } catch {
-    // 拦截器已处理验证码，此处处理最终失败
+    message.error('密码修改失败');
   } finally {
     changingPassword.value = false;
   }
