@@ -2,6 +2,8 @@ import type { Recordable } from '@vben/types';
 
 import { requestClient } from '#/api/request';
 
+export * from './role-application';
+
 // ==================== 类型定义 ====================
 
 export namespace AccountApi {

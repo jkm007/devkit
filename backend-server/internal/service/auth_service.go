@@ -1303,7 +1303,8 @@ func (s *AuthService) InitDefaultUsers() error {
 	var count int64
 	database.GetMySQL().Model(&model.User{}).Count(&count)
 	if count > 0 {
-		return nil
+		// 角色申请菜单是后续新增功能，已有数据库也需要补齐菜单与权限按钮
+		return s.ensureRoleApplicationMenus()
 	}
 
 	// 创建默认菜单
@@ -1366,6 +1367,80 @@ func (s *AuthService) InitDefaultUsers() error {
 	}
 
 	return nil
+}
+
+func (s *AuthService) ensureRoleApplicationMenus() error {
+	system, err := s.ensureMenu(model.Menu{Name: "System", Path: "/system", Type: "catalog", Status: 1, Icon: "lucide:settings", Meta: `{"order":2,"title":"系统管理"}`}, 0)
+	if err != nil {
+		return err
+	}
+
+	if legacy, err := s.menuRepo.GetByName("RoleApplication"); err == nil && legacy != nil {
+		if _, newErr := s.menuRepo.GetByName("SystemRoleApplication"); newErr == nil {
+			if err := s.menuRepo.UpdateFields(legacy.ID, map[string]interface{}{"status": 0}); err != nil {
+				return err
+			}
+		} else {
+			if err := s.menuRepo.UpdateFields(legacy.ID, map[string]interface{}{
+				"name":      "SystemRoleApplication",
+				"pid":       system.ID,
+				"path":      "/system/role-application",
+				"component": "/system/role-application/list",
+				"type":      "menu",
+				"auth_code": "system:roleapp:view",
+				"icon":      "lucide:clipboard-check",
+				"meta":      `{"order":6,"title":"角色申请"}`,
+				"status":    1,
+			}); err != nil {
+				return err
+			}
+		}
+	}
+
+	roleApp, err := s.ensureMenu(model.Menu{Name: "SystemRoleApplication", Path: "/system/role-application", Component: "/system/role-application/list", Type: "menu", Status: 1, Icon: "lucide:clipboard-check", AuthCode: "system:roleapp:view", Meta: `{"order":6,"title":"角色申请"}`}, system.ID)
+	if err != nil {
+		return err
+	}
+
+	if _, err := s.ensureMenu(model.Menu{Name: "SystemRoleApplicationView", Type: "button", Status: 1, AuthCode: "system:roleapp:view", Meta: `{"title":"查看角色申请"}`}, roleApp.ID); err != nil {
+		return err
+	}
+	_, err = s.ensureMenu(model.Menu{Name: "SystemRoleApplicationReview", Type: "button", Status: 1, AuthCode: "system:roleapp:review", Meta: `{"title":"审核角色申请"}`}, roleApp.ID)
+	return err
+}
+
+func (s *AuthService) ensureMenu(menu model.Menu, pid uint) (*model.Menu, error) {
+	menu.PID = pid
+	existing, err := s.menuRepo.GetByName(menu.Name)
+	if err == nil && existing != nil {
+		updates := map[string]interface{}{
+			"pid":       menu.PID,
+			"path":      menu.Path,
+			"component": menu.Component,
+			"type":      menu.Type,
+			"status":    menu.Status,
+			"auth_code": menu.AuthCode,
+			"icon":      menu.Icon,
+			"meta":      menu.Meta,
+		}
+		if err := s.menuRepo.UpdateFields(existing.ID, updates); err != nil {
+			return nil, err
+		}
+		existing.PID = menu.PID
+		existing.Path = menu.Path
+		existing.Component = menu.Component
+		existing.Type = menu.Type
+		existing.Status = menu.Status
+		existing.AuthCode = menu.AuthCode
+		existing.Icon = menu.Icon
+		existing.Meta = menu.Meta
+		return existing, nil
+	}
+
+	if err := s.menuRepo.Create(&menu); err != nil {
+		return nil, err
+	}
+	return &menu, nil
 }
 
 // getDefaultUserPassword 获取默认用户的密码
@@ -1439,10 +1514,11 @@ func (s *AuthService) initDefaultMenus() error {
 
 	systemMenus := []model.Menu{
 		{PID: system.ID, Name: "SystemUser", Path: "/system/user", Component: "/system/user/list", Type: "menu", Status: 1, Icon: "lucide:users", AuthCode: "system:user:view", Meta: `{"order":1,"title":"用户管理"}`},
-		{PID: system.ID, Name: "SystemRole", Path: "/system/role", Component: "/system/role/list", Type: "menu", Status: 1, Icon: "lucide:shield", AuthCode: "system:role:list", Meta: `{"order":2,"title":"角色管理"}`},
-		{PID: system.ID, Name: "SystemMenu", Path: "/system/menu", Component: "/system/menu/list", Type: "menu", Status: 1, Icon: "lucide:list", AuthCode: "system:menu:list", Meta: `{"order":3,"title":"菜单管理"}`},
-		{PID: system.ID, Name: "SystemGroup", Path: "/system/group", Component: "/system/group/list", Type: "menu", Status: 1, Icon: "lucide:boxes", AuthCode: "system:group:list", Meta: `{"order":4,"title":"分组管理"}`},
+		{PID: system.ID, Name: "SystemRole", Path: "/system/role", Component: "/system/role/list", Type: "menu", Status: 1, Icon: "lucide:shield", AuthCode: "system:role:view", Meta: `{"order":2,"title":"角色管理"}`},
+		{PID: system.ID, Name: "SystemMenu", Path: "/system/menu", Component: "/system/menu/list", Type: "menu", Status: 1, Icon: "lucide:list", AuthCode: "system:menu:view", Meta: `{"order":3,"title":"菜单管理"}`},
+		{PID: system.ID, Name: "SystemGroup", Path: "/system/group", Component: "/system/group/list", Type: "menu", Status: 1, Icon: "lucide:boxes", AuthCode: "system:group:view", Meta: `{"order":4,"title":"分组管理"}`},
 		{PID: system.ID, Name: "SystemSetting", Path: "/system/settings", Component: "/system/settings/index", Type: "menu", Status: 1, Icon: "lucide:sliders-horizontal", AuthCode: "system:setting:list", Meta: `{"order":5,"title":"系统设置"}`},
+		{PID: system.ID, Name: "SystemRoleApplication", Path: "/system/role-application", Component: "/system/role-application/list", Type: "menu", Status: 1, Icon: "lucide:clipboard-check", AuthCode: "system:roleapp:view", Meta: `{"order":6,"title":"角色申请"}`},
 	}
 	for i := range systemMenus {
 		if err := create(&systemMenus[i]); err != nil {
@@ -1483,6 +1559,10 @@ func (s *AuthService) initDefaultMenus() error {
 			{Name: "SystemSettingView", AuthCode: "system:setting:list", Meta: `{"title":"查看设置"}`},
 			{Name: "SystemSettingEdit", AuthCode: "system:setting:edit", Meta: `{"title":"编辑设置"}`},
 		}},
+		{&systemMenus[5], []model.Menu{
+			{Name: "SystemRoleApplicationView", AuthCode: "system:roleapp:view", Meta: `{"title":"查看角色申请"}`},
+			{Name: "SystemRoleApplicationReview", AuthCode: "system:roleapp:review", Meta: `{"title":"审核角色申请"}`},
+		}},
 	}
 	for _, bg := range buttonGroups {
 		for i := range bg.items {
@@ -1507,7 +1587,6 @@ func (s *AuthService) initDefaultMenus() error {
 		{PID: userAuth.ID, Name: "OAuthBinding", Path: "/user-auth/oauth", Component: "/user-auth/oauth/list", Type: "menu", Status: 1, Icon: "lucide:link", AuthCode: "system:oauth:view", Meta: `{"order":3,"title":"OAuth绑定"}`},
 		{PID: userAuth.ID, Name: "RealName", Path: "/user-auth/real-name", Component: "/user-auth/real-name/list", Type: "menu", Status: 1, Icon: "lucide:user-check", AuthCode: "system:realname:view", Meta: `{"order":4,"title":"实名认证"}`},
 		{PID: userAuth.ID, Name: "Privacy", Path: "/user-auth/privacy", Component: "/user-auth/privacy/index", Type: "menu", Status: 1, Icon: "lucide:eye-off", AuthCode: "system:privacy:view", Meta: `{"order":5,"title":"隐私设置"}`},
-		{PID: userAuth.ID, Name: "RoleApplication", Path: "/user-auth/role-app", Component: "/user-auth/role-app/list", Type: "menu", Status: 1, Icon: "lucide:clipboard-check", AuthCode: "system:roleapp:list", Meta: `{"order":6,"title":"角色申请"}`},
 	}
 	for i := range authMenus {
 		if err := create(&authMenus[i]); err != nil {
@@ -1529,9 +1608,6 @@ func (s *AuthService) initDefaultMenus() error {
 		}},
 		{&authMenus[3], []model.Menu{
 			{Name: "RealNameReview", AuthCode: "system:realname:review", Meta: `{"title":"审核实名"}`},
-		}},
-		{&authMenus[5], []model.Menu{
-			{Name: "RoleAppReview", AuthCode: "system:roleapp:review", Meta: `{"title":"审核角色申请"}`},
 		}},
 	}
 	for _, bg := range authButtonGroups {

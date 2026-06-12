@@ -165,6 +165,7 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		authorized.GET("/tags/key/:key", tagHandler.GetTagsByKey)
 
 		// 角色申请（用户端）
+		authorized.GET("/auth/role-applications/available-roles", roleApplicationHandler.GetAvailableRoles)
 		authorized.POST("/auth/role-applications", roleApplicationHandler.Create)
 		authorized.GET("/auth/role-applications", roleApplicationHandler.GetMyList)
 

@@ -21,6 +21,24 @@ func (r *RoleApplicationRepo) Create(app *model.RoleApplication) error {
 	return r.db.Create(app).Error
 }
 
+// HasPending 检查用户是否已有指定角色的待审申请
+func (r *RoleApplicationRepo) HasPending(userID, roleID uint) (bool, error) {
+	var count int64
+	err := r.db.Model(&model.RoleApplication{}).
+		Where("user_id = ? AND role_id = ? AND status = ?", userID, roleID, 0).
+		Count(&count).Error
+	return count > 0, err
+}
+
+// GetPendingRoleIDs 获取用户待审申请中的角色 ID
+func (r *RoleApplicationRepo) GetPendingRoleIDs(userID uint) ([]uint, error) {
+	var roleIDs []uint
+	err := r.db.Model(&model.RoleApplication{}).
+		Where("user_id = ? AND status = ?", userID, 0).
+		Pluck("role_id", &roleIDs).Error
+	return roleIDs, err
+}
+
 // Update 更新角色申请
 func (r *RoleApplicationRepo) Update(app *model.RoleApplication) error {
 	return r.db.Save(app).Error
@@ -66,6 +84,9 @@ func (r *RoleApplicationRepo) ListAll(page, pageSize int, filters map[string]int
 	}
 	if userID, ok := filters["userId"]; ok && userID != "" {
 		query = query.Where("user_id = ?", userID)
+	}
+	if roleID, ok := filters["roleId"]; ok && roleID != "" {
+		query = query.Where("role_id = ?", roleID)
 	}
 
 	if err := query.Count(&total).Error; err != nil {

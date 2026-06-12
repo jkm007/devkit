@@ -48,11 +48,36 @@ func (h *RoleApplicationHandler) Create(c *gin.Context) {
 	}
 
 	if err := h.service.Create(userID, &req); err != nil {
-		response.InternalError(c, err.Error())
+		response.BadRequest(c, err.Error())
 		return
 	}
 
 	response.Success(c, nil)
+}
+
+// GetAvailableRoles 获取可申请角色列表
+// @Summary      获取可申请角色列表
+// @Description  获取当前用户还可以申请的启用角色
+// @Tags         角色申请
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  response.Response{data=[]service.AvailableRoleItem} "成功"
+// @Failure      401  {object}  response.Response "未授权"
+// @Router       /auth/role-applications/available-roles [get]
+func (h *RoleApplicationHandler) GetAvailableRoles(c *gin.Context) {
+	userID := middleware.GetCurrentUserID(c)
+	if userID == 0 {
+		response.Unauthorized(c, "Unauthorized")
+		return
+	}
+
+	roles, err := h.service.ListAvailableRoles(userID)
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.Success(c, roles)
 }
 
 // GetMyList 获取当前用户的申请列表
@@ -63,7 +88,7 @@ func (h *RoleApplicationHandler) Create(c *gin.Context) {
 // @Security     BearerAuth
 // @Param        page       query  int  false "页码，默认 1"         minimum(1)
 // @Param        pageSize   query  int  false "每页条数，默认 20"     minimum(1) maximum(100)
-// @Success      200  {object}  response.Response{data=response.PageData{items=[]model.RoleApplication}} "成功"
+// @Success      200  {object}  response.Response{data=response.PageData{items=[]service.RoleApplicationItem}} "成功"
 // @Failure      401  {object}  response.Response "未授权"
 // @Router       /auth/role-applications [get]
 func (h *RoleApplicationHandler) GetMyList(c *gin.Context) {
@@ -95,7 +120,8 @@ func (h *RoleApplicationHandler) GetMyList(c *gin.Context) {
 // @Param        pageSize   query  int     false "每页条数，默认 20"     minimum(1) maximum(100)
 // @Param        status     query  string  false "状态：0=待审, 1=通过, 2=驳回"
 // @Param        userId     query  string  false "用户 ID"
-// @Success      200  {object}  response.Response{data=response.PageData{items=[]model.RoleApplication}} "成功"
+// @Param        roleId     query  string  false "角色 ID"
+// @Success      200  {object}  response.Response{data=response.PageData{items=[]service.RoleApplicationItem}} "成功"
 // @Failure      401  {object}  response.Response "未授权"
 // @Failure      403  {object}  response.Response "权限不足"
 // @Router       /system/role-applications/list [get]

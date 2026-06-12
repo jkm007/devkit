@@ -67,6 +67,15 @@ const routes: RouteRecordRaw[] = [
         component: () => import('#/views/system/tag/index.vue'),
       },
       {
+        path: '/system/role-application',
+        name: 'SystemRoleApplication',
+        meta: {
+          icon: 'lucide:clipboard-check',
+          title: '角色申请',
+        },
+        component: () => import('#/views/system/role-application/list.vue'),
+      },
+      {
         name: 'SystemScheduledTask',
         path: '/system/scheduled-task',
         component: () => import('#/views/system/scheduled-task/index.vue'),

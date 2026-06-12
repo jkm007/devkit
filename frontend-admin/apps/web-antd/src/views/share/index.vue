@@ -424,7 +424,7 @@ onMounted(() => {
         </Modal>
 
         <!-- 错误提示 -->
-        <Card v-else-if="error">
+        <Card v-if="error">
           <div class="text-center py-8">
             <span
               class="i-ant-design:warning-outlined text-4xl text-red-500 mb-4"

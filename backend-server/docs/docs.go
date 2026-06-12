@@ -1010,7 +1010,7 @@ const docTemplate = `{
                                                         "items": {
                                                             "type": "array",
                                                             "items": {
-                                                                "$ref": "#/definitions/model.RoleApplication"
+                                                                "$ref": "#/definitions/service.RoleApplicationItem"
                                                             }
                                                         }
                                                     }
@@ -1069,6 +1069,52 @@ const docTemplate = `{
                         "description": "参数错误",
                         "schema": {
                             "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "未授权",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/role-applications/available-roles": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "获取当前用户还可以申请的启用角色",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "角色申请"
+                ],
+                "summary": "获取可申请角色列表",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/service.AvailableRoleItem"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "401": {
@@ -5007,6 +5053,12 @@ const docTemplate = `{
                         "description": "用户 ID",
                         "name": "userId",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "角色 ID",
+                        "name": "roleId",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -5031,7 +5083,7 @@ const docTemplate = `{
                                                         "items": {
                                                             "type": "array",
                                                             "items": {
-                                                                "$ref": "#/definitions/model.RoleApplication"
+                                                                "$ref": "#/definitions/service.RoleApplicationItem"
                                                             }
                                                         }
                                                     }
@@ -10337,38 +10389,6 @@ const docTemplate = `{
                 }
             }
         },
-        "model.RoleApplication": {
-            "type": "object",
-            "properties": {
-                "createdAt": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "reason": {
-                    "type": "string"
-                },
-                "reviewNote": {
-                    "type": "string"
-                },
-                "reviewedAt": {
-                    "type": "string"
-                },
-                "reviewedBy": {
-                    "type": "integer"
-                },
-                "roleId": {
-                    "type": "integer"
-                },
-                "status": {
-                    "type": "integer"
-                },
-                "userId": {
-                    "type": "integer"
-                }
-            }
-        },
         "model.ScheduledTask": {
             "type": "object",
             "properties": {
@@ -10743,6 +10763,20 @@ const docTemplate = `{
                 "data": {},
                 "error": {},
                 "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.AvailableRoleItem": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "remark": {
                     "type": "string"
                 }
             }
@@ -11272,6 +11306,53 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.RoleApplicationItem": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "nickname": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "reviewNote": {
+                    "type": "string"
+                },
+                "reviewedAt": {
+                    "type": "string"
+                },
+                "reviewedBy": {
+                    "type": "integer"
+                },
+                "reviewerName": {
+                    "type": "string"
+                },
+                "roleId": {
+                    "type": "integer"
+                },
+                "roleName": {
+                    "type": "string"
+                },
+                "roleRemark": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
+                },
+                "userId": {
+                    "type": "integer"
+                },
+                "username": {
                     "type": "string"
                 }
             }
