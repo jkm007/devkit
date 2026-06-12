@@ -91,31 +91,33 @@ onMounted(async () => {
   <Page title="分析页" content-class="p-5">
     <AnalysisOverview :items="overviewItems" />
 
-    <AnalysisChartsTabs :tabs="chartTabs" class="mt-5">
-      <template #trend>
-        <AnalyticsEventTrend :data="stats?.eventsTrend" />
-      </template>
-      <template #events>
-        <AnalyticsEventType :data="stats?.eventsByType" />
-      </template>
-    </AnalysisChartsTabs>
+    <template v-if="stats">
+      <AnalysisChartsTabs :tabs="chartTabs" class="mt-5">
+        <template #trend>
+          <AnalyticsEventTrend :data="stats.eventsTrend" />
+        </template>
+        <template #events>
+          <AnalyticsEventType :data="stats.eventsByType" />
+        </template>
+      </AnalysisChartsTabs>
 
-    <div class="mt-5 grid grid-cols-1 gap-5 md:grid-cols-3">
-      <AnalysisChartCard title="设备类型分布">
-        <AnalyticsDeviceType :data="stats?.deviceByType" />
-      </AnalysisChartCard>
-      <AnalysisChartCard title="平台分布">
-        <AnalyticsDevicePlatform :data="stats?.deviceByPlatform" />
-      </AnalysisChartCard>
-      <AnalysisChartCard title="最近登录">
-        <AnalyticsRecentLogins :data="stats?.recentLogins" />
-      </AnalysisChartCard>
-    </div>
+      <div class="mt-5 grid grid-cols-1 gap-5 md:grid-cols-3">
+        <AnalysisChartCard title="设备类型分布">
+          <AnalyticsDeviceType :data="stats.deviceByType" />
+        </AnalysisChartCard>
+        <AnalysisChartCard title="平台分布">
+          <AnalyticsDevicePlatform :data="stats.deviceByPlatform" />
+        </AnalysisChartCard>
+        <AnalysisChartCard title="最近登录">
+          <AnalyticsRecentLogins :data="stats.recentLogins" />
+        </AnalysisChartCard>
+      </div>
 
-    <div class="mt-5">
-      <AnalysisChartCard title="存储分析">
-        <AnalyticsStorage />
-      </AnalysisChartCard>
-    </div>
+      <div class="mt-5">
+        <AnalysisChartCard title="存储分析">
+          <AnalyticsStorage />
+        </AnalysisChartCard>
+      </div>
+    </template>
   </Page>
 </template>
