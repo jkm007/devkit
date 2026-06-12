@@ -2,6 +2,8 @@
 import type { AnalysisOverviewItem } from '@vben/common-ui';
 import type { TabOption } from '@vben/types';
 
+import { onMounted, ref } from 'vue';
+
 import {
   AnalysisChartCard,
   AnalysisChartsTabs,
@@ -15,77 +17,98 @@ import {
   SvgDownloadIcon,
 } from '@vben/icons';
 
-import AnalyticsStorage from './analytics-storage.vue';
-import AnalyticsTrends from './analytics-trends.vue';
-import AnalyticsVisitsData from './analytics-visits-data.vue';
-import AnalyticsVisitsSales from './analytics-visits-sales.vue';
-import AnalyticsVisitsSource from './analytics-visits-source.vue';
-import AnalyticsVisits from './analytics-visits.vue';
+import type { DashboardStats } from '#/api/system/dashboard';
 
-const overviewItems: AnalysisOverviewItem[] = [
-  {
-    icon: SvgCardIcon,
-    title: '用户量',
-    totalTitle: '总用户量',
-    totalValue: 120_000,
-    value: 2000,
-  },
-  {
-    icon: SvgCakeIcon,
-    title: '访问量',
-    totalTitle: '总访问量',
-    totalValue: 500_000,
-    value: 20_000,
-  },
-  {
-    icon: SvgDownloadIcon,
-    title: '下载量',
-    totalTitle: '总下载量',
-    totalValue: 120_000,
-    value: 8000,
-  },
-  {
-    icon: SvgBellIcon,
-    title: '使用量',
-    totalTitle: '总使用量',
-    totalValue: 50_000,
-    value: 5000,
-  },
-];
+import { getDashboardStats } from '#/api/system/dashboard';
+
+import AnalyticsDevicePlatform from './analytics-device-platform.vue';
+import AnalyticsDeviceType from './analytics-device-type.vue';
+import AnalyticsEventTrend from './analytics-event-trend.vue';
+import AnalyticsEventType from './analytics-event-type.vue';
+import AnalyticsRecentLogins from './analytics-recent-logins.vue';
+import AnalyticsStorage from './analytics-storage.vue';
+
+const stats = ref<DashboardStats | null>(null);
+
+const overviewItems = ref<AnalysisOverviewItem[]>([]);
 
 const chartTabs: TabOption[] = [
-  {
-    label: '流量趋势',
-    value: 'trends',
-  },
-  {
-    label: '月访问量',
-    value: 'visits',
-  },
+  { label: '事件趋势', value: 'trend' },
+  { label: '事件分布', value: 'events' },
 ];
+
+function formatSize(bytes: number) {
+  if (bytes <= 0) return '0 B';
+  if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(1)} GB`;
+  if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`;
+  return `${(bytes / 1024).toFixed(0)} KB`;
+}
+
+onMounted(async () => {
+  try {
+    stats.value = await getDashboardStats();
+    const s = stats.value;
+    overviewItems.value = [
+      {
+        icon: SvgCardIcon,
+        title: '用户总量',
+        totalTitle: '活跃用户',
+        totalValue: s.overview.activeUsers,
+        value: s.overview.userCount,
+      },
+      {
+        icon: SvgCakeIcon,
+        title: '今日登录',
+        totalTitle: '今日事件',
+        totalValue: s.overview.todayEvents,
+        value: s.overview.todayLogins,
+      },
+      {
+        icon: SvgDownloadIcon,
+        title: '文件数量',
+        totalTitle: '存储用量',
+        totalValue: formatSize(s.overview.totalStorage),
+        value: s.overview.fileCount,
+      },
+      {
+        icon: SvgBellIcon,
+        title: '在线设备',
+        totalTitle: '本月事件',
+        totalValue: s.eventsTrend.reduce(
+          (sum, d) => sum + d.success + d.fail,
+          0,
+        ),
+        value: s.overview.onlineDevices,
+      },
+    ];
+  } catch {
+    // ignore
+  }
+});
 </script>
 
 <template>
   <Page title="分析页" content-class="p-5">
     <AnalysisOverview :items="overviewItems" />
+
     <AnalysisChartsTabs :tabs="chartTabs" class="mt-5">
-      <template #trends>
-        <AnalyticsTrends />
+      <template #trend>
+        <AnalyticsEventTrend :data="stats?.eventsTrend" />
       </template>
-      <template #visits>
-        <AnalyticsVisits />
+      <template #events>
+        <AnalyticsEventType :data="stats?.eventsByType" />
       </template>
     </AnalysisChartsTabs>
 
     <div class="mt-5 grid grid-cols-1 gap-5 md:grid-cols-3">
-      <AnalysisChartCard title="访问数量">
-        <AnalyticsVisitsData />
+      <AnalysisChartCard title="设备类型分布">
+        <AnalyticsDeviceType :data="stats?.deviceByType" />
       </AnalysisChartCard>
-      <AnalysisChartCard title="访问来源">
-        <AnalyticsVisitsSource />
+      <AnalysisChartCard title="平台分布">
+        <AnalyticsDevicePlatform :data="stats?.deviceByPlatform" />
       </AnalysisChartCard>
-      <AnalysisChartCard title="访问趋势">
-        <AnalyticsVisitsSales />
+      <AnalysisChartCard title="最近登录">
+        <AnalyticsRecentLogins :data="stats?.recentLogins" />
       </AnalysisChartCard>
     </div>
 

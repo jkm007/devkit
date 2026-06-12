@@ -38,6 +38,7 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	authHandler := handler.NewAuthHandler()
 	userHandler := handler.NewUserHandler()
 	roleHandler := handler.NewRoleHandler()
+	dashboardHandler := handler.NewDashboardHandler()
 	menuHandler := handler.NewMenuHandler()
 	groupHandler := handler.NewGroupHandler()
 	wsHandler := handler.NewWSHandler(hub)
@@ -245,6 +246,9 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		// 系统管理
 		system := authorized.Group("/system")
 		{
+			// 仪表盘
+			system.GET("/dashboard/stats", dashboardHandler.GetStats)
+
 			// 用户管理
 			system.GET("/user/list", middleware.Permission("system:user:view"), userHandler.List)
 			system.GET("/user/storage-stats", middleware.Permission("system:user:view"), userHandler.GetStorageStats)

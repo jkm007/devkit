@@ -1,3 +1,4 @@
+export * from './dashboard';
 export * from './group';
 export * from './menu';
 export * from './real-name';
