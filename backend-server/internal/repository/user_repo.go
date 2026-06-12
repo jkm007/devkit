@@ -283,3 +283,49 @@ func (r *UserRepo) GetUserIDsByGroupID(groupID uint) ([]uint, error) {
 	err := r.db.Model(&model.User{}).Where("group_id = ?", groupID).Pluck("id", &userIDs).Error
 	return userIDs, err
 }
+
+// GetStorageUsedByUserIDs 批量获取多个用户的已用存储（仅统计未删除的文件）
+func (r *UserRepo) GetStorageUsedByUserIDs(userIDs []uint) (map[uint]int64, error) {
+	if len(userIDs) == 0 {
+		return nil, nil
+	}
+
+	type result struct {
+		UserID uint
+		Total  int64
+	}
+	var results []result
+	err := r.db.Model(&model.FileEntry{}).
+		Select("user_id, COALESCE(SUM(size), 0) as total").
+		Where("user_id IN ? AND deleted_at IS NULL", userIDs).
+		Group("user_id").
+		Find(&results).Error
+	if err != nil {
+		return nil, err
+	}
+
+	m := make(map[uint]int64, len(results))
+	for _, r := range results {
+		m[r.UserID] = r.Total
+	}
+	return m, nil
+}
+
+// GetStorageUsedByUserID 获取单个用户的已用存储
+func (r *UserRepo) GetStorageUsedByUserID(userID uint) (int64, error) {
+	var total int64
+	err := r.db.Model(&model.FileEntry{}).
+		Select("COALESCE(SUM(size), 0)").
+		Where("user_id = ? AND deleted_at IS NULL", userID).
+		Scan(&total).Error
+	return total, err
+}
+
+// SyncStorageUsed 同步用户的已用存储到 users 表
+func (r *UserRepo) SyncStorageUsed(userID uint) error {
+	used, err := r.GetStorageUsedByUserID(userID)
+	if err != nil {
+		return err
+	}
+	return r.db.Model(&model.User{}).Where("id = ?", userID).Update("storage_used", used).Error
+}

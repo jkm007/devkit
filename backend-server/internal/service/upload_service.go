@@ -65,6 +65,11 @@ type CheckResult struct {
 
 // CheckUpload 秒传检查
 func (s *UploadService) CheckUpload(userID uint, fileHash string, fileSize int64, folderID uint) (*CheckResult, error) {
+	// 存储配额检查
+	if err := s.checkQuota(userID, fileSize); err != nil {
+		return nil, err
+	}
+
 	asset, err := s.assetRepo.GetByHash(fileHash)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -126,6 +131,12 @@ func (s *UploadService) CheckUpload(userID uint, fileHash string, fileSize int64
 		return nil, err
 	}
 
+	// 同步用户已用存储
+	go func() {
+		repo := repository.NewUserRepo(database.GetMySQL())
+		repo.SyncStorageUsed(userID)
+	}()
+
 	return &CheckResult{
 		Exists:    true,
 		FileID:    entryID,
@@ -142,6 +153,11 @@ type InitResult struct {
 
 // InitUpload 初始化分片上传
 func (s *UploadService) InitUpload(userID uint, fileName string, fileSize int64, fileHash string, contentType string, totalParts int, folderID uint) (*InitResult, error) {
+	// 存储配额检查
+	if err := s.checkQuota(userID, fileSize); err != nil {
+		return nil, err
+	}
+
 	// 文件扩展名校验（白名单 + 黑名单）
 	if ok, reason := fileutil.ValidateExtension(fileName); !ok {
 		return nil, fmt.Errorf("文件校验失败: %s", reason)
@@ -458,6 +474,12 @@ func (s *UploadService) CompleteUpload(uploadID string) (*CompleteResult, error)
 	rdb := database.GetRedis()
 	rdb.Del(context.Background(), "upload:"+uploadID)
 
+	// 同步用户已用存储
+	go func() {
+		repo := repository.NewUserRepo(database.GetMySQL())
+		repo.SyncStorageUsed(task.UserID)
+	}()
+
 	// 获取路由信息
 	routingResult, _, _ := storage.Route(task.FileName, task.ContentType, "user")
 	var routingInfo *RoutingInfo
@@ -573,6 +595,12 @@ func (s *UploadService) GetUploadTaskByID(id uint) (*model.UploadTask, error) {
 // GetTaskByUploadID 根据 uploadID 获取上传任务
 func (s *UploadService) GetTaskByUploadID(uploadID string) (*model.UploadTask, error) {
 	return s.uploadRepo.GetTaskByUploadID(uploadID)
+}
+
+// checkQuota 检查用户存储配额
+func (s *UploadService) checkQuota(userID uint, fileSize int64) error {
+	userService := NewUserService()
+	return userService.CheckStorageQuota(userID, fileSize)
 }
 
 // TaskStatusResponse 任务状态响应

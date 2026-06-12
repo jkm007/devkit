@@ -16,6 +16,9 @@ export namespace SystemUserApi {
     bio: string;
     groupId: number;
     permissions: string[];
+    storageQuota: number;
+    storageUsed: number;
+    roleStorageQuota: number;
     remark?: string;
     status: 0 | 1;
     createTime?: string;

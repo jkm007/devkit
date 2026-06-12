@@ -41,6 +41,20 @@ export function useFormSchema(): VbenFormSchema[] {
       label: $t('system.role.allowApply'),
     },
     {
+      component: 'InputNumber',
+      fieldName: 'storageQuota',
+      label: $t('system.role.storageQuota'),
+      componentProps: {
+        min: 0,
+        step: 1024,
+        placeholder: '0 = 不限制',
+        class: 'w-full',
+        addonAfter: 'MB',
+      },
+      help: '设置为 0 表示不限制存储空间',
+      defaultValue: 0,
+    },
+    {
       component: 'Textarea',
       fieldName: 'remark',
       label: $t('system.role.remark'),
@@ -117,6 +131,17 @@ export function useColumns<T = SystemRoleApi.SystemRole>(
       width: 120,
       formatter({ cellValue }: any) {
         return cellValue === 1 ? '是' : '否';
+      },
+    },
+    {
+      field: 'storageQuota',
+      title: $t('system.role.storageQuota'),
+      width: 130,
+      formatter({ cellValue }: any) {
+        if (!cellValue || cellValue <= 0) return '不限';
+        if (cellValue >= 1073741824) return `${(cellValue / 1073741824).toFixed(1)} GB`;
+        if (cellValue >= 1048576) return `${(cellValue / 1048576).toFixed(0)} MB`;
+        return `${(cellValue / 1024).toFixed(0)} KB`;
       },
     },
     {

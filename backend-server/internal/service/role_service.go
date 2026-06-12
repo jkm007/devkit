@@ -33,13 +33,14 @@ func NewRoleService() *RoleService {
 
 // RoleResponse 角色响应
 type RoleResponse struct {
-	ID          uint     `json:"id"`
-	Name        string   `json:"name"`
-	Status      int      `json:"status"`
-	AllowApply  int      `json:"allowApply"`
-	Permissions []string `json:"permissions"`
-	Remark      string   `json:"remark"`
-	CreatedAt   string   `json:"createTime"`
+	ID           uint     `json:"id"`
+	Name         string   `json:"name"`
+	Status       int      `json:"status"`
+	AllowApply   int      `json:"allowApply"`
+	Permissions  []string `json:"permissions"`
+	StorageQuota int64    `json:"storageQuota"`
+	Remark       string   `json:"remark"`
+	CreatedAt    string   `json:"createTime"`
 }
 
 // toRoleResponse 将模型转换为响应结构
@@ -59,13 +60,14 @@ func toRoleResponse(role *model.Role) RoleResponse {
 		permissions = []string{}
 	}
 	return RoleResponse{
-		ID:          role.ID,
-		Name:        role.Name,
-		Status:      role.Status,
-		AllowApply:  role.AllowApply,
-		Permissions: permissions,
-		Remark:      role.Remark,
-		CreatedAt:   role.CreatedAt.Format("2006-01-02T15:04:05.000-07:00"),
+		ID:           role.ID,
+		Name:         role.Name,
+		Status:       role.Status,
+		AllowApply:   role.AllowApply,
+		Permissions:  permissions,
+		StorageQuota: role.StorageQuota,
+		Remark:       role.Remark,
+		CreatedAt:    role.CreatedAt.Format("2006-01-02T15:04:05.000-07:00"),
 	}
 }
 
@@ -83,20 +85,22 @@ type ListRoleRequest struct {
 
 // CreateRoleRequest 创建角色请求
 type CreateRoleRequest struct {
-	Name       string   `json:"name" binding:"required"`
-	Status     int      `json:"status" binding:"required"`
-	AllowApply int      `json:"allowApply"`
-	Permissions []string `json:"permissions"`
-	Remark     string   `json:"remark"`
+	Name         string   `json:"name" binding:"required"`
+	Status       int      `json:"status" binding:"required"`
+	AllowApply   int      `json:"allowApply"`
+	Permissions  []string `json:"permissions"`
+	StorageQuota int64    `json:"storageQuota"`
+	Remark       string   `json:"remark"`
 }
 
 // UpdateRoleRequest 更新角色请求
 type UpdateRoleRequest struct {
-	Name       string   `json:"name"`
-	Status     int      `json:"status"`
-	AllowApply *int     `json:"allowApply"`
-	Permissions []string `json:"permissions"`
-	Remark     string   `json:"remark"`
+	Name         string   `json:"name"`
+	Status       int      `json:"status"`
+	AllowApply   *int     `json:"allowApply"`
+	Permissions  []string `json:"permissions"`
+	StorageQuota *int64   `json:"storageQuota"`
+	Remark       string   `json:"remark"`
 }
 
 // List 获取角色列表
@@ -139,10 +143,11 @@ func (s *RoleService) GetByID(id uint) (*model.Role, error) {
 // Create 创建角色
 func (s *RoleService) Create(req *CreateRoleRequest) error {
 	role := &model.Role{
-		Name:       req.Name,
-		Status:     req.Status,
-		AllowApply: req.AllowApply,
-		Remark:     req.Remark,
+		Name:         req.Name,
+		Status:       req.Status,
+		AllowApply:   req.AllowApply,
+		StorageQuota: req.StorageQuota,
+		Remark:       req.Remark,
 	}
 
 	// 将权限列表转换为 JSON 字符串
@@ -171,6 +176,9 @@ func (s *RoleService) Update(id uint, req *UpdateRoleRequest) error {
 	role.Status = req.Status
 	if req.AllowApply != nil {
 		role.AllowApply = *req.AllowApply
+	}
+	if req.StorageQuota != nil {
+		role.StorageQuota = *req.StorageQuota
 	}
 	if req.Remark != "" {
 		role.Remark = req.Remark

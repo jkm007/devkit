@@ -91,6 +91,20 @@ export function useFormSchema(): VbenFormSchema[] {
       label: $t('system.user.roles'),
     },
     {
+      component: 'InputNumber',
+      fieldName: 'storageQuota',
+      label: $t('system.user.storageQuota'),
+      componentProps: {
+        min: 0,
+        step: 1024,
+        placeholder: '0 = 使用角色配额',
+        class: 'w-full',
+        addonAfter: 'MB',
+      },
+      help: '设置为 0 则使用角色默认配额',
+      defaultValue: 0,
+    },
+    {
       component: 'RadioGroup',
       componentProps: {
         buttonStyle: 'solid',
@@ -237,6 +251,58 @@ export function useColumns<T = SystemUserApi.SystemUser>(
       field: 'status',
       title: $t('system.user.status'),
       width: 100,
+    },
+    {
+      field: 'storageUsed',
+      title: $t('system.user.storage'),
+      width: 180,
+      slots: {
+        default: ({ row }: { row: SystemUserApi.SystemUser }) => {
+          const used = row.storageUsed || 0;
+          // 优先用户配额，其次角色配额
+          const quota =
+            row.storageQuota > 0
+              ? row.storageQuota
+              : row.roleStorageQuota || 0;
+          const formatSize = (bytes: number) => {
+            if (bytes <= 0) return '0 B';
+            if (bytes >= 1073741824)
+              return `${(bytes / 1073741824).toFixed(1)} GB`;
+            if (bytes >= 1048576)
+              return `${(bytes / 1048576).toFixed(1)} MB`;
+            if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+            return `${bytes} B`;
+          };
+          if (quota <= 0) {
+            // 不限配额
+            return h('span', {}, formatSize(used));
+          }
+          const percent = Math.min(
+            Math.round((used / quota) * 100),
+            100,
+          );
+          const color =
+            percent >= 90 ? '#ff4d4f' : percent >= 70 ? '#faad14' : '#52c41a';
+          return h('div', { style: 'display:flex;align-items:center;gap:6px' }, [
+            h(
+              'div',
+              {
+                style: `width:60px;height:6px;background:#f0f0f0;border-radius:3px;overflow:hidden`,
+              },
+              [
+                h('div', {
+                  style: `width:${percent}%;height:100%;background:${color};border-radius:3px`,
+                }),
+              ],
+            ),
+            h(
+              'span',
+              { style: 'font-size:12px;white-space:nowrap' },
+              `${formatSize(used)} / ${formatSize(quota)}`,
+            ),
+          ]);
+        },
+      },
     },
     {
       field: 'remark',

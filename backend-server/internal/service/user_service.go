@@ -80,23 +80,25 @@ type CreateUserRequest struct {
 
 // UpdateUserRequest 更新用户请求
 type UpdateUserRequest struct {
-	Name     string `json:"name"`
-	Nickname string `json:"nickname"`
-	Email    string `json:"email"`
-	Phone    string `json:"phone"`
-	Gender   int    `json:"gender"`
-	Birthday string `json:"birthday"`
-	Bio      string `json:"bio"`
-	Status   *int   `json:"status"`
-	GroupID  uint   `json:"groupId"`
-	Remark   string `json:"remark"`
-	RoleIDs  []uint `json:"roleIds"` // 角色ID列表
+	Name         string `json:"name"`
+	Nickname     string `json:"nickname"`
+	Email        string `json:"email"`
+	Phone        string `json:"phone"`
+	Gender       int    `json:"gender"`
+	Birthday     string `json:"birthday"`
+	Bio          string `json:"bio"`
+	Status       *int   `json:"status"`
+	GroupID      uint   `json:"groupId"`
+	StorageQuota *int64 `json:"storageQuota"` // 用户覆盖配额，nil=不修改
+	Remark       string `json:"remark"`
+	RoleIDs      []uint `json:"roleIds"` // 角色ID列表
 }
 
-// UserResponse 用户响应（包含角色ID）
+// UserResponse 用户响应（包含角色ID和存储信息）
 type UserResponse struct {
 	model.User
-	RoleIDs []uint `json:"roleIds"`
+	RoleIDs         []uint `json:"roleIds"`
+	RoleStorageQuota int64  `json:"roleStorageQuota"` // 角色配额（仅展示用）
 }
 
 // List 获取用户列表
@@ -130,16 +132,53 @@ func (s *UserService) List(req *ListRequest) ([]UserResponse, int64, error) {
 	}
 	roleIDsMap, _ := s.userRepo.GetUserRoleIDsByUserIDs(userIDs)
 
-	// 转换为响应格式，包含角色ID
+	// 收集所有角色ID，批量查询角色配额
+	allRoleIDs := make(map[uint]bool)
+	for _, roleIDs := range roleIDsMap {
+		for _, rid := range roleIDs {
+			allRoleIDs[rid] = true
+		}
+	}
+	roleQuotaMap := make(map[uint]int64)
+	if len(allRoleIDs) > 0 {
+		rids := make([]uint, 0, len(allRoleIDs))
+		for rid := range allRoleIDs {
+			rids = append(rids, rid)
+		}
+		db := database.GetMySQL()
+		var roles []model.Role
+		if err := db.Where("id IN ?", rids).Find(&roles).Error; err == nil {
+			for _, role := range roles {
+				roleQuotaMap[role.ID] = role.StorageQuota
+			}
+		}
+	}
+
+	// 转换为响应格式，包含角色ID和存储信息
 	var userResponses []UserResponse
 	for _, user := range users {
 		roleIDs := roleIDsMap[user.ID]
 		if roleIDs == nil {
 			roleIDs = []uint{}
 		}
+
+		// 计算角色配额（取第一个角色的配额，通常用户只有一个主角色）
+		var roleStorageQuota int64
+		for _, rid := range roleIDs {
+			if q, ok := roleQuotaMap[rid]; ok {
+				roleStorageQuota = q
+				break
+			}
+		}
+
+		// 刷新已用存储
+		used, _ := s.userRepo.GetStorageUsedByUserID(user.ID)
+		user.StorageUsed = used
+
 		userResponses = append(userResponses, UserResponse{
-			User:    user,
-			RoleIDs: roleIDs,
+			User:             user,
+			RoleIDs:          roleIDs,
+			RoleStorageQuota: roleStorageQuota,
 		})
 	}
 
@@ -278,6 +317,9 @@ func (s *UserService) Update(id uint, req *UpdateUserRequest) error {
 	if req.GroupID != 0 {
 		user.GroupID = req.GroupID
 	}
+	if req.StorageQuota != nil {
+		user.StorageQuota = *req.StorageQuota
+	}
 	if req.Remark != "" {
 		user.Remark = req.Remark
 	}
@@ -348,4 +390,50 @@ func (s *UserService) Delete(id uint) error {
 func (s *UserService) invalidatePermissionCache(userID uint) {
 	ctx := context.Background()
 	_ = cache.Delete(ctx, fmt.Sprintf("permission_codes:%d", userID))
+}
+
+// GetEffectiveQuota 获取用户的有效存储配额（用户覆盖 > 角色默认）
+// 返回 0 表示不限制
+func (s *UserService) GetEffectiveQuota(userID uint) (int64, error) {
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return 0, err
+	}
+	// 用户有自己的配额
+	if user.StorageQuota > 0 {
+		return user.StorageQuota, nil
+	}
+	// 使用角色配额
+	roleIDs, err := s.userRepo.GetUserRoleIDs(userID)
+	if err != nil || len(roleIDs) == 0 {
+		return 0, nil
+	}
+	db := database.GetMySQL()
+	var role model.Role
+	if err := db.Where("id IN ?", roleIDs).First(&role).Error; err != nil {
+		return 0, nil
+	}
+	return role.StorageQuota, nil
+}
+
+// CheckStorageQuota 检查用户存储配额是否足够
+// 返回 error 表示超出配额
+func (s *UserService) CheckStorageQuota(userID uint, additionalSize int64) error {
+	quota, err := s.GetEffectiveQuota(userID)
+	if err != nil {
+		return nil // 获取配额失败不阻止上传
+	}
+	if quota <= 0 {
+		return nil // 不限制
+	}
+	used, err := s.userRepo.GetStorageUsedByUserID(userID)
+	if err != nil {
+		return nil
+	}
+	if used+additionalSize > quota {
+		usedMB := float64(used) / 1024 / 1024
+		quotaMB := float64(quota) / 1024 / 1024
+		return fmt.Errorf("存储空间不足，已用 %.1fMB / %.1fMB", usedMB, quotaMB)
+	}
+	return nil
 }

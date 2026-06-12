@@ -36,6 +36,10 @@ const [Drawer, drawerApi] = useVbenDrawer({
     const { valid } = await formApi.validate();
     if (!valid) return;
     const values = await formApi.getValues();
+    // 存储配额：MB 转 bytes
+    if (values.storageQuota !== undefined && values.storageQuota !== null) {
+      values.storageQuota = Number(values.storageQuota) * 1024 * 1024;
+    }
     drawerApi.lock();
     (id.value ? updateUser(id.value, values) : createUser(values))
       .then(() => {
@@ -65,7 +69,12 @@ const [Drawer, drawerApi] = useVbenDrawer({
       // Wait for Vue to flush DOM updates (form fields mounted)
       await nextTick();
       if (data) {
-        formApi.setValues(data);
+        // 存储配额：bytes 转 MB 用于显示
+        const formData = { ...data };
+        if (formData.storageQuota && formData.storageQuota > 0) {
+          formData.storageQuota = Math.round(formData.storageQuota / 1024 / 1024);
+        }
+        formApi.setValues(formData);
       }
     }
   },

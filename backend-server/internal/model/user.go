@@ -31,6 +31,8 @@ type User struct {
 	LockUntil        *time.Time     `gorm:"comment:锁定截止时间" json:"-"`
 	PasswordChangedAt  *time.Time     `gorm:"comment:密码修改时间" json:"passwordChangedAt"`
 	MustChangePassword bool           `gorm:"default:false;comment:是否需要强制修改密码" json:"mustChangePassword"`
+	StorageQuota     int64          `gorm:"type:bigint;default:0;comment:用户覆盖配额(字节) 0=使用角色配额" json:"storageQuota"`
+	StorageUsed      int64          `gorm:"type:bigint;default:0;comment:已用存储(字节)" json:"storageUsed"`
 	Remark             string         `gorm:"type:varchar(500);comment:备注" json:"remark"`
 	CreatedAt        time.Time      `gorm:"comment:创建时间" json:"createTime"`
 	UpdatedAt        time.Time      `gorm:"comment:更新时间" json:"-"`
