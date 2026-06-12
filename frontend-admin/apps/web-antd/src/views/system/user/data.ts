@@ -96,7 +96,8 @@ export function useFormSchema(): VbenFormSchema[] {
       label: $t('system.user.storageQuota'),
       componentProps: {
         min: 0,
-        step: 1024,
+        step: 10,
+        precision: 0,
         placeholder: '0 = 使用角色配额',
         class: 'w-full',
         addonAfter: 'MB',

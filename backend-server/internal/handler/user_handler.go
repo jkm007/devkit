@@ -156,3 +156,22 @@ func (h *UserHandler) Delete(c *gin.Context) {
 
 	response.Success(c, nil)
 }
+
+// GetStorageStats 获取存储统计
+// @Summary      获取存储统计
+// @Description  获取系统存储使用统计信息（按类型、Top用户等）
+// @Tags         用户管理
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  response.Response{data=repository.StorageStats} "成功"
+// @Failure      401  {object}  response.Response "未授权"
+// @Failure      403  {object}  response.Response "权限不足"
+// @Router       /system/user/storage-stats [get]
+func (h *UserHandler) GetStorageStats(c *gin.Context) {
+	stats, err := h.userService.GetStorageStats()
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.Success(c, stats)
+}

@@ -247,6 +247,7 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		{
 			// 用户管理
 			system.GET("/user/list", middleware.Permission("system:user:view"), userHandler.List)
+			system.GET("/user/storage-stats", middleware.Permission("system:user:view"), userHandler.GetStorageStats)
 			system.POST("/user", middleware.Permission("system:user:add"), userHandler.Create)
 			system.PUT("/user/:id", middleware.Permission("system:user:edit"), userHandler.Update)
 			system.DELETE("/user/:id", middleware.Permission("system:user:delete"), userHandler.Delete)

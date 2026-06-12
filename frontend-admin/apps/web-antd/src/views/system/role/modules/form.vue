@@ -98,10 +98,10 @@ const [Drawer, drawerApi] = useVbenDrawer({
       }
       await nextTick();
       if (data) {
-        // 存储配额：bytes 转 MB 用于显示
+        // 存储配额：bytes 转 MB 用于显示（向下取整避免漂移）
         const formData = { ...data };
         if (formData.storageQuota && formData.storageQuota > 0) {
-          formData.storageQuota = Math.round(formData.storageQuota / 1024 / 1024);
+          formData.storageQuota = Math.floor(formData.storageQuota / 1024 / 1024);
         }
         formApi.setValues(formData);
         if (Array.isArray(data.permissions)) {

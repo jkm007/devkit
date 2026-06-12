@@ -238,7 +238,14 @@ func (s *RecycleBinService) permanentDeleteEntry(entry *model.FileEntry) error {
 	s.cleanupFileData(entry)
 
 	// 永久删除文件条目
-	return s.fileRepo.HardDeleteEntry(entry.ID)
+	if err := s.fileRepo.HardDeleteEntry(entry.ID); err != nil {
+		return err
+	}
+
+	// 同步用户已用存储
+	go s.userRepo.SyncStorageUsed(entry.UserID)
+
+	return nil
 }
 
 // cleanupFileData 清理文件的关联数据（分享、标签、存储对象）

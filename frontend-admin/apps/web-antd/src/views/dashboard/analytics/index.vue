@@ -15,6 +15,7 @@ import {
   SvgDownloadIcon,
 } from '@vben/icons';
 
+import AnalyticsStorage from './analytics-storage.vue';
 import AnalyticsTrends from './analytics-trends.vue';
 import AnalyticsVisitsData from './analytics-visits-data.vue';
 import AnalyticsVisitsSales from './analytics-visits-sales.vue';
@@ -85,6 +86,12 @@ const chartTabs: TabOption[] = [
       </AnalysisChartCard>
       <AnalysisChartCard title="访问趋势">
         <AnalyticsVisitsSales />
+      </AnalysisChartCard>
+    </div>
+
+    <div class="mt-5">
+      <AnalysisChartCard title="存储分析">
+        <AnalyticsStorage />
       </AnalysisChartCard>
     </div>
   </Page>

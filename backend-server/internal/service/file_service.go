@@ -605,7 +605,7 @@ func (s *FileService) DeleteFile(userID uint, fileID uint, hasPermission bool) e
 	expireAt := time.Now().Add(7 * 24 * time.Hour)
 
 	db := database.GetMySQL()
-	return db.Transaction(func(tx *gorm.DB) error {
+	err = db.Transaction(func(tx *gorm.DB) error {
 		// 软删除文件
 		now := time.Now()
 		if err := tx.Model(&model.FileEntry{}).Where("id = ?", fileID).Updates(map[string]interface{}{
@@ -622,6 +622,14 @@ func (s *FileService) DeleteFile(userID uint, fileID uint, hasPermission bool) e
 
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+
+	// 同步用户已用存储
+	go s.userRepo.SyncStorageUsed(entry.UserID)
+
+	return nil
 }
 
 // BatchDeleteFiles 批量删除文件（移入回收站）

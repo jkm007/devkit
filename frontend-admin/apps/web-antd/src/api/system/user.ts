@@ -64,4 +64,23 @@ async function deleteUser(id: number) {
   return requestClient.delete(`/system/user/${id}`);
 }
 
-export { createUser, deleteUser, getUserList, updateUser };
+/**
+ * 获取存储统计
+ */
+async function getStorageStats() {
+  return requestClient.get<{
+    totalUsed: number;
+    totalQuota: number;
+    userCount: number;
+    fileCount: number;
+    byType: Array<{ type: string; count: number; size: number }>;
+    topUsers: Array<{
+      userId: number;
+      userName: string;
+      used: number;
+      quota: number;
+    }>;
+  }>('/system/user/storage-stats');
+}
+
+export { createUser, deleteUser, getStorageStats, getUserList, updateUser };

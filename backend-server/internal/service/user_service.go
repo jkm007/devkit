@@ -154,6 +154,9 @@ func (s *UserService) List(req *ListRequest) ([]UserResponse, int64, error) {
 		}
 	}
 
+	// 批量获取已用存储（避免 N+1）
+	storageUsedMap, _ := s.userRepo.GetStorageUsedByUserIDs(userIDs)
+
 	// 转换为响应格式，包含角色ID和存储信息
 	var userResponses []UserResponse
 	for _, user := range users {
@@ -162,18 +165,16 @@ func (s *UserService) List(req *ListRequest) ([]UserResponse, int64, error) {
 			roleIDs = []uint{}
 		}
 
-		// 计算角色配额（取第一个角色的配额，通常用户只有一个主角色）
+		// 计算角色配额（取最大配额）
 		var roleStorageQuota int64
 		for _, rid := range roleIDs {
-			if q, ok := roleQuotaMap[rid]; ok {
+			if q, ok := roleQuotaMap[rid]; ok && q > roleStorageQuota {
 				roleStorageQuota = q
-				break
 			}
 		}
 
-		// 刷新已用存储
-		used, _ := s.userRepo.GetStorageUsedByUserID(user.ID)
-		user.StorageUsed = used
+		// 使用批量查询的结果
+		user.StorageUsed = storageUsedMap[user.ID]
 
 		userResponses = append(userResponses, UserResponse{
 			User:             user,
@@ -392,7 +393,7 @@ func (s *UserService) invalidatePermissionCache(userID uint) {
 	_ = cache.Delete(ctx, fmt.Sprintf("permission_codes:%d", userID))
 }
 
-// GetEffectiveQuota 获取用户的有效存储配额（用户覆盖 > 角色默认）
+// GetEffectiveQuota 获取用户的有效存储配额（用户覆盖 > 角色默认，多角色取最大）
 // 返回 0 表示不限制
 func (s *UserService) GetEffectiveQuota(userID uint) (int64, error) {
 	user, err := s.userRepo.GetByID(userID)
@@ -403,17 +404,26 @@ func (s *UserService) GetEffectiveQuota(userID uint) (int64, error) {
 	if user.StorageQuota > 0 {
 		return user.StorageQuota, nil
 	}
-	// 使用角色配额
+	// 使用角色配额（多角色取最大）
 	roleIDs, err := s.userRepo.GetUserRoleIDs(userID)
-	if err != nil || len(roleIDs) == 0 {
+	if err != nil {
+		return 0, err
+	}
+	if len(roleIDs) == 0 {
 		return 0, nil
 	}
 	db := database.GetMySQL()
-	var role model.Role
-	if err := db.Where("id IN ?", roleIDs).First(&role).Error; err != nil {
-		return 0, nil
+	var roles []model.Role
+	if err := db.Where("id IN ?", roleIDs).Find(&roles).Error; err != nil {
+		return 0, err
 	}
-	return role.StorageQuota, nil
+	var maxQuota int64
+	for _, role := range roles {
+		if role.StorageQuota > maxQuota {
+			maxQuota = role.StorageQuota
+		}
+	}
+	return maxQuota, nil
 }
 
 // CheckStorageQuota 检查用户存储配额是否足够
@@ -436,4 +446,9 @@ func (s *UserService) CheckStorageQuota(userID uint, additionalSize int64) error
 		return fmt.Errorf("存储空间不足，已用 %.1fMB / %.1fMB", usedMB, quotaMB)
 	}
 	return nil
+}
+
+// GetStorageStats 获取存储统计
+func (s *UserService) GetStorageStats() (*repository.StorageStats, error) {
+	return s.userRepo.GetStorageStats()
 }

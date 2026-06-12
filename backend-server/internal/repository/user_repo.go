@@ -329,3 +329,89 @@ func (r *UserRepo) SyncStorageUsed(userID uint) error {
 	}
 	return r.db.Model(&model.User{}).Where("id = ?", userID).Update("storage_used", used).Error
 }
+
+// StorageStats 存储统计结果
+type StorageStats struct {
+	TotalUsed   int64            `json:"totalUsed"`
+	TotalQuota  int64            `json:"totalQuota"`
+	UserCount   int64            `json:"userCount"`
+	FileCount   int64            `json:"fileCount"`
+	ByType      []TypeStat       `json:"byType"`
+	TopUsers    []UserStorageStat `json:"topUsers"`
+}
+
+// TypeStat 按文件类型统计
+type TypeStat struct {
+	Type  string `json:"type"`
+	Count int64  `json:"count"`
+	Size  int64  `json:"size"`
+}
+
+// UserStorageStat 用户存储统计
+type UserStorageStat struct {
+	UserID   uint   `json:"userId"`
+	UserName string `json:"userName"`
+	Used     int64  `json:"used"`
+	Quota    int64  `json:"quota"`
+}
+
+// GetStorageStats 获取存储统计
+func (r *UserRepo) GetStorageStats() (*StorageStats, error) {
+	stats := &StorageStats{}
+
+	// 总用户数
+	r.db.Model(&model.User{}).Count(&stats.UserCount)
+
+	// 总文件数和总用量（未删除）
+	r.db.Model(&model.FileEntry{}).Where("deleted_at IS NULL").Count(&stats.FileCount)
+	r.db.Model(&model.FileEntry{}).Where("deleted_at IS NULL").Select("COALESCE(SUM(size), 0)").Scan(&stats.TotalUsed)
+
+	// 总配额（所有用户的配额之和）
+	r.db.Model(&model.User{}).Select("COALESCE(SUM(storage_quota), 0)").Scan(&stats.TotalQuota)
+
+	// 按文件类型统计
+	var typeStats []TypeStat
+	r.db.Model(&model.FileEntry{}).
+		Select("CASE WHEN content_type LIKE 'image/%' THEN 'image' WHEN content_type LIKE 'video/%' THEN 'video' WHEN content_type LIKE 'audio/%' THEN 'audio' WHEN content_type LIKE 'application/pdf' OR content_type LIKE 'text/%' OR content_type LIKE 'application/msword' OR content_type LIKE 'application/vnd.openxmlformats%' THEN 'document' ELSE 'other' END as type, COUNT(*) as count, COALESCE(SUM(size), 0) as size").
+		Where("deleted_at IS NULL").
+		Group("type").
+		Find(&typeStats)
+	if typeStats == nil {
+		typeStats = []TypeStat{}
+	}
+	stats.ByType = typeStats
+
+	// 存储用量 Top 10 用户
+	var topUsers []UserStorageStat
+	r.db.Model(&model.FileEntry{}).
+		Select("sys_file_entries.user_id, sys_users.name as user_name, COALESCE(SUM(sys_file_entries.size), 0) as used").
+		Joins("LEFT JOIN sys_users ON sys_users.id = sys_file_entries.user_id").
+		Where("sys_file_entries.deleted_at IS NULL").
+		Group("sys_file_entries.user_id, sys_users.name").
+		Order("used DESC").
+		Limit(10).
+		Find(&topUsers)
+	if topUsers == nil {
+		topUsers = []UserStorageStat{}
+	}
+
+	// 填充配额信息
+	if len(topUsers) > 0 {
+		userIDs := make([]uint, len(topUsers))
+		for i, u := range topUsers {
+			userIDs[i] = u.UserID
+		}
+		var users []model.User
+		r.db.Select("id, storage_quota").Where("id IN ?", userIDs).Find(&users)
+		quotaMap := make(map[uint]int64, len(users))
+		for _, u := range users {
+			quotaMap[u.ID] = u.StorageQuota
+		}
+		for i := range topUsers {
+			topUsers[i].Quota = quotaMap[topUsers[i].UserID]
+		}
+	}
+	stats.TopUsers = topUsers
+
+	return stats, nil
+}
