@@ -10,7 +10,6 @@ const routes: RouteRecordRaw[] = [
       icon: 'lucide:user-circle',
       order: 9998,
       title: $t('account.title'),
-      hideInMenu: true,
     },
     children: [
       {
@@ -19,7 +18,6 @@ const routes: RouteRecordRaw[] = [
         meta: {
           icon: 'lucide:user-circle',
           title: $t('account.title'),
-          hideInMenu: true,
         },
         component: () => import('#/views/account/index.vue'),
       },
