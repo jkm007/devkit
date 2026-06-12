@@ -6,7 +6,7 @@ import type { ClassType, Recordable } from '@vben-core/typings';
 
 import type { TreeProps } from './types';
 
-import { computed, onMounted, ref, watch, watchEffect } from 'vue';
+import { computed, nextTick, onMounted, ref, watch, watchEffect } from 'vue';
 
 import { ChevronRight, IconifyIcon } from '@vben-core/icons';
 import { cn, get } from '@vben-core/shared/utils';
@@ -80,6 +80,15 @@ function syncSelectedKeysSet() {
 
 onMounted(() => {
   syncSelectedKeysSet();
+
+  // treeData 变化时重新同步 selectedKeysSet（处理异步加载 treeData 的场景）
+  watch(
+    () => props.treeData,
+    () => {
+      nextTick(() => syncSelectedKeysSet());
+    },
+    { deep: false },
+  );
 
   watchEffect(() => {
     flattenData.value = flatten(props.treeData, props.childrenField);
