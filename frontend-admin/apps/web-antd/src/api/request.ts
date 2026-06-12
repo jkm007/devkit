@@ -20,9 +20,12 @@ import { useAuthStore } from '#/store';
 
 import { getDeviceId } from '#/utils/device-id';
 import { showCaptchaVerify } from '#/utils/captcha-verify';
+import { detectClientType, getDeviceMeta } from '#/utils/client-info';
 import { refreshTokenApi } from './core';
 
-const CLIENT_TYPE = 'web';
+// 动态检测客户端类型（web/h5/app/miniapp）
+const CLIENT_TYPE = detectClientType();
+const DEVICE_META = getDeviceMeta();
 
 const { apiURL } = useAppConfig(import.meta.env, import.meta.env.PROD);
 
@@ -113,7 +116,15 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
       config.headers['Accept-Language'] = preferences.app.locale;
       config.headers['X-Device-ID'] = getDeviceId();
       config.headers['X-Client-Type'] = CLIENT_TYPE;
-      config.headers['X-Platform'] = CLIENT_TYPE;
+      config.headers['X-Platform'] = DEVICE_META.platform;
+
+      // 移动端设备信息（H5/App/小程序）
+      if (CLIENT_TYPE !== 'web') {
+        if (DEVICE_META.appVersion) config.headers['X-App-Version'] = DEVICE_META.appVersion;
+        if (DEVICE_META.systemVersion) config.headers['X-System-Version'] = DEVICE_META.systemVersion;
+        if (DEVICE_META.deviceModel) config.headers['X-Device-Model'] = DEVICE_META.deviceModel;
+        if (DEVICE_META.channel) config.headers['X-Channel'] = DEVICE_META.channel;
+      }
 
       // CSRF Token：从 Cookie 读取并放入请求头（Double Submit Cookie 模式）
       // 非安全方法（POST/PUT/DELETE/PATCH）必须携带
