@@ -33,6 +33,20 @@ const Video = Node.create({
       controls: { default: true },
       width: { default: '100%' },
       'data-type': { default: 'video' },
+      'data-uploading': {
+        default: null,
+        parseHTML: (element) => element.dataset.uploading,
+        renderHTML: () => {
+          return {};
+        },
+      },
+      'data-upload-progress': {
+        default: null,
+        parseHTML: (element) => element.dataset.uploadProgress,
+        renderHTML: () => {
+          return {};
+        },
+      },
     };
   },
   parseHTML() {
@@ -43,14 +57,84 @@ const Video = Node.create({
   },
   addNodeView() {
     return ({ node }) => {
-      const video = document.createElement('video');
-      video.src = node.attrs.src;
-      video.controls = node.attrs.controls !== false;
-      video.style.width = node.attrs.width || '100%';
-      video.style.maxWidth = '100%';
-      video.style.borderRadius = '8px';
-      video.preload = 'metadata';
-      return { dom: video };
+      const isUploading = node.attrs['data-uploading'] === 'true';
+
+      if (!isUploading) {
+        // 正常播放状态
+        const video = document.createElement('video');
+        video.src = node.attrs.src;
+        video.controls = node.attrs.controls !== false;
+        video.style.width = node.attrs.width || '100%';
+        video.style.maxWidth = '100%';
+        video.style.borderRadius = '8px';
+        video.preload = 'auto'; // 改为 auto，更积极加载
+        return { dom: video };
+      }
+
+      // 上传中状态（显示进度）
+      const wrapper = document.createElement('div');
+      wrapper.className = 'vben-tiptap-upload-wrapper';
+      wrapper.style.position = 'relative';
+      wrapper.style.width = node.attrs.width || '100%';
+      wrapper.style.maxWidth = '100%';
+      wrapper.style.borderRadius = '8px';
+      wrapper.style.background = '#f5f5f5';
+      wrapper.style.display = 'flex';
+      wrapper.style.alignItems = 'center';
+      wrapper.style.justifyContent = 'center';
+      wrapper.style.minHeight = '200px';
+
+      // 上占位文本
+      const placeholder = document.createElement('div');
+      placeholder.className = 'vben-tiptap-upload-placeholder';
+      placeholder.style.textAlign = 'center';
+      placeholder.innerHTML = `
+        <div style="font-size: 48px; color: #999;">🎥</div>
+        <div style="margin-top: 8px; color: #666;">视频上传中...</div>
+      `;
+      wrapper.append(placeholder);
+
+      // 进度条
+      const progressBar = document.createElement('div');
+      progressBar.className = 'vben-tiptap-upload-progress';
+      progressBar.style.position = 'absolute';
+      progressBar.style.bottom = '0';
+      progressBar.style.left = '0';
+      progressBar.style.right = '0';
+      progressBar.style.height = '4px';
+      progressBar.style.background = '#e0e0e0';
+      const progressFill = document.createElement('div');
+      progressFill.className = 'vben-tiptap-upload-progress-fill';
+      progressFill.style.height = '100%';
+      progressFill.style.background = '#1890ff';
+      progressFill.style.transition = 'width 0.3s';
+      wrapper.append(progressBar);
+      progressBar.append(progressFill);
+
+      const progress = node.attrs['data-upload-progress'];
+      if (progress !== null && progress !== undefined && progress > 0) {
+        placeholder.querySelector('div:last-child').textContent = `视频上传中... ${Math.round(progress)}%`;
+        progressFill.style.width = `${progress}%`;
+      } else {
+        progressFill.style.width = '0%';
+      }
+
+      return {
+        dom: wrapper,
+        update(updatedNode) {
+          if (updatedNode.attrs['data-uploading'] !== 'true') {
+            return false; // 切换到正常播放状态，重新创建 nodeView
+          }
+
+          const newProgress = updatedNode.attrs['data-upload-progress'];
+          if (newProgress !== null && newProgress !== undefined && newProgress > 0) {
+            placeholder.querySelector('div:last-child').textContent = `视频上传中... ${Math.round(newProgress)}%`;
+            progressFill.style.width = `${newProgress}%`;
+          }
+
+          return true;
+        },
+      };
     };
   },
 });
