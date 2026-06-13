@@ -63,21 +63,17 @@ const formData = ref<any>({});
 async function loadTreeData() {
   loading.value = true;
   try {
-    // Load all data
-    const [examCategories, exams, subjectsRes, categories] = await Promise.all([
-      getExamCategoryAll(),
-      getExamAll(),
-      getExamCategoryAll().then(async (categories) => {
-        // Load all subjects for all exams
-        const allSubjects: any[] = [];
-        for (const exam of exams || []) {
-          const subjects = await getSubjectAll(exam.id);
-          allSubjects.push(...(subjects || []).map(s => ({ ...s, examId: exam.id })));
-        }
-        return allSubjects;
-      }),
-      getQuestionCategoryAll(),
-    ]);
+    // Load all data in sequence (subjects need exams data)
+    const examCategories = await getExamCategoryAll();
+    const exams = await getExamAll();
+    const categories = await getQuestionCategoryAll();
+
+    // Load all subjects for all exams
+    const allSubjects: any[] = [];
+    for (const exam of exams || []) {
+      const subjects = await getSubjectAll(exam.id);
+      allSubjects.push(...(subjects || []).map(s => ({ ...s, examId: exam.id })));
+    }
 
     // Build tree
     const tree: TreeNode[] = [];
@@ -106,7 +102,7 @@ async function loadTreeData() {
         };
 
         // Level 3: Subjects
-        const examSubjects = (subjectsRes || []).filter(s => s.examId === exam.id);
+        const examSubjects = (allSubjects || []).filter(s => s.examId === exam.id);
         for (const subject of examSubjects) {
           const subjectNode: TreeNode = {
             key: `subject-${subject.id}`,
