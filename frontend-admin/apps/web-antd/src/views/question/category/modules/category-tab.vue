@@ -90,7 +90,6 @@ const [Grid, gridApi] = useVbenVxeGrid({
   gridOptions: {
     columns: useCategoryColumns(onStatusChange),
     height: 'auto',
-    layouts: [['Form'], ['Toolbar', 'Top', 'Table', 'Bottom'], ['Pager']],
     keepSource: true,
     proxyConfig: {
       ajax: {
@@ -194,7 +193,7 @@ function onCreate() {
 }
 </script>
 <template>
-  <div class="flex h-full flex-col overflow-hidden" style="min-height: 0">
+  <div>
     <FormDrawer @success="onRefresh" />
     <Grid table-title="章节分类列表">
       <template #toolbar-tools>

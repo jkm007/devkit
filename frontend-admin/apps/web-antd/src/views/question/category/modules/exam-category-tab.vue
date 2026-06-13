@@ -34,7 +34,6 @@ const [Grid, gridApi] = useVbenVxeGrid({
   gridOptions: {
     columns: useExamCategoryColumns(onStatusChange),
     height: 'auto',
-    layouts: [['Form'], ['Toolbar', 'Top', 'Table', 'Bottom'], ['Pager']],
     keepSource: true,
     proxyConfig: {
       ajax: {
@@ -123,7 +122,7 @@ function onCreate() {
 }
 </script>
 <template>
-  <div class="flex h-full flex-col overflow-hidden" style="min-height: 0">
+  <div>
     <FormDrawer @success="onRefresh" />
     <Grid table-title="考试大类列表">
       <template #toolbar-tools>
