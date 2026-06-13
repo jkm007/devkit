@@ -10,7 +10,7 @@ server:
 
 # MySQL 配置
 mysql:
-  host: 114.215.190.52
+  host: 10.0.50.108
   port: 3306
   user: root
   password: "root123456"
@@ -22,7 +22,7 @@ mysql:
 
 # Redis 配置
 redis:
-  host: 114.215.190.52
+  host: 10.0.50.108
   port: 6379
   password: "redis123456"
   db: 0

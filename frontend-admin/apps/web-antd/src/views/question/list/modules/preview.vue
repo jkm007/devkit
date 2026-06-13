@@ -8,7 +8,10 @@ import { VbenTiptapPreview } from '@vben/plugins/tiptap';
 
 import { Checkbox, CheckboxGroup, Radio, RadioGroup, Tag } from 'ant-design-vue';
 
-import { useAccessStore } from '@vben/stores';
+import {
+  processMediaHtml,
+  safeJsonParse,
+} from '#/utils/media-url';
 
 import {
   DIFFICULTY_OPTIONS,
@@ -20,130 +23,8 @@ const questionData = ref<QuestionApi.Question | null>(null);
 const showAnswer = ref(false);
 const selectedAnswer = ref<any>(null);
 
-// Access store for token
-const accessStore = useAccessStore();
-function getAuthToken(): string {
-  return accessStore.accessToken || '';
-}
-
-// API base URL
-const apiBase = import.meta.env.VITE_GLOB_API_URL || '/api/v1';
-
 // Question type categories
 const CHOICE_TYPES = ['single_choice', 'multiple_choice', 'indefinite_choice'];
-
-// Blob URL mapping
-const blobToRealUrl = new Map<string, string>();
-
-// Decode JSON-encoded string (handles double-encoding from DB)
-function safeJsonParse(jsonStr: string): string {
-  if (!jsonStr || jsonStr === 'null') return '';
-  try {
-    const parsed = JSON.parse(jsonStr);
-    if (typeof parsed === 'string') {
-      try {
-        const parsed2 = JSON.parse(parsed);
-        return typeof parsed2 === 'string' ? parsed2 : parsed;
-      } catch {
-        return parsed;
-      }
-    }
-    return jsonStr;
-  } catch {
-    return jsonStr;
-  }
-}
-
-// Deep parse JSON (handles double-encoding from DB JSON columns)
-function deepParse(val: any): any {
-  if (typeof val !== 'string') return val;
-  try {
-    const parsed = JSON.parse(val);
-    if (typeof parsed === 'string') {
-      try { return JSON.parse(parsed); } catch { return parsed; }
-    }
-    return parsed;
-  } catch {
-    return val;
-  }
-}
-
-// Fix image/video URLs in HTML content
-function fixMediaUrls(html: string): string {
-  if (!html) return html;
-  // Replace /files/{id}/direct-url → /files/{id}/view
-  let fixed = html.replace(/\/files\/(\d+)\/direct-url/g, '/files/$1/view');
-  // Add /api/v1 prefix to bare /files/ paths (in src="..." or poster="...")
-  fixed = fixed.replace(/((?:src|poster)=")(\/files\/\d+\/view)/g, `$1${apiBase}$2`);
-  return fixed;
-}
-
-// Fetch media with auth header → blob URL
-async function fetchMediaAsBlob(url: string): Promise<string> {
-  try {
-    const token = getAuthToken();
-    const response = await fetch(url, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-    if (response.ok) {
-      const blob = await response.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      blobToRealUrl.set(blobUrl, url);
-      return blobUrl;
-    }
-  } catch {
-    // ignore
-  }
-  return url;
-}
-
-// Convert real media URLs in HTML to blob URLs (images + videos + sources)
-async function convertMediaToBlobUrls(html: string): Promise<string> {
-  if (!html) return html;
-  // Fallback: for <img>/<video> tags with blob src, replace with data-real-src if available
-  let preprocessed = html;
-  preprocessed = preprocessed.replace(
-    /<(img|video)[^>]+src="(blob:[^"]+)"[^>]*data-real-src="([^"]+)"[^>]*>/g,
-    (fullMatch, _tag, _blobSrc, realSrc) => fullMatch.replace(`src="${_blobSrc}"`, `src="${realSrc}"`),
-  );
-  preprocessed = preprocessed.replace(
-    /<(img|video)[^>]+data-real-src="([^"]+)"[^>]+src="(blob:[^"]+)"[^>]*>/g,
-    (fullMatch, realSrc, _blobSrc) => fullMatch.replace(`src="${_blobSrc}"`, `src="${realSrc}"`),
-  );
-  // Match src="..." on img/video/source tags, and poster="..." on video tags
-  const urlRegex = /(<(?:img|video|source)[^>]+(?:src|poster)=")([^"]+)(")/g;
-  const matches = [...preprocessed.matchAll(urlRegex)];
-  if (matches.length === 0) return preprocessed;
-
-  // Deduplicate URLs to avoid fetching the same URL multiple times
-  const uniqueUrls = [...new Set(matches.map((m) => m[2]).filter((u) => !u.startsWith('blob:') && !u.startsWith('data:')))];
-  if (uniqueUrls.length === 0) return preprocessed;
-
-  // Fetch all unique URLs in parallel
-  const urlMap = new Map<string, string>();
-  await Promise.all(
-    uniqueUrls.map(async (url) => {
-      const blobUrl = await fetchMediaAsBlob(url);
-      if (blobUrl !== url) {
-        urlMap.set(url, blobUrl);
-      }
-    }),
-  );
-
-  // Replace each URL precisely using the full match to avoid over-replacing
-  if (urlMap.size === 0) return preprocessed;
-  let result = preprocessed;
-  for (let i = matches.length - 1; i >= 0; i--) {
-    const match = matches[i];
-    const originalUrl = match[2];
-    const blobUrl = urlMap.get(originalUrl);
-    if (!blobUrl) continue;
-    const fullMatch = match[0];
-    const newMatch = fullMatch.replace(originalUrl, blobUrl);
-    result = result.substring(0, match.index) + newMatch + result.substring(match.index + fullMatch.length);
-  }
-  return result;
-}
 
 function getLabel(options: any[], value: any): string {
   return options.find((o) => o.value === value)?.label || String(value);
@@ -173,8 +54,7 @@ function getDifficultyLabel(value: number): string {
 function parseOptions(): Array<{ id: string; text: string }> {
   if (!questionData.value?.content) return [];
   try {
-    let parsed = deepParse(questionData.value.content);
-    // If still a string after deepParse, try parsing again
+    let parsed: any = safeJsonParse(questionData.value.content);
     if (typeof parsed === 'string') {
       try { parsed = JSON.parse(parsed); } catch { /* ignore */ }
     }
@@ -194,7 +74,7 @@ function parseOptions(): Array<{ id: string; text: string }> {
 function parseCorrectAnswer(): string[] {
   if (!questionData.value?.answer) return [];
   try {
-    const parsed = deepParse(questionData.value.answer);
+    const parsed = safeJsonParse(questionData.value.answer);
     if (parsed && parsed.correct) return Array.isArray(parsed.correct) ? parsed.correct : [parsed.correct];
     if (parsed && parsed.blanks) return parsed.blanks;
     return [];
@@ -207,7 +87,7 @@ function parseCorrectAnswer(): string[] {
 function parseTFAnswer(): string {
   if (!questionData.value?.answer) return '';
   try {
-    const parsed = deepParse(questionData.value.answer);
+    const parsed = safeJsonParse(questionData.value.answer);
     return (parsed && parsed.correct) || '';
   } catch {
     return '';
@@ -232,7 +112,7 @@ function isCorrectOption(optionId: string): boolean {
   return correctList.value.includes(optionId);
 }
 
-// Processed HTML content (with blob URLs)
+// Processed HTML content (with token for direct display)
 const processedStem = ref('');
 const processedAnalysisText = ref('');
 const processedAnalysisMedia = ref('');
@@ -240,46 +120,37 @@ const processedEssayAnswer = ref('');
 
 // Reset answer on drawer open
 const [Drawer, drawerApi] = useVbenDrawer({
-  async onOpenChange(isOpen) {
+  onOpenChange(isOpen) {
     if (isOpen) {
       questionData.value = drawerApi.getData<QuestionApi.Question>();
       showAnswer.value = false;
       selectedAnswer.value = isSingleChoice.value ? null : [];
-      for (const blobUrl of blobToRealUrl.keys()) {
-        URL.revokeObjectURL(blobUrl);
-      }
-      blobToRealUrl.clear();
 
-      // Convert media to blob URLs for display
       if (questionData.value) {
-        const rawStem = fixMediaUrls(safeJsonParse(questionData.value.stem || ''));
-        const rawAnswer = fixMediaUrls(safeJsonParse(questionData.value.answer || ''));
+        // Parse and process all HTML fields (synchronous!)
+        const rawStem = safeJsonParse(questionData.value.stem || '') || '';
+        const rawAnswer = safeJsonParse(questionData.value.answer || '') || '';
 
-        // Parse analysis: handle new {text, media} format and legacy plain HTML
+        // Parse analysis: handle {text, media} format and legacy plain HTML
         let rawAnalysisText = '';
         let rawAnalysisMedia = '';
         try {
           const parsed = safeJsonParse(questionData.value.analysis || '');
           if (parsed && typeof parsed === 'object' && ('text' in parsed || 'media' in parsed)) {
-            rawAnalysisText = fixMediaUrls(parsed.text || '');
-            rawAnalysisMedia = fixMediaUrls(parsed.media || '');
+            rawAnalysisText = parsed.text || '';
+            rawAnalysisMedia = parsed.media || '';
           } else if (typeof parsed === 'string') {
-            rawAnalysisText = fixMediaUrls(parsed);
+            rawAnalysisText = parsed;
           }
         } catch {
-          rawAnalysisText = fixMediaUrls(safeJsonParse(questionData.value.analysis || '') || '');
+          rawAnalysisText = String(questionData.value.analysis || '');
         }
 
-        const [stem, analysisText, analysisMedia, answer] = await Promise.all([
-          convertMediaToBlobUrls(rawStem),
-          convertMediaToBlobUrls(rawAnalysisText),
-          convertMediaToBlobUrls(rawAnalysisMedia),
-          convertMediaToBlobUrls(rawAnswer),
-        ]);
-        processedStem.value = stem;
-        processedAnalysisText.value = analysisText;
-        processedAnalysisMedia.value = analysisMedia;
-        processedEssayAnswer.value = answer;
+        // Process media URLs: normalize + add token (synchronous, no async fetch!)
+        processedStem.value = processMediaHtml(rawStem);
+        processedAnalysisText.value = processMediaHtml(rawAnalysisText);
+        processedAnalysisMedia.value = processMediaHtml(rawAnalysisMedia);
+        processedEssayAnswer.value = processMediaHtml(rawAnswer);
       }
     }
   },

@@ -38,6 +38,13 @@ func JWTAuth() gin.HandlerFunc {
 			}
 		}
 
+		// Cookie 也没有时，从查询参数获取（支持 <img>/<video> 标签加载认证资源）
+		if tokenStr == "" {
+			if queryToken := c.Query("token"); queryToken != "" {
+				tokenStr = queryToken
+			}
+		}
+
 		if tokenStr == "" {
 			response.Unauthorized(c, "缺少认证信息")
 			c.Abort()

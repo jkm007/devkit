@@ -17,7 +17,14 @@ import {
   getSubjectAll,
 } from '#/api/question/category';
 import { createQuestion, updateQuestion } from '#/api/question/question';
-import { useAccessStore } from '@vben/stores';
+
+import {
+  appendToken,
+  cleanMediaHtml,
+  normalizeFileUrl,
+  processMediaHtml,
+  safeJsonParse,
+} from '#/utils/media-url';
 
 import {
   DIFFICULTY_OPTIONS,
@@ -29,12 +36,6 @@ const emits = defineEmits(['success']);
 
 const formData = ref<QuestionApi.Question>();
 const id = ref<number>();
-
-// Access store for token
-const accessStore = useAccessStore();
-function getAuthToken(): string {
-  return accessStore.accessToken || '';
-}
 
 // API base URL for image paths
 const apiBase = import.meta.env.VITE_GLOB_API_URL || '/api/v1';
@@ -114,138 +115,13 @@ async function loadCategoryOptions() {
 loadExamOptions();
 loadCategoryOptions();
 
-// Blob URL → real URL mapping (for converting back before save)
-const blobToRealUrl = new Map<string, string>();
-
-// Decode JSON-encoded string (handles double-encoding from DB)
-function safeJsonParse(jsonStr: string): string {
-  if (!jsonStr || jsonStr === 'null') return '';
-  try {
-    const parsed = JSON.parse(jsonStr);
-    if (typeof parsed === 'string') {
-      try {
-        const parsed2 = JSON.parse(parsed);
-        return typeof parsed2 === 'string' ? parsed2 : parsed;
-      } catch {
-        return parsed;
-      }
-    }
-    return jsonStr;
-  } catch {
-    return jsonStr;
-  }
-}
-
-// Fix image/video URLs in HTML content (normalize to /api/v1/files/{id}/view)
-function fixImageUrls(html: string): string {
-  if (!html) return html;
-  // Replace /files/{id}/direct-url → /files/{id}/view (without adding prefix)
-  let fixed = html.replace(/\/files\/(\d+)\/direct-url/g, '/files/$1/view');
-  // Add /api/v1 prefix to bare /files/ paths (in src, href, or poster attributes)
-  fixed = fixed.replace(/((?:src|href|poster)=")(\/files\/\d+\/view)/g, `$1${apiBase}$2`);
-  return fixed;
-}
-
 // Encode HTML string to JSON for backend
 function htmlToJson(html: string): string {
   return JSON.stringify(html || '');
 }
 
-// Fetch a media file with auth header and return a blob URL
-async function fetchMediaAsBlob(url: string): Promise<string> {
-  try {
-    const token = getAuthToken();
-    const response = await fetch(url, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-    if (response.ok) {
-      const blob = await response.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      blobToRealUrl.set(blobUrl, url);
-      return blobUrl;
-    }
-  } catch {
-    // ignore
-  }
-  return url;
-}
-
-// Convert real media URLs in HTML to blob URLs (for display in editor)
-// Handles <img>, <video>, <source>, and poster attributes
-async function convertMediaToBlobUrls(html: string): Promise<string> {
-  if (!html) return html;
-  // Fallback: for <img>/<video> tags with blob src, replace with data-real-src if available
-  let preprocessed = html;
-  preprocessed = preprocessed.replace(
-    /<(img|video)[^>]+src="(blob:[^"]+)"[^>]*data-real-src="([^"]+)"[^>]*>/g,
-    (fullMatch, _tag, _blobSrc, realSrc) => fullMatch.replace(`src="${_blobSrc}"`, `src="${realSrc}"`),
-  );
-  preprocessed = preprocessed.replace(
-    /<(img|video)[^>]+data-real-src="([^"]+)"[^>]+src="(blob:[^"]+)"[^>]*>/g,
-    (fullMatch, realSrc, _blobSrc) => fullMatch.replace(`src="${_blobSrc}"`, `src="${realSrc}"`),
-  );
-  // Match src="..." on img/video/source tags, and poster="..." on video tags
-  const urlRegex = /(<(?:img|video|source)[^>]+(?:src|poster)=")([^"]+)(")/g;
-  const matches = [...preprocessed.matchAll(urlRegex)];
-  if (matches.length === 0) return preprocessed;
-
-  // Deduplicate URLs to avoid fetching the same URL multiple times
-  const uniqueUrls = [...new Set(matches.map((m) => m[2]).filter((u) => !u.startsWith('blob:') && !u.startsWith('data:')))];
-  if (uniqueUrls.length === 0) return preprocessed;
-
-  // Fetch all unique URLs in parallel
-  const urlMap = new Map<string, string>();
-  await Promise.all(
-    uniqueUrls.map(async (url) => {
-      const blobUrl = await fetchMediaAsBlob(url);
-      if (blobUrl !== url) {
-        urlMap.set(url, blobUrl);
-      }
-    }),
-  );
-
-  // Replace each URL precisely using the full match to avoid over-replacing
-  if (urlMap.size === 0) return preprocessed;
-  let result = preprocessed;
-  // Process in reverse order to preserve match indices
-  for (let i = matches.length - 1; i >= 0; i--) {
-    const match = matches[i];
-    const originalUrl = match[2];
-    const blobUrl = urlMap.get(originalUrl);
-    if (!blobUrl) continue;
-    // Replace only this specific occurrence using the full match
-    const fullMatch = match[0];
-    const newMatch = fullMatch.replace(originalUrl, blobUrl);
-    result = result.substring(0, match.index) + newMatch + result.substring(match.index + fullMatch.length);
-  }
-  return result;
-}
-
-// Convert blob URLs in HTML back to real URLs (for saving to DB)
-function convertBlobUrlsToReal(html: string): string {
-  if (!html) return html;
-  let result = html;
-  for (const [blobUrl, realUrl] of blobToRealUrl.entries()) {
-    result = result.replaceAll(blobUrl, realUrl);
-  }
-  // For <img>/<video> tags with blob src and data-real-src, replace src with data-real-src
-  // Handles both orderings: src before data-real-src, and data-real-src before src
-  result = result.replace(
-    /<(img|video)[^>]+src="(blob:[^"]+)"[^>]*data-real-src="([^"]+)"[^>]*>/g,
-    (fullMatch, _tag, _blobSrc, realSrc) => fullMatch.replace(`src="${_blobSrc}"`, `src="${realSrc}"`),
-  );
-  result = result.replace(
-    /<(img|video)[^>]+data-real-src="([^"]+)"[^>]+src="(blob:[^"]+)"[^>]*>/g,
-    (fullMatch, realSrc, _blobSrc) => fullMatch.replace(`src="${_blobSrc}"`, `src="${realSrc}"`),
-  );
-  // Final catch: any remaining blob URLs
-  result = result.replace(/blob:http[^"]+/g, (match) => {
-    return blobToRealUrl.get(match) || match;
-  });
-  return result;
-}
-
 // Media upload adapter for TipTap (images + videos)
+// Returns URL with token so the editor can display it directly
 const imageUploadConfig = {
   accept: 'image/*,video/*',
   maxSize: 100 * 1024 * 1024, // 100MB (for videos)
@@ -260,7 +136,8 @@ const imageUploadConfig = {
     }
     // Normalize direct-url to view
     realUrl = realUrl.replace(/\/direct-url/g, '/view');
-    return realUrl;
+    // Append token so <img>/<video> can load directly
+    return appendToken(realUrl);
   },
 };
 
@@ -421,11 +298,11 @@ const [Drawer, drawerApi] = useVbenDrawer({
     const values = await formApi.getValues();
     const questionType = values.questionType as string;
 
-    // Convert blob URLs back to real URLs before saving
-    const realStemHtml = convertBlobUrlsToReal(stemHtml.value);
-    const realAnalysisTextHtml = convertBlobUrlsToReal(analysisTextHtml.value);
-    const realAnalysisMediaHtml = convertBlobUrlsToReal(analysisMediaHtml.value);
-    const realEssayAnswerHtml = convertBlobUrlsToReal(essayAnswerHtml.value);
+    // Strip tokens from URLs before saving (synchronous, no blob conversion needed)
+    const cleanStem = cleanMediaHtml(stemHtml.value);
+    const cleanAnalysisText = cleanMediaHtml(analysisTextHtml.value);
+    const cleanAnalysisMedia = cleanMediaHtml(analysisMediaHtml.value);
+    const cleanEssayAnswer = cleanMediaHtml(essayAnswerHtml.value);
 
     // Build content and answer based on question type
     let contentJson = '';
@@ -449,40 +326,40 @@ const [Drawer, drawerApi] = useVbenDrawer({
       answerJson = JSON.stringify({ correct: tfAnswer.value });
     } else if (questionType === 'fill_blank') {
       // Count blanks in stem
-      const blankCount = (realStemHtml.match(/_{3,}|（\s*）|\(\s*\)/g) || []).length;
+      const blankCount = (cleanStem.match(/_{3,}|（\s*）|\(\s*\)/g) || []).length;
       if (blankCount > 0) {
         let blanks: string[] = [];
         try {
-          blanks = JSON.parse(realEssayAnswerHtml || '[]');
+          blanks = JSON.parse(cleanEssayAnswer || '[]');
           if (!Array.isArray(blanks)) blanks = [];
         } catch {
           blanks = [];
         }
-        if (blanks.length === 0 && realEssayAnswerHtml) {
-          blanks = [realEssayAnswerHtml];
+        if (blanks.length === 0 && cleanEssayAnswer) {
+          blanks = [cleanEssayAnswer];
         }
         contentJson = JSON.stringify({ blankCount });
         answerJson = JSON.stringify({ blanks });
       } else {
         contentJson = '';
-        answerJson = htmlToJson(realEssayAnswerHtml);
+        answerJson = htmlToJson(cleanEssayAnswer);
       }
     } else {
       // Essay, programming, etc.
       contentJson = '';
-      answerJson = htmlToJson(realEssayAnswerHtml);
+      answerJson = htmlToJson(cleanEssayAnswer);
     }
 
     drawerApi.lock();
 
     const submitData = {
       ...values,
-      stem: htmlToJson(realStemHtml),
+      stem: htmlToJson(cleanStem),
       content: contentJson ? contentJson : htmlToJson(''),
       answer: answerJson,
       analysis: JSON.stringify({
-        text: realAnalysisTextHtml || '',
-        media: realAnalysisMediaHtml || '',
+        text: cleanAnalysisText || '',
+        media: cleanAnalysisMedia || '',
       }),
     };
 
@@ -499,20 +376,10 @@ const [Drawer, drawerApi] = useVbenDrawer({
     if (isOpen) {
       const data = drawerApi.getData<QuestionApi.Question>();
       formApi.resetForm();
-      // Clear blob URL mapping
-      for (const blobUrl of blobToRealUrl.keys()) {
-        URL.revokeObjectURL(blobUrl);
-      }
-      blobToRealUrl.clear();
 
       if (data?.id) {
         formData.value = data;
         id.value = data.id;
-        // Clear editor content first to prevent rendering real URLs (which need auth)
-        stemHtml.value = '';
-        analysisTextHtml.value = '';
-        analysisMediaHtml.value = '';
-        essayAnswerHtml.value = '';
         await formApi.setValues({
           title: data.title,
           questionType: data.questionType,
@@ -526,52 +393,36 @@ const [Drawer, drawerApi] = useVbenDrawer({
         // Load subject options if exam is set
         if (data.examId) {
           await loadSubjectOptions(data.examId);
-          // Re-set subjectId after options are loaded
           if (data.subjectId) {
             await formApi.setValues({ subjectId: data.subjectId });
           }
         }
         currentType.value = data.questionType || '';
 
-        // Decode and fix image URLs, then convert to blob URLs for display
-        const rawStem = fixImageUrls(safeJsonParse(data.stem));
-        const rawEssayAnswer = fixImageUrls(safeJsonParse(data.answer));
-
-        // Parse analysis: handle new {text, media} format and legacy plain HTML
+        // Parse analysis: handle {text, media} format and legacy plain HTML
         let rawAnalysisText = '';
         let rawAnalysisMedia = '';
         try {
-          const parsed = safeJsonParse(data.analysis);
+          const parsed = safeJsonParse(data.analysis || '');
           if (parsed && typeof parsed === 'object' && ('text' in parsed || 'media' in parsed)) {
-            // New format: {text, media}
-            rawAnalysisText = fixImageUrls(parsed.text || '');
-            rawAnalysisMedia = fixImageUrls(parsed.media || '');
+            rawAnalysisText = parsed.text || '';
+            rawAnalysisMedia = parsed.media || '';
           } else if (typeof parsed === 'string') {
-            // Legacy format: plain HTML string → put in text field
-            rawAnalysisText = fixImageUrls(parsed);
+            rawAnalysisText = parsed;
           }
         } catch {
-          // Fallback: treat as plain HTML
-          rawAnalysisText = fixImageUrls(safeJsonParse(data.analysis) || '');
+          rawAnalysisText = String(data.analysis || '');
         }
 
-        // Convert images to blob URLs (authenticated fetch)
-        const [stemWithBlobs, analysisTextWithBlobs, analysisMediaWithBlobs, essayWithBlobs] = await Promise.all([
-          convertMediaToBlobUrls(rawStem),
-          convertMediaToBlobUrls(rawAnalysisText),
-          convertMediaToBlobUrls(rawAnalysisMedia),
-          convertMediaToBlobUrls(rawEssayAnswer),
-        ]);
-
-        stemHtml.value = stemWithBlobs;
-        analysisTextHtml.value = analysisTextWithBlobs;
-        analysisMediaHtml.value = analysisMediaWithBlobs;
-        essayAnswerHtml.value = essayWithBlobs;
+        // Process media URLs: normalize + add token (synchronous, no fetch needed!)
+        stemHtml.value = processMediaHtml(safeJsonParse(data.stem || '') || '');
+        analysisTextHtml.value = processMediaHtml(rawAnalysisText);
+        analysisMediaHtml.value = processMediaHtml(rawAnalysisMedia);
+        essayAnswerHtml.value = processMediaHtml(safeJsonParse(data.answer || '') || '');
 
         // Decode type-specific content and answer
         const questionType = data.questionType || '';
         if (CHOICE_TYPES.includes(questionType)) {
-          // Parse options from content
           try {
             const parsed = JSON.parse(data.content || '[]');
             if (Array.isArray(parsed) && parsed.length > 0) {
@@ -586,7 +437,6 @@ const [Drawer, drawerApi] = useVbenDrawer({
               { id: 'B', text: '' },
             ];
           }
-          // Parse correct answer
           try {
             const ans = JSON.parse(data.answer || '{}');
             correctAnswers.value = ans.correct || [];
@@ -601,7 +451,6 @@ const [Drawer, drawerApi] = useVbenDrawer({
             tfAnswer.value = 'true';
           }
         }
-        // essayAnswerHtml already set above with blob URLs
       } else {
         formData.value = undefined;
         id.value = undefined;
@@ -652,7 +501,7 @@ const drawerTitle = computed(() => {
           <label class="text-sm font-medium">
             选项
             <span class="ml-1 text-xs text-gray-400">
-              （点击选项标记正确答案{{ currentType === 'single_choice' ? '，单选' : '，可多选' }}）
+              （点击选项标记正确答案{{ currentType === 'single_choice' ? '，单选' : '，可多选' }}
             </span>
           </label>
           <Button size="small" @click="addOption">
