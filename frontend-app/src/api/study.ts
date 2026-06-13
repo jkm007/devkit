@@ -107,3 +107,54 @@ export function submitPractice(data: {
 export function getPracticeHistory(params: { page?: number; pageSize?: number }) {
   return request.get<PageResponse<any>>('/api/v1/study/practice/history', { params });
 }
+
+/**
+ * ==================== 错题本 API ====================
+ */
+
+/**
+ * 获取错题列表
+ */
+export function getWrongBooks(params: {
+  page?: number;
+  pageSize?: number;
+  categoryId?: number;
+  isMastered?: boolean;
+}) {
+  return request.get<PageResponse<any>>('/api/v1/study/wrong', { params });
+}
+
+/**
+ * 标记已掌握
+ */
+export function markWrongMastered(questionId: number) {
+  return request.put(`/api/v1/study/wrong/${questionId}/mastered`);
+}
+
+/**
+ * 批量标记已掌握
+ */
+export function batchMarkMastered(questionIds: number[]) {
+  return request.post('/api/v1/study/wrong/batch-mastered', { questionIds });
+}
+
+/**
+ * 移除错题
+ */
+export function deleteWrongBook(questionId: number) {
+  return request.delete(`/api/v1/study/wrong/${questionId}`);
+}
+
+/**
+ * 获取随机错题（重做）
+ */
+export function getWrongBookRandom(count = 20) {
+  return request.get<any>('/api/v1/study/wrong/random', { params: { count } });
+}
+
+/**
+ * 获取错题统计
+ */
+export function getWrongBookStats() {
+  return request.get<any>('/api/v1/study/wrong/stats');
+}

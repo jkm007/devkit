@@ -179,6 +179,14 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		authorized.POST("/study/practice/submit", studyHandler.SubmitPractice)
 		authorized.GET("/study/practice/history", studyHandler.GetPracticeHistory)
 
+		// 错题本
+		authorized.GET("/study/wrong", studyHandler.GetWrongBooks)
+		authorized.GET("/study/wrong/stats", studyHandler.GetWrongBookStats)
+		authorized.GET("/study/wrong/random", studyHandler.GetWrongBookRandomQuestions)
+		authorized.PUT("/study/wrong/:questionId/mastered", studyHandler.MarkWrongMastered)
+		authorized.POST("/study/wrong/batch-mastered", studyHandler.BatchMarkMastered)
+		authorized.DELETE("/study/wrong/:questionId", studyHandler.DeleteWrongBook)
+
 		// 通知消息
 		authorized.GET("/notifications", notificationHandler.List)
 		authorized.GET("/notifications/unread-count", notificationHandler.GetUnreadCount)

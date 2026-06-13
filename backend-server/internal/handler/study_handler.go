@@ -14,13 +14,15 @@ import (
 type StudyHandler struct {
 	studyService     *service.StudyService
 	favoriteService  *service.FavoriteNoteService
+	wrongBookService *service.WrongBookService
 }
 
 // NewStudyHandler 创建学习接口处理器
 func NewStudyHandler() *StudyHandler {
 	return &StudyHandler{
-		studyService:    service.NewStudyService(),
-		favoriteService: service.NewFavoriteNoteService(),
+		studyService:     service.NewStudyService(),
+		favoriteService:  service.NewFavoriteNoteService(),
+		wrongBookService: service.NewWrongBookService(),
 	}
 }
 
@@ -268,4 +270,125 @@ func (h *StudyHandler) GetPracticeHistory(c *gin.Context) {
 	}
 
 	response.SuccessPage(c, items, total)
+}
+
+// ==================== 错题本接口 ====================
+
+// GetWrongBooks 获取错题列表
+func (h *StudyHandler) GetWrongBooks(c *gin.Context) {
+	userID := middleware.GetCurrentUserID(c)
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
+
+	var categoryID uint
+	if cidStr := c.Query("categoryId"); cidStr != "" {
+		if cid, err := strconv.ParseUint(cidStr, 10, 32); err == nil {
+			categoryID = uint(cid)
+		}
+	}
+
+	var isMastered *bool
+	if mStr := c.Query("isMastered"); mStr != "" {
+		m := mStr == "1" || mStr == "true"
+		isMastered = &m
+	}
+
+	items, total, err := h.wrongBookService.List(userID, categoryID, isMastered, page, pageSize)
+	if err != nil {
+		response.InternalError(c, "获取错题列表失败")
+		return
+	}
+
+	response.SuccessPage(c, items, total)
+}
+
+// MarkWrongMastered 标记已掌握
+func (h *StudyHandler) MarkWrongMastered(c *gin.Context) {
+	userID := middleware.GetCurrentUserID(c)
+
+	idStr := c.Param("questionId")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "无效的题目ID")
+		return
+	}
+
+	if err := h.wrongBookService.MarkMastered(userID, uint(id)); err != nil {
+		response.InternalError(c, "操作失败")
+		return
+	}
+
+	response.SuccessWithMessage(c, "已标记为掌握", nil)
+}
+
+// BatchMarkMastered 批量标记已掌握
+func (h *StudyHandler) BatchMarkMastered(c *gin.Context) {
+	userID := middleware.GetCurrentUserID(c)
+
+	var req struct {
+		QuestionIDs []uint `json:"questionIds" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	if err := h.wrongBookService.BatchMarkMastered(userID, req.QuestionIDs); err != nil {
+		response.InternalError(c, "操作失败")
+		return
+	}
+
+	response.SuccessWithMessage(c, "批量标记成功", nil)
+}
+
+// DeleteWrongBook 移除错题
+func (h *StudyHandler) DeleteWrongBook(c *gin.Context) {
+	userID := middleware.GetCurrentUserID(c)
+
+	idStr := c.Param("questionId")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "无效的题目ID")
+		return
+	}
+
+	if err := h.wrongBookService.Delete(userID, uint(id)); err != nil {
+		response.InternalError(c, "移除失败")
+		return
+	}
+
+	response.SuccessWithMessage(c, "已移除", nil)
+}
+
+// GetWrongBookRandomQuestions 获取随机错题（重做）
+func (h *StudyHandler) GetWrongBookRandomQuestions(c *gin.Context) {
+	userID := middleware.GetCurrentUserID(c)
+
+	limitStr := c.DefaultQuery("count", "20")
+	limit, _ := strconv.Atoi(limitStr)
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+
+	questions, err := h.wrongBookService.GetRandomQuestions(userID, limit)
+	if err != nil {
+		response.InternalError(c, "获取错题失败")
+		return
+	}
+
+	response.Success(c, questions)
+}
+
+// GetWrongBookStats 获取错题统计
+func (h *StudyHandler) GetWrongBookStats(c *gin.Context) {
+	userID := middleware.GetCurrentUserID(c)
+
+	stats, err := h.wrongBookService.GetStats(userID)
+	if err != nil {
+		response.InternalError(c, "获取统计失败")
+		return
+	}
+
+	response.Success(c, stats)
 }

@@ -165,6 +165,18 @@
         "navigationBarTitleText": "文件预览",
         "navigationStyle": "custom"
       }
+    },
+    {
+      "path": "pages/profile/wrong-book",
+      "style": {
+        "navigationBarTitleText": "错题本"
+      }
+    },
+    {
+      "path": "pages/practice/wrong-session",
+      "style": {
+        "navigationBarTitleText": "错题复习"
+      }
     }
   ],
   "globalStyle": {

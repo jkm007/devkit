@@ -54,5 +54,6 @@ func Run(db *gorm.DB) error {
 		&model.UserFavorite{},
 		&model.UserNote{},
 		&model.PracticeRecord{},
+		&model.WrongBook{},
 	)
 }
