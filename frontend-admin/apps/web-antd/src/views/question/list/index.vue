@@ -155,14 +155,14 @@ function onCreate() {
                   ? onArchive(row)
                   : onPublish(row),
               auth: ['question:publish'],
-              show: row.status === 'draft' || row.status === 'published',
+              ifShow: row.status === 'draft' || row.status === 'published',
             },
             {
               text: '提交审核',
               icon: 'lucide:send',
               onClick: () => onSubmitAudit(row),
               auth: ['question:audit:submit'],
-              show: row.status === 'draft' || row.status === 'rejected',
+              ifShow: row.status === 'draft' || row.status === 'rejected',
             },
           ]"
           :dropdown-actions="[

@@ -95,14 +95,14 @@ function onRefresh() {
               icon: 'lucide:check-circle',
               onClick: () => onApprove(row),
               auth: ['question:audit:approve'],
-              show: row.status === 'pending',
+              ifShow: row.status === 'pending',
             },
             {
               text: '驳回',
               icon: 'lucide:x-circle',
               onClick: () => onReject(row),
               auth: ['question:audit:reject'],
-              show: row.status === 'pending',
+              ifShow: row.status === 'pending',
               danger: true,
             },
           ]"
