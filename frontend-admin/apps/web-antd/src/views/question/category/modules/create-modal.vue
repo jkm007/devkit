@@ -1,9 +1,13 @@
 <script lang="ts" setup>
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 
-import { Input, InputNumber, Modal, Radio, RadioGroup } from 'ant-design-vue';
+import { Input, InputNumber, message, Modal, Radio, RadioGroup } from 'ant-design-vue';
 
 const visible = ref(false);
+const modalTitle = ref('新增');
+const parentCode = ref('');
+const nodeType = ref<'examCategory' | 'exam' | 'subject' | 'category'>('examCategory');
+
 const formData = ref({
   name: '',
   code: '',
@@ -13,7 +17,36 @@ const formData = ref({
 
 const emit = defineEmits(['success']);
 
-function open() {
+// Generate code based on name
+watch(() => formData.value.name, (name) => {
+  if (!name) return;
+
+  // Auto-generate code from name (simple pinyin or abbreviation)
+  const typeLabels = {
+    examCategory: 'CAT',
+    exam: 'EX',
+    subject: 'SU',
+    category: 'CA',
+  };
+
+  const prefix = parentCode.value || typeLabels[nodeType.value];
+  const suffix = name.replace(/\s+/g, '').substring(0, 10);
+  formData.value.code = `${prefix}-${suffix}`;
+});
+
+function open(params?: { parentCode?: string; nodeType?: 'examCategory' | 'exam' | 'subject' | 'category' }) {
+  parentCode.value = params?.parentCode || '';
+  nodeType.value = params?.nodeType || 'examCategory';
+
+  const typeLabels = {
+    examCategory: '考试大类',
+    exam: '具体考试',
+    subject: '科目模块',
+    category: '章节分类',
+  };
+
+  modalTitle.value = `新增${typeLabels[nodeType.value]}`;
+
   formData.value = {
     name: '',
     code: '',
@@ -25,6 +58,7 @@ function open() {
 
 function handleOk() {
   if (!formData.value.name) {
+    message.warning('请输入名称');
     return;
   }
   emit('success', formData.value);
@@ -41,7 +75,7 @@ defineExpose({ open });
 <template>
   <Modal
     v-model:open="visible"
-    title="新增"
+    :title="modalTitle"
     @ok="handleOk"
     @cancel="handleCancel"
   >
@@ -52,15 +86,18 @@ defineExpose({ open });
         </label>
         <Input
           v-model:value="formData.name"
-          placeholder="请输入名称"
+          placeholder="请输入名称（编码将自动生成）"
         />
       </div>
 
       <div>
-        <label class="block text-sm font-medium mb-2">编码</label>
+        <label class="block text-sm font-medium mb-2">
+          编码
+          <span class="text-xs text-gray-500 ml-2">（自动生成，可修改）</span>
+        </label>
         <Input
           v-model:value="formData.code"
-          placeholder="请输入编码"
+          placeholder="编码"
         />
       </div>
 

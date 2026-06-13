@@ -270,6 +270,7 @@ async function handleCreate() {
 
   const parentType = selectedNode.value.type;
   const parentId = selectedNode.value.data.id;
+  const parentCode = selectedNode.value.data.code || '';
 
   // Determine child type
   switch (parentType) {
@@ -291,7 +292,10 @@ async function handleCreate() {
   }
 
   createParentId.value = parentId;
-  createModalRef.value?.open();
+  createModalRef.value?.open({
+    parentCode,
+    nodeType: createType.value,
+  });
 }
 
 // Handle create success
@@ -325,7 +329,10 @@ async function handleCreateSuccess(data: any) {
 function handleCreateRoot() {
   createType.value = 'examCategory';
   createParentId.value = 0;
-  createModalRef.value?.open();
+  createModalRef.value?.open({
+    parentCode: '',
+    nodeType: 'examCategory',
+  });
 }
 
 // Handle create root success
@@ -436,14 +443,13 @@ onMounted(() => {
           :tree-data="treeData"
           :expanded-keys="expandedKeys"
           :selected-keys="selectedKeys"
-          show-icon
           block-node
           @select="handleSelect"
           @expand="(keys) => expandedKeys = keys"
         >
-          <template #title="{ title, type, icon }">
+          <template #title="{ title, icon }">
             <span>
-              <span class="mr-2">{{ icon }}</span>
+              <span class="mr-1">{{ icon }}</span>
               <span>{{ title }}</span>
             </span>
           </template>
@@ -460,7 +466,8 @@ onMounted(() => {
             <div>
               <h3 class="text-lg font-medium">{{ selectedNode.title }}</h3>
               <div class="mt-1 text-sm text-gray-500">
-                类型：{{ getNodeTypeLabel(selectedNode.type) }} | 编码：{{ selectedNode.data.code || '无' }}
+                类型：{{ getNodeTypeLabel(selectedNode.type) }}
+                <span v-if="selectedNode.data.code"> | 编码：{{ selectedNode.data.code }}</span>
               </div>
             </div>
             <div class="flex gap-2">
