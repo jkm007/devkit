@@ -102,19 +102,13 @@ export function useQuestionColumns(): VxeTableGridColumns {
       field: 'difficulty',
       title: '难度',
       width: 80,
-      formatter({ cellValue }: any) {
-        const found = DIFFICULTY_OPTIONS.find((o) => o.value === cellValue);
-        return found?.label || '简单';
-      },
+      cellRender: { name: 'CellTag', options: DIFFICULTY_OPTIONS },
     },
     {
       field: 'status',
       title: '状态',
       width: 100,
-      formatter({ cellValue }: any) {
-        const found = STATUS_OPTIONS.find((o) => o.value === cellValue);
-        return found?.label || cellValue;
-      },
+      cellRender: { name: 'CellTag', options: STATUS_OPTIONS },
     },
     {
       field: 'resourceType',
@@ -127,6 +121,7 @@ export function useQuestionColumns(): VxeTableGridColumns {
         return found?.label || cellValue;
       },
     },
+    { field: 'createdBy', title: '创建人', width: 100 },
     { field: 'createTime', title: '创建时间', width: 180 },
     {
       align: 'center',

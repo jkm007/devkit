@@ -5,7 +5,7 @@ import type { QuestionApi } from '#/api/question/question';
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import { Plus } from '@vben/icons';
 
-import { Button, message, Modal } from 'ant-design-vue';
+import { Button, message } from 'ant-design-vue';
 
 import { useAccess } from '@vben/access';
 
@@ -20,11 +20,17 @@ import {
 
 import { useQuestionColumns, useQuestionFormSchema } from './data';
 import QuestionForm from './modules/form.vue';
+import QuestionPreview from './modules/preview.vue';
 
 const { hasAccessByCodes } = useAccess();
 
 const [FormDrawer, formDrawerApi] = useVbenDrawer({
   connectedComponent: QuestionForm,
+  destroyOnClose: true,
+});
+
+const [PreviewDrawer, previewDrawerApi] = useVbenDrawer({
+  connectedComponent: QuestionPreview,
   destroyOnClose: true,
 });
 
@@ -63,6 +69,10 @@ const [Grid, gridApi] = useVbenVxeGrid({
 
 function onEdit(row: QuestionApi.Question) {
   formDrawerApi.setData(row).open();
+}
+
+function onPreview(row: QuestionApi.Question) {
+  previewDrawerApi.setData(row).open();
 }
 
 async function onDelete(row: QuestionApi.Question) {
@@ -124,6 +134,7 @@ function onCreate() {
 <template>
   <Page auto-content-height>
     <FormDrawer @success="onRefresh" />
+    <PreviewDrawer />
     <Grid table-title="题目列表">
       <template #toolbar-tools>
         <Button
@@ -138,6 +149,11 @@ function onCreate() {
       <template #action="{ row }">
         <VbenTableAction
           :actions="[
+            {
+              text: '预览',
+              icon: 'lucide:eye',
+              onClick: () => onPreview(row),
+            },
             {
               text: '编辑',
               icon: 'lucide:edit',
