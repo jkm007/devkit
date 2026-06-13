@@ -1,13 +1,28 @@
 package service
 
 import (
-	"encoding/json"
-	"time"
+	"fmt"
 
 	"backend-server/internal/model"
 	"backend-server/internal/repository"
 	"backend-server/pkg/database"
+	"time"
 )
+
+func marshalAnswers(answers []string) string {
+	if len(answers) == 0 {
+		return "[]"
+	}
+	result := "["
+	for i, a := range answers {
+		if i > 0 {
+			result += ","
+		}
+		result += fmt.Sprintf("%q", a)
+	}
+	result += "]"
+	return result
+}
 
 // StudyService 学习服务
 type StudyService struct {
@@ -21,20 +36,19 @@ func NewStudyService() *StudyService {
 	}
 }
 
-// QuestionResponse 题目响应
-type QuestionResponse struct {
-	ID           uint                  `json:"id"`
-	Title        string                `json:"title"`
-	QuestionType string                `json:"questionType"`
-	Difficulty   int                   `json:"difficulty"`
-	CategoryID   uint                  `json:"categoryId"`
-	CategoryName string                `json:"categoryName"`
-	Stem         json.RawMessage       `json:"stem"`
-	Options      json.RawMessage       `json:"options"`
-	Answer       json.RawMessage       `json:"answer,omitempty"`
-	Analysis     json.RawMessage       `json:"analysis,omitempty"`
-	IsFavorited  bool                  `json:"isFavorited"`
-	Tags         []string              `json:"tags,omitempty"`
+// StudyQuestionResponse 学习用题目响应
+type StudyQuestionResponse struct {
+	ID           uint   `json:"id"`
+	Title        string `json:"title"`
+	QuestionType string `json:"questionType"`
+	Difficulty   int    `json:"difficulty"`
+	CategoryID   uint   `json:"categoryId"`
+	CategoryName string `json:"categoryName"`
+	Stem         string `json:"stem"`
+	Options      string `json:"options"`
+	Answer       string `json:"answer,omitempty"`
+	Analysis     string `json:"analysis,omitempty"`
+	IsFavorited  bool   `json:"isFavorited"`
 }
 
 // PracticeRequest 练习请求
@@ -68,7 +82,7 @@ type PracticeHistoryResponse struct {
 }
 
 // ListQuestions 获取题目列表
-func (s *StudyService) ListQuestions(userID uint, page, pageSize int, filters map[string]interface{}) ([]QuestionResponse, int64, error) {
+func (s *StudyService) ListQuestions(userID uint, page, pageSize int, filters map[string]interface{}) ([]StudyQuestionResponse, int64, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -83,7 +97,7 @@ func (s *StudyService) ListQuestions(userID uint, page, pageSize int, filters ma
 	}
 
 	// 转换为响应格式
-	results := make([]QuestionResponse, 0, len(items))
+	results := make([]StudyQuestionResponse, 0, len(items))
 	for _, item := range items {
 		q := s.toQuestionResponse(item, userID)
 		results = append(results, q)
@@ -93,7 +107,7 @@ func (s *StudyService) ListQuestions(userID uint, page, pageSize int, filters ma
 }
 
 // GetQuestion 获取题目详情
-func (s *StudyService) GetQuestion(userID, questionID uint) (*QuestionResponse, error) {
+func (s *StudyService) GetQuestion(userID, questionID uint) (*StudyQuestionResponse, error) {
 	item, err := s.studyRepo.GetQuestionByID(questionID)
 	if err != nil {
 		return nil, err
@@ -121,7 +135,7 @@ func (s *StudyService) GetRandomQuestions(req *PracticeRequest) ([]map[string]in
 
 // SubmitPractice 提交练习结果
 func (s *StudyService) SubmitPractice(userID uint, req *PracticeSubmitRequest) error {
-	answersJSON, _ := json.Marshal(req.Answers)
+	answersJSON := marshalAnswers(req.Answers)
 
 	record := &model.PracticeRecord{
 		UserID:   userID,
@@ -168,8 +182,8 @@ func (s *StudyService) GetPracticeHistory(userID uint, page, pageSize int) ([]Pr
 }
 
 // toQuestionResponse 转换为题目响应
-func (s *StudyService) toQuestionResponse(item map[string]interface{}, userID uint) QuestionResponse {
-	q := QuestionResponse{}
+func (s *StudyService) toQuestionResponse(item map[string]interface{}, userID uint) StudyQuestionResponse {
+	q := StudyQuestionResponse{}
 
 	if v, ok := item["id"].(uint); ok {
 		q.ID = v
@@ -190,16 +204,16 @@ func (s *StudyService) toQuestionResponse(item map[string]interface{}, userID ui
 		q.CategoryName = v
 	}
 	if v, ok := item["stem"].(string); ok {
-		q.Stem = json.RawMessage(v)
+		q.Stem = v
 	}
 	if v, ok := item["options"].(string); ok {
-		q.Options = json.RawMessage(v)
+		q.Options = v
 	}
 	if v, ok := item["answer"].(string); ok {
-		q.Answer = json.RawMessage(v)
+		q.Answer = v
 	}
 	if v, ok := item["analysis"].(string); ok {
-		q.Analysis = json.RawMessage(v)
+		q.Analysis = v
 	}
 
 	// 检查收藏状态
