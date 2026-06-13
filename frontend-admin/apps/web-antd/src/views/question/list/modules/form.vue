@@ -13,6 +13,7 @@ import { useVbenForm } from '#/adapter/form';
 import { simpleUpload } from '#/api/file';
 import {
   getExamAll,
+  getExamCategoryAll,
   getQuestionCategoryAll,
   getSubjectAll,
 } from '#/api/question/category';
@@ -72,20 +73,36 @@ const isFillBlank = computed(() => currentType.value === 'fill_blank');
 // Current question type for template - synced from form select
 const currentType = ref('');
 
-// Exam/Subject/Category cascading options
+// Exam Category/Exam/Subject/Category cascading options (4-level)
+const examCategoryOptions = ref<any[]>([]);
 const examOptions = ref<any[]>([]);
 const subjectOptions = ref<any[]>([]);
 const categoryOptions = ref<any[]>([]);
 
-async function loadExamOptions() {
+async function loadExamCategoryOptions() {
   try {
-    const res = await getExamAll();
-    examOptions.value = (res || []).map((item: any) => ({
+    const res = await getExamCategoryAll();
+    examCategoryOptions.value = (res || []).map((item: any) => ({
       label: item.name,
       value: item.id,
     }));
   } catch {
     // ignore
+  }
+}
+
+async function loadExamOptions(examCategoryId: number) {
+  try {
+    const res = await getExamAll();
+    // Filter by exam category
+    examOptions.value = (res || [])
+      .filter((item: any) => item.examCategoryId === examCategoryId)
+      .map((item: any) => ({
+        label: item.name,
+        value: item.id,
+      }));
+  } catch {
+    examOptions.value = [];
   }
 }
 
@@ -101,20 +118,48 @@ async function loadSubjectOptions(examId: number) {
   }
 }
 
-async function loadCategoryOptions() {
+async function loadCategoryOptions(subjectId: number) {
   try {
     const res = await getQuestionCategoryAll();
-    categoryOptions.value = (res || []).map((item: any) => ({
-      label: item.name,
-      value: item.id,
-    }));
+    // Filter by subject and build tree
+    const filtered = (res || []).filter((item: any) => item.subjectId === subjectId);
+    categoryOptions.value = buildCategoryTree(filtered);
   } catch {
     categoryOptions.value = [];
   }
 }
 
-loadExamOptions();
-loadCategoryOptions();
+function buildCategoryTree(items: any[]): any[] {
+  const map = new Map<number, any>();
+  const roots: any[] = [];
+
+  items.forEach((item) => {
+    map.set(item.id, { ...item, label: item.name, value: item.id, children: [] });
+  });
+
+  items.forEach((item) => {
+    const node = map.get(item.id)!;
+    if (item.parentId && map.has(item.parentId)) {
+      map.get(item.parentId)!.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  });
+
+  // Remove empty children arrays
+  const cleanChildren = (nodes: any[]): any[] => {
+    return nodes.map((node) => {
+      if (node.children && node.children.length === 0) {
+        return { ...node, children: undefined };
+      }
+      return { ...node, children: cleanChildren(node.children) };
+    });
+  };
+
+  return cleanChildren(roots);
+}
+
+loadExamCategoryOptions();
 
 // Encode HTML string to JSON for backend
 function htmlToJson(html: string): string {
@@ -223,13 +268,36 @@ const [Form, formApi] = useVbenForm({
       defaultValue: 'private',
       componentProps: { options: RESOURCE_TYPE_OPTIONS, class: 'w-full' },
     },
+    // 4-level cascading selection
+    {
+      component: 'Select',
+      fieldName: 'examCategoryId',
+      label: '考试大类',
+      componentProps: {
+        options: examCategoryOptions,
+        placeholder: '请选择考试大类（如：软考、小学教育）',
+        class: 'w-full',
+        onChange: (val: number) => {
+          if (val) {
+            loadExamOptions(val);
+          } else {
+            examOptions.value = [];
+          }
+          formApi.setValues({
+            examId: undefined,
+            subjectId: undefined,
+            categoryId: undefined,
+          });
+        },
+      },
+    },
     {
       component: 'Select',
       fieldName: 'examId',
-      label: '所属考试',
+      label: '具体考试',
       componentProps: {
         options: examOptions,
-        placeholder: '请选择考试',
+        placeholder: '请先选择考试大类',
         class: 'w-full',
         onChange: (val: number) => {
           if (val) {
@@ -247,18 +315,30 @@ const [Form, formApi] = useVbenForm({
       label: '所属科目',
       componentProps: {
         options: subjectOptions,
-        placeholder: '请先选择考试',
+        placeholder: '请先选择具体考试',
         class: 'w-full',
+        onChange: (val: number) => {
+          if (val) {
+            loadCategoryOptions(val);
+          } else {
+            categoryOptions.value = [];
+          }
+          formApi.setValues({ categoryId: undefined });
+        },
       },
     },
     {
-      component: 'Select',
+      component: 'TreeSelect',
       fieldName: 'categoryId',
       label: '章节分类',
       componentProps: {
-        options: categoryOptions,
-        placeholder: '请选择章节分类',
+        treeData: categoryOptions,
+        placeholder: '请选择章节分类（可选）',
+        allowClear: true,
+        showSearch: true,
         class: 'w-full',
+        dropdownStyle: { maxHeight: '400px', overflow: 'auto' },
+        fieldNames: { children: 'children', label: 'label', value: 'value' },
       },
     },
   ],
@@ -391,11 +471,31 @@ const [Drawer, drawerApi] = useVbenDrawer({
       if (data?.id) {
         formData.value = data;
         id.value = data.id;
+
+        // Load cascading options for editing
+        // Step 1: Find examCategoryId from examId
+        let examCategoryId = undefined;
+        if (data.examId) {
+          try {
+            const exams = await getExamAll();
+            const exam = exams?.find((e: any) => e.id === data.examId);
+            if (exam) {
+              examCategoryId = exam.examCategoryId;
+              // Load exam options for this category
+              await loadExamOptions(examCategoryId);
+            }
+          } catch {
+            // ignore
+          }
+        }
+
+        // Set form values (4-level cascading)
         await formApi.setValues({
           title: data.title,
           questionType: data.questionType,
           difficulty: data.difficulty,
           resourceType: data.resourceType,
+          examCategoryId: examCategoryId || undefined,
           examId: data.examId || undefined,
           subjectId: data.subjectId || undefined,
           categoryId: data.categoryId || undefined,
@@ -404,10 +504,13 @@ const [Drawer, drawerApi] = useVbenDrawer({
         // Load subject options if exam is set
         if (data.examId) {
           await loadSubjectOptions(data.examId);
-          if (data.subjectId) {
-            await formApi.setValues({ subjectId: data.subjectId });
-          }
         }
+
+        // Load category options if subject is set
+        if (data.subjectId) {
+          await loadCategoryOptions(data.subjectId);
+        }
+
         currentType.value = data.questionType || '';
 
         // Parse analysis: handle {text, media} format and legacy plain HTML
