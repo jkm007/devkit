@@ -6,8 +6,9 @@ import { computed, ref } from 'vue';
 import { useVbenDrawer } from '@vben/common-ui';
 import { VbenTiptapPreview } from '@vben/plugins/tiptap';
 
-import { Checkbox, CheckboxGroup, Radio, RadioGroup, Tag } from 'ant-design-vue';
+import { Button, Checkbox, CheckboxGroup, message, Radio, RadioGroup, Tag } from 'ant-design-vue';
 
+import { updateQuestion } from '#/api/question/question';
 import {
   processMediaHtml,
   safeJsonParse,
@@ -22,6 +23,9 @@ import {
 const questionData = ref<QuestionApi.Question | null>(null);
 const showAnswer = ref(false);
 const selectedAnswer = ref<any>(null);
+const isPublishing = ref(false);
+
+const emits = defineEmits(['success']);
 
 // Question type categories
 const CHOICE_TYPES = ['single_choice', 'multiple_choice', 'indefinite_choice'];
@@ -155,10 +159,41 @@ const [Drawer, drawerApi] = useVbenDrawer({
     }
   },
 });
+
+// Publish question
+async function handlePublish() {
+  if (!questionData.value?.id) return;
+
+  // Check resource type for group sharing
+  if (questionData.value.resourceType === 'group') {
+    message.warning('分组分享需要先选择分组，请在编辑页面设置');
+    return;
+  }
+
+  isPublishing.value = true;
+  try {
+    await updateQuestion(questionData.value.id, {
+      status: 'published',
+      publishedAt: new Date().toISOString(),
+    });
+    message.success('题目已发布，小程序/H5可查看');
+    await drawerApi.close();
+    emits('success');
+  } catch (error: any) {
+    message.error(error?.message || '发布失败');
+  } finally {
+    isPublishing.value = false;
+  }
+}
+
+// Check if can publish
+const canPublish = computed(() => {
+  return questionData.value?.status === 'draft' && questionData.value?.id;
+});
 </script>
 
 <template>
-  <Drawer :footer="false" title="题目预览" class="w-[800px]">
+  <Drawer title="题目预览" class="w-[800px]">
     <div v-if="questionData" class="bg-white">
       <!-- Question header bar -->
       <div class="border-b border-gray-100 px-6 py-4">
@@ -313,5 +348,19 @@ const [Drawer, drawerApi] = useVbenDrawer({
         </div>
       </div>
     </div>
+
+    <template #footer>
+      <div class="flex justify-end gap-3">
+        <Button @click="drawerApi.close()">关闭</Button>
+        <Button
+          v-if="canPublish"
+          type="primary"
+          :loading="isPublishing"
+          @click="handlePublish"
+        >
+          发布题目
+        </Button>
+      </div>
+    </template>
   </Drawer>
 </template>
