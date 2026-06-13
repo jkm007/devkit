@@ -66,6 +66,7 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	scheduledTaskHandler := handler.NewScheduledTaskHandler()
 	notificationHandler := handler.NewNotificationHandler()
 	userHomeHandler := handler.NewUserHomeHandler()
+	studyHandler := handler.NewStudyHandler()
 
 	// 健康检查（不需要 /api/v1 前缀）
 	r.GET("/health", func(c *gin.Context) {
@@ -156,6 +157,27 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 
 		// 用户首页数据
 		authorized.GET("/user/home", userHomeHandler.GetHomeData)
+
+		// ==================== 移动端学习 API ====================
+		// 题目学习
+		authorized.GET("/study/questions", studyHandler.ListQuestions)
+		authorized.GET("/study/questions/:id", studyHandler.GetQuestion)
+		authorized.POST("/study/questions/:id/favorite", studyHandler.AddFavorite)
+		authorized.DELETE("/study/questions/:id/favorite", studyHandler.RemoveFavorite)
+
+		// 收藏管理
+		authorized.GET("/user/favorites", studyHandler.ListFavorites)
+
+		// 笔记管理
+		authorized.GET("/user/notes", studyHandler.ListNotes)
+		authorized.POST("/user/notes", studyHandler.CreateNote)
+		authorized.PUT("/user/notes/:id", studyHandler.UpdateNote)
+		authorized.DELETE("/user/notes/:id", studyHandler.DeleteNote)
+
+		// 练习
+		authorized.POST("/study/practice/questions", studyHandler.GetPracticeQuestions)
+		authorized.POST("/study/practice/submit", studyHandler.SubmitPractice)
+		authorized.GET("/study/practice/history", studyHandler.GetPracticeHistory)
 
 		// 通知消息
 		authorized.GET("/notifications", notificationHandler.List)

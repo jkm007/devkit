@@ -51,5 +51,8 @@ func Run(db *gorm.DB) error {
 		&model.QuestionImportTask{},
 		&model.QuestionImportItem{},
 		&model.QuestionShare{},
+		&model.UserFavorite{},
+		&model.UserNote{},
+		&model.PracticeRecord{},
 	)
 }

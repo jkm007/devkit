@@ -116,5 +116,5 @@ export function getMyFiles(params: {
   folder?: string;
   fileType?: string;
 }) {
-  return request.get<PageResponse<FileInfo>>('/api/v1/files/my', { params });
+  return request.get<PageResponse<FileInfo>>('/api/v1/files/list', { params });
 }

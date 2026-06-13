@@ -1,0 +1,109 @@
+/**
+ * 移动端学习 API
+ */
+import { request } from './request';
+import type { Question, PageResponse } from '@/api/types';
+
+/**
+ * 获取题目列表
+ */
+export function getQuestions(params: {
+  page?: number;
+  pageSize?: number;
+  questionType?: string;
+  categoryId?: number;
+  difficulty?: number;
+  keyword?: string;
+  knowledgePoint?: string;
+}) {
+  return request.get<PageResponse<Question>>('/api/v1/study/questions', { params });
+}
+
+/**
+ * 获取题目详情
+ */
+export function getQuestionDetail(id: number) {
+  return request.get<Question>(`/api/v1/study/questions/${id}`);
+}
+
+/**
+ * 收藏题目
+ */
+export function addFavorite(id: number) {
+  return request.post(`/api/v1/study/questions/${id}/favorite`);
+}
+
+/**
+ * 取消收藏
+ */
+export function removeFavorite(id: number) {
+  return request.delete(`/api/v1/study/questions/${id}/favorite`);
+}
+
+/**
+ * 获取收藏列表
+ */
+export function getFavorites(params: { page?: number; pageSize?: number }) {
+  return request.get<PageResponse<any>>('/api/v1/user/favorites', { params });
+}
+
+/**
+ * 获取笔记列表
+ */
+export function getNotes(params: { page?: number; pageSize?: number }) {
+  return request.get<PageResponse<any>>('/api/v1/user/notes', { params });
+}
+
+/**
+ * 创建/更新笔记
+ */
+export function saveNote(data: { questionId: number; content: string }) {
+  return request.post('/api/v1/user/notes', data);
+}
+
+/**
+ * 更新笔记
+ */
+export function updateNote(id: number, data: { content: string }) {
+  return request.put(`/api/v1/user/notes/${id}`, data);
+}
+
+/**
+ * 删除笔记
+ */
+export function deleteNote(id: number) {
+  return request.delete(`/api/v1/user/notes/${id}`);
+}
+
+/**
+ * 获取练习题目（随机）
+ */
+export function getPracticeQuestions(data: {
+  mode?: string;
+  count?: number;
+  types?: string[];
+  categoryId?: number;
+  difficulty?: number;
+}) {
+  return request.post<any>('/api/v1/study/practice/questions', data);
+}
+
+/**
+ * 提交练习结果
+ */
+export function submitPractice(data: {
+  total: number;
+  answered: number;
+  correct: number;
+  elapsed: number;
+  answers: string[];
+}) {
+  return request.post('/api/v1/study/practice/submit', data);
+}
+
+/**
+ * 获取练习历史
+ */
+export function getPracticeHistory(params: { page?: number; pageSize?: number }) {
+  return request.get<PageResponse<any>>('/api/v1/study/practice/history', { params });
+}
