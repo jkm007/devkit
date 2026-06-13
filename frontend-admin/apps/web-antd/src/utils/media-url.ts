@@ -75,8 +75,8 @@ export function stripToken(url: string): string {
 export function normalizeFileUrl(url: string): string {
   if (!url) return url;
   let normalized = url.replace(/\/files\/(\d+)\/direct-url/g, '/files/$1/view');
-  // 补全裸 /files/ 路径（在 src="..." 或 poster="..." 中）
-  if (/^\/files\/\d+\/view/.test(normalized)) {
+  // 补全裸 /files/ 路径（不含 /api/v1 前缀的）
+  if (/^\/files\/\d+\/view/.test(normalized) && !normalized.startsWith(API_BASE)) {
     normalized = `${API_BASE}${normalized}`;
   }
   return normalized;
@@ -84,46 +84,52 @@ export function normalizeFileUrl(url: string): string {
 
 /**
  * 处理 HTML 中所有媒体 URL：
- * 1. 规范化 URL
+ * 1. 规范化 URL (direct-url → view, 补全 /api/v1 前缀)
  * 2. 附加 token
  *
  * 用于预览和编辑模式下直接渲染 HTML
  */
-export function processMediaHtml(html: string): string {
-  if (!html) return html;
+export function processMediaHtml(html: any): string {
+  if (!html) return '';
+  // 如果是对象/数组，序列化为 JSON 字符串后再处理
+  if (typeof html !== 'string') {
+    html = JSON.stringify(html);
+  }
 
-  // 先规范化所有文件 URL
-  let processed = html.replace(
-    /((?:src|poster|href)=")(\/files\/\d+\/(?:view|direct-url)[^"]*")/g,
-    (match, prefix, path) => {
-      const normalized = normalizeFileUrl(path.replace(/"$/, ''));
-      return `${prefix}${normalized}"`;
+  // 匹配 src/poster/href 属性中的文件 URL，统一处理
+  return html.replace(
+    /((?:src|poster|href)=")([^"]+)(")/g,
+    (match, prefix, url, suffix) => {
+      // 跳过 blob/data/http(s) 非本站 URL
+      if (url.startsWith('blob:') || url.startsWith('data:')) return match;
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        // 只处理本站的 URL
+        if (!url.includes('/files/')) return match;
+      }
+
+      // 规范化 URL
+      let normalized = normalizeFileUrl(url);
+      // 附加 token
+      normalized = appendToken(normalized);
+      return `${prefix}${normalized}${suffix}`;
     },
   );
-
-  // 给所有 /api/v1/files/ URL 附加 token
-  processed = processed.replace(
-    /((?:src|poster|href)=")(\/api\/v1\/files\/[^"]+")/g,
-    (match, prefix, url) => {
-      const urlWithoutQuote = url.replace(/"$/, '');
-      const withToken = appendToken(urlWithoutQuote);
-      return `${prefix}${withToken}"`;
-    },
-  );
-
-  return processed;
 }
 
 /**
  * 保存前清理 HTML 中的 token 参数
  */
-export function cleanMediaHtml(html: string): string {
-  if (!html) return html;
+export function cleanMediaHtml(html: any): string {
+  if (!html) return '';
+  if (typeof html !== 'string') {
+    html = JSON.stringify(html);
+  }
   return html.replace(
-    /((?:src|poster|href)=")([^"]*token=[^"]*")/g,
-    (match, prefix, url) => {
-      const cleaned = stripToken(url.replace(/"$/, ''));
-      return `${prefix}${cleaned}"`;
+    /((?:src|poster|href)=")([^"]+)(")/g,
+    (match, prefix, url, suffix) => {
+      if (!url.includes('token=')) return match;
+      const cleaned = stripToken(url);
+      return `${prefix}${cleaned}${suffix}`;
     },
   );
 }
