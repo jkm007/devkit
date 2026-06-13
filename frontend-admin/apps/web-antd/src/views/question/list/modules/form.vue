@@ -508,6 +508,11 @@ const [Drawer, drawerApi] = useVbenDrawer({
       if (data?.id) {
         formData.value = data;
         id.value = data.id;
+        // Clear editor content first to prevent rendering real URLs (which need auth)
+        stemHtml.value = '';
+        analysisTextHtml.value = '';
+        analysisMediaHtml.value = '';
+        essayAnswerHtml.value = '';
         await formApi.setValues({
           title: data.title,
           questionType: data.questionType,
