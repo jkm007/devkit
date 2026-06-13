@@ -88,6 +88,13 @@ func (s *QuestionImportService) GetByID(id uint) (*ImportTaskResponse, error) {
 	return &resp, nil
 }
 
+func ensureImportJSON(s string) string {
+	if s == "" {
+		return "null"
+	}
+	return s
+}
+
 func (s *QuestionImportService) Create(req *ImportTaskRequest, createdBy uint) (*ImportTaskResponse, error) {
 	item := &model.QuestionImportTask{
 		FileID:             req.FileID,
@@ -98,6 +105,7 @@ func (s *QuestionImportService) Create(req *ImportTaskRequest, createdBy uint) (
 		TargetResourceType: "private",
 		TargetScopeType:    "user",
 		TargetScopeID:      req.TargetScopeID,
+		ErrorReport:        "null",
 		CreatedBy:          createdBy,
 	}
 	if req.TargetResourceType != "" {

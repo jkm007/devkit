@@ -68,7 +68,7 @@ func (h *ExamCategoryHandler) Create(c *gin.Context) {
 		response.BadRequest(c, err.Error())
 		return
 	}
-	userId, _ := c.Get("userId")
+	userId, _ := c.Get("user_id")
 	item, err := h.service.Create(&req, userId.(uint))
 	if err != nil {
 		response.BadRequest(c, err.Error())
@@ -181,7 +181,7 @@ func (h *ExamHandler) Create(c *gin.Context) {
 		response.BadRequest(c, err.Error())
 		return
 	}
-	userId, _ := c.Get("userId")
+	userId, _ := c.Get("user_id")
 	item, err := h.service.Create(&req, userId.(uint))
 	if err != nil {
 		response.BadRequest(c, err.Error())
@@ -289,7 +289,7 @@ func (h *SubjectHandler) Create(c *gin.Context) {
 		response.BadRequest(c, err.Error())
 		return
 	}
-	userId, _ := c.Get("userId")
+	userId, _ := c.Get("user_id")
 	item, err := h.service.Create(&req, userId.(uint))
 	if err != nil {
 		response.BadRequest(c, err.Error())
@@ -389,7 +389,7 @@ func (h *QuestionCategoryHandler) Create(c *gin.Context) {
 		response.BadRequest(c, err.Error())
 		return
 	}
-	userId, _ := c.Get("userId")
+	userId, _ := c.Get("user_id")
 	item, err := h.service.Create(&req, userId.(uint))
 	if err != nil {
 		response.BadRequest(c, err.Error())

@@ -61,7 +61,7 @@ func (h *QuestionHandler) Create(c *gin.Context) {
 		response.BadRequest(c, err.Error())
 		return
 	}
-	userId, _ := c.Get("userId")
+	userId, _ := c.Get("user_id")
 	item, err := h.service.Create(&req, userId.(uint))
 	if err != nil {
 		response.BadRequest(c, err.Error())
@@ -108,7 +108,7 @@ func (h *QuestionHandler) Publish(c *gin.Context) {
 		response.BadRequest(c, "无效的ID")
 		return
 	}
-	userId, _ := c.Get("userId")
+	userId, _ := c.Get("user_id")
 	item, err := h.service.Publish(uint(id), userId.(uint))
 	if err != nil {
 		response.BadRequest(c, err.Error())
@@ -151,7 +151,7 @@ func (h *QuestionHandler) Approve(c *gin.Context) {
 		response.BadRequest(c, "无效的ID")
 		return
 	}
-	userId, _ := c.Get("userId")
+	userId, _ := c.Get("user_id")
 	item, err := h.service.Approve(uint(id), userId.(uint))
 	if err != nil {
 		response.BadRequest(c, err.Error())
@@ -166,7 +166,7 @@ func (h *QuestionHandler) Reject(c *gin.Context) {
 		response.BadRequest(c, "无效的ID")
 		return
 	}
-	userId, _ := c.Get("userId")
+	userId, _ := c.Get("user_id")
 	var req struct {
 		Reason string `json:"reason"`
 	}

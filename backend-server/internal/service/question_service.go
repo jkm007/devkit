@@ -96,16 +96,23 @@ func (s *QuestionService) GetByID(id uint) (*QuestionResponse, error) {
 	return &resp, nil
 }
 
+func ensureJSON(s string) string {
+	if s == "" {
+		return "null"
+	}
+	return s
+}
+
 func (s *QuestionService) Create(req *QuestionRequest, createdBy uint) (*QuestionResponse, error) {
 	item := &model.Question{
 		Title:                req.Title,
 		QuestionType:         req.QuestionType,
-		Stem:                 req.Stem,
-		Content:              req.Content,
-		Answer:               req.Answer,
-		Analysis:             req.Analysis,
-		Materials:            req.Materials,
-		ScoreRule:            req.ScoreRule,
+		Stem:                 ensureJSON(req.Stem),
+		Content:              ensureJSON(req.Content),
+		Answer:               ensureJSON(req.Answer),
+		Analysis:             ensureJSON(req.Analysis),
+		Materials:            ensureJSON(req.Materials),
+		ScoreRule:            ensureJSON(req.ScoreRule),
 		ExamID:               req.ExamID,
 		SubjectID:            req.SubjectID,
 		CategoryID:           req.CategoryID,
@@ -149,12 +156,12 @@ func (s *QuestionService) Update(id uint, req *QuestionRequest) (*QuestionRespon
 	// 已发布的题目编辑不影响已发布版本
 	item.Title = req.Title
 	item.QuestionType = req.QuestionType
-	item.Stem = req.Stem
-	item.Content = req.Content
-	item.Answer = req.Answer
-	item.Analysis = req.Analysis
-	item.Materials = req.Materials
-	item.ScoreRule = req.ScoreRule
+	item.Stem = ensureJSON(req.Stem)
+	item.Content = ensureJSON(req.Content)
+	item.Answer = ensureJSON(req.Answer)
+	item.Analysis = ensureJSON(req.Analysis)
+	item.Materials = ensureJSON(req.Materials)
+	item.ScoreRule = ensureJSON(req.ScoreRule)
 	item.ExamID = req.ExamID
 	item.SubjectID = req.SubjectID
 	item.CategoryID = req.CategoryID
