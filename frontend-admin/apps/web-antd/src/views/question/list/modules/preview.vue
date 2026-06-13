@@ -100,14 +100,14 @@ async function fetchMediaAsBlob(url: string): Promise<string> {
 // Convert real media URLs in HTML to blob URLs (images + videos + sources)
 async function convertMediaToBlobUrls(html: string): Promise<string> {
   if (!html) return html;
-  // Fallback: for <video> tags with blob src, replace with data-real-src if available
+  // Fallback: for <img>/<video> tags with blob src, replace with data-real-src if available
   let preprocessed = html;
   preprocessed = preprocessed.replace(
-    /<video[^>]+src="(blob:[^"]+)"[^>]*data-real-src="([^"]+)"[^>]*>/g,
-    (fullMatch, _blobSrc, realSrc) => fullMatch.replace(`src="${_blobSrc}"`, `src="${realSrc}"`),
+    /<(img|video)[^>]+src="(blob:[^"]+)"[^>]*data-real-src="([^"]+)"[^>]*>/g,
+    (fullMatch, _tag, _blobSrc, realSrc) => fullMatch.replace(`src="${_blobSrc}"`, `src="${realSrc}"`),
   );
   preprocessed = preprocessed.replace(
-    /<video[^>]+data-real-src="([^"]+)"[^>]+src="(blob:[^"]+)"[^>]*>/g,
+    /<(img|video)[^>]+data-real-src="([^"]+)"[^>]+src="(blob:[^"]+)"[^>]*>/g,
     (fullMatch, realSrc, _blobSrc) => fullMatch.replace(`src="${_blobSrc}"`, `src="${realSrc}"`),
   );
   // Match src="..." on img/video/source tags, and poster="..." on video tags

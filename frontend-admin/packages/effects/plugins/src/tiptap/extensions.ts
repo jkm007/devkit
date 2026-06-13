@@ -196,20 +196,19 @@ function createUploadProcess(
         return;
       }
 
+      // Keep blob URL for display (img/video can't send auth headers),
+      // store real URL in data-real-src for save-time replacement.
       const newAttrs: Record<string, any> = {
         ...node.attrs,
         'data-upload-progress': null,
         'data-uploading': null,
-        src: url,
+        src: blobUrl,
+        'data-real-src': url,
       };
-      // Store real URL as backup for video nodes (in case src doesn't serialize correctly)
-      if (node.type.name === 'video') {
-        newAttrs['data-real-src'] = url;
-      }
       const transaction = editor.state.tr.setNodeMarkup(currentPos, undefined, newAttrs);
       editor.view.dispatch(transaction);
-      blobUrlTracker?.delete(blobUrl);
-      URL.revokeObjectURL(blobUrl);
+      // Don't revoke blob URL — it's still used for display in the editor
+      // Don't delete from blobUrlTracker — will be cleaned up on drawer close
     })
     .catch((error: unknown) => {
       if (editor.isDestroyed) {
@@ -255,6 +254,14 @@ function createCustomImage(
           parseHTML: (element) => element.dataset.uploading,
           renderHTML: () => {
             return {};
+          },
+        },
+        'data-real-src': {
+          default: null,
+          parseHTML: (element) => element.dataset.realSrc,
+          renderHTML: (attributes) => {
+            if (!attributes['data-real-src']) return {};
+            return { 'data-real-src': attributes['data-real-src'] };
           },
         },
       };
