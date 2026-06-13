@@ -120,8 +120,8 @@ func (s *QuestionService) GetByID(id uint) (*QuestionResponse, error) {
 }
 
 func ensureJSON(s string) string {
-	if s == "" {
-		return "null"
+	if s == "" || s == "null" {
+		return "" // Return empty string, let GORM handle it as NULL
 	}
 	return s
 }
