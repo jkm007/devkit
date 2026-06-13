@@ -10,13 +10,13 @@ import ExamCategoryTab from './modules/exam-category-tab.vue';
 import ExamTab from './modules/exam-tab.vue';
 import SubjectTab from './modules/subject-tab.vue';
 
-const activeKey = ref('category');
+const activeKey = ref('examCategory');
 
 const tabs = [
-  { key: 'category', label: '章节分类' },
-  { key: 'subject', label: '科目模块' },
-  { key: 'exam', label: '具体考试' },
   { key: 'examCategory', label: '考试大类' },
+  { key: 'exam', label: '具体考试' },
+  { key: 'subject', label: '科目模块' },
+  { key: 'category', label: '章节分类' },
 ];
 </script>
 <template>
@@ -33,17 +33,17 @@ const tabs = [
         </Button>
       </div>
       <div class="min-h-0 flex-1">
-        <div v-show="activeKey === 'category'" class="h-full">
-          <CategoryTab />
-        </div>
-        <div v-show="activeKey === 'subject'" class="h-full">
-          <SubjectTab />
+        <div v-show="activeKey === 'examCategory'" class="h-full">
+          <ExamCategoryTab />
         </div>
         <div v-show="activeKey === 'exam'" class="h-full">
           <ExamTab />
         </div>
-        <div v-show="activeKey === 'examCategory'" class="h-full">
-          <ExamCategoryTab />
+        <div v-show="activeKey === 'subject'" class="h-full">
+          <SubjectTab />
+        </div>
+        <div v-show="activeKey === 'category'" class="h-full">
+          <CategoryTab />
         </div>
       </div>
     </div>
