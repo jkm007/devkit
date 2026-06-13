@@ -265,6 +265,12 @@ class RequestClient {
           });
         },
         fail: (err) => {
+          // 网络错误：入队离线重试
+          if (method !== 'GET') {
+            // POST/PUT/DELETE 入队离线队列
+            const { enqueueOfflineRequest } = require('@/utils/offline');
+            enqueueOfflineRequest(url, method, data);
+          }
           reject({ code: -1, message: '网络错误，请检查网络连接' });
         },
       });
