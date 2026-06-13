@@ -96,9 +96,9 @@ export function processMediaHtml(html: any): string {
     html = JSON.stringify(html);
   }
 
-  // 匹配 src/poster/href 属性中的文件 URL，统一处理
+  // 匹配 src/poster/href 属性中的文件 URL（支持单引号和双引号）
   return html.replace(
-    /((?:src|poster|href)=")([^"]+)(")/g,
+    /((?:src|poster|href)=["'])([^"']+)(["'])/g,
     (match, prefix, url, suffix) => {
       // 跳过 blob/data/http(s) 非本站 URL
       if (url.startsWith('blob:') || url.startsWith('data:')) return match;
@@ -125,7 +125,7 @@ export function cleanMediaHtml(html: any): string {
     html = JSON.stringify(html);
   }
   return html.replace(
-    /((?:src|poster|href)=")([^"]+)(")/g,
+    /((?:src|poster|href)=["'])([^"']+)(["'])/g,
     (match, prefix, url, suffix) => {
       if (!url.includes('token=')) return match;
       const cleaned = stripToken(url);
