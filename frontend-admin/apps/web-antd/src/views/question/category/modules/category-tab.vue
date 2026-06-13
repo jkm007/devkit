@@ -51,15 +51,15 @@ async function loadOptions() {
   }
 }
 
-async function loadSubjectOptions(examId: number) {
+async function fetchSubjectOptions(examId: number): Promise<any[]> {
   try {
     const res = await getSubjectAll(examId);
-    subjectOptions.value = (res || []).map((item: any) => ({
+    return (res || []).map((item: any) => ({
       label: item.name,
       value: item.id,
     }));
   } catch {
-    subjectOptions.value = [];
+    return [];
   }
 }
 
@@ -153,6 +153,7 @@ function onEdit(row: QuestionCategoryApi.QuestionCategory) {
       examOptions: examOptions.value,
       subjectOptions: subjectOptions.value,
       parentOptions: parentOptions.value,
+      onExamChange: fetchSubjectOptions,
     })
     .open();
 }
@@ -185,6 +186,7 @@ function onCreate() {
       examOptions: examOptions.value,
       subjectOptions: subjectOptions.value,
       parentOptions: parentOptions.value,
+      onExamChange: fetchSubjectOptions,
     })
     .open();
 }

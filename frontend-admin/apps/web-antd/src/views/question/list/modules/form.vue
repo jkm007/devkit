@@ -371,6 +371,9 @@ const [Drawer, drawerApi] = useVbenDrawer({
       const data = drawerApi.getData<QuestionApi.Question>();
       formApi.resetForm();
       // Clear blob URL mapping
+      for (const blobUrl of blobToRealUrl.keys()) {
+        URL.revokeObjectURL(blobUrl);
+      }
       blobToRealUrl.clear();
 
       if (data?.id) {

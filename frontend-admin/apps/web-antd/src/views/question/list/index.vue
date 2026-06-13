@@ -90,6 +90,7 @@ async function onDelete(row: QuestionApi.Question) {
     onRefresh();
   } catch {
     hideLoading();
+    message.error('操作失败');
   }
 }
 
@@ -99,7 +100,7 @@ async function onPublish(row: QuestionApi.Question) {
     message.success('发布成功');
     onRefresh();
   } catch {
-    // ignore
+    message.error('操作失败');
   }
 }
 
@@ -109,7 +110,7 @@ async function onSubmitAudit(row: QuestionApi.Question) {
     message.success('已提交审核');
     onRefresh();
   } catch {
-    // ignore
+    message.error('操作失败');
   }
 }
 
@@ -119,7 +120,7 @@ async function onArchive(row: QuestionApi.Question) {
     message.success('已下架');
     onRefresh();
   } catch {
-    // ignore
+    message.error('操作失败');
   }
 }
 

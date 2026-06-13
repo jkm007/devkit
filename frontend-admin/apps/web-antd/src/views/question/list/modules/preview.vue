@@ -216,6 +216,9 @@ const [Drawer, drawerApi] = useVbenDrawer({
       questionData.value = drawerApi.getData<QuestionApi.Question>();
       showAnswer.value = false;
       selectedAnswer.value = isSingleChoice.value ? null : [];
+      for (const blobUrl of blobToRealUrl.keys()) {
+        URL.revokeObjectURL(blobUrl);
+      }
       blobToRealUrl.clear();
 
       // Convert media to blob URLs for display
@@ -286,7 +289,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
               class="group flex items-start gap-3 rounded-lg border border-gray-200 px-4 py-3 transition-all hover:border-blue-300 hover:bg-blue-50"
               :class="{
                 'border-green-400 bg-green-50': showAnswer && isCorrectOption(opt.id),
-                'border-red-300 bg-red-50': showAnswer && selectedAnswer === opt.id && !isCorrectOption(opt.id),
+                'border-red-300 bg-red-50': showAnswer && (Array.isArray(selectedAnswer) ? selectedAnswer.includes(opt.id) : selectedAnswer === opt.id) && !isCorrectOption(opt.id),
               }"
             >
               <component

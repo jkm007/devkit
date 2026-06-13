@@ -20,6 +20,7 @@ const id = ref<number>();
 const examOptions = ref<any[]>([]);
 const subjectOptions = ref<any[]>([]);
 const parentOptions = ref<any[]>([]);
+const onExamChangeCallback = ref<((examId: number) => Promise<any[]>) | null>(null);
 
 const [Form, formApi] = useVbenForm({
   schema: useCategoryDrawerSchema(
@@ -56,6 +57,46 @@ const [Drawer, drawerApi] = useVbenDrawer({
       if (data?.examOptions) examOptions.value = data.examOptions;
       if (data?.subjectOptions) subjectOptions.value = data.subjectOptions;
       if (data?.parentOptions) parentOptions.value = data.parentOptions;
+      if (data?.onExamChange) onExamChangeCallback.value = data.onExamChange;
+      formApi.updateSchema([
+        {
+          fieldName: 'examId',
+          componentProps: {
+            options: examOptions.value,
+            onChange(value: number) {
+              if (onExamChangeCallback.value && value) {
+                onExamChangeCallback.value(value).then((options) => {
+                  subjectOptions.value = options;
+                  formApi.updateSchema([
+                    {
+                      fieldName: 'subjectId',
+                      componentProps: { options },
+                    },
+                  ]);
+                  formApi.setValues({ subjectId: undefined });
+                });
+              } else {
+                subjectOptions.value = [];
+                formApi.updateSchema([
+                  {
+                    fieldName: 'subjectId',
+                    componentProps: { options: [] },
+                  },
+                ]);
+                formApi.setValues({ subjectId: undefined });
+              }
+            },
+          },
+        },
+        {
+          fieldName: 'subjectId',
+          componentProps: { options: subjectOptions.value },
+        },
+        {
+          fieldName: 'parentId',
+          componentProps: { treeData: parentOptions.value },
+        },
+      ]);
       if (data?.id) {
         formData.value = data;
         id.value = data.id;
