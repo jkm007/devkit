@@ -11,6 +11,11 @@ import { Button, Input, message, Radio, RadioGroup, Tooltip } from 'ant-design-v
 
 import { useVbenForm } from '#/adapter/form';
 import { simpleUpload } from '#/api/file';
+import {
+  getExamAll,
+  getQuestionCategoryAll,
+  getSubjectAll,
+} from '#/api/question/category';
 import { createQuestion, updateQuestion } from '#/api/question/question';
 import { useAccessStore } from '@vben/stores';
 
@@ -63,6 +68,50 @@ const isFillBlank = computed(() => currentType.value === 'fill_blank');
 
 // Current question type for template - synced from form select
 const currentType = ref('');
+
+// Exam/Subject/Category cascading options
+const examOptions = ref<any[]>([]);
+const subjectOptions = ref<any[]>([]);
+const categoryOptions = ref<any[]>([]);
+
+async function loadExamOptions() {
+  try {
+    const res = await getExamAll();
+    examOptions.value = (res || []).map((item: any) => ({
+      label: item.name,
+      value: item.id,
+    }));
+  } catch {
+    // ignore
+  }
+}
+
+async function loadSubjectOptions(examId: number) {
+  try {
+    const res = await getSubjectAll(examId);
+    subjectOptions.value = (res || []).map((item: any) => ({
+      label: item.name,
+      value: item.id,
+    }));
+  } catch {
+    subjectOptions.value = [];
+  }
+}
+
+async function loadCategoryOptions() {
+  try {
+    const res = await getQuestionCategoryAll();
+    categoryOptions.value = (res || []).map((item: any) => ({
+      label: item.name,
+      value: item.id,
+    }));
+  } catch {
+    categoryOptions.value = [];
+  }
+}
+
+loadExamOptions();
+loadCategoryOptions();
 
 // Blob URL → real URL mapping (for converting back before save)
 const blobToRealUrl = new Map<string, string>();
@@ -258,6 +307,44 @@ const [Form, formApi] = useVbenForm({
       defaultValue: 'private',
       componentProps: { options: RESOURCE_TYPE_OPTIONS, class: 'w-full' },
     },
+    {
+      component: 'Select',
+      fieldName: 'examId',
+      label: '所属考试',
+      componentProps: {
+        options: examOptions,
+        placeholder: '请选择考试',
+        class: 'w-full',
+        onChange: (val: number) => {
+          if (val) {
+            loadSubjectOptions(val);
+          } else {
+            subjectOptions.value = [];
+          }
+          formApi.setValues({ subjectId: undefined, categoryId: undefined });
+        },
+      },
+    },
+    {
+      component: 'Select',
+      fieldName: 'subjectId',
+      label: '所属科目',
+      componentProps: {
+        options: subjectOptions,
+        placeholder: '请先选择考试',
+        class: 'w-full',
+      },
+    },
+    {
+      component: 'Select',
+      fieldName: 'categoryId',
+      label: '章节分类',
+      componentProps: {
+        options: categoryOptions,
+        placeholder: '请选择章节分类',
+        class: 'w-full',
+      },
+    },
   ],
   showDefaultActions: false,
 });
@@ -384,7 +471,19 @@ const [Drawer, drawerApi] = useVbenDrawer({
           questionType: data.questionType,
           difficulty: data.difficulty,
           resourceType: data.resourceType,
+          examId: data.examId || undefined,
+          subjectId: data.subjectId || undefined,
+          categoryId: data.categoryId || undefined,
         });
+
+        // Load subject options if exam is set
+        if (data.examId) {
+          await loadSubjectOptions(data.examId);
+          // Re-set subjectId after options are loaded
+          if (data.subjectId) {
+            await formApi.setValues({ subjectId: data.subjectId });
+          }
+        }
         currentType.value = data.questionType || '';
 
         // Decode and fix image URLs, then convert to blob URLs for display
