@@ -40,6 +40,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from 'vue';
+import { sendVerifyCode, resetPassword } from '@/api/auth';
 
 const form = ref({
   username: '',
@@ -51,6 +52,8 @@ const loading = ref(false);
 const sendingCode = ref(false);
 const countdown = ref(0);
 let countdownTimer: ReturnType<typeof setInterval> | null = null;
+let lastSendTime = 0;
+const COOLDOWN_MS = 60000; // 60秒冷却
 
 const canSubmit = computed(() => {
   return (
@@ -62,22 +65,36 @@ const canSubmit = computed(() => {
 });
 
 async function sendCode() {
+  // 先检查冷却时间
+  const now = Date.now();
+  if (now - lastSendTime < COOLDOWN_MS) {
+    const remaining = Math.ceil((COOLDOWN_MS - (now - lastSendTime)) / 1000);
+    uni.showToast({ title: `请 ${remaining} 秒后再试`, icon: 'none' });
+    return;
+  }
+
   if (!form.value.username) {
     uni.showToast({ title: '请输入用户名/邮箱/手机号', icon: 'none' });
     return;
   }
   sendingCode.value = true;
-  // TODO: 调用发送验证码接口
-  countdown.value = 60;
-  countdownTimer = setInterval(() => {
-    countdown.value--;
-    if (countdown.value <= 0) {
-      clearInterval(countdownTimer!);
-      countdownTimer = null;
-    }
-  }, 1000);
-  sendingCode.value = false;
-  uni.showToast({ title: '验证码已发送', icon: 'success' });
+  try {
+    await sendVerifyCode(form.value.username);
+    lastSendTime = Date.now();
+    countdown.value = 60;
+    countdownTimer = setInterval(() => {
+      countdown.value--;
+      if (countdown.value <= 0) {
+        clearInterval(countdownTimer!);
+        countdownTimer = null;
+      }
+    }, 1000);
+    uni.showToast({ title: '验证码已发送', icon: 'success' });
+  } catch (e: any) {
+    uni.showToast({ title: e.message || '发送失败', icon: 'none' });
+  } finally {
+    sendingCode.value = false;
+  }
 }
 
 onUnmounted(() => {
@@ -98,7 +115,11 @@ async function handleSubmit() {
 
   loading.value = true;
   try {
-    // TODO: 调用重置密码接口
+    await resetPassword({
+      email: form.value.username,
+      code: form.value.code,
+      newPassword: form.value.newPassword,
+    });
     uni.showToast({ title: '密码重置成功', icon: 'success' });
     setTimeout(() => {
       uni.navigateTo({ url: '/pages/login/index' });

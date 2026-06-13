@@ -74,3 +74,53 @@ export function getCaptcha() {
 export function logout() {
   return request.post('/auth/logout');
 }
+
+/**
+ * 发送邮箱验证码
+ */
+export function sendVerifyCode(email: string) {
+  return request.post('/auth/send-code', { email });
+}
+
+/**
+ * 验证邮箱验证码
+ */
+export function verifyCode(email: string, code: string) {
+  return request.post('/auth/verify-code', { email, code });
+}
+
+/**
+ * 重置密码（忘记密码）
+ */
+export function resetPassword(params: {
+  email: string;
+  code: string;
+  newPassword: string;
+}) {
+  return request.post('/auth/reset-password', params);
+}
+
+/**
+ * 修改密码（已登录）
+ */
+export function changePassword(params: {
+  oldPassword: string;
+  newPassword: string;
+}) {
+  return request.put('/auth/change-password', params);
+}
+
+/**
+ * 获取用户信息
+ */
+export function getUserInfo() {
+  return request.get<any>('/api/v1/user/info');
+}
+
+/**
+ * 更新用户信息
+ */
+export function updateUserInfo(params: { nickname?: string; avatar?: string }) {
+  return request.put('/api/v1/user/info', params);
+}
+

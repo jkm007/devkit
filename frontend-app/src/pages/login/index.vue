@@ -169,6 +169,8 @@ const showCaptcha = ref(false);
 const captchaImage = ref('');
 const captchaId = ref('');
 let countdownTimer: ReturnType<typeof setInterval> | null = null;
+let lastSendTime = 0;
+const COOLDOWN_MS = 60000; // 60秒冷却
 
 // 是否可以提交
 const canSubmit = computed(() => {
@@ -224,6 +226,14 @@ async function handleLogin() {
  * 发送邮箱验证码
  */
 async function sendEmailCode() {
+  // 先检查冷却时间
+  const now = Date.now();
+  if (now - lastSendTime < COOLDOWN_MS) {
+    const remaining = Math.ceil((COOLDOWN_MS - (now - lastSendTime)) / 1000);
+    uni.showToast({ title: `请 ${remaining} 秒后再试`, icon: 'none' });
+    return;
+  }
+
   if (!form.value.email) {
     uni.showToast({ title: '请输入邮箱', icon: 'none' });
     return;
@@ -232,6 +242,7 @@ async function sendEmailCode() {
   sendingCode.value = true;
   try {
     // TODO: 调用发送验证码接口
+    lastSendTime = Date.now();
     startCountdown();
     uni.showToast({ title: '验证码已发送', icon: 'success' });
   } catch (err: any) {
@@ -245,6 +256,14 @@ async function sendEmailCode() {
  * 发送短信验证码
  */
 async function sendSmsCode() {
+  // 先检查冷却时间
+  const now = Date.now();
+  if (now - lastSendTime < COOLDOWN_MS) {
+    const remaining = Math.ceil((COOLDOWN_MS - (now - lastSendTime)) / 1000);
+    uni.showToast({ title: `请 ${remaining} 秒后再试`, icon: 'none' });
+    return;
+  }
+
   if (!form.value.phone) {
     uni.showToast({ title: '请输入手机号', icon: 'none' });
     return;
@@ -253,6 +272,7 @@ async function sendSmsCode() {
   sendingCode.value = true;
   try {
     // TODO: 调用发送短信接口
+    lastSendTime = Date.now();
     startCountdown();
     uni.showToast({ title: '验证码已发送', icon: 'success' });
   } catch (err: any) {

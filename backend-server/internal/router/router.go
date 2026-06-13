@@ -67,6 +67,8 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	notificationHandler := handler.NewNotificationHandler()
 	userHomeHandler := handler.NewUserHomeHandler()
 	studyHandler := handler.NewStudyHandler()
+	bannerHandler := handler.NewBannerHandler()
+	feedbackHandler := handler.NewQuestionFeedbackHandler()
 
 	// 健康检查（不需要 /api/v1 前缀）
 	r.GET("/health", func(c *gin.Context) {
@@ -97,6 +99,9 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		sharePublic.GET("/:code/file", shareHandler.GetShareFile)
 		sharePublic.GET("/:code/file/:fileId", shareHandler.GetShareFile)
 	}
+
+	// 轮播图（公开接口，移动端首页用）
+	apiV1.GET("/banners", bannerHandler.GetBanners)
 
 	// 认证接口（无需认证，限流由数据库规则管理）
 	captchaHandler := handler.NewCaptchaHandler()
@@ -196,6 +201,12 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		// 智能练习
 		authorized.POST("/study/practice/smart", studyHandler.GetSmartPractice)
 		authorized.GET("/study/practice/analysis", studyHandler.GetPracticeAnalysis)
+
+		// 题目纠错
+		authorized.POST("/study/feedback", feedbackHandler.Create)
+		authorized.GET("/study/feedback", feedbackHandler.List)
+		authorized.GET("/study/feedback/:id", feedbackHandler.GetDetail)
+		authorized.DELETE("/study/feedback/:id", feedbackHandler.Delete)
 
 		// 通知消息
 		authorized.GET("/notifications", notificationHandler.List)
@@ -515,6 +526,10 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 			system.PUT("/question-shares/:id/enable", middleware.Permission("question:share:enable"), questionShareHandler.Enable)
 			system.DELETE("/question-shares/:id", middleware.Permission("question:share:delete"), questionShareHandler.Delete)
 
+			// 题目纠错管理（管理端）
+			system.GET("/feedbacks", middleware.Permission("question:feedback:view"), feedbackHandler.AdminList)
+			system.PUT("/feedbacks/:id", middleware.Permission("question:feedback:edit"), feedbackHandler.AdminUpdate)
+
 			// 定时任务管理
 			system.GET("/scheduled-tasks", middleware.Permission("system:task:view"), scheduledTaskHandler.List)
 			system.POST("/scheduled-tasks", middleware.Permission("system:task:edit"), scheduledTaskHandler.Create)
@@ -523,6 +538,14 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 			system.PUT("/scheduled-tasks/:id/enabled", middleware.Permission("system:task:edit"), scheduledTaskHandler.UpdateEnabled)
 			system.DELETE("/scheduled-tasks/:id", middleware.Permission("system:task:delete"), scheduledTaskHandler.Delete)
 			system.POST("/scheduled-tasks/:id/run", middleware.Permission("system:task:run"), scheduledTaskHandler.Run)
+
+			// 轮播图管理（管理端）
+			system.GET("/banners", middleware.Permission("system:banner:view"), bannerHandler.AdminList)
+			system.POST("/banners", middleware.Permission("system:banner:add"), bannerHandler.AdminCreate)
+			system.PUT("/banners/:id", middleware.Permission("system:banner:edit"), bannerHandler.AdminUpdate)
+			system.DELETE("/banners/:id", middleware.Permission("system:banner:delete"), bannerHandler.AdminDelete)
+			system.PUT("/banners/:id/status", middleware.Permission("system:banner:edit"), bannerHandler.AdminUpdateStatus)
+			system.PUT("/banners/:id/sort", middleware.Permission("system:banner:edit"), bannerHandler.AdminUpdateSort)
 		}
 	}
 

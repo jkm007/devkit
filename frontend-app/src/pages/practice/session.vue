@@ -38,6 +38,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import ContentBlockRenderer from '@/components/ContentBlockRenderer.vue';
+import { request } from '@/api/request';
+
 const statusBarHeight = ref(0);
 const questions = ref<any[]>([]);
 const currentIndex = ref(0);
@@ -46,22 +48,69 @@ const elapsed = ref(0);
 const showAnswerSheet = ref(false);
 let timer: ReturnType<typeof setInterval> | null = null;
 const currentQuestion = computed(() => questions.value[currentIndex.value] || null);
-onMounted(() => {
+
+onMounted(async () => {
   const systemInfo = uni.getSystemInfoSync();
   statusBarHeight.value = systemInfo.statusBarHeight || 0;
-  questions.value = Array.from({ length: 10 }, (_, i) => ({
-    id: i + 1, stem: { blocks: [{ type: 'text', content: `第 ${i + 1} 题：以下说法正确的是？` }] },
-    options: [
-      { label: 'A', content: { blocks: [{ type: 'text', content: '选项 A 的内容' }] } },
-      { label: 'B', content: { blocks: [{ type: 'text', content: '选项 B 的内容' }] } },
-      { label: 'C', content: { blocks: [{ type: 'text', content: '选项 C 的内容' }] } },
-      { label: 'D', content: { blocks: [{ type: 'text', content: '选项 D 的内容' }] } },
-    ],
-  }));
+
+  // 从 setStorageSync 读取参数
+  const paramsStr = uni.getStorageSync('practiceParams');
+  let params: any = {};
+  if (paramsStr) {
+    try { params = JSON.parse(paramsStr); } catch { /* ignore */ }
+    uni.removeStorageSync('practiceParams');
+  }
+
+  await loadQuestions(params);
   answers.value = new Array(questions.value.length).fill('');
   timer = setInterval(() => { elapsed.value++; }, 1000);
   uni.setStorageSync('practice_answers', JSON.stringify(answers.value));
 });
+
+async function loadQuestions(params: any) {
+  const mode = params.mode || 'random';
+  const count = params.count || 20;
+
+  try {
+    let res: any;
+    if (mode === 'wrong') {
+      // 错题练习：从错题本获取随机题目
+      res = await request.get<any>('/api/v1/study/wrong/random', { params: { count } });
+    } else if (mode === 'smart') {
+      // 智能练习
+      res = await request.post<any>('/api/v1/study/practice/smart', { count, mode: 'mixed' });
+    } else {
+      // 随机/自定义练习
+      res = await request.post<any>('/api/v1/study/practice/questions', {
+        count,
+        mode: 'random',
+        difficulty: params.difficulty || 0,
+        types: params.types || [],
+        categoryId: params.categoryId || 0,
+      });
+    }
+    if (res && (res.questions || res.items)) {
+      questions.value = res.questions || res.items;
+      return;
+    }
+  } catch { /* fall through to mock */ }
+
+  // Mock 数据（仅开发环境）
+  if (questions.value.length === 0 && import.meta.env.DEV) {
+    const modeLabels: Record<string, string> = { random: '随机', wrong: '错题', smart: '智能', custom: '自定义' };
+    const prefix = modeLabels[mode] || '练习';
+    questions.value = Array.from({ length: count }, (_, i) => ({
+      id: i + 1,
+      stem: { blocks: [{ type: 'text', content: `第 ${i + 1} 题：${prefix}题目，以下说法正确的是？` }] },
+      options: [
+        { label: 'A', content: { blocks: [{ type: 'text', content: '选项 A 的内容' }] } },
+        { label: 'B', content: { blocks: [{ type: 'text', content: '选项 B 的内容' }] } },
+        { label: 'C', content: { blocks: [{ type: 'text', content: '选项 C 的内容' }] } },
+        { label: 'D', content: { blocks: [{ type: 'text', content: '选项 D 的内容' }] } },
+      ],
+    }));
+  }
+}
 onUnmounted(() => { if (timer) clearInterval(timer); });
 function selectAnswer(label: string) { answers.value[currentIndex.value] = label; uni.setStorageSync('practice_answers', JSON.stringify(answers.value)); }
 function prev() { if (currentIndex.value > 0) currentIndex.value--; }

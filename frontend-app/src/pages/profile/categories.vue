@@ -75,14 +75,17 @@ async function loadBindings() {
 }
 
 async function loadCategories() {
-  // Mock 分类列表
-  categories.value = [
+  // Mock 全部分类列表
+  const allCategories = [
     { id: 101, name: '网络协议' },
     { id: 102, name: '操作系统' },
     { id: 103, name: '数据结构' },
     { id: 104, name: '数据库' },
     { id: 105, name: '算法' },
   ];
+  // 过滤已绑定的分类
+  const boundIds = new Set(bindings.value.map(b => b.categoryId));
+  categories.value = allCategories.filter(cat => !boundIds.has(cat.id));
 }
 
 async function selectCategory(cat: any) {
@@ -90,7 +93,8 @@ async function selectCategory(cat: any) {
   try {
     await bindCategory({ categoryId: cat.id, isPrimary: bindings.value.length === 0 });
     uni.showToast({ title: '绑定成功', icon: 'success' });
-    loadBindings();
+    await loadBindings();
+    loadCategories(); // 刷新可选列表
   } catch (e: any) {
     uni.showToast({ title: e.message || '绑定失败', icon: 'none' });
   }
@@ -115,7 +119,8 @@ async function unbind(b: any) {
         try {
           await unbindCategory(b.id);
           uni.showToast({ title: '已解绑', icon: 'success' });
-          loadBindings();
+          await loadBindings();
+          loadCategories(); // 刷新可选列表
         } catch {
           uni.showToast({ title: '解绑失败', icon: 'none' });
         }

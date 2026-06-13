@@ -96,7 +96,25 @@ const showMastered = ref(false);
 const showCategoryFilter = ref(false);
 const categories = ref<any[]>([]);
 
+// 从缓存获取分类列表
+async function loadCategories() {
+  try {
+    const list = uni.getStorageSync('categoryList');
+    if (list) {
+      categories.value = JSON.parse(list);
+      return;
+    }
+  } catch { /* ignore */ }
+  // 降级：写死默认分类
+  categories.value = [
+    { id: 1, name: '网络协议' },
+    { id: 2, name: '操作系统' },
+    { id: 3, name: '数据结构' },
+  ];
+}
+
 onMounted(() => {
+  loadCategories();
   loadStats();
   loadQuestions();
 });
@@ -110,10 +128,11 @@ async function loadStats() {
 async function loadQuestions() {
   loading.value = true;
   try {
+    const cat = categories.value.find(c => c.name === selectedCategory.value);
     const res = await getWrongBooks({
       page: 1,
       pageSize: 50,
-      categoryId: 0,
+      categoryId: cat ? cat.id : 0,
       isMastered: showMastered.value ? undefined : false,
     });
     questions.value = res.items || [];
@@ -175,7 +194,8 @@ function goToDetail(id: number) {
 
 function startReview() {
   const ids = questions.value.filter(q => !q.isMastered).map(q => q.questionId);
-  uni.navigateTo({ url: `/pages/practice/wrong-session?ids=${JSON.stringify(ids)}` });
+  uni.setStorageSync('wrongSessionIds', JSON.stringify(ids));
+  uni.navigateTo({ url: '/pages/practice/wrong-session' });
 }
 
 function getTypeLabel(type: string): string {

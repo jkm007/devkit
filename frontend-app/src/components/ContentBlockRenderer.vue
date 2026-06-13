@@ -57,7 +57,12 @@
     <!-- 表格 -->
     <view v-else-if="block.type === 'table'" class="table-block">
       <scroll-view scroll-x class="table-scroll">
-        <view class="table-wrapper" v-html="sanitizedTableContent"></view>
+        <view class="table-wrapper">
+          <!-- 安全渲染：解析 HTML 为纯文本行，不使用 v-html -->
+          <view v-for="(row, ri) in parsedTableRows" :key="ri" class="table-row">
+            <text v-for="(cell, ci) in row" :key="ci" class="table-cell" :class="{ 'table-header': ri === 0 }">{{ cell }}</text>
+          </view>
+        </view>
       </scroll-view>
     </view>
 
@@ -129,9 +134,8 @@ const audioName = computed(() => {
   return props.block.content?.substring(0, 30) || '音频文件';
 });
 const audioDuration = ref('00:00');
-// #ifdef APP-PLUS
+// 通用音频上下文（所有平台）
 let audioContext: any = null;
-// #endif
 function toggleAudio() {
   // #ifdef APP-PLUS
   if (!audioContext) {
@@ -193,35 +197,64 @@ function copyCode() {
   uni.setClipboardData({ data: content, success: () => uni.showToast({ title: '已复制', icon: 'success' }) });
 }
 
-// 组件卸载时清理音频上下文
+// 组件卸载时清理音频上下文（所有平台）
 onUnmounted(() => {
-  // #ifdef APP-PLUS
   if (audioContext) {
+    // #ifdef APP-PLUS
     audioContext.destroy();
+    // #endif
+    // #ifdef H5
+    if (audioContext.pause) audioContext.pause();
+    // #endif
+    // #ifdef MP-WEIXIN
+    audioContext.destroy();
+    // #endif
     audioContext = null;
   }
-  // #endif
 });
 
-// 简单的 HTML 净化（移除 script 标签和事件处理器）
-const sanitizedTableContent = computed(() => {
+// 安全表格解析：将 HTML 表格解析为二维数组，完全避免 v-html
+const parsedTableRows = computed<string[][]>(() => {
   const raw = props.block.content || '';
+  const rows: string[][] = [];
+
   // #ifdef H5
   if (typeof DOMParser !== 'undefined') {
-    const doc = new DOMParser().parseFromString(raw, 'text/html');
-    // 移除 script 标签
-    doc.querySelectorAll('script').forEach(el => el.remove());
-    // 移除事件处理器
-    doc.querySelectorAll('*').forEach(el => {
-      Array.from(el.attributes).forEach(attr => {
-        if (attr.name.startsWith('on')) el.removeAttribute(attr.name);
+    try {
+      const doc = new DOMParser().parseFromString(raw, 'text/html');
+      const tableRows = doc.querySelectorAll('tr');
+      tableRows.forEach((tr) => {
+        const cells: string[] = [];
+        tr.querySelectorAll('th, td').forEach((cell) => {
+          // 仅提取纯文本内容，不解析嵌套 HTML
+          cells.push(cell.textContent || '');
+        });
+        if (cells.length > 0) rows.push(cells);
       });
-    });
-    return doc.body.innerHTML;
+    } catch {
+      // 解析失败时降级为简单分割
+    }
   }
   // #endif
-  // 非 H5 环境：简单过滤
-  return raw.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+
+  // 非 H5 环境或解析失败：简单按行和 tab/逗号分割
+  if (rows.length === 0 && raw.trim()) {
+    const lines = raw.split('\n').filter(line => line.trim());
+    for (const line of lines) {
+      // 尝试检测 td/th 标签
+      const cellMatches = line.match(/<t[hd][^>]*>(.*?)<\/t[hd]>/gi);
+      if (cellMatches) {
+        const cells = cellMatches.map((m: string) => m.replace(/<[^>]*>/g, '').trim());
+        if (cells.length > 0) rows.push(cells);
+      } else {
+        // 最后降级：按逗号或制表符分割
+        const cells = line.split(/[,|\t]+/).map((c: string) => c.trim()).filter(Boolean);
+        if (cells.length > 0) rows.push(cells);
+      }
+    }
+  }
+
+  return rows;
 });
 </script>
 
@@ -255,9 +288,9 @@ const sanitizedTableContent = computed(() => {
 .table-block { margin: 8px 0; border-radius: 8px; overflow: hidden; }
 .table-scroll { width: 100%; }
 .table-wrapper { min-width: max-content; }
-.table-wrapper :deep(table) { border-collapse: collapse; width: 100%; }
-.table-wrapper :deep(th), .table-wrapper :deep(td) { border: 1px solid #e8e8e8; padding: 8px 12px; text-align: left; }
-.table-wrapper :deep(th) { background: #fafafa; font-weight: 500; }
+.table-row { display: flex; }
+.table-cell { border: 1px solid #e8e8e8; padding: 8px 12px; text-align: left; font-size: 13px; color: #333; }
+.table-cell.table-header { background: #fafafa; font-weight: 500; }
 
 .code-block { margin: 8px 0; border-radius: 8px; overflow: hidden; border: 1px solid #e8e8e8; }
 .code-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #f5f5f5; }

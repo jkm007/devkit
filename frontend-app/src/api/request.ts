@@ -2,6 +2,37 @@ import type { RequestConfig } from './types';
 import { enqueueOfflineRequest } from '@/utils/offline';
 
 /**
+ * Token 加密层（简单 XOR + Base64 混淆，防止明文存储）
+ */
+const TOKEN_SALT = 'devkit_token_salt_2026';
+
+function xorWithSalt(text: string, salt: string): string {
+  let result = '';
+  for (let i = 0; i < text.length; i++) {
+    result += String.fromCharCode(text.charCodeAt(i) ^ salt.charCodeAt(i % salt.length));
+  }
+  return result;
+}
+
+function encryptToken(text: string): string {
+  try {
+    const xored = xorWithSalt(text, TOKEN_SALT);
+    return btoa(unescape(encodeURIComponent(xored)));
+  } catch {
+    return text; // 降级：如果加密失败直接存储原文
+  }
+}
+
+function decryptToken(encrypted: string): string | null {
+  try {
+    const decoded = decodeURIComponent(escape(atob(encrypted)));
+    return xorWithSalt(decoded, TOKEN_SALT);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 统一响应结构
  */
 interface ApiResponse<T = any> {
@@ -52,17 +83,21 @@ class TokenManager {
   }
 
   getAccessToken(): string | null {
-    return uni.getStorageSync('access_token') || null;
+    const raw = uni.getStorageSync('access_token');
+    if (!raw) return null;
+    return decryptToken(raw);
   }
 
   getRefreshToken(): string | null {
-    return uni.getStorageSync('refresh_token') || null;
+    const raw = uni.getStorageSync('refresh_token');
+    if (!raw) return null;
+    return decryptToken(raw);
   }
 
   setTokens(accessToken: string, refreshToken?: string) {
-    uni.setStorageSync('access_token', accessToken);
+    uni.setStorageSync('access_token', encryptToken(accessToken));
     if (refreshToken) {
-      uni.setStorageSync('refresh_token', refreshToken);
+      uni.setStorageSync('refresh_token', encryptToken(refreshToken));
     }
     this.notifySubscribers(accessToken);
   }
@@ -100,14 +135,36 @@ class TokenManager {
     try {
       const response = await new Promise<ApiResponse<{ accessToken: string; refreshToken?: string }>>(
         (resolve, reject) => {
+          let settled = false;
+
+          // 10秒超时
+          const timeoutId = setTimeout(() => {
+            if (!settled) {
+              settled = true;
+              reject(new Error('刷新 Token 超时'));
+            }
+          }, 10000);
+
           uni.request({
             url: `${getBaseURL()}/auth/refresh`,
             method: 'POST',
             header: {
               'X-Refresh-Token': refreshToken,
             },
-            success: (res) => resolve(res.data as any),
-            fail: (err) => reject(err),
+            success: (res) => {
+              if (!settled) {
+                settled = true;
+                clearTimeout(timeoutId);
+                resolve(res.data as any);
+              }
+            },
+            fail: (err) => {
+              if (!settled) {
+                settled = true;
+                clearTimeout(timeoutId);
+                reject(err);
+              }
+            },
           });
         }
       );
@@ -138,7 +195,12 @@ class TokenManager {
  * 获取 API 基础 URL
  */
 function getBaseURL(): string {
-  return import.meta.env.VITE_API_BASE_URL || '';
+  const url = import.meta.env.VITE_API_BASE_URL || '';
+  // 生产环境强制要求 HTTPS
+  if (!import.meta.env.DEV && url && url.startsWith('http://')) {
+    throw new Error('生产环境必须使用 HTTPS 连接');
+  }
+  return url;
 }
 
 /**

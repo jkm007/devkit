@@ -35,11 +35,10 @@ const answers = ref<string[]>([]);
 const questionIds = ref<number[]>([]);
 
 onMounted(() => {
-  const pages = getCurrentPages();
-  const currentPage = pages[pages.length - 1] as any;
-  const idsStr = currentPage.options?.ids;
+  // 从 setStorageSync 读取错题 IDs
+  const idsStr = uni.getStorageSync('wrongSessionIds');
   if (idsStr) {
-    try { questionIds.value = JSON.parse(decodeURIComponent(idsStr)); } catch { /* ignore */ }
+    try { questionIds.value = JSON.parse(idsStr); } catch { /* ignore */ }
   }
   loadQuestions();
 });
@@ -47,16 +46,20 @@ onMounted(() => {
 async function loadQuestions() {
   try {
     const res = await getWrongBookRandom(questionIds.value.length || 20);
-    questions.value = res || [];
+    questions.value = (res || []) as any[];
     answers.value = new Array(questions.value.length).fill('');
   } catch {
-    questions.value = Array.from({ length: 10 }, (_, i) => ({
-      id: i + 1, title: `错题 ${i + 1}`, options: [
-        { label: 'A', content: '选项 A' }, { label: 'B', content: '选项 B' },
-        { label: 'C', content: '选项 C' }, { label: 'D', content: '选项 D' },
-      ],
-    }));
-    answers.value = new Array(questions.value.length).fill('');
+    if (import.meta.env.DEV) {
+      questions.value = Array.from({ length: 10 }, (_, i) => ({
+        id: i + 1, title: `错题 ${i + 1}`, options: [
+          { label: 'A', content: '选项 A' }, { label: 'B', content: '选项 B' },
+          { label: 'C', content: '选项 C' }, { label: 'D', content: '选项 D' },
+        ],
+      }));
+      answers.value = new Array(questions.value.length).fill('');
+    } else {
+      uni.showToast({ title: '加载错题失败', icon: 'none' });
+    }
   }
 }
 

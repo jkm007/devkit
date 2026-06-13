@@ -166,7 +166,7 @@ func (s *StudyService) SubmitPractice(userID uint, req *PracticeSubmitRequest) e
 		Answered: req.Answered,
 		Correct:  req.Correct,
 		Elapsed:  req.Elapsed,
-		Answers:  string(answersJSON),
+		Answers:  answersJSON,
 	}
 
 	return s.studyRepo.CreatePracticeRecord(record)

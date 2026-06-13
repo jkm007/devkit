@@ -53,15 +53,21 @@ const form = ref({
 const loading = ref(false);
 
 const canSubmit = computed(() => {
+  const pwd = form.value.password;
+  const hasMinLength = pwd.length >= 8;
   return (
     form.value.username &&
-    form.value.password &&
-    form.value.password === form.value.confirmPassword
+    hasMinLength &&
+    pwd === form.value.confirmPassword
   );
 });
 
 async function handleRegister() {
   if (!canSubmit.value) {
+    if (form.value.password.length < 8) {
+      uni.showToast({ title: '密码至少8位', icon: 'none' });
+      return;
+    }
     if (form.value.password !== form.value.confirmPassword) {
       uni.showToast({ title: '两次密码不一致', icon: 'none' });
       return;
