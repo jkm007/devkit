@@ -338,11 +338,8 @@ func (h *MediaHandler) ViewFile(c *gin.Context) {
 		return
 	}
 
-	// 获取当前用户ID
-	userID := middleware.GetCurrentUserID(c)
-
-	// 验证文件归属
-	entry, err := h.fileService.GetFileEntry(userID, uint(id))
+	// 获取文件信息（不限制所有权，题库图片等资源需要跨用户访问）
+	entry, err := h.fileService.GetFileEntryByID(uint(id))
 	if err != nil {
 		response.NotFound(c, "文件不存在或无权访问")
 		return

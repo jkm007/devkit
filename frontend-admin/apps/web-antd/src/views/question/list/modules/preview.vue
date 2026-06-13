@@ -21,15 +21,31 @@ const selectedAnswer = ref<any>(null);
 // Question type categories
 const CHOICE_TYPES = ['single_choice', 'multiple_choice', 'indefinite_choice'];
 
-// Decode JSON-encoded HTML string
+// Decode JSON-encoded string (handles double-encoding from DB)
 function safeJsonParse(jsonStr: string): string {
   if (!jsonStr || jsonStr === 'null') return '';
   try {
     const parsed = JSON.parse(jsonStr);
-    return typeof parsed === 'string' ? parsed : jsonStr;
+    if (typeof parsed === 'string') {
+      // Double-encoded: parse again
+      try {
+        const parsed2 = JSON.parse(parsed);
+        return typeof parsed2 === 'string' ? parsed2 : parsed;
+      } catch {
+        return parsed;
+      }
+    }
+    return jsonStr;
   } catch {
     return jsonStr;
   }
+}
+
+// Fix image URLs in HTML content
+function fixImageUrls(html: string): string {
+  if (!html) return html;
+  // Replace /files/{id}/direct-url with /api/v1/files/{id}/view
+  return html.replace(/\/files\/(\d+)\/direct-url/g, '/api/v1/files/$1/view');
 }
 
 function getLabel(options: any[], value: any): string {
@@ -56,11 +72,25 @@ function getDifficultyLabel(value: number): string {
   return getLabel(DIFFICULTY_OPTIONS, value);
 }
 
+// Deep parse JSON (handles double-encoding from DB JSON columns)
+function deepParse(val: any): any {
+  if (typeof val !== 'string') return val;
+  try {
+    const parsed = JSON.parse(val);
+    if (typeof parsed === 'string') {
+      try { return JSON.parse(parsed); } catch { return parsed; }
+    }
+    return parsed;
+  } catch {
+    return val;
+  }
+}
+
 // Parse options from content JSON
 function parseOptions(): Array<{ id: string; text: string }> {
   if (!questionData.value?.content) return [];
   try {
-    const parsed = JSON.parse(questionData.value.content);
+    const parsed = deepParse(questionData.value.content);
     if (Array.isArray(parsed)) return parsed;
     return [];
   } catch {
@@ -72,9 +102,9 @@ function parseOptions(): Array<{ id: string; text: string }> {
 function parseCorrectAnswer(): string[] {
   if (!questionData.value?.answer) return [];
   try {
-    const parsed = JSON.parse(questionData.value.answer);
-    if (parsed.correct) return Array.isArray(parsed.correct) ? parsed.correct : [parsed.correct];
-    if (parsed.blanks) return parsed.blanks;
+    const parsed = deepParse(questionData.value.answer);
+    if (parsed && parsed.correct) return Array.isArray(parsed.correct) ? parsed.correct : [parsed.correct];
+    if (parsed && parsed.blanks) return parsed.blanks;
     return [];
   } catch {
     return [];
@@ -85,8 +115,8 @@ function parseCorrectAnswer(): string[] {
 function parseTFAnswer(): string {
   if (!questionData.value?.answer) return '';
   try {
-    const parsed = JSON.parse(questionData.value.answer);
-    return parsed.correct || '';
+    const parsed = deepParse(questionData.value.answer);
+    return (parsed && parsed.correct) || '';
   } catch {
     return '';
   }
@@ -121,19 +151,19 @@ const [Drawer, drawerApi] = useVbenDrawer({
   },
 });
 
-// Get stem HTML
+// Get stem HTML (with fixed image URLs)
 function getStem(): string {
-  return safeJsonParse(questionData.value?.stem || '');
+  return fixImageUrls(safeJsonParse(questionData.value?.stem || ''));
 }
 
-// Get analysis HTML
+// Get analysis HTML (with fixed image URLs)
 function getAnalysis(): string {
-  return safeJsonParse(questionData.value?.analysis || '');
+  return fixImageUrls(safeJsonParse(questionData.value?.analysis || ''));
 }
 
-// Get essay answer HTML
+// Get essay answer HTML (with fixed image URLs)
 function getEssayAnswer(): string {
-  return safeJsonParse(questionData.value?.answer || '');
+  return fixImageUrls(safeJsonParse(questionData.value?.answer || ''));
 }
 </script>
 

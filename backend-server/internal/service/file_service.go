@@ -728,6 +728,15 @@ func (s *FileService) GetFileEntry(userID uint, fileID uint) (*model.FileEntry, 
 	return entry, nil
 }
 
+// GetFileEntryByID 根据ID获取文件条目（不限制所有权，用于题库图片等公开资源）
+func (s *FileService) GetFileEntryByID(fileID uint) (*model.FileEntry, error) {
+	entry, err := s.fileRepo.GetEntryByID(fileID)
+	if err != nil {
+		return nil, fmt.Errorf("文件不存在")
+	}
+	return entry, nil
+}
+
 // GetAssetByID 获取文件资产
 func (s *FileService) GetAssetByID(assetID uint) (*model.FileAsset, error) {
 	return s.assetRepo.GetByID(assetID)

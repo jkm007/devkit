@@ -57,15 +57,29 @@ const isFillBlank = computed(() => currentType.value === 'fill_blank');
 // Current question type for template - synced from form select
 const currentType = ref('');
 
-// Decode JSON-encoded HTML string for TipTap
+// Decode JSON-encoded string (handles double-encoding from DB)
 function safeJsonParse(jsonStr: string): string {
   if (!jsonStr || jsonStr === 'null') return '';
   try {
     const parsed = JSON.parse(jsonStr);
-    return typeof parsed === 'string' ? parsed : jsonStr;
+    if (typeof parsed === 'string') {
+      try {
+        const parsed2 = JSON.parse(parsed);
+        return typeof parsed2 === 'string' ? parsed2 : parsed;
+      } catch {
+        return parsed;
+      }
+    }
+    return jsonStr;
   } catch {
     return jsonStr;
   }
+}
+
+// Fix image URLs in HTML content
+function fixImageUrls(html: string): string {
+  if (!html) return html;
+  return html.replace(/\/files\/(\d+)\/direct-url/g, '/api/v1/files/$1/view');
 }
 
 // Encode HTML string to JSON for backend
@@ -290,9 +304,9 @@ const [Drawer, drawerApi] = useVbenDrawer({
         });
         currentType.value = data.questionType || '';
 
-        // Decode stem and analysis
-        stemHtml.value = safeJsonParse(data.stem);
-        analysisHtml.value = safeJsonParse(data.analysis);
+        // Decode stem and analysis (fix image URLs for old data)
+        stemHtml.value = fixImageUrls(safeJsonParse(data.stem));
+        analysisHtml.value = fixImageUrls(safeJsonParse(data.analysis));
 
         // Decode type-specific content and answer
         const questionType = data.questionType || '';
@@ -328,7 +342,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
           }
         } else {
           // Essay and others
-          essayAnswerHtml.value = safeJsonParse(data.answer);
+          essayAnswerHtml.value = fixImageUrls(safeJsonParse(data.answer));
         }
       } else {
         formData.value = undefined;

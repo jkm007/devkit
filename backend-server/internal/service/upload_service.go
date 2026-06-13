@@ -137,11 +137,19 @@ func (s *UploadService) CheckUpload(userID uint, fileHash string, fileSize int64
 		repo.SyncStorageUsed(userID)
 	}()
 
+	// 根据存储类型返回合适的 URL
+	var fileURL string
+	if asset.StorageType == "local" {
+		fileURL = fmt.Sprintf("/files/%d/view", entryID)
+	} else {
+		fileURL = fmt.Sprintf("/files/%d/direct-url", entryID)
+	}
+
 	return &CheckResult{
 		Exists:    true,
 		FileID:    entryID,
 		ObjectKey: asset.ObjectKey,
-		URL:       fmt.Sprintf("/files/%d/direct-url", entryID),
+		URL:       fileURL,
 	}, nil
 }
 
