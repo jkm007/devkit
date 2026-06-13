@@ -264,14 +264,29 @@ func (s *QuestionService) Publish(id uint, reviewedBy uint) (*QuestionResponse, 
 	}
 
 	now := time.Now()
-	item.Status = "published"
-	item.PublishedAt = &now
-	item.ReviewedBy = reviewedBy
-	item.ReviewedAt = &now
 
-	if err := s.repo.Update(item); err != nil {
+	// 使用Select只更新必要的字段，避免更新空的JSON字段导致错误
+	err = s.repo.DB().Model(&model.Question{}).
+		Where("id = ?", id).
+		Select("status", "published_at", "reviewed_by", "reviewed_at", "updated_at").
+		Updates(map[string]interface{}{
+			"status":      "published",
+			"published_at": now,
+			"reviewed_by": reviewedBy,
+			"reviewed_at": now,
+			"updated_at": now,
+		}).Error
+
+	if err != nil {
 		return nil, err
 	}
+
+	// 重新读取更新后的数据
+	item, err = s.repo.GetByID(id)
+	if err != nil {
+		return nil, err
+	}
+
 	resp := s.toResponse(item)
 	return &resp, nil
 }

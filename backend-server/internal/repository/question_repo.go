@@ -14,6 +14,11 @@ func NewQuestionRepo(db *gorm.DB) *QuestionRepo {
 	return &QuestionRepo{db: db}
 }
 
+// DB returns the underlying database connection for custom queries
+func (r *QuestionRepo) DB() *gorm.DB {
+	return r.db
+}
+
 func (r *QuestionRepo) List(page, pageSize int, filters map[string]interface{}) ([]model.Question, int64, error) {
 	var items []model.Question
 	var total int64
