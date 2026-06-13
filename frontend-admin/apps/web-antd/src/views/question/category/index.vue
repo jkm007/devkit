@@ -8,6 +8,8 @@ import { Button, Card, Empty, Input, InputNumber, message, Modal, Radio, RadioGr
 
 import { useAccess } from '@vben/access';
 
+import CreateModal from './modules/create-modal.vue';
+
 import {
   createExam,
   createExamCategory,
@@ -28,6 +30,11 @@ import {
 } from '#/api/question/category';
 
 const { hasAccessByCodes } = useAccess();
+
+// Create modal ref
+const createModalRef = ref();
+const createType = ref<'examCategory' | 'exam' | 'subject' | 'category' | null>(null);
+const createParentId = ref<number>(0);
 
 // Tree data structure
 interface TreeNode {
@@ -269,129 +276,75 @@ async function handleCreate() {
   const parentId = selectedNode.value.data.id;
 
   // Determine child type
-  let childType: string;
   switch (parentType) {
     case 'examCategory':
-      childType = 'exam';
+      createType.value = 'exam';
       break;
     case 'exam':
-      childType = 'subject';
+      createType.value = 'subject';
       break;
     case 'subject':
-      childType = 'category';
+      createType.value = 'category';
       break;
     case 'category':
-      childType = 'category';
+      createType.value = 'category';
       break;
     default:
       message.warning('无法在此节点下创建子级');
       return;
   }
 
-  // Show create modal
-  Modal.confirm({
-    title: `新增${getNodeTypeLabel(childType as any)}`,
-    content: () => (
-      <div>
-        <div class="mb-3">
-          <label class="block text-sm font-medium mb-1">名称 *</label>
-          <Input v-model:value={formData.value.newName} placeholder="请输入名称" />
-        </div>
-        <div class="mb-3">
-          <label class="block text-sm font-medium mb-1">编码</label>
-          <Input v-model:value={formData.value.newCode} placeholder="请输入编码" />
-        </div>
-        <div class="mb-3">
-          <label class="block text-sm font-medium mb-1">状态</label>
-          <RadioGroup v-model:value={formData.value.newStatus} buttonStyle="solid">
-            <Radio.Button value={1}>启用</Radio.Button>
-            <Radio.Button value={0}>禁用</Radio.Button>
-          </RadioGroup>
-        </div>
-      </div>
-    ),
-    onOk: async () => {
-      const data = {
-        name: formData.value.newName,
-        code: formData.value.newCode,
-        status: formData.value.newStatus || 1,
-        createdBy: 1,
-      };
+  createParentId.value = parentId;
+  createModalRef.value?.open();
+}
 
-      try {
-        let result;
-        switch (childType) {
-          case 'exam':
-            result = await createExam({ ...data, examCategoryId: parentId });
-            break;
-          case 'subject':
-            result = await createSubject({ ...data, examId: parentId });
-            break;
-          case 'category':
-            result = await createQuestionCategory({ ...data, subjectId: selectedNode.value!.data.subjectId || parentId, parentId });
-            break;
-        }
+// Handle create success
+async function handleCreateSuccess(data: any) {
+  try {
+    switch (createType.value) {
+      case 'exam':
+        await createExam({ ...data, examCategoryId: createParentId.value, createdBy: 1 });
+        break;
+      case 'subject':
+        await createSubject({ ...data, examId: createParentId.value, createdBy: 1 });
+        break;
+      case 'category':
+        await createQuestionCategory({
+          ...data,
+          subjectId: selectedNode.value!.data.subjectId || createParentId.value,
+          parentId: createParentId.value,
+          createdBy: 1,
+        });
+        break;
+    }
 
-        message.success('创建成功');
-        formData.value.newName = '';
-        formData.value.newCode = '';
-        formData.value.newStatus = 1;
-        await loadTreeData();
-      } catch (error: any) {
-        message.error(error?.message || '创建失败');
-      }
-    },
-  });
+    message.success('创建成功');
+    await loadTreeData();
+  } catch (error: any) {
+    message.error(error?.message || '创建失败');
+  }
 }
 
 // Create root node (exam category)
-async function handleCreateRoot() {
-  formData.value.newName = '';
-  formData.value.newCode = '';
-  formData.value.newStatus = 1;
+function handleCreateRoot() {
+  createType.value = 'examCategory';
+  createParentId.value = 0;
+  createModalRef.value?.open();
+}
 
-  Modal.confirm({
-    title: '新增考试大类',
-    content: () => (
-      <div>
-        <div class="mb-3">
-          <label class="block text-sm font-medium mb-1">名称 *</label>
-          <Input v-model:value={formData.value.newName} placeholder="请输入名称" />
-        </div>
-        <div class="mb-3">
-          <label class="block text-sm font-medium mb-1">编码</label>
-          <Input v-model:value={formData.value.newCode} placeholder="请输入编码" />
-        </div>
-        <div class="mb-3">
-          <label class="block text-sm font-medium mb-1">状态</label>
-          <RadioGroup v-model:value={formData.value.newStatus} buttonStyle="solid">
-            <Radio.Button value={1}>启用</Radio.Button>
-            <Radio.Button value={0}>禁用</Radio.Button>
-          </RadioGroup>
-        </div>
-      </div>
-    ),
-    onOk: async () => {
-      if (!formData.value.newName) {
-        message.warning('请输入名称');
-        return;
-      }
+// Handle create root success
+async function handleCreateRootSuccess(data: any) {
+  try {
+    await createExamCategory({
+      ...data,
+      createdBy: 1,
+    });
 
-      try {
-        await createExamCategory({
-          name: formData.value.newName,
-          code: formData.value.newCode,
-          status: formData.value.newStatus || 1,
-          createdBy: 1,
-        });
-
-        message.success('创建成功');
-        await loadTreeData();
-      } catch (error: any) {
-        message.error(error?.message || '创建失败');
-      }
-    },
-  });
+    message.success('创建成功');
+    await loadTreeData();
+  } catch (error: any) {
+    message.error(error?.message || '创建失败');
+  }
 }
 
 // Delete node
@@ -462,6 +415,11 @@ onMounted(() => {
 
 <template>
   <Page auto-content-height>
+    <CreateModal
+      ref="createModalRef"
+      @success="createType === 'examCategory' ? handleCreateRootSuccess($event) : handleCreateSuccess($event)"
+    />
+
     <div class="flex h-full gap-4">
       <!-- Left: Tree -->
       <Card class="w-1/3 overflow-auto" title="分类科目树" :loading="loading">
