@@ -174,14 +174,24 @@ async function fetchMediaAsBlob(url: string): Promise<string> {
 // Handles <img>, <video>, <source>, and poster attributes
 async function convertMediaToBlobUrls(html: string): Promise<string> {
   if (!html) return html;
+  // Fallback: for <video> tags with blob src, replace with data-real-src if available
+  let preprocessed = html;
+  preprocessed = preprocessed.replace(
+    /<video[^>]+src="(blob:[^"]+)"[^>]*data-real-src="([^"]+)"[^>]*>/g,
+    (fullMatch, _blobSrc, realSrc) => fullMatch.replace(`src="${_blobSrc}"`, `src="${realSrc}"`),
+  );
+  preprocessed = preprocessed.replace(
+    /<video[^>]+data-real-src="([^"]+)"[^>]+src="(blob:[^"]+)"[^>]*>/g,
+    (fullMatch, realSrc, _blobSrc) => fullMatch.replace(`src="${_blobSrc}"`, `src="${realSrc}"`),
+  );
   // Match src="..." on img/video/source tags, and poster="..." on video tags
   const urlRegex = /(<(?:img|video|source)[^>]+(?:src|poster)=")([^"]+)(")/g;
-  const matches = [...html.matchAll(urlRegex)];
-  if (matches.length === 0) return html;
+  const matches = [...preprocessed.matchAll(urlRegex)];
+  if (matches.length === 0) return preprocessed;
 
   // Deduplicate URLs to avoid fetching the same URL multiple times
   const uniqueUrls = [...new Set(matches.map((m) => m[2]).filter((u) => !u.startsWith('blob:') && !u.startsWith('data:')))];
-  if (uniqueUrls.length === 0) return html;
+  if (uniqueUrls.length === 0) return preprocessed;
 
   // Fetch all unique URLs in parallel
   const urlMap = new Map<string, string>();
@@ -195,8 +205,8 @@ async function convertMediaToBlobUrls(html: string): Promise<string> {
   );
 
   // Replace each URL precisely using the full match to avoid over-replacing
-  if (urlMap.size === 0) return html;
-  let result = html;
+  if (urlMap.size === 0) return preprocessed;
+  let result = preprocessed;
   // Process in reverse order to preserve match indices
   for (let i = matches.length - 1; i >= 0; i--) {
     const match = matches[i];
@@ -218,7 +228,17 @@ function convertBlobUrlsToReal(html: string): string {
   for (const [blobUrl, realUrl] of blobToRealUrl.entries()) {
     result = result.replaceAll(blobUrl, realUrl);
   }
-  // Also handle via regex in case mapping was lost
+  // Fallback: for <video> tags with blob src and data-real-src, replace src with data-real-src
+  result = result.replace(
+    /<video[^>]+src="(blob:[^"]+)"[^>]*data-real-src="([^"]+)"[^>]*>/g,
+    (fullMatch, _blobSrc, realSrc) => fullMatch.replace(`src="${_blobSrc}"`, `src="${realSrc}"`),
+  );
+  // Also handle data-real-src appearing before src
+  result = result.replace(
+    /<video[^>]+data-real-src="([^"]+)"[^>]+src="(blob:[^"]+)"[^>]*>/g,
+    (fullMatch, realSrc, _blobSrc) => fullMatch.replace(`src="${_blobSrc}"`, `src="${realSrc}"`),
+  );
+  // Final catch: any remaining blob URLs
   result = result.replace(/blob:http[^"]+/g, (match) => {
     return blobToRealUrl.get(match) || match;
   });

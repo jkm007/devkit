@@ -33,6 +33,7 @@ const Video = Node.create({
       controls: { default: true },
       width: { default: '100%' },
       'data-type': { default: 'video' },
+      'data-real-src': { default: null },
     };
   },
   parseHTML() {
@@ -195,12 +196,17 @@ function createUploadProcess(
         return;
       }
 
-      const transaction = editor.state.tr.setNodeMarkup(currentPos, undefined, {
+      const newAttrs: Record<string, any> = {
         ...node.attrs,
         'data-upload-progress': null,
         'data-uploading': null,
         src: url,
-      });
+      };
+      // Store real URL as backup for video nodes (in case src doesn't serialize correctly)
+      if (node.type.name === 'video') {
+        newAttrs['data-real-src'] = url;
+      }
+      const transaction = editor.state.tr.setNodeMarkup(currentPos, undefined, newAttrs);
       editor.view.dispatch(transaction);
       blobUrlTracker?.delete(blobUrl);
       URL.revokeObjectURL(blobUrl);
