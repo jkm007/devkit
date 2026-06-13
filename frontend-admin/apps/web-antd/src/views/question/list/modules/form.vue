@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { QuestionApi } from '#/api/question/question';
 
-import { computed, ref, watch } from 'vue';
+import { computed, ref } from 'vue';
 
 import { useVbenDrawer } from '@vben/common-ui';
 import { Plus } from '@vben/icons';
@@ -50,20 +50,11 @@ const essayAnswerHtml = ref('');
 
 // Question type categories
 const CHOICE_TYPES = ['single_choice', 'multiple_choice', 'indefinite_choice'];
-const isChoiceType = computed(() => {
-  const qt = formApi?.getValues?.()?.questionType || formApi?.getFieldValue?.('questionType');
-  return CHOICE_TYPES.includes(qt as string);
-});
-const isTrueFalse = computed(() => {
-  const qt = formApi?.getValues?.()?.questionType || formApi?.getFieldValue?.('questionType');
-  return qt === 'true_false';
-});
-const isFillBlank = computed(() => {
-  const qt = formApi?.getValues?.()?.questionType || formApi?.getFieldValue?.('questionType');
-  return qt === 'fill_blank';
-});
+const isChoiceType = computed(() => CHOICE_TYPES.includes(currentType.value));
+const isTrueFalse = computed(() => currentType.value === 'true_false');
+const isFillBlank = computed(() => currentType.value === 'fill_blank');
 
-// Current question type for template
+// Current question type for template - synced from form select
 const currentType = ref('');
 
 // Decode JSON-encoded HTML string for TipTap
@@ -163,6 +154,7 @@ const [Form, formApi] = useVbenForm({
         options: QUESTION_TYPE_OPTIONS,
         placeholder: '请选择题型',
         class: 'w-full',
+        onChange: (val: string) => onQuestionTypeChange(val),
       },
     },
     {
@@ -183,38 +175,23 @@ const [Form, formApi] = useVbenForm({
   showDefaultActions: false,
 });
 
-// Watch question type changes
-watch(
-  () => currentType.value,
-  (newType, oldType) => {
-    if (newType === oldType) return;
-    // Reset type-specific data when type changes
-    if (!CHOICE_TYPES.includes(newType)) {
-      options.value = [
-        { id: 'A', text: '' },
-        { id: 'B', text: '' },
-      ];
-      correctAnswers.value = [];
-    }
-    if (newType !== 'true_false') {
-      tfAnswer.value = 'true';
-    }
-  },
-);
-
-// Sync questionType from form to currentType
-watch(
-  () => {
-    try {
-      return formApi.getValues?.()?.questionType;
-    } catch {
-      return undefined;
-    }
-  },
-  (val) => {
-    if (val) currentType.value = val as string;
-  },
-);
+// Handle question type change from Select
+function onQuestionTypeChange(val: string) {
+  const oldType = currentType.value;
+  currentType.value = val;
+  if (val === oldType) return;
+  // Reset type-specific data when type changes
+  if (!CHOICE_TYPES.includes(val)) {
+    options.value = [
+      { id: 'A', text: '' },
+      { id: 'B', text: '' },
+    ];
+    correctAnswers.value = [];
+  }
+  if (val !== 'true_false') {
+    tfAnswer.value = 'true';
+  }
+}
 
 const [Drawer, drawerApi] = useVbenDrawer({
   async onConfirm() {

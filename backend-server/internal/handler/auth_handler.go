@@ -32,9 +32,9 @@ func NewAuthHandler() *AuthHandler {
 	}
 }
 
-// cookieSecure 始终启用 Secure 标志，确保 Cookie 仅通过 HTTPS 传输
-func (h *AuthHandler) cookieSecure() bool {
-	return true
+// cookieSecure 根据请求协议决定是否启用 Secure 标志
+func (h *AuthHandler) cookieSecure(c *gin.Context) bool {
+	return c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https"
 }
 
 // setCookie 设置 cookie（带 SameSite=Lax）
@@ -45,7 +45,7 @@ func (h *AuthHandler) setCookie(c *gin.Context, name, value string, maxAge int) 
 		Path:     "/",
 		MaxAge:   maxAge,
 		HttpOnly: true,
-		Secure:   h.cookieSecure(),
+		Secure:   h.cookieSecure(c),
 		SameSite: http.SameSiteLaxMode,
 	})
 }
