@@ -53,6 +53,7 @@ const [Grid, gridApi] = useVbenVxeGrid({
   gridOptions: {
     columns: useSubjectColumns(onStatusChange),
     height: 'auto',
+    layouts: [['Form'], ['Toolbar', 'Top', 'Table', 'Bottom'], ['Pager']],
     keepSource: true,
     proxyConfig: {
       ajax: {
