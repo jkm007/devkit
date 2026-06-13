@@ -177,8 +177,9 @@ function findPlaceholderPos(doc: ProseMirrorNode, blobUrl: string): number {
   let found = -1;
   doc.descendants((node: ProseMirrorNode, offset: number) => {
     if (found !== -1) return false;
+    // 检查 image 和 video 节点
     if (
-      node.type.name === 'image' &&
+      (node.type.name === 'image' || node.type.name === 'video') &&
       node.attrs.src === blobUrl &&
       node.attrs['data-uploading'] === 'true'
     ) {
