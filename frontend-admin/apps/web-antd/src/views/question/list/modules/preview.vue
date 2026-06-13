@@ -97,10 +97,10 @@ async function fetchMediaAsBlob(url: string): Promise<string> {
   return url;
 }
 
-// Convert real media URLs in HTML to blob URLs (handles img + video)
+// Convert real media URLs in HTML to blob URLs (images only, videos use real URL)
 async function convertMediaToBlobUrls(html: string): Promise<string> {
   if (!html) return html;
-  const urlRegex = /(<(?:img|video)[^>]+(?:src|poster)=")([^"]+)(")/g;
+  const urlRegex = /(<img[^>]+src=")([^"]+)(")/g;
   const matches = [...html.matchAll(urlRegex)];
   if (matches.length === 0) return html;
 
