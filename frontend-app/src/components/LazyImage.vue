@@ -42,9 +42,9 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  load: (event: any) => void;
-  error: (event: any) => void;
-  click: () => void;
+  (e: 'load', event: any): void;
+  (e: 'error', event: any): void;
+  (e: 'click'): void;
 }>();
 
 const loaded = ref(false);
@@ -54,8 +54,8 @@ const wrapperStyle = computed(() => ({
   width: props.width || '100%',
   height: props.height || 'auto',
   borderRadius: props.radius || '0',
-  overflow: 'hidden',
-  position: 'relative',
+  overflow: 'hidden' as const,
+  position: 'relative' as const,
 }));
 
 const imageStyle = computed(() => ({

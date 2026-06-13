@@ -322,17 +322,3 @@ class RequestClient {
  */
 export const request = new RequestClient();
 export const tokenManager = TokenManager.getInstance();
-
-/**
- * 请求配置类型
- */
-export interface RequestConfig {
-  url: string;
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
-  data?: any;
-  params?: Record<string, any>;
-  headers?: Record<string, string>;
-  skipAuth?: boolean;
-}
-
-export type { ApiResponse, PageResponse };

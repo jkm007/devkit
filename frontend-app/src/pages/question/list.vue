@@ -148,7 +148,7 @@ function selectDifficulty(diff: string | number) {
   fetchQuestions(true);
 }
 
-function getTypeLabel(type: string): string {
+function getTypeLabel(type: string | undefined): string {
   const map: Record<string, string> = {
     single_choice: '单选',
     multiple_choice: '多选',
@@ -156,10 +156,11 @@ function getTypeLabel(type: string): string {
     fill_blank: '填空',
     short_answer: '简答',
   };
-  return map[type] || type;
+  return map[type!] || type || '未知';
 }
 
-function goToDetail(id: number) {
+function goToDetail(id: number | undefined) {
+  if (!id) return;
   uni.navigateTo({ url: `/pages/question/detail?id=${id}` });
 }
 </script>

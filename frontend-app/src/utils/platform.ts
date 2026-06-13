@@ -61,8 +61,8 @@ export async function getStatusBarHeight(): Promise<number> {
     resolve(0); // H5 使用默认导航栏
     // #endif
     // #ifdef APP-PLUS
-    const systemInfo = uni.getSystemInfoSync();
-    resolve(systemInfo.statusBarHeight || 0);
+    const appSystemInfo = uni.getSystemInfoSync();
+    resolve(appSystemInfo.statusBarHeight || 0);
     // #endif
   });
 }

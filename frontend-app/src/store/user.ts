@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import { loginByUsername, loginByEmail, loginByPhone, logout as logoutApi, refreshToken } from '@/api/auth';
+import { loginByUsername, loginByEmail, loginByPhone, logout as logoutApi, refreshTokenApi } from '@/api/auth';
 import { tokenManager } from '@/api/request';
 
 /**

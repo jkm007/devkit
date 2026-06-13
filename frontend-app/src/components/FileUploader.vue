@@ -62,9 +62,9 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  change: (files: FileInfo[]) => void;
-  success: (file: FileInfo) => void;
-  error: (error: Error) => void;
+  (e: 'change', files: FileInfo[]): void;
+  (e: 'success', file: FileInfo): void;
+  (e: 'error', error: Error): void;
 }>();
 
 const fileList = ref<QueuedFile[]>([]);
@@ -112,7 +112,8 @@ function getExtensions(): string[] {
   return props.accept.split(',').map(a => a.trim().replace('*.', ''));
 }
 
-async function handleFiles(files: any[]) {
+async function handleFiles(result: any) {
+  const files: any[] = Array.isArray(result) ? result : [result];
   for (const f of files) {
     if (f.size > maxSizeBytes.value) {
       uni.showToast({ title: `文件 ${f.name} 超过大小限制`, icon: 'none' });
@@ -256,7 +257,16 @@ function formatSize(bytes: number): string {
 function emitNotifyChange() {
   const successFiles = fileList.value
     .filter(f => f.status === 'success' && f.fileId)
-    .map(f => ({ id: f.fileId!, name: f.name, size: f.size, fileType: f.type, url: '', uploadedAt: '' } as FileInfo));
+    .map(f => ({
+      id: f.fileId!,
+      name: f.name,
+      originalName: f.name,
+      fileType: f.type,
+      fileSize: f.size,
+      url: '',
+      uploadedAt: new Date().toISOString(),
+      uploadedBy: 0,
+    } as FileInfo));
   emit('change', successFiles);
 }
 </script>
