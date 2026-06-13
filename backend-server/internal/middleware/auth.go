@@ -20,24 +20,32 @@ import (
 // JWTAuth JWT 认证中间件
 func JWTAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 从 Header 获取 Token
+		var tokenStr string
+
+		// 优先从 Header 获取 Token
 		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			response.Unauthorized(c, "缺少 Authorization 头")
-			c.Abort()
-			return
+		if authHeader != "" {
+			parts := strings.SplitN(authHeader, " ", 2)
+			if len(parts) == 2 && parts[0] == "Bearer" {
+				tokenStr = parts[1]
+			}
 		}
 
-		// 解析 Bearer Token
-		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			response.Unauthorized(c, "Authorization 格式错误")
+		// Header 没有 Token 时，从 Cookie 获取（支持浏览器图片请求等场景）
+		if tokenStr == "" {
+			if cookie, err := c.Cookie("access_token"); err == nil && cookie != "" {
+				tokenStr = cookie
+			}
+		}
+
+		if tokenStr == "" {
+			response.Unauthorized(c, "缺少认证信息")
 			c.Abort()
 			return
 		}
 
 		// 解析 Token（已包含算法校验）
-		claims, err := jwt.Parse(parts[1])
+		claims, err := jwt.Parse(tokenStr)
 		if err != nil {
 			response.Unauthorized(c, "Token 无效或已过期")
 			c.Abort()
@@ -58,7 +66,7 @@ func JWTAuth() gin.HandlerFunc {
 		// 检查 Token 是否在黑名单中（logout 后失效）
 		// 采用 fail-closed 策略：Redis 不可用时拒绝请求，防止已注销的 Token 继续使用
 		// 使用 SHA-256 哈希存储，减少内存占用并降低 Token 泄露风险
-		blacklistKey := tokenBlacklistKey(parts[1])
+		blacklistKey := tokenBlacklistKey(tokenStr)
 		val, err := database.GetRedis().Get(context.Background(), blacklistKey).Result()
 		if err == nil && val != "" {
 			response.Unauthorized(c, "Token 已失效，请重新登录")
