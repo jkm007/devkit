@@ -183,6 +183,18 @@
       "style": {
         "navigationBarTitleText": "我的分类"
       }
+    },
+    {
+      "path": "pages/practice/smart",
+      "style": {
+        "navigationBarTitleText": "智能练习"
+      }
+    },
+    {
+      "path": "pages/practice/smart-session",
+      "style": {
+        "navigationBarTitleText": "智能练习答题"
+      }
     }
   ],
   "globalStyle": {

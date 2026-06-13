@@ -193,6 +193,10 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		authorized.PUT("/user/category-bindings/:id", userHandler.SetPrimaryCategory)
 		authorized.DELETE("/user/category-bindings/:id", userHandler.UnbindCategory)
 
+		// 智能练习
+		authorized.POST("/study/practice/smart", studyHandler.GetSmartPractice)
+		authorized.GET("/study/practice/analysis", studyHandler.GetPracticeAnalysis)
+
 		// 通知消息
 		authorized.GET("/notifications", notificationHandler.List)
 		authorized.GET("/notifications/unread-count", notificationHandler.GetUnreadCount)

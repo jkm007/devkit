@@ -392,3 +392,30 @@ func (h *StudyHandler) GetWrongBookStats(c *gin.Context) {
 
 	response.Success(c, stats)
 }
+
+// GetSmartPractice 智能练习
+func (h *StudyHandler) GetSmartPractice(c *gin.Context) {
+	userID := middleware.GetCurrentUserID(c)
+
+	var req service.SmartPracticeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	result, err := h.studyService.GetSmartPractice(userID, &req)
+	if err != nil {
+		response.InternalError(c, "获取智能练习失败")
+		return
+	}
+
+	response.Success(c, result)
+}
+
+// GetPracticeAnalysis 获取练习分析
+func (h *StudyHandler) GetPracticeAnalysis(c *gin.Context) {
+	userID := middleware.GetCurrentUserID(c)
+
+	analysis := h.studyService.GetPracticeAnalysis(userID)
+	response.Success(c, analysis)
+}

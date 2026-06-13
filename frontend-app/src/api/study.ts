@@ -158,3 +158,26 @@ export function getWrongBookRandom(count = 20) {
 export function getWrongBookStats() {
   return request.get<any>('/api/v1/study/wrong/stats');
 }
+
+/**
+ * ==================== 智能练习 API ====================
+ */
+
+/**
+ * 智能练习
+ */
+export function getSmartPractice(data: {
+  count?: number;
+  categories?: number[];
+  mode?: 'review' | 'weak' | 'mixed';
+  difficulty?: number;
+}) {
+  return request.post<any>('/api/v1/study/practice/smart', data);
+}
+
+/**
+ * 练习分析
+ */
+export function getPracticeAnalysis() {
+  return request.get<any>('/api/v1/study/practice/analysis');
+}

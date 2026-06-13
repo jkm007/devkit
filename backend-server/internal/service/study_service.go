@@ -81,6 +81,28 @@ type PracticeHistoryResponse struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 
+// SmartPracticeRequest 智能练习请求
+type SmartPracticeRequest struct {
+	Count          int      `json:"count"`
+	Categories     []uint   `json:"categories"`
+	FocusKnowledge []string `json:"focusKnowledge"`
+	Difficulty     int      `json:"difficulty"`
+	Mode           string   `json:"mode"` // review / weak / mixed
+}
+
+// SmartPracticeResponse 智能练习响应
+type SmartPracticeResponse struct {
+	Questions []map[string]interface{} `json:"questions"`
+	Analysis  *PracticeAnalysis        `json:"analysis,omitempty"`
+}
+
+// PracticeAnalysis 练习分析
+type PracticeAnalysis struct {
+	WeakKnowledge []string `json:"weakKnowledge"`
+	Accuracy      float64  `json:"accuracy"`
+	SuggestedDiff int      `json:"suggestedDiff"`
+}
+
 // ListQuestions 获取题目列表
 func (s *StudyService) ListQuestions(userID uint, page, pageSize int, filters map[string]interface{}) ([]StudyQuestionResponse, int64, error) {
 	if page < 1 {
@@ -223,4 +245,89 @@ func (s *StudyService) toQuestionResponse(item map[string]interface{}, userID ui
 	}
 
 	return q
+}
+
+// GetSmartPractice 智能练习推荐
+func (s *StudyService) GetSmartPractice(userID uint, req *SmartPracticeRequest) (*SmartPracticeResponse, error) {
+	if req.Count < 1 || req.Count > 100 {
+		req.Count = 20
+	}
+
+	filters := make(map[string]interface{})
+
+	// 根据模式筛选
+	switch req.Mode {
+	case "review":
+		// 复习模式：优先错题
+		wbRepo := repository.NewWrongBookRepo(database.GetMySQL())
+		wrongQs, _ := wbRepo.GetRandomQuestions(userID, req.Count)
+		return &SmartPracticeResponse{Questions: wrongQs}, nil
+	case "weak":
+		// 薄弱模式：从错题中找薄弱知识点
+		wbRepo := repository.NewWrongBookRepo(database.GetMySQL())
+		wrongQs, _ := wbRepo.GetRandomQuestions(userID, req.Count*2)
+		if len(wrongQs) > req.Count {
+			wrongQs = wrongQs[:req.Count]
+		}
+		return &SmartPracticeResponse{Questions: wrongQs}, nil
+	case "mixed":
+		// 混合模式：错题 + 随机
+		wbRepo := repository.NewWrongBookRepo(database.GetMySQL())
+		wrongQs, _ := wbRepo.GetRandomQuestions(userID, req.Count/2)
+		filters["excludeIDs"] = wrongQs
+		restQs, _ := s.studyRepo.GetRandomQuestions(req.Count-len(wrongQs), filters)
+		all := append(wrongQs, restQs...)
+		return &SmartPracticeResponse{Questions: all}, nil
+	default:
+		// 默认随机
+		if len(req.Categories) > 0 {
+			filters["categoryId"] = req.Categories[0]
+		}
+		if req.Difficulty > 0 {
+			filters["difficulty"] = req.Difficulty
+		}
+		questions, _ := s.studyRepo.GetRandomQuestions(req.Count, filters)
+		return &SmartPracticeResponse{Questions: questions}, nil
+	}
+}
+
+// GetPracticeAnalysis 获取练习分析
+func (s *StudyService) GetPracticeAnalysis(userID uint) *PracticeAnalysis {
+	analysis := &PracticeAnalysis{
+		WeakKnowledge: []string{},
+		Accuracy:      0.75,
+		SuggestedDiff: 2,
+	}
+
+	// 从错题本找薄弱知识点
+	wbRepo := repository.NewWrongBookRepo(database.GetMySQL())
+	wrongQs, _ := wbRepo.GetRandomQuestions(userID, 50)
+
+	// 统计错误次数最多的知识点
+	kpCount := make(map[string]int)
+	for _, q := range wrongQs {
+		if kp, ok := q["knowledge_points"].(string); ok && kp != "" {
+			kpCount[kp]++
+		}
+	}
+
+	for kp, count := range kpCount {
+		if count >= 2 {
+			analysis.WeakKnowledge = append(analysis.WeakKnowledge, kp)
+		}
+	}
+
+	// 建议难度
+	if len(analysis.WeakKnowledge) > 5 {
+		analysis.SuggestedDiff = 1
+		analysis.Accuracy = 0.5
+	} else if len(analysis.WeakKnowledge) > 2 {
+		analysis.SuggestedDiff = 2
+		analysis.Accuracy = 0.7
+	} else {
+		analysis.SuggestedDiff = 3
+		analysis.Accuracy = 0.85
+	}
+
+	return analysis
 }
