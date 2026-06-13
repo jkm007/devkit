@@ -2,12 +2,18 @@
  * 路由拦截器
  * 未登录时自动跳转登录页
  */
+import { tokenManager } from '@/api/request';
 
 // 不需要登录就能访问的页面白名单
 const WHITE_LIST: string[] = [
   '/pages/login/index',
   '/pages/login/register',
   '/pages/login/forget',
+  '/pages/share/view',
+  '/pages/question/detail',
+  '/pages/question/list',
+  '/pages/question/search',
+  '/pages/index/index',
 ];
 
 /**
@@ -20,10 +26,10 @@ function requiresLogin(pagePath: string): boolean {
 }
 
 /**
- * 检查是否已登录
+ * 检查是否已登录（使用 TokenManager 统一来源）
  */
 function isLoggedIn(): boolean {
-  return !!uni.getStorageSync('access_token');
+  return !!tokenManager.getAccessToken();
 }
 
 /**
@@ -68,8 +74,9 @@ export function setupRouteInterceptor() {
       const pagePath = url.split('?')[0];
 
       if (requiresLogin(pagePath) && !isLoggedIn()) {
-        uni.redirectTo({ url: '/pages/login/index' });
-        return false;
+        // 直接修改 URL 到登录页，避免嵌套导航
+        args.url = '/pages/login/index';
+        return true;
       }
       return true;
     },
@@ -84,8 +91,8 @@ export function setupRouteInterceptor() {
       const pagePath = url.split('?')[0];
 
       if (requiresLogin(pagePath) && !isLoggedIn()) {
-        uni.redirectTo({ url: '/pages/login/index' });
-        return false;
+        args.url = '/pages/login/index';
+        return true;
       }
       return true;
     },

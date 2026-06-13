@@ -33,11 +33,27 @@ interface PracticeResult { total: number; answered: number; elapsed: number; ans
 const result = ref<PracticeResult>({ total: 0, answered: 0, elapsed: 0, answers: [] });
 
 onMounted(() => {
-  const pages = getCurrentPages();
-  const currentPage = pages[pages.length - 1] as any;
-  const resultStr = currentPage.options?.result;
+  // 优先从 storage 读取（避免 URL 长度限制）
+  const resultStr = uni.getStorageSync('practice_result');
   if (resultStr) {
-    try { result.value = JSON.parse(decodeURIComponent(resultStr)); } catch { /* ignore */ }
+    try {
+      result.value = JSON.parse(resultStr);
+      uni.removeStorageSync('practice_result');
+    } catch {
+      uni.showToast({ title: '数据加载失败', icon: 'none' });
+      setTimeout(() => uni.navigateBack(), 1500);
+    }
+  } else {
+    // 兼容旧版：从 URL 参数读取
+    const pages = getCurrentPages();
+    const currentPage = pages[pages.length - 1] as any;
+    const urlResultStr = currentPage.options?.result;
+    if (urlResultStr) {
+      try { result.value = JSON.parse(decodeURIComponent(urlResultStr)); } catch {
+        uni.showToast({ title: '数据加载失败', icon: 'none' });
+        setTimeout(() => uni.navigateBack(), 1500);
+      }
+    }
   }
   uni.removeStorageSync('practice_answers');
 });

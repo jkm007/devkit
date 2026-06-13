@@ -39,7 +39,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onUnmounted } from 'vue';
 
 const form = ref({
   username: '',
@@ -73,11 +73,19 @@ async function sendCode() {
     countdown.value--;
     if (countdown.value <= 0) {
       clearInterval(countdownTimer!);
+      countdownTimer = null;
     }
   }, 1000);
   sendingCode.value = false;
   uni.showToast({ title: '验证码已发送', icon: 'success' });
 }
+
+onUnmounted(() => {
+  if (countdownTimer) {
+    clearInterval(countdownTimer);
+    countdownTimer = null;
+  }
+});
 
 async function handleSubmit() {
   if (!canSubmit.value) {

@@ -157,12 +157,33 @@ async function flushQueue(): Promise<void> {
     if (req.retryCount >= MAX_RETRIES) continue; // 超过最大重试次数
 
     try {
-      // 这里应该调用实际的请求方法
-      // 目前只是占位：实际使用时需要在 request.ts 中集成
-      req.retryCount++;
-      enqueueOfflineRequest(req.url, req.method, req.data);
+      const token = uni.getStorageSync('access_token');
+      const deviceId = uni.getStorageSync('device_id') || '';
+
+      await new Promise<void>((resolve, reject) => {
+        uni.request({
+          url: req.url,
+          method: req.method as any,
+          data: req.data,
+          header: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            'X-Device-ID': deviceId,
+          },
+          success: (res) => {
+            const response = res.data as any;
+            if (response?.code === 0) {
+              resolve();
+            } else {
+              reject(new Error(response?.message || '请求失败'));
+            }
+          },
+          fail: () => reject(new Error('网络错误')),
+        });
+      });
     } catch {
       // 失败重新入队
+      req.retryCount++;
       queue.push(req);
     }
   }

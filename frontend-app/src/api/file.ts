@@ -2,7 +2,7 @@
  * 文件管理 API
  */
 import { request } from './request';
-import type { FileInfo, UploadInitResponse, UploadChunkResponse } from '@/api/types';
+import type { FileInfo, UploadInitResponse, UploadChunkResponse, PageResponse } from '@/api/types';
 
 /**
  * 上传文件（单文件，小文件）
@@ -116,5 +116,5 @@ export function getMyFiles(params: {
   folder?: string;
   fileType?: string;
 }) {
-  return request.get<any>('/api/v1/files/my', { params });
+  return request.get<PageResponse<FileInfo>>('/api/v1/files/my', { params });
 }

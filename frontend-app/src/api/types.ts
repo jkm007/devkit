@@ -80,7 +80,8 @@ export interface Question {
   questionType: QuestionType;
   difficulty: 1 | 2 | 3;
   stem: { blocks: ContentBlock[] };
-  options?: Array<{ label: string; content: { blocks: ContentBlock[] } }>;
+  options?: Array<{ label: string; content: { blocks: ContentBlock[] }; isCorrect?: boolean }>;
+  correctAnswer?: string;  // 正确答案，如 "A" 或 "AB"
   answerVisible: boolean;
   analysisVisible: boolean;
   isFavorited: boolean;

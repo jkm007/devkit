@@ -57,7 +57,7 @@
     <!-- 表格 -->
     <view v-else-if="block.type === 'table'" class="table-block">
       <scroll-view scroll-x class="table-scroll">
-        <view class="table-wrapper" v-html="block.content"></view>
+        <view class="table-wrapper" v-html="sanitizedTableContent"></view>
       </scroll-view>
     </view>
 
@@ -92,7 +92,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onUnmounted } from 'vue';
 import type { ContentBlock } from '@/api/types';
 
 const props = defineProps<{
@@ -192,6 +192,37 @@ function copyCode() {
   const content = props.block.content?.replace(/^```\w*\n?/, '').replace(/```$/, '') || '';
   uni.setClipboardData({ data: content, success: () => uni.showToast({ title: '已复制', icon: 'success' }) });
 }
+
+// 组件卸载时清理音频上下文
+onUnmounted(() => {
+  // #ifdef APP-PLUS
+  if (audioContext) {
+    audioContext.destroy();
+    audioContext = null;
+  }
+  // #endif
+});
+
+// 简单的 HTML 净化（移除 script 标签和事件处理器）
+const sanitizedTableContent = computed(() => {
+  const raw = props.block.content || '';
+  // #ifdef H5
+  if (typeof DOMParser !== 'undefined') {
+    const doc = new DOMParser().parseFromString(raw, 'text/html');
+    // 移除 script 标签
+    doc.querySelectorAll('script').forEach(el => el.remove());
+    // 移除事件处理器
+    doc.querySelectorAll('*').forEach(el => {
+      Array.from(el.attributes).forEach(attr => {
+        if (attr.name.startsWith('on')) el.removeAttribute(attr.name);
+      });
+    });
+    return doc.body.innerHTML;
+  }
+  // #endif
+  // 非 H5 环境：简单过滤
+  return raw.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+});
 </script>
 
 <style lang="scss" scoped>

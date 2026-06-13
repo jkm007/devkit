@@ -38,8 +38,8 @@ export function loginByPhone(phone: string, code: string) {
 /**
  * 刷新 Token
  */
-export function refreshToken(refreshToken: string) {
-  return request.post<LoginResponse>('/auth/refresh', { refreshToken });
+export function refreshTokenApi(token: string) {
+  return request.post<LoginResponse>('/auth/refresh', { refreshToken: token });
 }
 
 /**

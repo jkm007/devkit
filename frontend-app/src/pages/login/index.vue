@@ -137,7 +137,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onUnmounted } from 'vue';
 import { useUserStore } from '@/store/user';
 import { getCaptcha } from '@/api/auth';
 
@@ -288,6 +288,13 @@ function startCountdown() {
     }
   }, 1000);
 }
+
+onUnmounted(() => {
+  if (countdownTimer) {
+    clearInterval(countdownTimer);
+    countdownTimer = null;
+  }
+});
 </script>
 
 <style lang="scss" scoped>

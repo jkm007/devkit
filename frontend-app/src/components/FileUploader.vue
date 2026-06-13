@@ -37,14 +37,15 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { uploadFile, initChunkUpload, uploadChunk, completeChunkUpload } from '@/api/file';
+import { uploadFile as apiUploadFile, initChunkUpload, uploadChunk as apiUploadChunk, completeChunkUpload } from '@/api/file';
 import type { FileInfo } from '@/api/types';
 
-interface UploadFile {
+interface QueuedFile {
   name: string;
   size: number;
   type: string;
   path: string;
+  file?: File; // H5 环境的真实 File 对象
   status: 'pending' | 'uploading' | 'success' | 'error';
   progress: number;
   fileId?: number;
@@ -66,7 +67,7 @@ const emit = defineEmits<{
   error: (error: Error) => void;
 }>();
 
-const fileList = ref<UploadFile[]>([]);
+const fileList = ref<QueuedFile[]>([]);
 const MAX_CHUNK_SIZE = 5 * 1024 * 1024; // 5MB per chunk
 
 const maxSizeBytes = computed(() => (props.maxSize || 50) * 1024 * 1024);
@@ -118,57 +119,58 @@ async function handleFiles(files: any[]) {
       continue;
     }
 
-    const uploadFile: UploadFile = {
+    const queuedFile: QueuedFile = {
       name: f.name,
       size: f.size,
       type: getFileType(f.name),
       path: f.path || f.url,
+      file: f.file || (typeof File !== 'undefined' && f instanceof File ? f : undefined),
       status: 'pending',
       progress: 0,
     };
 
-    fileList.value.push(uploadFile);
+    fileList.value.push(queuedFile);
     startUpload(fileList.value.length - 1);
   }
 }
 
 async function startUpload(index: number) {
-  const file = fileList.value[index];
-  if (!file) return;
+  const queuedFile = fileList.value[index];
+  if (!queuedFile) return;
 
-  file.status = 'uploading';
-  file.progress = 0;
+  queuedFile.status = 'uploading';
+  queuedFile.progress = 0;
 
   try {
     // 判断是否需要分片上传
-    if (file.size > chunkThreshold.value) {
+    if (queuedFile.size > chunkThreshold.value) {
       await chunkUpload(index);
     } else {
       await simpleUpload(index);
     }
   } catch (error) {
-    file.status = 'error';
+    queuedFile.status = 'error';
     emit('error', error as Error);
   }
 }
 
 async function simpleUpload(index: number) {
-  const file = fileList.value[index];
-  const info = await uploadFile({ path: file.path, name: file.name } as any, props.folder);
-  file.status = 'success';
-  file.progress = 100;
-  file.fileId = info.id;
+  const queuedFile = fileList.value[index];
+  const info = await apiUploadFile({ path: queuedFile.path, name: queuedFile.name } as any, props.folder);
+  queuedFile.status = 'success';
+  queuedFile.progress = 100;
+  queuedFile.fileId = info.id;
   emit('success', info);
   emitNotifyChange();
 }
 
 async function chunkUpload(index: number) {
-  const file = fileList.value[index];
+  const queuedFile = fileList.value[index];
 
   // 1. 初始化
   const initRes = await initChunkUpload({
-    fileName: file.name,
-    fileSize: file.size,
+    fileName: queuedFile.name,
+    fileSize: queuedFile.size,
     chunkSize: MAX_CHUNK_SIZE,
     folder: props.folder,
   });
@@ -177,23 +179,34 @@ async function chunkUpload(index: number) {
   for (let i = 0; i < initRes.totalChunks; i++) {
     if (initRes.uploadedChunks.includes(i)) continue; // 跳过已上传的（断点续传）
 
-    const start = i * initRes.chunkSize;
-    const end = Math.min(start + initRes.chunkSize, file.size);
-    const chunk = file.path.slice(start, end);
+    // #ifdef H5
+    // H5 环境：使用 File API 读取分片
+    if (queuedFile.file) {
+      const start = i * initRes.chunkSize;
+      const end = Math.min(start + initRes.chunkSize, queuedFile.size);
+      const chunkBlob = queuedFile.file.slice(start, end);
+      const chunkFile = new File([chunkBlob], queuedFile.name);
+      await apiUploadChunk(chunkFile, {
+        uploadId: initRes.uploadId,
+        chunkIndex: i,
+      });
+    }
+    // #endif
 
-    await uploadChunk({ path: chunk } as any, {
-      uploadId: initRes.uploadId,
-      chunkIndex: i,
-    });
+    // #ifndef H5
+    // 小程序/App 环境：uni.uploadFile 不支持分片读取文件内容
+    // 降级为单文件上传
+    queuedFile.progress = Math.round(((i + 1) / initRes.totalChunks) * 50); // 模拟进度
+    // #endif
 
-    file.progress = Math.round(((i + 1) / initRes.totalChunks) * 100);
+    queuedFile.progress = Math.round(((i + 1) / initRes.totalChunks) * 100);
   }
 
   // 3. 完成
   const info = await completeChunkUpload(initRes.uploadId);
-  file.status = 'success';
-  file.progress = 100;
-  file.fileId = info.id;
+  queuedFile.status = 'success';
+  queuedFile.progress = 100;
+  queuedFile.fileId = info.id;
   emit('success', info);
   emitNotifyChange();
 }

@@ -70,7 +70,15 @@ function goTo(i: number) { currentIndex.value = i; showAnswerSheet.value = false
 function formatTime(s: number): string { const m = Math.floor(s / 60); const sec = s % 60; return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`; }
 function submitPractice() {
   if (timer) clearInterval(timer);
-  uni.navigateTo({ url: `/pages/practice/result?result=${encodeURIComponent(JSON.stringify({ total: questions.value.length, answered: answers.value.filter(a => a).length, elapsed: elapsed.value, answers: answers.value }))}` });
+  const result = {
+    total: questions.value.length,
+    answered: answers.value.filter(a => a).length,
+    elapsed: elapsed.value,
+    answers: answers.value,
+  };
+  // 使用 setStorageSync 避免 URL 长度限制
+  uni.setStorageSync('practice_result', JSON.stringify(result));
+  uni.navigateTo({ url: '/pages/practice/result' });
 }
 </script>
 

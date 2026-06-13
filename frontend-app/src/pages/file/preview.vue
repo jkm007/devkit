@@ -59,7 +59,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { getFileUrl } from '@/api/file';
 
 const fileId = ref(0);
@@ -147,6 +147,16 @@ function downloadFile() {
 function goBack() {
   uni.navigateBack();
 }
+
+// 组件卸载时清理音频上下文
+onUnmounted(() => {
+  // #ifdef APP-PLUS
+  if (audioContext) {
+    audioContext.destroy();
+    audioContext = null;
+  }
+  // #endif
+});
 </script>
 
 <style lang="scss" scoped>

@@ -1,4 +1,5 @@
 import type { RequestConfig } from './types';
+import { enqueueOfflineRequest } from '@/utils/offline';
 
 /**
  * 统一响应结构
@@ -244,14 +245,18 @@ class RequestClient {
 
           // 401 Token 过期，尝试刷新
           if (res.statusCode === 401 && !retry) {
-            const newToken = await this.tokenManager.refreshToken();
-            if (newToken) {
-              headers['Authorization'] = `Bearer ${newToken}`;
-              const result = await this.doRequest<T>(url, method, data, headers, true);
-              resolve(result);
-              return;
+            try {
+              const newToken = await this.tokenManager.refreshToken();
+              if (newToken) {
+                headers['Authorization'] = `Bearer ${newToken}`;
+                const result = await this.doRequest<T>(url, method, data, headers, true);
+                resolve(result);
+                return;
+              }
+            } catch {
+              // 刷新失败（网络错误等），继续走登录逻辑
             }
-            // 刷新失败，跳转登录页
+            // 刷新失败或无新 Token，跳转登录页
             this.redirectToLogin();
             reject({ code: 401, message: 'Token 已过期，请重新登录' });
             return;
@@ -265,10 +270,8 @@ class RequestClient {
           });
         },
         fail: (err) => {
-          // 网络错误：入队离线重试
+          // 网络错误：入队离线重试（仅非 GET 请求）
           if (method !== 'GET') {
-            // POST/PUT/DELETE 入队离线队列
-            const { enqueueOfflineRequest } = require('@/utils/offline');
             enqueueOfflineRequest(url, method, data);
           }
           reject({ code: -1, message: '网络错误，请检查网络连接' });
