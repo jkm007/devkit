@@ -76,10 +76,10 @@ function safeJsonParse(jsonStr: string): string {
   }
 }
 
-// Fix image URLs in HTML content
+// Fix image URLs in HTML content (replace direct-url with view endpoint)
 function fixImageUrls(html: string): string {
   if (!html) return html;
-  return html.replace(/\/files\/(\d+)\/direct-url/g, '/api/v1/files/$1/view');
+  return html.replace(/\/files\/(\d+)\/direct-url/g, '/files/$1/view');
 }
 
 // Encode HTML string to JSON for backend

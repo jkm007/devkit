@@ -41,11 +41,12 @@ function safeJsonParse(jsonStr: string): string {
   }
 }
 
-// Fix image URLs in HTML content
+// Fix image URLs in HTML content (replace direct-url with view endpoint)
 function fixImageUrls(html: string): string {
   if (!html) return html;
-  // Replace /files/{id}/direct-url with /api/v1/files/{id}/view
-  return html.replace(/\/files\/(\d+)\/direct-url/g, '/api/v1/files/$1/view');
+  // Only replace /files/{id}/direct-url → /files/{id}/view
+  // Do NOT add /api/v1 prefix here - the browser resolves relative paths against the page origin
+  return html.replace(/\/files\/(\d+)\/direct-url/g, '/files/$1/view');
 }
 
 function getLabel(options: any[], value: any): string {
