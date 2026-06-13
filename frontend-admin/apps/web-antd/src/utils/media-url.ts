@@ -159,3 +159,13 @@ export function safeJsonParse(jsonStr: string): any {
     return jsonStr;
   }
 }
+
+/**
+ * 检查 HTML 中是否有正在上传的媒体节点
+ * 用于保存前的验证，阻止在上传过程中保存
+ */
+export function hasUploadingMedia(html: any): boolean {
+  if (!html) return false;
+  const str = typeof html === 'string' ? html : JSON.stringify(html);
+  return str.includes('data-uploading="true"') || str.includes("data-uploading='true'");
+}

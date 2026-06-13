@@ -21,6 +21,7 @@ import { createQuestion, updateQuestion } from '#/api/question/question';
 import {
   appendToken,
   cleanMediaHtml,
+  hasUploadingMedia,
   normalizeFileUrl,
   processMediaHtml,
   safeJsonParse,
@@ -284,6 +285,16 @@ function onQuestionTypeChange(val: string) {
 
 const [Drawer, drawerApi] = useVbenDrawer({
   async onConfirm() {
+    // Check if there are media files still uploading
+    if (
+      hasUploadingMedia(stemHtml.value) ||
+      hasUploadingMedia(analysisMediaHtml.value) ||
+      hasUploadingMedia(essayAnswerHtml.value)
+    ) {
+      message.warning('视频或图片正在上传中，请等待上传完成后再保存');
+      return;
+    }
+
     // Validate basic form fields
     const { valid } = await formApi.validate();
     if (!valid) return;
