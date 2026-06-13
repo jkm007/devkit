@@ -187,6 +187,12 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		authorized.POST("/study/wrong/batch-mastered", studyHandler.BatchMarkMastered)
 		authorized.DELETE("/study/wrong/:questionId", studyHandler.DeleteWrongBook)
 
+		// 分类绑定
+		authorized.GET("/user/category-bindings", userHandler.GetCategoryBindings)
+		authorized.POST("/user/category-bindings", userHandler.BindCategory)
+		authorized.PUT("/user/category-bindings/:id", userHandler.SetPrimaryCategory)
+		authorized.DELETE("/user/category-bindings/:id", userHandler.UnbindCategory)
+
 		// 通知消息
 		authorized.GET("/notifications", notificationHandler.List)
 		authorized.GET("/notifications/unread-count", notificationHandler.GetUnreadCount)

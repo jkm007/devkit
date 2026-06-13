@@ -177,6 +177,12 @@
       "style": {
         "navigationBarTitleText": "错题复习"
       }
+    },
+    {
+      "path": "pages/profile/categories",
+      "style": {
+        "navigationBarTitleText": "我的分类"
+      }
     }
   ],
   "globalStyle": {

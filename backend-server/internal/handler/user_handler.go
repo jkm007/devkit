@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strconv"
 
+	"backend-server/internal/middleware"
 	"backend-server/internal/service"
 	"backend-server/pkg/response"
 
@@ -13,13 +14,15 @@ import (
 
 // UserHandler 用户处理器
 type UserHandler struct {
-	userService *service.UserService
+	userService            *service.UserService
+	categoryBindingService *service.CategoryBindingService
 }
 
 // NewUserHandler 创建用户处理器
 func NewUserHandler() *UserHandler {
 	return &UserHandler{
-		userService: service.NewUserService(),
+		userService:            service.NewUserService(),
+		categoryBindingService: service.NewCategoryBindingService(),
 	}
 }
 
@@ -174,4 +177,84 @@ func (h *UserHandler) GetStorageStats(c *gin.Context) {
 		return
 	}
 	response.Success(c, stats)
+}
+
+// ==================== 移动端用户接口 ====================
+
+// GetCategoryBindings 获取绑定的分类
+func (h *UserHandler) GetCategoryBindings(c *gin.Context) {
+	userID := middleware.GetCurrentUserID(c)
+
+	bindings, err := h.categoryBindingService.ListBindings(userID)
+	if err != nil {
+		response.InternalError(c, "获取绑定列表失败")
+		return
+	}
+
+	response.Success(c, bindings)
+}
+
+// BindCategory 绑定分类
+func (h *UserHandler) BindCategory(c *gin.Context) {
+	userID := middleware.GetCurrentUserID(c)
+
+	var req service.BindCategoryRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	if err := h.categoryBindingService.BindCategory(userID, &req); err != nil {
+		msg := err.Error()
+		if msg == "最多绑定 3 个分类" {
+			response.BadRequest(c, "最多绑定 3 个分类，请先解绑")
+			return
+		}
+		if msg == "已绑定该分类" {
+			response.BadRequest(c, "已绑定该分类")
+			return
+		}
+		response.InternalError(c, "绑定失败")
+		return
+	}
+
+	response.SuccessWithMessage(c, "绑定成功", nil)
+}
+
+// UnbindCategory 解绑分类
+func (h *UserHandler) UnbindCategory(c *gin.Context) {
+	userID := middleware.GetCurrentUserID(c)
+
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "无效的绑定 ID")
+		return
+	}
+
+	if err := h.categoryBindingService.UnbindCategory(userID, uint(id)); err != nil {
+		response.InternalError(c, "解绑失败")
+		return
+	}
+
+	response.SuccessWithMessage(c, "已解绑", nil)
+}
+
+// SetPrimaryCategory 设为主分类
+func (h *UserHandler) SetPrimaryCategory(c *gin.Context) {
+	userID := middleware.GetCurrentUserID(c)
+
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "无效的绑定 ID")
+		return
+	}
+
+	if err := h.categoryBindingService.SetPrimary(userID, uint(id)); err != nil {
+		response.InternalError(c, "操作失败")
+		return
+	}
+
+	response.SuccessWithMessage(c, "已设为主分类", nil)
 }
