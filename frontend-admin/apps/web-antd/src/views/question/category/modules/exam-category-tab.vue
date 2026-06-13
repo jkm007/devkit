@@ -122,7 +122,7 @@ function onCreate() {
 }
 </script>
 <template>
-  <div>
+  <div class="h-full">
     <FormDrawer @success="onRefresh" />
     <Grid table-title="考试大类列表">
       <template #toolbar-tools>
