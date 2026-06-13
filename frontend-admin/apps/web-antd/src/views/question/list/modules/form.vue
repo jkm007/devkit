@@ -41,7 +41,8 @@ const apiBase = import.meta.env.VITE_GLOB_API_URL || '/api/v1';
 
 // Rich text field values
 const stemHtml = ref('');
-const analysisHtml = ref('');
+const analysisTextHtml = ref(''); // 文字解析
+const analysisMediaHtml = ref(''); // 图片/视频解析
 
 // Choice question options
 interface OptionItem {
@@ -135,13 +136,13 @@ function safeJsonParse(jsonStr: string): string {
   }
 }
 
-// Fix image URLs in HTML content (normalize to /api/v1/files/{id}/view)
+// Fix image/video URLs in HTML content (normalize to /api/v1/files/{id}/view)
 function fixImageUrls(html: string): string {
   if (!html) return html;
   // Replace /files/{id}/direct-url → /files/{id}/view (without adding prefix)
   let fixed = html.replace(/\/files\/(\d+)\/direct-url/g, '/files/$1/view');
-  // Add /api/v1 prefix to bare /files/ paths
-  fixed = fixed.replace(/(src="|href=")(\/files\/\d+\/view)/g, `$1${apiBase}$2`);
+  // Add /api/v1 prefix to bare /files/ paths (in src, href, or poster attributes)
+  fixed = fixed.replace(/((?:src|href|poster)=")(\/files\/\d+\/view)/g, `$1${apiBase}$2`);
   return fixed;
 }
 
@@ -170,23 +171,43 @@ async function fetchMediaAsBlob(url: string): Promise<string> {
 }
 
 // Convert real media URLs in HTML to blob URLs (for display in editor)
-// Handles both <img> and <video> tags
+// Handles <img>, <video>, <source>, and poster attributes
 async function convertMediaToBlobUrls(html: string): Promise<string> {
   if (!html) return html;
-  const urlRegex = /(<(?:img|video)[^>]+(?:src|poster)=")([^"]+)(")/g;
+  // Match src="..." on img/video/source tags, and poster="..." on video tags
+  const urlRegex = /(<(?:img|video|source)[^>]+(?:src|poster)=")([^"]+)(")/g;
   const matches = [...html.matchAll(urlRegex)];
   if (matches.length === 0) return html;
 
+  // Deduplicate URLs to avoid fetching the same URL multiple times
+  const uniqueUrls = [...new Set(matches.map((m) => m[2]).filter((u) => !u.startsWith('blob:') && !u.startsWith('data:')))];
+  if (uniqueUrls.length === 0) return html;
+
+  // Fetch all unique URLs in parallel
+  const urlMap = new Map<string, string>();
+  await Promise.all(
+    uniqueUrls.map(async (url) => {
+      const blobUrl = await fetchMediaAsBlob(url);
+      if (blobUrl !== url) {
+        urlMap.set(url, blobUrl);
+      }
+    }),
+  );
+
+  // Replace each URL precisely using the full match to avoid over-replacing
+  if (urlMap.size === 0) return html;
   let result = html;
-  const fetchPromises = matches.map(async (match) => {
-    const url = match[2];
-    if (url.startsWith('blob:') || url.startsWith('data:')) return;
-    const blobUrl = await fetchMediaAsBlob(url);
-    if (blobUrl !== url) {
-      result = result.replaceAll(url, blobUrl);
-    }
-  });
-  await Promise.all(fetchPromises);
+  // Process in reverse order to preserve match indices
+  for (let i = matches.length - 1; i >= 0; i--) {
+    const match = matches[i];
+    const originalUrl = match[2];
+    const blobUrl = urlMap.get(originalUrl);
+    if (!blobUrl) continue;
+    // Replace only this specific occurrence using the full match
+    const fullMatch = match[0];
+    const newMatch = fullMatch.replace(originalUrl, blobUrl);
+    result = result.substring(0, match.index) + newMatch + result.substring(match.index + fullMatch.length);
+  }
   return result;
 }
 
@@ -382,7 +403,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
     // Convert blob URLs back to real URLs before saving
     const realStemHtml = convertBlobUrlsToReal(stemHtml.value);
-    const realAnalysisHtml = convertBlobUrlsToReal(analysisHtml.value);
+    const realAnalysisTextHtml = convertBlobUrlsToReal(analysisTextHtml.value);
+    const realAnalysisMediaHtml = convertBlobUrlsToReal(analysisMediaHtml.value);
     const realEssayAnswerHtml = convertBlobUrlsToReal(essayAnswerHtml.value);
 
     // Build content and answer based on question type
@@ -438,7 +460,10 @@ const [Drawer, drawerApi] = useVbenDrawer({
       stem: htmlToJson(realStemHtml),
       content: contentJson ? contentJson : htmlToJson(''),
       answer: answerJson,
-      analysis: htmlToJson(realAnalysisHtml),
+      analysis: JSON.stringify({
+        text: realAnalysisTextHtml || '',
+        media: realAnalysisMediaHtml || '',
+      }),
     };
 
     (id.value ? updateQuestion(id.value, submitData) : createQuestion(submitData))
@@ -485,18 +510,37 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
         // Decode and fix image URLs, then convert to blob URLs for display
         const rawStem = fixImageUrls(safeJsonParse(data.stem));
-        const rawAnalysis = fixImageUrls(safeJsonParse(data.analysis));
         const rawEssayAnswer = fixImageUrls(safeJsonParse(data.answer));
 
+        // Parse analysis: handle new {text, media} format and legacy plain HTML
+        let rawAnalysisText = '';
+        let rawAnalysisMedia = '';
+        try {
+          const parsed = safeJsonParse(data.analysis);
+          if (parsed && typeof parsed === 'object' && ('text' in parsed || 'media' in parsed)) {
+            // New format: {text, media}
+            rawAnalysisText = fixImageUrls(parsed.text || '');
+            rawAnalysisMedia = fixImageUrls(parsed.media || '');
+          } else if (typeof parsed === 'string') {
+            // Legacy format: plain HTML string → put in text field
+            rawAnalysisText = fixImageUrls(parsed);
+          }
+        } catch {
+          // Fallback: treat as plain HTML
+          rawAnalysisText = fixImageUrls(safeJsonParse(data.analysis) || '');
+        }
+
         // Convert images to blob URLs (authenticated fetch)
-        const [stemWithBlobs, analysisWithBlobs, essayWithBlobs] = await Promise.all([
+        const [stemWithBlobs, analysisTextWithBlobs, analysisMediaWithBlobs, essayWithBlobs] = await Promise.all([
           convertMediaToBlobUrls(rawStem),
-          convertMediaToBlobUrls(rawAnalysis),
+          convertMediaToBlobUrls(rawAnalysisText),
+          convertMediaToBlobUrls(rawAnalysisMedia),
           convertMediaToBlobUrls(rawEssayAnswer),
         ]);
 
         stemHtml.value = stemWithBlobs;
-        analysisHtml.value = analysisWithBlobs;
+        analysisTextHtml.value = analysisTextWithBlobs;
+        analysisMediaHtml.value = analysisMediaWithBlobs;
         essayAnswerHtml.value = essayWithBlobs;
 
         // Decode type-specific content and answer
@@ -538,7 +582,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
         id.value = undefined;
         currentType.value = '';
         stemHtml.value = '';
-        analysisHtml.value = '';
+        analysisTextHtml.value = '';
+        analysisMediaHtml.value = '';
         essayAnswerHtml.value = '';
         options.value = [
           { id: 'A', text: '' },
@@ -668,15 +713,24 @@ const drawerTitle = computed(() => {
         />
       </div>
 
-      <!-- Analysis (always shown) -->
+      <!-- Analysis: text + media (always shown) -->
       <div>
-        <label class="mb-2 block text-sm font-medium">答案解析</label>
+        <label class="mb-2 block text-sm font-medium">文字解析</label>
         <VbenTiptap
-          v-model="analysisHtml"
+          v-model="analysisTextHtml"
+          :min-height="120"
+          :max-height="250"
+          placeholder="输入文字解析..."
+        />
+      </div>
+      <div>
+        <label class="mb-2 block text-sm font-medium">图片/视频解析</label>
+        <VbenTiptap
+          v-model="analysisMediaHtml"
           :image-upload="imageUploadConfig"
           :min-height="150"
           :max-height="300"
-          placeholder="答案解析..."
+          placeholder="上传图片或视频解析..."
         />
       </div>
     </div>

@@ -97,23 +97,41 @@ async function fetchMediaAsBlob(url: string): Promise<string> {
   return url;
 }
 
-// Convert real media URLs in HTML to blob URLs (images only, videos use real URL)
+// Convert real media URLs in HTML to blob URLs (images + videos + sources)
 async function convertMediaToBlobUrls(html: string): Promise<string> {
   if (!html) return html;
-  const urlRegex = /(<img[^>]+src=")([^"]+)(")/g;
+  // Match src="..." on img/video/source tags, and poster="..." on video tags
+  const urlRegex = /(<(?:img|video|source)[^>]+(?:src|poster)=")([^"]+)(")/g;
   const matches = [...html.matchAll(urlRegex)];
   if (matches.length === 0) return html;
 
+  // Deduplicate URLs to avoid fetching the same URL multiple times
+  const uniqueUrls = [...new Set(matches.map((m) => m[2]).filter((u) => !u.startsWith('blob:') && !u.startsWith('data:')))];
+  if (uniqueUrls.length === 0) return html;
+
+  // Fetch all unique URLs in parallel
+  const urlMap = new Map<string, string>();
+  await Promise.all(
+    uniqueUrls.map(async (url) => {
+      const blobUrl = await fetchMediaAsBlob(url);
+      if (blobUrl !== url) {
+        urlMap.set(url, blobUrl);
+      }
+    }),
+  );
+
+  // Replace each URL precisely using the full match to avoid over-replacing
+  if (urlMap.size === 0) return html;
   let result = html;
-  const fetchPromises = matches.map(async (match) => {
-    const url = match[2];
-    if (url.startsWith('blob:') || url.startsWith('data:')) return;
-    const blobUrl = await fetchMediaAsBlob(url);
-    if (blobUrl !== url) {
-      result = result.replaceAll(url, blobUrl);
-    }
-  });
-  await Promise.all(fetchPromises);
+  for (let i = matches.length - 1; i >= 0; i--) {
+    const match = matches[i];
+    const originalUrl = match[2];
+    const blobUrl = urlMap.get(originalUrl);
+    if (!blobUrl) continue;
+    const fullMatch = match[0];
+    const newMatch = fullMatch.replace(originalUrl, blobUrl);
+    result = result.substring(0, match.index) + newMatch + result.substring(match.index + fullMatch.length);
+  }
   return result;
 }
 
@@ -206,7 +224,8 @@ function isCorrectOption(optionId: string): boolean {
 
 // Processed HTML content (with blob URLs)
 const processedStem = ref('');
-const processedAnalysis = ref('');
+const processedAnalysisText = ref('');
+const processedAnalysisMedia = ref('');
 const processedEssayAnswer = ref('');
 
 // Reset answer on drawer open
@@ -224,16 +243,32 @@ const [Drawer, drawerApi] = useVbenDrawer({
       // Convert media to blob URLs for display
       if (questionData.value) {
         const rawStem = fixMediaUrls(safeJsonParse(questionData.value.stem || ''));
-        const rawAnalysis = fixMediaUrls(safeJsonParse(questionData.value.analysis || ''));
         const rawAnswer = fixMediaUrls(safeJsonParse(questionData.value.answer || ''));
 
-        const [stem, analysis, answer] = await Promise.all([
+        // Parse analysis: handle new {text, media} format and legacy plain HTML
+        let rawAnalysisText = '';
+        let rawAnalysisMedia = '';
+        try {
+          const parsed = safeJsonParse(questionData.value.analysis || '');
+          if (parsed && typeof parsed === 'object' && ('text' in parsed || 'media' in parsed)) {
+            rawAnalysisText = fixMediaUrls(parsed.text || '');
+            rawAnalysisMedia = fixMediaUrls(parsed.media || '');
+          } else if (typeof parsed === 'string') {
+            rawAnalysisText = fixMediaUrls(parsed);
+          }
+        } catch {
+          rawAnalysisText = fixMediaUrls(safeJsonParse(questionData.value.analysis || '') || '');
+        }
+
+        const [stem, analysisText, analysisMedia, answer] = await Promise.all([
           convertMediaToBlobUrls(rawStem),
-          convertMediaToBlobUrls(rawAnalysis),
+          convertMediaToBlobUrls(rawAnalysisText),
+          convertMediaToBlobUrls(rawAnalysisMedia),
           convertMediaToBlobUrls(rawAnswer),
         ]);
         processedStem.value = stem;
-        processedAnalysis.value = analysis;
+        processedAnalysisText.value = analysisText;
+        processedAnalysisMedia.value = analysisMedia;
         processedEssayAnswer.value = answer;
       }
     }
@@ -383,10 +418,16 @@ const [Drawer, drawerApi] = useVbenDrawer({
             <VbenTiptapPreview :content="processedEssayAnswer" :min-height="60" />
           </div>
 
-          <!-- Analysis -->
-          <div v-if="processedAnalysis" class="rounded-lg bg-blue-50 p-4">
-            <div class="mb-2 text-sm font-medium text-blue-700">解析</div>
-            <VbenTiptapPreview :content="processedAnalysis" :min-height="60" />
+          <!-- Analysis: text -->
+          <div v-if="processedAnalysisText" class="rounded-lg bg-blue-50 p-4">
+            <div class="mb-2 text-sm font-medium text-blue-700">文字解析</div>
+            <VbenTiptapPreview :content="processedAnalysisText" :min-height="60" />
+          </div>
+
+          <!-- Analysis: media -->
+          <div v-if="processedAnalysisMedia" class="rounded-lg bg-blue-50 p-4">
+            <div class="mb-2 text-sm font-medium text-blue-700">图片/视频解析</div>
+            <VbenTiptapPreview :content="processedAnalysisMedia" :min-height="60" />
           </div>
         </div>
       </div>
