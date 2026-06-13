@@ -12,6 +12,7 @@ import { Button, Input, message, Radio, RadioGroup, Tooltip } from 'ant-design-v
 import { useVbenForm } from '#/adapter/form';
 import { simpleUpload } from '#/api/file';
 import { createQuestion, updateQuestion } from '#/api/question/question';
+import { useAccessStore } from '@vben/stores';
 
 import {
   DIFFICULTY_OPTIONS,
@@ -23,6 +24,12 @@ const emits = defineEmits(['success']);
 
 const formData = ref<QuestionApi.Question>();
 const id = ref<number>();
+
+// Access store for token
+const accessStore = useAccessStore();
+function getAuthToken(): string {
+  return accessStore.accessToken || '';
+}
 
 // API base URL for image paths
 const apiBase = import.meta.env.VITE_GLOB_API_URL || '/api/v1';
@@ -57,6 +64,9 @@ const isFillBlank = computed(() => currentType.value === 'fill_blank');
 // Current question type for template - synced from form select
 const currentType = ref('');
 
+// Blob URL → real URL mapping (for converting back before save)
+const blobToRealUrl = new Map<string, string>();
+
 // Decode JSON-encoded string (handles double-encoding from DB)
 function safeJsonParse(jsonStr: string): string {
   if (!jsonStr || jsonStr === 'null') return '';
@@ -76,10 +86,14 @@ function safeJsonParse(jsonStr: string): string {
   }
 }
 
-// Fix image URLs in HTML content (replace direct-url with view endpoint)
+// Fix image URLs in HTML content (normalize to /api/v1/files/{id}/view)
 function fixImageUrls(html: string): string {
   if (!html) return html;
-  return html.replace(/\/files\/(\d+)\/direct-url/g, '/files/$1/view');
+  // Replace /files/{id}/direct-url → /files/{id}/view (without adding prefix)
+  let fixed = html.replace(/\/files\/(\d+)\/direct-url/g, '/files/$1/view');
+  // Add /api/v1 prefix to bare /files/ paths
+  fixed = fixed.replace(/(src="|href=")(\/files\/\d+\/view)/g, `$1${apiBase}$2`);
+  return fixed;
 }
 
 // Encode HTML string to JSON for backend
@@ -87,7 +101,60 @@ function htmlToJson(html: string): string {
   return JSON.stringify(html || '');
 }
 
-// Image upload adapter for TipTap (fix: prepend /api/v1)
+// Fetch an image with auth header and return a blob URL
+async function fetchImageAsBlob(url: string): Promise<string> {
+  try {
+    const token = getAuthToken();
+    const response = await fetch(url, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (response.ok) {
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      blobToRealUrl.set(blobUrl, url);
+      return blobUrl;
+    }
+  } catch {
+    // ignore
+  }
+  return url;
+}
+
+// Convert real image URLs in HTML to blob URLs (for display in editor)
+async function convertImagesToBlobUrls(html: string): Promise<string> {
+  if (!html) return html;
+  const urlRegex = /(<img[^>]+src=")([^"]+)(")/g;
+  const matches = [...html.matchAll(urlRegex)];
+  if (matches.length === 0) return html;
+
+  let result = html;
+  const fetchPromises = matches.map(async (match) => {
+    const url = match[2];
+    if (url.startsWith('blob:')) return;
+    const blobUrl = await fetchImageAsBlob(url);
+    if (blobUrl !== url) {
+      result = result.replaceAll(url, blobUrl);
+    }
+  });
+  await Promise.all(fetchPromises);
+  return result;
+}
+
+// Convert blob URLs in HTML back to real URLs (for saving to DB)
+function convertBlobUrlsToReal(html: string): string {
+  if (!html) return html;
+  let result = html;
+  for (const [blobUrl, realUrl] of blobToRealUrl.entries()) {
+    result = result.replaceAll(blobUrl, realUrl);
+  }
+  // Also handle via regex in case mapping was lost
+  result = result.replace(/blob:http[^"]+/g, (match) => {
+    return blobToRealUrl.get(match) || match;
+  });
+  return result;
+}
+
+// Image upload adapter for TipTap
 const imageUploadConfig = {
   accept: 'image/*',
   maxSize: 10 * 1024 * 1024, // 10MB
@@ -95,12 +162,17 @@ const imageUploadConfig = {
     const result = await simpleUpload(file, (event) => {
       onProgress?.(event.percent);
     });
-    // Fix: prepend apiBase if URL doesn't start with http
-    const url = result.url;
-    if (url && !url.startsWith('http') && !url.startsWith(apiBase)) {
-      return `${apiBase}${url}`;
+    // Build the real URL
+    let realUrl = result.url;
+    if (realUrl && !realUrl.startsWith('http') && !realUrl.startsWith(apiBase)) {
+      realUrl = `${apiBase}${realUrl}`;
     }
-    return url;
+    // Normalize direct-url to view
+    realUrl = realUrl.replace(/\/direct-url/g, '/view');
+
+    // Fetch with auth and return blob URL for display
+    const blobUrl = await fetchImageAsBlob(realUrl);
+    return blobUrl;
   },
 };
 
@@ -223,6 +295,11 @@ const [Drawer, drawerApi] = useVbenDrawer({
     const values = await formApi.getValues();
     const questionType = values.questionType as string;
 
+    // Convert blob URLs back to real URLs before saving
+    const realStemHtml = convertBlobUrlsToReal(stemHtml.value);
+    const realAnalysisHtml = convertBlobUrlsToReal(analysisHtml.value);
+    const realEssayAnswerHtml = convertBlobUrlsToReal(essayAnswerHtml.value);
+
     // Build content and answer based on question type
     let contentJson = '';
     let answerJson = '';
@@ -245,38 +322,38 @@ const [Drawer, drawerApi] = useVbenDrawer({
       answerJson = JSON.stringify({ correct: tfAnswer.value });
     } else if (questionType === 'fill_blank') {
       // Count blanks in stem
-      const blankCount = (stemHtml.value.match(/_{3,}|（\s*）|\(\s*\)/g) || []).length;
+      const blankCount = (realStemHtml.match(/_{3,}|（\s*）|\(\s*\)/g) || []).length;
       if (blankCount > 0) {
         let blanks: string[] = [];
         try {
-          blanks = JSON.parse(essayAnswerHtml.value || '[]');
+          blanks = JSON.parse(realEssayAnswerHtml || '[]');
           if (!Array.isArray(blanks)) blanks = [];
         } catch {
           blanks = [];
         }
-        if (blanks.length === 0 && essayAnswerHtml.value) {
-          blanks = [essayAnswerHtml.value];
+        if (blanks.length === 0 && realEssayAnswerHtml) {
+          blanks = [realEssayAnswerHtml];
         }
         contentJson = JSON.stringify({ blankCount });
         answerJson = JSON.stringify({ blanks });
       } else {
         contentJson = '';
-        answerJson = htmlToJson(essayAnswerHtml.value);
+        answerJson = htmlToJson(realEssayAnswerHtml);
       }
     } else {
       // Essay, programming, etc.
       contentJson = '';
-      answerJson = htmlToJson(essayAnswerHtml.value);
+      answerJson = htmlToJson(realEssayAnswerHtml);
     }
 
     drawerApi.lock();
 
     const submitData = {
       ...values,
-      stem: htmlToJson(stemHtml.value),
+      stem: htmlToJson(realStemHtml),
       content: contentJson ? contentJson : htmlToJson(''),
       answer: answerJson,
-      analysis: htmlToJson(analysisHtml.value),
+      analysis: htmlToJson(realAnalysisHtml),
     };
 
     (id.value ? updateQuestion(id.value, submitData) : createQuestion(submitData))
@@ -292,6 +369,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
     if (isOpen) {
       const data = drawerApi.getData<QuestionApi.Question>();
       formApi.resetForm();
+      // Clear blob URL mapping
+      blobToRealUrl.clear();
 
       if (data?.id) {
         formData.value = data;
@@ -304,9 +383,21 @@ const [Drawer, drawerApi] = useVbenDrawer({
         });
         currentType.value = data.questionType || '';
 
-        // Decode stem and analysis (fix image URLs for old data)
-        stemHtml.value = fixImageUrls(safeJsonParse(data.stem));
-        analysisHtml.value = fixImageUrls(safeJsonParse(data.analysis));
+        // Decode and fix image URLs, then convert to blob URLs for display
+        const rawStem = fixImageUrls(safeJsonParse(data.stem));
+        const rawAnalysis = fixImageUrls(safeJsonParse(data.analysis));
+        const rawEssayAnswer = fixImageUrls(safeJsonParse(data.answer));
+
+        // Convert images to blob URLs (authenticated fetch)
+        const [stemWithBlobs, analysisWithBlobs, essayWithBlobs] = await Promise.all([
+          convertImagesToBlobUrls(rawStem),
+          convertImagesToBlobUrls(rawAnalysis),
+          convertImagesToBlobUrls(rawEssayAnswer),
+        ]);
+
+        stemHtml.value = stemWithBlobs;
+        analysisHtml.value = analysisWithBlobs;
+        essayAnswerHtml.value = essayWithBlobs;
 
         // Decode type-specific content and answer
         const questionType = data.questionType || '';
@@ -340,10 +431,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
           } catch {
             tfAnswer.value = 'true';
           }
-        } else {
-          // Essay and others
-          essayAnswerHtml.value = fixImageUrls(safeJsonParse(data.answer));
         }
+        // essayAnswerHtml already set above with blob URLs
       } else {
         formData.value = undefined;
         id.value = undefined;

@@ -8,6 +8,8 @@ import { VbenTiptapPreview } from '@vben/plugins/tiptap';
 
 import { Checkbox, CheckboxGroup, Radio, RadioGroup, Tag } from 'ant-design-vue';
 
+import { useAccessStore } from '@vben/stores';
+
 import {
   DIFFICULTY_OPTIONS,
   QUESTION_TYPE_OPTIONS,
@@ -18,8 +20,20 @@ const questionData = ref<QuestionApi.Question | null>(null);
 const showAnswer = ref(false);
 const selectedAnswer = ref<any>(null);
 
+// Access store for token
+const accessStore = useAccessStore();
+function getAuthToken(): string {
+  return accessStore.accessToken || '';
+}
+
+// API base URL
+const apiBase = import.meta.env.VITE_GLOB_API_URL || '/api/v1';
+
 // Question type categories
 const CHOICE_TYPES = ['single_choice', 'multiple_choice', 'indefinite_choice'];
+
+// Blob URL mapping
+const blobToRealUrl = new Map<string, string>();
 
 // Decode JSON-encoded string (handles double-encoding from DB)
 function safeJsonParse(jsonStr: string): string {
@@ -27,7 +41,6 @@ function safeJsonParse(jsonStr: string): string {
   try {
     const parsed = JSON.parse(jsonStr);
     if (typeof parsed === 'string') {
-      // Double-encoded: parse again
       try {
         const parsed2 = JSON.parse(parsed);
         return typeof parsed2 === 'string' ? parsed2 : parsed;
@@ -41,12 +54,51 @@ function safeJsonParse(jsonStr: string): string {
   }
 }
 
-// Fix image URLs in HTML content (replace direct-url with view endpoint)
+// Fix image URLs in HTML content (normalize to /api/v1/files/{id}/view)
 function fixImageUrls(html: string): string {
   if (!html) return html;
-  // Only replace /files/{id}/direct-url → /files/{id}/view
-  // Do NOT add /api/v1 prefix here - the browser resolves relative paths against the page origin
-  return html.replace(/\/files\/(\d+)\/direct-url/g, '/files/$1/view');
+  let fixed = html.replace(/\/files\/(\d+)\/direct-url/g, '/files/$1/view');
+  fixed = fixed.replace(/(src="|href=")(\/files\/\d+\/view)/g, `$1${apiBase}$2`);
+  return fixed;
+}
+
+// Fetch image with auth header → blob URL
+async function fetchImageAsBlob(url: string): Promise<string> {
+  try {
+    const token = getAuthToken();
+    const response = await fetch(url, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (response.ok) {
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      blobToRealUrl.set(blobUrl, url);
+      return blobUrl;
+    }
+  } catch {
+    // ignore
+  }
+  return url;
+}
+
+// Convert real image URLs in HTML to blob URLs
+async function convertImagesToBlobUrls(html: string): Promise<string> {
+  if (!html) return html;
+  const urlRegex = /(<img[^>]+src=")([^"]+)(")/g;
+  const matches = [...html.matchAll(urlRegex)];
+  if (matches.length === 0) return html;
+
+  let result = html;
+  const fetchPromises = matches.map(async (match) => {
+    const url = match[2];
+    if (url.startsWith('blob:')) return;
+    const blobUrl = await fetchImageAsBlob(url);
+    if (blobUrl !== url) {
+      result = result.replaceAll(url, blobUrl);
+    }
+  });
+  await Promise.all(fetchPromises);
+  return result;
 }
 
 function getLabel(options: any[], value: any): string {
@@ -141,31 +193,38 @@ function isCorrectOption(optionId: string): boolean {
   return correctList.value.includes(optionId);
 }
 
+// Processed HTML content (with blob URLs)
+const processedStem = ref('');
+const processedAnalysis = ref('');
+const processedEssayAnswer = ref('');
+
 // Reset answer on drawer open
 const [Drawer, drawerApi] = useVbenDrawer({
-  onOpenChange(isOpen) {
+  async onOpenChange(isOpen) {
     if (isOpen) {
       questionData.value = drawerApi.getData<QuestionApi.Question>();
       showAnswer.value = false;
       selectedAnswer.value = isSingleChoice.value ? null : [];
+      blobToRealUrl.clear();
+
+      // Convert images to blob URLs for display
+      if (questionData.value) {
+        const rawStem = fixImageUrls(safeJsonParse(questionData.value.stem || ''));
+        const rawAnalysis = fixImageUrls(safeJsonParse(questionData.value.analysis || ''));
+        const rawAnswer = fixImageUrls(safeJsonParse(questionData.value.answer || ''));
+
+        const [stem, analysis, answer] = await Promise.all([
+          convertImagesToBlobUrls(rawStem),
+          convertImagesToBlobUrls(rawAnalysis),
+          convertImagesToBlobUrls(rawAnswer),
+        ]);
+        processedStem.value = stem;
+        processedAnalysis.value = analysis;
+        processedEssayAnswer.value = answer;
+      }
     }
   },
 });
-
-// Get stem HTML (with fixed image URLs)
-function getStem(): string {
-  return fixImageUrls(safeJsonParse(questionData.value?.stem || ''));
-}
-
-// Get analysis HTML (with fixed image URLs)
-function getAnalysis(): string {
-  return fixImageUrls(safeJsonParse(questionData.value?.analysis || ''));
-}
-
-// Get essay answer HTML (with fixed image URLs)
-function getEssayAnswer(): string {
-  return fixImageUrls(safeJsonParse(questionData.value?.answer || ''));
-}
 </script>
 
 <template>
@@ -196,8 +255,8 @@ function getEssayAnswer(): string {
         </div>
 
         <!-- Stem content -->
-        <div v-if="getStem()" class="mb-6 leading-relaxed text-gray-700">
-          <VbenTiptapPreview :content="getStem()" :min-height="60" />
+        <div v-if="processedStem" class="mb-6 leading-relaxed text-gray-700">
+          <VbenTiptapPreview :content="processedStem" :min-height="60" />
         </div>
 
         <!-- Choice question options -->
@@ -294,15 +353,15 @@ function getEssayAnswer(): string {
           </div>
 
           <!-- Essay/fill-blank answer -->
-          <div v-if="!isChoice && !isTrueFalse && getEssayAnswer()" class="rounded-lg bg-green-50 p-4">
+          <div v-if="!isChoice && !isTrueFalse && processedEssayAnswer" class="rounded-lg bg-green-50 p-4">
             <div class="mb-2 text-sm font-medium text-green-700">参考答案</div>
-            <VbenTiptapPreview :content="getEssayAnswer()" :min-height="60" />
+            <VbenTiptapPreview :content="processedEssayAnswer" :min-height="60" />
           </div>
 
           <!-- Analysis -->
-          <div v-if="getAnalysis()" class="rounded-lg bg-blue-50 p-4">
+          <div v-if="processedAnalysis" class="rounded-lg bg-blue-50 p-4">
             <div class="mb-2 text-sm font-medium text-blue-700">解析</div>
-            <VbenTiptapPreview :content="getAnalysis()" :min-height="60" />
+            <VbenTiptapPreview :content="processedAnalysis" :min-height="60" />
           </div>
         </div>
       </div>
