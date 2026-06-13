@@ -9,11 +9,13 @@
     </view>
     <view class="answer-sheet-btn" @click="showAnswerSheet = true"><text>📋</text></view>
     <view v-if="currentQuestion" class="question-content">
-      <view class="stem"><text v-for="(block, idx) in currentQuestion.stem?.blocks" :key="idx">{{ block.content }}</text></view>
+      <ContentBlockRenderer v-for="(block, idx) in currentQuestion.stem?.blocks" :key="idx" :block="block" />
       <view v-if="currentQuestion.options && currentQuestion.options.length" class="options">
         <view v-for="opt in currentQuestion.options" :key="opt.label" class="option-item" :class="{ selected: answers[currentIndex] === opt.label }" @click="selectAnswer(opt.label)">
           <text class="label">{{ opt.label }}.</text>
-          <text class="content">{{ opt.content.blocks?.map(b => b.content).join('') }}</text>
+          <view class="content">
+            <ContentBlockRenderer v-for="(block, idx) in opt.content?.blocks" :key="idx" :block="block" />
+          </view>
         </view>
       </view>
     </view>
@@ -35,6 +37,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import ContentBlockRenderer from '@/components/ContentBlockRenderer.vue';
 const statusBarHeight = ref(0);
 const questions = ref<any[]>([]);
 const currentIndex = ref(0);

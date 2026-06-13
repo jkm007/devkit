@@ -126,3 +126,59 @@ export interface Note {
   createdAt: string;
   updatedAt: string;
 }
+
+/**
+ * 文件信息接口
+ */
+export interface FileInfo {
+  id: number;
+  name: string;
+  originalName: string;
+  fileType: string;          // image/jpeg, video/mp4, application/pdf, etc.
+  fileSize: number;          // bytes
+  url: string;               // 访问 URL
+  thumbnailUrl?: string;     // 缩略图 URL（图片/视频）
+  duration?: number;         // 音视频时长（秒）
+  width?: number;
+  height?: number;
+  folder?: string;           // 所属文件夹
+  uploadedAt: string;
+  uploadedBy: number;
+}
+
+/**
+ * 分片上传初始化响应
+ */
+export interface UploadInitResponse {
+  uploadId: string;
+  chunkSize: number;
+  totalChunks: number;
+  uploadedChunks: number[];  // 已上传的分片索引（断点续传）
+}
+
+/**
+ * 分片上传响应
+ */
+export interface UploadChunkResponse {
+  uploadId: string;
+  chunkIndex: number;
+  uploaded: boolean;
+}
+
+/**
+ * 文件分享接口
+ */
+export interface FileShare {
+  id: number;
+  fileId: number;
+  fileName: string;
+  shareCode: string;
+  shareUrl: string;
+  expireAt: string;
+  viewCount: number;
+  maxViews?: number;
+  password?: string;
+  createdAt: string;
+  createdBy: number;
+}
+

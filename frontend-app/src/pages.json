@@ -152,6 +152,19 @@
       "style": {
         "navigationBarTitleText": ""
       }
+    },
+    {
+      "path": "pages/file/list",
+      "style": {
+        "navigationBarTitleText": "我的文件"
+      }
+    },
+    {
+      "path": "pages/file/preview",
+      "style": {
+        "navigationBarTitleText": "文件预览",
+        "navigationStyle": "custom"
+      }
     }
   ],
   "globalStyle": {

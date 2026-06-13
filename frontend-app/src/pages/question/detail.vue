@@ -10,15 +10,15 @@
       </view>
       <view class="stem-section">
         <text class="section-label">题干</text>
-        <view class="stem-content">
-          <text v-for="(block, idx) in question.stem?.blocks" :key="idx">{{ block.content }}</text>
-        </view>
+        <ContentBlockRenderer v-for="(block, idx) in question.stem?.blocks" :key="idx" :block="block" />
       </view>
       <view v-if="question.options && question.options.length" class="options-section">
         <text class="section-label">选项</text>
         <view v-for="opt in question.options" :key="opt.label" class="option-item" :class="{ selected: selectedAnswer === opt.label, correct: showAnswer && opt.isCorrect }" @click="selectAnswer(opt.label)">
           <text class="option-label">{{ opt.label }}.</text>
-          <text class="option-content">{{ opt.content.blocks?.map(b => b.content).join('') }}</text>
+          <view class="option-content">
+            <ContentBlockRenderer v-for="(block, idx) in opt.content?.blocks" :key="idx" :block="block" />
+          </view>
         </view>
       </view>
       <view v-if="showAnswer && question.answerVisible" class="answer-section">
@@ -47,6 +47,7 @@
 import { ref, onMounted } from 'vue';
 import { request } from '@/api/request';
 import type { Question } from '@/api/types';
+import ContentBlockRenderer from '@/components/ContentBlockRenderer.vue';
 
 const questionId = ref(0);
 const loading = ref(true);
@@ -106,11 +107,10 @@ function goToPractice() { uni.switchTab({ url: '/pages/practice/index' }); }
 .difficulty .star { color: #faad14; }
 .stem-section, .options-section, .answer-section { background: #fff; margin-top: 12px; padding: 16px; }
 .section-label { font-size: 14px; font-weight: 500; color: #1890ff; margin-bottom: 12px; display: block; }
-.stem-content { font-size: 15px; line-height: 1.6; color: #333; }
-.option-item { display: flex; padding: 12px; margin-bottom: 8px; background: #f9f9f9; border-radius: 8px; border: 2px solid transparent; }
+.option-item { display: flex; padding: 12px; margin-bottom: 8px; background: #f9f9f9; border-radius: 8px; border: 2px solid transparent; gap: 8px; }
 .option-item.selected { border-color: #1890ff; background: #e6f7ff; }
-.option-label { font-weight: 500; margin-right: 8px; }
-.option-content { flex: 1; font-size: 14px; line-height: 1.5; }
+.option-label { font-weight: 500; min-width: 20px; }
+.option-content { flex: 1; }
 .answer { font-size: 18px; font-weight: bold; color: #52c41a; }
 .action-bar { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: #fff; padding: 12px 0; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
 .action-item { flex: 1; display: flex; flex-direction: column; align-items: center; }
