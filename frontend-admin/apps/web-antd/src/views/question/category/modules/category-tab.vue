@@ -193,7 +193,7 @@ function onCreate() {
 }
 </script>
 <template>
-  <div class="h-full">
+  <div class="flex h-full flex-col overflow-hidden" style="min-height: 0">
     <FormDrawer @success="onRefresh" />
     <Grid table-title="章节分类列表">
       <template #toolbar-tools>
