@@ -2,12 +2,11 @@
 import type { VxeTableGridOptions } from '#/adapter/vxe-table';
 import type { QuestionShareApi } from '#/api/question/share';
 
+import { useAccess } from '@vben/access';
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import { Plus } from '@vben/icons';
 
-import { Button, message, Modal } from 'ant-design-vue';
-
-import { useAccess } from '@vben/access';
+import { Button, message } from 'ant-design-vue';
 
 import { useVbenVxeGrid, VbenTableAction } from '#/adapter/vxe-table';
 import {
@@ -66,7 +65,7 @@ async function onDisable(row: QuestionShareApi.QuestionShare) {
     message.success('已禁用');
     onRefresh();
   } catch {
-    // ignore
+    message.error('禁用失败');
   }
 }
 
@@ -76,7 +75,7 @@ async function onEnable(row: QuestionShareApi.QuestionShare) {
     message.success('已启用');
     onRefresh();
   } catch {
-    // ignore
+    message.error('启用失败');
   }
 }
 
@@ -95,6 +94,7 @@ async function onDelete(row: QuestionShareApi.QuestionShare) {
     onRefresh();
   } catch {
     hideLoading();
+    message.error('删除失败');
   }
 }
 
@@ -126,6 +126,7 @@ function onCreate() {
             {
               text: row.status === 1 ? '禁用' : '启用',
               icon: row.status === 1 ? 'lucide:ban' : 'lucide:check-circle',
+              ifShow: () => row.status !== 2,
               onClick: () =>
                 row.status === 1 ? onDisable(row) : onEnable(row),
               auth: [

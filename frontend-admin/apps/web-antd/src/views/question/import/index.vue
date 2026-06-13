@@ -2,12 +2,11 @@
 import type { VxeTableGridOptions } from '#/adapter/vxe-table';
 import type { QuestionImportApi } from '#/api/question/import';
 
+import { useAccess } from '@vben/access';
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import { Plus } from '@vben/icons';
 
-import { Button, message, Modal } from 'ant-design-vue';
-
-import { useAccess } from '@vben/access';
+import { Button, message } from 'ant-design-vue';
 
 import { useVbenVxeGrid, VbenTableAction } from '#/adapter/vxe-table';
 import {
@@ -73,6 +72,7 @@ async function onDelete(row: QuestionImportApi.ImportTask) {
     onRefresh();
   } catch {
     hideLoading();
+    message.error('删除失败');
   }
 }
 

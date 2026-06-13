@@ -54,10 +54,7 @@ export function useShareColumns(): VxeTableGridColumns {
       field: 'status',
       title: '状态',
       width: 80,
-      formatter({ cellValue }: any) {
-        const found = SHARE_STATUS_OPTIONS.find((o) => o.value === cellValue);
-        return found?.label || '有效';
-      },
+      cellRender: { name: 'CellTag', options: SHARE_STATUS_OPTIONS },
     },
     { field: 'accessCount', title: '访问次数', width: 80 },
     { field: 'maxAccess', title: '最大访问', width: 80 },
