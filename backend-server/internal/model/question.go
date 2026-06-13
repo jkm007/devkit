@@ -35,14 +35,15 @@ type Question struct {
 	AnalysisVisiblePolicy string       `gorm:"type:varchar(30);default:after_answer;comment:解析可见策略" json:"analysisVisiblePolicy"`
 	AnswerVisiblePolicy  string         `gorm:"type:varchar(30);default:after_answer;comment:答案可见策略" json:"answerVisiblePolicy"`
 	CreatedBy            uint           `gorm:"not null;index;comment:创建人ID" json:"createdBy"`
+	UpdatedBy            uint           `gorm:"default:0;index;comment:最后修改人ID" json:"updatedBy"`
 	ReviewedBy           uint           `gorm:"default:0;comment:审核人ID" json:"reviewedBy"`
 	ReviewedAt           *time.Time     `gorm:"comment:审核时间" json:"reviewedAt"`
 	RejectReason         string         `gorm:"type:varchar(500);default:;comment:驳回原因" json:"rejectReason"`
 	PublishedAt          *time.Time     `gorm:"comment:发布时间" json:"publishedAt"`
 	DeletedBy            uint           `gorm:"default:0;comment:删除人ID" json:"deletedBy"`
 	RecycleExpireAt      *time.Time     `gorm:"comment:回收站过期时间" json:"recycleExpireAt"`
-	CreatedAt            time.Time      `gorm:"comment:创建时间" json:"createTime"`
-	UpdatedAt            time.Time      `gorm:"comment:更新时间" json:"-"`
+	CreatedAt            time.Time      `gorm:"autoCreateTime;comment:创建时间" json:"createTime"`
+	UpdatedAt            time.Time      `gorm:"autoUpdateTime;comment:更新时间" json:"-"`
 	DeletedAt            gorm.DeletedAt `gorm:"index;comment:删除时间" json:"-"`
 }
 

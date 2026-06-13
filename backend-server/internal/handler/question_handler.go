@@ -81,7 +81,8 @@ func (h *QuestionHandler) Update(c *gin.Context) {
 		response.BadRequest(c, err.Error())
 		return
 	}
-	item, err := h.service.Update(uint(id), &req)
+	userId, _ := c.Get("user_id")
+	item, err := h.service.Update(uint(id), &req, userId.(uint))
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return

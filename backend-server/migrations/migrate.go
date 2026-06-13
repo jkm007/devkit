@@ -47,6 +47,7 @@ func Run(db *gorm.DB) error {
 		&model.KnowledgePoint{},
 		&model.QuestionSource{},
 		&model.Question{},
+		&model.QuestionVersion{},
 		&model.QuestionImportTask{},
 		&model.QuestionImportItem{},
 		&model.QuestionShare{},

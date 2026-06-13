@@ -22,8 +22,8 @@ type KnowledgePoint struct {
 	SortOrder   int            `gorm:"default:0;comment:排序" json:"sortOrder"`
 	Status      int            `gorm:"type:tinyint;default:1;comment:状态 1:启用 0:禁用" json:"status"`
 	CreatedBy   uint           `gorm:"not null;comment:创建人ID" json:"createdBy"`
-	CreatedAt   time.Time      `gorm:"comment:创建时间" json:"createTime"`
-	UpdatedAt   time.Time      `gorm:"comment:更新时间" json:"-"`
+	CreatedAt   time.Time      `gorm:"autoCreateTime;comment:创建时间" json:"createTime"`
+	UpdatedAt   time.Time      `gorm:"autoUpdateTime;comment:更新时间" json:"-"`
 	DeletedAt   gorm.DeletedAt `gorm:"index;comment:删除时间" json:"-"`
 }
 

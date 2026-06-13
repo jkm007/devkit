@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -11,6 +12,28 @@ import (
 
 	"gorm.io/gorm"
 )
+
+const (
+	MaxJSONSize       = 2 * 1024 * 1024 // 2MB 单字段
+	MaxJSONDepth      = 10              // 最大嵌套深度
+	MaxBlocksPerField = 50              // 单字段最大内容块数
+)
+
+// ValidateJSONField 校验JSON字段大小和深度
+func ValidateJSONField(data string) error {
+	if data == "" || data == "null" {
+		return nil
+	}
+	if len(data) > MaxJSONSize {
+		return fmt.Errorf("JSON内容过大，最大允许2MB")
+	}
+	// 检查JSON格式是否正确
+	var js json.RawMessage
+	if err := json.Unmarshal([]byte(data), &js); err != nil {
+		return fmt.Errorf("JSON格式错误: %v", err)
+	}
+	return nil
+}
 
 type QuestionService struct {
 	repo *repository.QuestionRepo
@@ -104,25 +127,41 @@ func ensureJSON(s string) string {
 }
 
 func (s *QuestionService) Create(req *QuestionRequest, createdBy uint) (*QuestionResponse, error) {
+	// 校验JSON字段大小
+	jsonFields := map[string]string{
+		"stem":      req.Stem,
+		"content":   req.Content,
+		"answer":    req.Answer,
+		"analysis":  req.Analysis,
+		"materials": req.Materials,
+		"scoreRule": req.ScoreRule,
+	}
+	for name, value := range jsonFields {
+		if err := ValidateJSONField(value); err != nil {
+			return nil, fmt.Errorf("%s字段校验失败: %v", name, err)
+		}
+	}
+
 	item := &model.Question{
-		Title:                req.Title,
-		QuestionType:         req.QuestionType,
-		Stem:                 ensureJSON(req.Stem),
-		Content:              ensureJSON(req.Content),
-		Answer:               ensureJSON(req.Answer),
-		Analysis:             ensureJSON(req.Analysis),
-		Materials:            ensureJSON(req.Materials),
-		ScoreRule:            ensureJSON(req.ScoreRule),
-		ExamID:               req.ExamID,
-		SubjectID:            req.SubjectID,
-		CategoryID:           req.CategoryID,
-		SourceID:             req.SourceID,
-		Difficulty:           1,
-		ResourceType:         "private",
-		Status:               "draft",
+		Title:                 req.Title,
+		QuestionType:          req.QuestionType,
+		Stem:                  ensureJSON(req.Stem),
+		Content:               ensureJSON(req.Content),
+		Answer:                ensureJSON(req.Answer),
+		Analysis:              ensureJSON(req.Analysis),
+		Materials:             ensureJSON(req.Materials),
+		ScoreRule:             ensureJSON(req.ScoreRule),
+		ExamID:                req.ExamID,
+		SubjectID:             req.SubjectID,
+		CategoryID:            req.CategoryID,
+		SourceID:              req.SourceID,
+		Difficulty:            1,
+		ResourceType:          "private",
+		Status:                "draft",
 		AnalysisVisiblePolicy: "after_answer",
-		AnswerVisiblePolicy:  "after_answer",
-		CreatedBy:            createdBy,
+		AnswerVisiblePolicy:   "after_answer",
+		CreatedBy:             createdBy,
+		UpdatedBy:             createdBy,
 	}
 	if req.Difficulty != nil {
 		item.Difficulty = *req.Difficulty
@@ -144,13 +183,28 @@ func (s *QuestionService) Create(req *QuestionRequest, createdBy uint) (*Questio
 	return &resp, nil
 }
 
-func (s *QuestionService) Update(id uint, req *QuestionRequest) (*QuestionResponse, error) {
+func (s *QuestionService) Update(id uint, req *QuestionRequest, updatedBy uint) (*QuestionResponse, error) {
 	item, err := s.repo.GetByID(id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("题目不存在")
 		}
 		return nil, err
+	}
+
+	// 校验JSON字段大小
+	jsonFields := map[string]string{
+		"stem":      req.Stem,
+		"content":   req.Content,
+		"answer":    req.Answer,
+		"analysis":  req.Analysis,
+		"materials": req.Materials,
+		"scoreRule": req.ScoreRule,
+	}
+	for name, value := range jsonFields {
+		if err := ValidateJSONField(value); err != nil {
+			return nil, fmt.Errorf("%s字段校验失败: %v", name, err)
+		}
 	}
 
 	// 已发布的题目编辑不影响已发布版本
@@ -166,6 +220,7 @@ func (s *QuestionService) Update(id uint, req *QuestionRequest) (*QuestionRespon
 	item.SubjectID = req.SubjectID
 	item.CategoryID = req.CategoryID
 	item.SourceID = req.SourceID
+	item.UpdatedBy = updatedBy
 	if req.Difficulty != nil {
 		item.Difficulty = *req.Difficulty
 	}
@@ -270,6 +325,11 @@ func (s *QuestionService) Approve(id uint, reviewedBy uint) (*QuestionResponse, 
 
 	if item.Status != "pending" {
 		return nil, fmt.Errorf("只有待审核的题目才能审核")
+	}
+
+	// 审核人不能审核自己的题目
+	if item.CreatedBy == reviewedBy {
+		return nil, fmt.Errorf("审核人不能审核自己创建的题目")
 	}
 
 	now := time.Now()

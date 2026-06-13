@@ -17,8 +17,8 @@ type ExamCategory struct {
 	SortOrder int            `gorm:"default:0;comment:排序" json:"sortOrder"`
 	Status    int            `gorm:"type:tinyint;default:1;comment:状态 1:启用 0:禁用" json:"status"`
 	CreatedBy uint           `gorm:"not null;comment:创建人ID" json:"createdBy"`
-	CreatedAt time.Time      `gorm:"comment:创建时间" json:"createTime"`
-	UpdatedAt time.Time      `gorm:"comment:更新时间" json:"-"`
+	CreatedAt time.Time      `gorm:"autoCreateTime;comment:创建时间" json:"createTime"`
+	UpdatedAt time.Time      `gorm:"autoUpdateTime;comment:更新时间" json:"-"`
 	DeletedAt gorm.DeletedAt `gorm:"index;comment:删除时间" json:"-"`
 }
 
@@ -28,17 +28,17 @@ func (ExamCategory) TableName() string {
 
 // Exam 具体考试模型
 type Exam struct {
-	ID              uint           `gorm:"primaryKey;autoIncrement;comment:考试ID" json:"id"`
-	ExamCategoryID  uint           `gorm:"not null;index;comment:考试大类ID" json:"examCategoryId"`
-	Name            string         `gorm:"type:varchar(150);not null;comment:考试名称" json:"name"`
-	Code            string         `gorm:"type:varchar(50);default:;comment:编码" json:"code"`
-	Description     string         `gorm:"type:varchar(1000);default:;comment:描述" json:"description"`
-	Status          int            `gorm:"type:tinyint;default:1;comment:状态 1:启用 0:禁用" json:"status"`
-	SortOrder       int            `gorm:"default:0;comment:排序" json:"sortOrder"`
-	CreatedBy       uint           `gorm:"not null;comment:创建人ID" json:"createdBy"`
-	CreatedAt       time.Time      `gorm:"comment:创建时间" json:"createTime"`
-	UpdatedAt       time.Time      `gorm:"comment:更新时间" json:"-"`
-	DeletedAt       gorm.DeletedAt `gorm:"index;comment:删除时间" json:"-"`
+	ID             uint           `gorm:"primaryKey;autoIncrement;comment:考试ID" json:"id"`
+	ExamCategoryID uint           `gorm:"not null;index;comment:考试大类ID" json:"examCategoryId"`
+	Name           string         `gorm:"type:varchar(150);not null;comment:考试名称" json:"name"`
+	Code           string         `gorm:"type:varchar(50);default:;comment:编码" json:"code"`
+	Description    string         `gorm:"type:varchar(1000);default:;comment:描述" json:"description"`
+	Status         int            `gorm:"type:tinyint;default:1;comment:状态 1:启用 0:禁用" json:"status"`
+	SortOrder      int            `gorm:"default:0;comment:排序" json:"sortOrder"`
+	CreatedBy      uint           `gorm:"not null;comment:创建人ID" json:"createdBy"`
+	CreatedAt      time.Time      `gorm:"autoCreateTime;comment:创建时间" json:"createTime"`
+	UpdatedAt      time.Time      `gorm:"autoUpdateTime;comment:更新时间" json:"-"`
+	DeletedAt      gorm.DeletedAt `gorm:"index;comment:删除时间" json:"-"`
 }
 
 func (Exam) TableName() string {
@@ -54,8 +54,8 @@ type Subject struct {
 	SortOrder int            `gorm:"default:0;comment:排序" json:"sortOrder"`
 	Status    int            `gorm:"type:tinyint;default:1;comment:状态 1:启用 0:禁用" json:"status"`
 	CreatedBy uint           `gorm:"not null;comment:创建人ID" json:"createdBy"`
-	CreatedAt time.Time      `gorm:"comment:创建时间" json:"createTime"`
-	UpdatedAt time.Time      `gorm:"comment:更新时间" json:"-"`
+	CreatedAt time.Time      `gorm:"autoCreateTime;comment:创建时间" json:"createTime"`
+	UpdatedAt time.Time      `gorm:"autoUpdateTime;comment:更新时间" json:"-"`
 	DeletedAt gorm.DeletedAt `gorm:"index;comment:删除时间" json:"-"`
 }
 
@@ -75,8 +75,8 @@ type Category struct {
 	SortOrder int            `gorm:"default:0;comment:排序" json:"sortOrder"`
 	Status    int            `gorm:"type:tinyint;default:1;comment:状态 1:启用 0:禁用" json:"status"`
 	CreatedBy uint           `gorm:"not null;comment:创建人ID" json:"createdBy"`
-	CreatedAt time.Time      `gorm:"comment:创建时间" json:"createTime"`
-	UpdatedAt time.Time      `gorm:"comment:更新时间" json:"-"`
+	CreatedAt time.Time      `gorm:"autoCreateTime;comment:创建时间" json:"createTime"`
+	UpdatedAt time.Time      `gorm:"autoUpdateTime;comment:更新时间" json:"-"`
 	DeletedAt gorm.DeletedAt `gorm:"index;comment:删除时间" json:"-"`
 }
 
