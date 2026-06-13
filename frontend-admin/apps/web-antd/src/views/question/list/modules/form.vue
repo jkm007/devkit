@@ -1,12 +1,13 @@
 <script lang="ts" setup>
 import type { QuestionApi } from '#/api/question/question';
 
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import { useVbenDrawer } from '@vben/common-ui';
+import { Plus } from '@vben/icons';
 import { VbenTiptap } from '@vben/plugins/tiptap';
 
-import { message } from 'ant-design-vue';
+import { Button, Input, message, Radio, RadioGroup, Tooltip } from 'ant-design-vue';
 
 import { useVbenForm } from '#/adapter/form';
 import { simpleUpload } from '#/api/file';
@@ -23,11 +24,47 @@ const emits = defineEmits(['success']);
 const formData = ref<QuestionApi.Question>();
 const id = ref<number>();
 
+// API base URL for image paths
+const apiBase = import.meta.env.VITE_GLOB_API_URL || '/api/v1';
+
 // Rich text field values
 const stemHtml = ref('');
-const contentHtml = ref('');
-const answerHtml = ref('');
 const analysisHtml = ref('');
+
+// Choice question options
+interface OptionItem {
+  id: string;
+  text: string;
+}
+const options = ref<OptionItem[]>([
+  { id: 'A', text: '' },
+  { id: 'B', text: '' },
+]);
+const correctAnswers = ref<string[]>([]);
+
+// True/false answer
+const tfAnswer = ref<string>('true');
+
+// Fill-blank answer (essay answer for non-choice types)
+const essayAnswerHtml = ref('');
+
+// Question type categories
+const CHOICE_TYPES = ['single_choice', 'multiple_choice', 'indefinite_choice'];
+const isChoiceType = computed(() => {
+  const qt = formApi?.getValues?.()?.questionType || formApi?.getFieldValue?.('questionType');
+  return CHOICE_TYPES.includes(qt as string);
+});
+const isTrueFalse = computed(() => {
+  const qt = formApi?.getValues?.()?.questionType || formApi?.getFieldValue?.('questionType');
+  return qt === 'true_false';
+});
+const isFillBlank = computed(() => {
+  const qt = formApi?.getValues?.()?.questionType || formApi?.getFieldValue?.('questionType');
+  return qt === 'fill_blank';
+});
+
+// Current question type for template
+const currentType = ref('');
 
 // Decode JSON-encoded HTML string for TipTap
 function safeJsonParse(jsonStr: string): string {
@@ -45,7 +82,7 @@ function htmlToJson(html: string): string {
   return JSON.stringify(html || '');
 }
 
-// Image upload adapter for TipTap
+// Image upload adapter for TipTap (fix: prepend /api/v1)
 const imageUploadConfig = {
   accept: 'image/*',
   maxSize: 10 * 1024 * 1024, // 10MB
@@ -53,9 +90,60 @@ const imageUploadConfig = {
     const result = await simpleUpload(file, (event) => {
       onProgress?.(event.percent);
     });
-    return result.url;
+    // Fix: prepend apiBase if URL doesn't start with http
+    const url = result.url;
+    if (url && !url.startsWith('http') && !url.startsWith(apiBase)) {
+      return `${apiBase}${url}`;
+    }
+    return url;
   },
 };
+
+// Generate option IDs: A, B, C, D, ...
+function getOptionId(index: number): string {
+  return String.fromCharCode(65 + index);
+}
+
+// Add a new option
+function addOption() {
+  if (options.value.length >= 10) {
+    message.warning('最多支持10个选项');
+    return;
+  }
+  const index = options.value.length;
+  options.value.push({ id: getOptionId(index), text: '' });
+}
+
+// Remove an option
+function removeOption(index: number) {
+  if (options.value.length <= 2) {
+    message.warning('至少需要2个选项');
+    return;
+  }
+  const removed = options.value[index];
+  options.value.splice(index, 1);
+  // Re-index option IDs
+  options.value.forEach((opt, i) => {
+    opt.id = getOptionId(i);
+  });
+  // Remove from correct answers if present
+  correctAnswers.value = correctAnswers.value.filter((a) => a !== removed.id);
+}
+
+// Toggle correct answer for choice questions
+function toggleCorrectAnswer(optionId: string) {
+  const questionType = currentType.value;
+  if (questionType === 'single_choice') {
+    correctAnswers.value = [optionId];
+  } else {
+    const idx = correctAnswers.value.indexOf(optionId);
+    if (idx >= 0) {
+      correctAnswers.value.splice(idx, 1);
+    } else {
+      correctAnswers.value.push(optionId);
+    }
+  }
+}
 
 const [Form, formApi] = useVbenForm({
   schema: [
@@ -95,6 +183,39 @@ const [Form, formApi] = useVbenForm({
   showDefaultActions: false,
 });
 
+// Watch question type changes
+watch(
+  () => currentType.value,
+  (newType, oldType) => {
+    if (newType === oldType) return;
+    // Reset type-specific data when type changes
+    if (!CHOICE_TYPES.includes(newType)) {
+      options.value = [
+        { id: 'A', text: '' },
+        { id: 'B', text: '' },
+      ];
+      correctAnswers.value = [];
+    }
+    if (newType !== 'true_false') {
+      tfAnswer.value = 'true';
+    }
+  },
+);
+
+// Sync questionType from form to currentType
+watch(
+  () => {
+    try {
+      return formApi.getValues?.()?.questionType;
+    } catch {
+      return undefined;
+    }
+  },
+  (val) => {
+    if (val) currentType.value = val as string;
+  },
+);
+
 const [Drawer, drawerApi] = useVbenDrawer({
   async onConfirm() {
     // Validate basic form fields
@@ -109,13 +230,61 @@ const [Drawer, drawerApi] = useVbenDrawer({
     }
 
     const values = await formApi.getValues();
+    const questionType = values.questionType as string;
+
+    // Build content and answer based on question type
+    let contentJson = '';
+    let answerJson = '';
+
+    if (CHOICE_TYPES.includes(questionType)) {
+      // Validate options
+      const validOptions = options.value.filter((o) => o.text.trim());
+      if (validOptions.length < 2) {
+        message.warning('请至少填写2个选项');
+        return;
+      }
+      if (correctAnswers.value.length === 0) {
+        message.warning('请标记正确答案');
+        return;
+      }
+      contentJson = JSON.stringify(validOptions);
+      answerJson = JSON.stringify({ correct: correctAnswers.value });
+    } else if (questionType === 'true_false') {
+      contentJson = JSON.stringify({ type: 'true_false' });
+      answerJson = JSON.stringify({ correct: tfAnswer.value });
+    } else if (questionType === 'fill_blank') {
+      // Count blanks in stem
+      const blankCount = (stemHtml.value.match(/_{3,}|（\s*）|\(\s*\)/g) || []).length;
+      if (blankCount > 0) {
+        let blanks: string[] = [];
+        try {
+          blanks = JSON.parse(essayAnswerHtml.value || '[]');
+          if (!Array.isArray(blanks)) blanks = [];
+        } catch {
+          blanks = [];
+        }
+        if (blanks.length === 0 && essayAnswerHtml.value) {
+          blanks = [essayAnswerHtml.value];
+        }
+        contentJson = JSON.stringify({ blankCount });
+        answerJson = JSON.stringify({ blanks });
+      } else {
+        contentJson = '';
+        answerJson = htmlToJson(essayAnswerHtml.value);
+      }
+    } else {
+      // Essay, programming, etc.
+      contentJson = '';
+      answerJson = htmlToJson(essayAnswerHtml.value);
+    }
+
     drawerApi.lock();
 
     const submitData = {
       ...values,
       stem: htmlToJson(stemHtml.value),
-      content: htmlToJson(contentHtml.value),
-      answer: htmlToJson(answerHtml.value),
+      content: contentJson ? contentJson : htmlToJson(''),
+      answer: answerJson,
       analysis: htmlToJson(analysisHtml.value),
     };
 
@@ -142,18 +311,61 @@ const [Drawer, drawerApi] = useVbenDrawer({
           difficulty: data.difficulty,
           resourceType: data.resourceType,
         });
-        // Decode JSON fields for TipTap editors
+        currentType.value = data.questionType || '';
+
+        // Decode stem and analysis
         stemHtml.value = safeJsonParse(data.stem);
-        contentHtml.value = safeJsonParse(data.content);
-        answerHtml.value = safeJsonParse(data.answer);
         analysisHtml.value = safeJsonParse(data.analysis);
+
+        // Decode type-specific content and answer
+        const questionType = data.questionType || '';
+        if (CHOICE_TYPES.includes(questionType)) {
+          // Parse options from content
+          try {
+            const parsed = JSON.parse(data.content || '[]');
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              options.value = parsed.map((o: any, i: number) => ({
+                id: o.id || getOptionId(i),
+                text: o.text || o.label || '',
+              }));
+            }
+          } catch {
+            options.value = [
+              { id: 'A', text: '' },
+              { id: 'B', text: '' },
+            ];
+          }
+          // Parse correct answer
+          try {
+            const ans = JSON.parse(data.answer || '{}');
+            correctAnswers.value = ans.correct || [];
+          } catch {
+            correctAnswers.value = [];
+          }
+        } else if (questionType === 'true_false') {
+          try {
+            const ans = JSON.parse(data.answer || '{}');
+            tfAnswer.value = ans.correct || 'true';
+          } catch {
+            tfAnswer.value = 'true';
+          }
+        } else {
+          // Essay and others
+          essayAnswerHtml.value = safeJsonParse(data.answer);
+        }
       } else {
         formData.value = undefined;
         id.value = undefined;
+        currentType.value = '';
         stemHtml.value = '';
-        contentHtml.value = '';
-        answerHtml.value = '';
         analysisHtml.value = '';
+        essayAnswerHtml.value = '';
+        options.value = [
+          { id: 'A', text: '' },
+          { id: 'B', text: '' },
+        ];
+        correctAnswers.value = [];
+        tfAnswer.value = 'true';
       }
     }
   },
@@ -170,60 +382,122 @@ const drawerTitle = computed(() => {
       <!-- Basic fields -->
       <Form />
 
-      <!-- Rich text fields -->
-      <div class="space-y-5">
-        <!-- Stem (required) -->
-        <div>
-          <label class="mb-2 block text-sm font-medium">
-            题干 <span class="text-red-500">*</span>
+      <!-- Stem (always shown, required) -->
+      <div>
+        <label class="mb-2 block text-sm font-medium">
+          题干 <span class="text-red-500">*</span>
+        </label>
+        <VbenTiptap
+          v-model="stemHtml"
+          :image-upload="imageUploadConfig"
+          :min-height="180"
+          :max-height="350"
+          placeholder="请输入题目内容..."
+        />
+      </div>
+
+      <!-- Choice question options -->
+      <div v-if="isChoiceType" class="rounded-lg border border-gray-200 p-4">
+        <div class="mb-3 flex items-center justify-between">
+          <label class="text-sm font-medium">
+            选项
+            <span class="ml-1 text-xs text-gray-400">
+              （点击选项标记正确答案{{ currentType === 'single_choice' ? '，单选' : '，可多选' }}）
+            </span>
           </label>
-          <VbenTiptap
-            v-model="stemHtml"
-            :image-upload="imageUploadConfig"
-            :min-height="200"
-            :max-height="400"
-            placeholder="请输入题干内容，支持富文本编辑和图片上传..."
-          />
+          <Button size="small" @click="addOption">
+            <Plus class="mr-1 size-3" />
+            添加选项
+          </Button>
         </div>
 
-        <!-- Content (options, etc.) -->
-        <div>
-          <label class="mb-2 block text-sm font-medium">题目内容</label>
-          <div class="mb-1 text-xs text-gray-400">
-            选择题填写选项、填空题填写空位等结构化内容
+        <div class="space-y-3">
+          <div
+            v-for="(opt, index) in options"
+            :key="index"
+            class="flex items-start gap-3"
+          >
+            <!-- Correct answer indicator -->
+            <div
+              class="mt-2 flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 text-sm font-bold transition-colors"
+              :class="
+                correctAnswers.includes(opt.id)
+                  ? 'border-green-500 bg-green-500 text-white'
+                  : 'border-gray-300 text-gray-400 hover:border-green-300'
+              "
+              @click="toggleCorrectAnswer(opt.id)"
+            >
+              {{ opt.id }}
+            </div>
+
+            <!-- Option text input -->
+            <div class="flex-1">
+              <Input
+                v-model:value="opt.text"
+                :placeholder="`选项 ${opt.id} 内容`"
+                size="large"
+              />
+            </div>
+
+            <!-- Remove button -->
+            <Tooltip title="删除选项">
+              <Button
+                type="text"
+                danger
+                size="small"
+                :disabled="options.length <= 2"
+                @click="removeOption(index)"
+              >
+                ✕
+              </Button>
+            </Tooltip>
           </div>
-          <VbenTiptap
-            v-model="contentHtml"
-            :image-upload="imageUploadConfig"
-            :min-height="150"
-            :max-height="300"
-            placeholder="选项、填空等结构化内容..."
-          />
         </div>
 
-        <!-- Answer -->
-        <div>
-          <label class="mb-2 block text-sm font-medium">答案</label>
-          <VbenTiptap
-            v-model="answerHtml"
-            :image-upload="imageUploadConfig"
-            :min-height="120"
-            :max-height="250"
-            placeholder="标准答案..."
-          />
+        <div
+          v-if="correctAnswers.length > 0"
+          class="mt-3 text-xs text-green-600"
+        >
+          ✓ 正确答案：{{ correctAnswers.join(', ') }}
         </div>
+      </div>
 
-        <!-- Analysis -->
-        <div>
-          <label class="mb-2 block text-sm font-medium">解析</label>
-          <VbenTiptap
-            v-model="analysisHtml"
-            :image-upload="imageUploadConfig"
-            :min-height="150"
-            :max-height="300"
-            placeholder="答案解析..."
-          />
+      <!-- True/False selector -->
+      <div v-if="isTrueFalse" class="rounded-lg border border-gray-200 p-4">
+        <label class="mb-3 block text-sm font-medium">正确答案</label>
+        <RadioGroup v-model:value="tfAnswer" button-style="solid">
+          <Radio.Button value="true">正确 (✓)</Radio.Button>
+          <Radio.Button value="false">错误 (✗)</Radio.Button>
+        </RadioGroup>
+      </div>
+
+      <!-- Fill-blank or Essay answer -->
+      <div v-if="!isChoiceType && !isTrueFalse">
+        <label class="mb-2 block text-sm font-medium">
+          {{ isFillBlank ? '各空答案' : '参考答案' }}
+        </label>
+        <div v-if="isFillBlank" class="mb-1 text-xs text-gray-400">
+          请在题干中用 ___（三个下划线以上）标记空位，然后在此填写每个空的答案
         </div>
+        <VbenTiptap
+          v-model="essayAnswerHtml"
+          :image-upload="imageUploadConfig"
+          :min-height="120"
+          :max-height="250"
+          :placeholder="isFillBlank ? '按顺序填写每个空的答案...' : '参考答案...'"
+        />
+      </div>
+
+      <!-- Analysis (always shown) -->
+      <div>
+        <label class="mb-2 block text-sm font-medium">答案解析</label>
+        <VbenTiptap
+          v-model="analysisHtml"
+          :image-upload="imageUploadConfig"
+          :min-height="150"
+          :max-height="300"
+          placeholder="答案解析..."
+        />
       </div>
     </div>
   </Drawer>
