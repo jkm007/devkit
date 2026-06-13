@@ -39,7 +39,7 @@ async function loadCategoryOptions() {
       value: item.id,
     }));
   } catch {
-    // ignore
+    message.error('加载考试大类失败');
   }
 }
 
@@ -99,7 +99,7 @@ async function onStatusChange(newStatus: number, row: ExamApi.Exam) {
       `将【${row.name}】切换为 ${newStatus === 1 ? '启用' : '禁用'}？`,
       '切换状态',
     );
-    await updateExam(row.id, { ...row, status: newStatus });
+    await updateExam(row.id, { status: newStatus });
     return true;
   } catch {
     return false;
@@ -125,6 +125,7 @@ async function onDelete(row: ExamApi.Exam) {
     onRefresh();
   } catch {
     hideLoading();
+    message.error(`${row.name} 删除失败`);
   }
 }
 
@@ -137,7 +138,7 @@ function onCreate() {
 }
 </script>
 <template>
-  <div>
+  <div class="h-full">
     <FormDrawer @success="onRefresh" />
     <Grid table-title="具体考试列表">
       <template #toolbar-tools>

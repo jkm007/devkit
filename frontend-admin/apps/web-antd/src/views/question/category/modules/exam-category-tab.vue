@@ -2,7 +2,7 @@
 import type { VxeTableGridOptions } from '#/adapter/vxe-table';
 import type { ExamCategoryApi } from '#/api/question/category';
 
-import { Page, useVbenDrawer } from '@vben/common-ui';
+import { useVbenDrawer } from '@vben/common-ui';
 import { Plus } from '@vben/icons';
 
 import { Button, message, Modal } from 'ant-design-vue';
@@ -83,7 +83,7 @@ async function onStatusChange(
       `将【${row.name}】切换为 ${newStatus === 1 ? '启用' : '禁用'}？`,
       '切换状态',
     );
-    await updateExamCategory(row.id, { ...row, status: newStatus });
+    await updateExamCategory(row.id, { status: newStatus });
     return true;
   } catch {
     return false;
@@ -109,6 +109,7 @@ async function onDelete(row: ExamCategoryApi.ExamCategory) {
     onRefresh();
   } catch {
     hideLoading();
+    message.error(`${row.name} 删除失败`);
   }
 }
 
@@ -121,7 +122,7 @@ function onCreate() {
 }
 </script>
 <template>
-  <div>
+  <div class="h-full">
     <FormDrawer @success="onRefresh" />
     <Grid table-title="考试大类列表">
       <template #toolbar-tools>

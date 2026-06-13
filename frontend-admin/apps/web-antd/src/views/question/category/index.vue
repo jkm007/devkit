@@ -14,17 +14,17 @@ const activeKey = ref('examCategory');
 </script>
 <template>
   <Page auto-content-height>
-    <Tabs v-model:active-key="activeKey" type="card">
-      <Tabs.TabPane key="examCategory" tab="考试大类">
+    <Tabs v-model:active-key="activeKey" type="card" destroy-inactive-tab-pane>
+      <Tabs.TabPane key="examCategory" tab="考试大类" force-render>
         <ExamCategoryTab />
       </Tabs.TabPane>
-      <Tabs.TabPane key="exam" tab="具体考试">
+      <Tabs.TabPane key="exam" tab="具体考试" force-render>
         <ExamTab />
       </Tabs.TabPane>
-      <Tabs.TabPane key="subject" tab="科目模块">
+      <Tabs.TabPane key="subject" tab="科目模块" force-render>
         <SubjectTab />
       </Tabs.TabPane>
-      <Tabs.TabPane key="category" tab="章节分类">
+      <Tabs.TabPane key="category" tab="章节分类" force-render>
         <CategoryTab />
       </Tabs.TabPane>
     </Tabs>

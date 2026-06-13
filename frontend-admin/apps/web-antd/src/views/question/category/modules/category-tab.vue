@@ -47,7 +47,7 @@ async function loadOptions() {
     }));
     parentOptions.value = buildTree(categories || []);
   } catch {
-    // ignore
+    message.error('加载选项数据失败');
   }
 }
 
@@ -139,7 +139,7 @@ async function onStatusChange(
       `将【${row.name}】切换为 ${newStatus === 1 ? '启用' : '禁用'}？`,
       '切换状态',
     );
-    await updateQuestionCategory(row.id, { ...row, status: newStatus });
+    await updateQuestionCategory(row.id, { status: newStatus });
     return true;
   } catch {
     return false;
@@ -173,6 +173,7 @@ async function onDelete(row: QuestionCategoryApi.QuestionCategory) {
     onRefresh();
   } catch {
     hideLoading();
+    message.error(`${row.name} 删除失败`);
   }
 }
 
@@ -192,7 +193,7 @@ function onCreate() {
 }
 </script>
 <template>
-  <div>
+  <div class="h-full">
     <FormDrawer @success="onRefresh" />
     <Grid table-title="章节分类列表">
       <template #toolbar-tools>
