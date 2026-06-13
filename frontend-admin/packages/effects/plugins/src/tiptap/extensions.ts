@@ -12,6 +12,7 @@ import { alert } from '@vben-core/popup-ui';
 import Highlight from '@tiptap/extension-highlight';
 import Image from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
+import { Node } from '@tiptap/core';
 import Placeholder from '@tiptap/extension-placeholder';
 import TextAlign from '@tiptap/extension-text-align';
 import { Color, TextStyle } from '@tiptap/extension-text-style';
@@ -19,6 +20,40 @@ import { Plugin, PluginKey } from '@tiptap/pm/state';
 import StarterKit from '@tiptap/starter-kit';
 
 const DEFAULT_ACCEPT = 'image/*';
+
+// Video extension for TipTap
+const Video = Node.create({
+  name: 'video',
+  group: 'block',
+  atom: true,
+  draggable: true,
+  addAttributes() {
+    return {
+      src: { default: null },
+      controls: { default: true },
+      width: { default: '100%' },
+      'data-type': { default: 'video' },
+    };
+  },
+  parseHTML() {
+    return [{ tag: 'video[src]' }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ['video', HTMLAttributes];
+  },
+  addNodeView() {
+    return ({ node }) => {
+      const video = document.createElement('video');
+      video.src = node.attrs.src;
+      video.controls = node.attrs.controls !== false;
+      video.style.width = node.attrs.width || '100%';
+      video.style.maxWidth = '100%';
+      video.style.borderRadius = '8px';
+      video.preload = 'metadata';
+      return { dom: video };
+    };
+  },
+});
 
 function validateFile(
   file: File,
@@ -76,6 +111,10 @@ interface UploadContext {
   pos: number;
 }
 
+function isVideoFile(file: File): boolean {
+  return file.type.startsWith('video/');
+}
+
 function createUploadProcess(
   editor: CoreEditor,
   file: File,
@@ -86,19 +125,34 @@ function createUploadProcess(
   const blobUrl = URL.createObjectURL(file);
   blobUrlTracker?.add(blobUrl);
   const insertPos = pos ?? editor.state.selection.from;
+  const isVideo = isVideoFile(file);
 
-  // Insert placeholder image with blob URL
-  editor
-    .chain()
-    .insertContentAt(insertPos, {
-      attrs: {
-        'data-upload-progress': 0,
-        'data-uploading': 'true',
-        src: blobUrl,
-      },
-      type: 'image',
-    })
-    .run();
+  // Insert placeholder (image or video) with blob URL
+  if (isVideo) {
+    editor
+      .chain()
+      .insertContentAt(insertPos, {
+        type: 'video',
+        attrs: {
+          src: blobUrl,
+          controls: true,
+          'data-uploading': 'true',
+        },
+      })
+      .run();
+  } else {
+    editor
+      .chain()
+      .insertContentAt(insertPos, {
+        attrs: {
+          'data-upload-progress': 0,
+          'data-uploading': 'true',
+          src: blobUrl,
+        },
+        type: 'image',
+      })
+      .run();
+  }
 
   const nodePos = findPlaceholderPos(editor.state.doc, blobUrl);
 
@@ -310,17 +364,18 @@ function createCustomImage(
             handleDrop: (view: EditorView, event: DragEvent) => {
               if (!event.dataTransfer?.files.length) return false;
 
-              const imageFiles = [...event.dataTransfer.files].filter((f) =>
-                f.type.startsWith('image/'),
+              const mediaFiles = [...event.dataTransfer.files].filter(
+                (f) =>
+                  f.type.startsWith('image/') || f.type.startsWith('video/'),
               );
-              if (imageFiles.length === 0) return false;
+              if (mediaFiles.length === 0) return false;
 
               event.preventDefault();
 
-              // Only support single image upload
-              const file = imageFiles[0];
+              // Only support single file upload
+              const file = mediaFiles[0];
               if (!file) return false;
-              if (imageFiles.length > 1) {
+              if (mediaFiles.length > 1) {
                 handleUploadError(
                   new Error($t('ui.tiptap.upload.onlySingleImage')),
                   imageUpload,
@@ -358,28 +413,31 @@ function createCustomImage(
               const items = event.clipboardData?.items;
               if (!items) return false;
 
-              const imageFiles: File[] = [];
+              const mediaFiles: File[] = [];
               for (const item of items) {
-                if (item.type.startsWith('image/')) {
+                if (
+                  item.type.startsWith('image/') ||
+                  item.type.startsWith('video/')
+                ) {
                   const file = item.getAsFile();
-                  if (file) imageFiles.push(file);
+                  if (file) mediaFiles.push(file);
                 }
               }
 
-              if (imageFiles.length === 0) return false;
+              if (mediaFiles.length === 0) return false;
 
               event.preventDefault();
 
-              const imageFile = imageFiles[0];
-              if (!imageFile) return false;
-              if (imageFiles.length > 1) {
+              const mediaFile = mediaFiles[0];
+              if (!mediaFile) return false;
+              if (mediaFiles.length > 1) {
                 handleUploadError(
                   new Error($t('ui.tiptap.upload.onlySingleImage')),
                   imageUpload,
                 );
               }
 
-              const error = validateFile(imageFile, imageUpload);
+              const error = validateFile(mediaFile, imageUpload);
               if (error) {
                 handleUploadError(new Error(error), imageUpload);
                 return true;
@@ -387,7 +445,7 @@ function createCustomImage(
 
               createUploadProcess(
                 editor,
-                imageFile,
+                mediaFile,
                 imageUpload,
                 blobUrlTracker,
               );
@@ -427,6 +485,7 @@ export function createDefaultTiptapExtensions(
       openOnClick: false,
       protocols: ['mailto', { optionalSlashes: true, scheme: 'tel' }],
     }),
+    Video,
     options.imageUpload
       ? createCustomImage(
           options.imageUpload,

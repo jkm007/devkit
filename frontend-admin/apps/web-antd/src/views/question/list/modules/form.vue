@@ -101,8 +101,8 @@ function htmlToJson(html: string): string {
   return JSON.stringify(html || '');
 }
 
-// Fetch an image with auth header and return a blob URL
-async function fetchImageAsBlob(url: string): Promise<string> {
+// Fetch a media file with auth header and return a blob URL
+async function fetchMediaAsBlob(url: string): Promise<string> {
   try {
     const token = getAuthToken();
     const response = await fetch(url, {
@@ -120,18 +120,19 @@ async function fetchImageAsBlob(url: string): Promise<string> {
   return url;
 }
 
-// Convert real image URLs in HTML to blob URLs (for display in editor)
-async function convertImagesToBlobUrls(html: string): Promise<string> {
+// Convert real media URLs in HTML to blob URLs (for display in editor)
+// Handles both <img> and <video> tags
+async function convertMediaToBlobUrls(html: string): Promise<string> {
   if (!html) return html;
-  const urlRegex = /(<img[^>]+src=")([^"]+)(")/g;
+  const urlRegex = /(<(?:img|video)[^>]+(?:src|poster)=")([^"]+)(")/g;
   const matches = [...html.matchAll(urlRegex)];
   if (matches.length === 0) return html;
 
   let result = html;
   const fetchPromises = matches.map(async (match) => {
     const url = match[2];
-    if (url.startsWith('blob:')) return;
-    const blobUrl = await fetchImageAsBlob(url);
+    if (url.startsWith('blob:') || url.startsWith('data:')) return;
+    const blobUrl = await fetchMediaAsBlob(url);
     if (blobUrl !== url) {
       result = result.replaceAll(url, blobUrl);
     }
@@ -154,10 +155,10 @@ function convertBlobUrlsToReal(html: string): string {
   return result;
 }
 
-// Image upload adapter for TipTap
+// Media upload adapter for TipTap (images + videos)
 const imageUploadConfig = {
-  accept: 'image/*',
-  maxSize: 10 * 1024 * 1024, // 10MB
+  accept: 'image/*,video/*',
+  maxSize: 100 * 1024 * 1024, // 100MB (for videos)
   upload: async (file: File, onProgress?: (percent: number) => void) => {
     const result = await simpleUpload(file, (event) => {
       onProgress?.(event.percent);
@@ -171,7 +172,7 @@ const imageUploadConfig = {
     realUrl = realUrl.replace(/\/direct-url/g, '/view');
 
     // Fetch with auth and return blob URL for display
-    const blobUrl = await fetchImageAsBlob(realUrl);
+    const blobUrl = await fetchMediaAsBlob(realUrl);
     return blobUrl;
   },
 };
@@ -390,9 +391,9 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
         // Convert images to blob URLs (authenticated fetch)
         const [stemWithBlobs, analysisWithBlobs, essayWithBlobs] = await Promise.all([
-          convertImagesToBlobUrls(rawStem),
-          convertImagesToBlobUrls(rawAnalysis),
-          convertImagesToBlobUrls(rawEssayAnswer),
+          convertMediaToBlobUrls(rawStem),
+          convertMediaToBlobUrls(rawAnalysis),
+          convertMediaToBlobUrls(rawEssayAnswer),
         ]);
 
         stemHtml.value = stemWithBlobs;

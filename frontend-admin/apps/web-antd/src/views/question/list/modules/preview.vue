@@ -54,16 +54,32 @@ function safeJsonParse(jsonStr: string): string {
   }
 }
 
-// Fix image URLs in HTML content (normalize to /api/v1/files/{id}/view)
-function fixImageUrls(html: string): string {
+// Deep parse JSON (handles double-encoding from DB JSON columns)
+function deepParse(val: any): any {
+  if (typeof val !== 'string') return val;
+  try {
+    const parsed = JSON.parse(val);
+    if (typeof parsed === 'string') {
+      try { return JSON.parse(parsed); } catch { return parsed; }
+    }
+    return parsed;
+  } catch {
+    return val;
+  }
+}
+
+// Fix image/video URLs in HTML content
+function fixMediaUrls(html: string): string {
   if (!html) return html;
+  // Replace /files/{id}/direct-url → /files/{id}/view
   let fixed = html.replace(/\/files\/(\d+)\/direct-url/g, '/files/$1/view');
-  fixed = fixed.replace(/(src="|href=")(\/files\/\d+\/view)/g, `$1${apiBase}$2`);
+  // Add /api/v1 prefix to bare /files/ paths (in src="..." or poster="...")
+  fixed = fixed.replace(/((?:src|poster)=")(\/files\/\d+\/view)/g, `$1${apiBase}$2`);
   return fixed;
 }
 
-// Fetch image with auth header → blob URL
-async function fetchImageAsBlob(url: string): Promise<string> {
+// Fetch media with auth header → blob URL
+async function fetchMediaAsBlob(url: string): Promise<string> {
   try {
     const token = getAuthToken();
     const response = await fetch(url, {
@@ -81,18 +97,18 @@ async function fetchImageAsBlob(url: string): Promise<string> {
   return url;
 }
 
-// Convert real image URLs in HTML to blob URLs
-async function convertImagesToBlobUrls(html: string): Promise<string> {
+// Convert real media URLs in HTML to blob URLs (handles img + video)
+async function convertMediaToBlobUrls(html: string): Promise<string> {
   if (!html) return html;
-  const urlRegex = /(<img[^>]+src=")([^"]+)(")/g;
+  const urlRegex = /(<(?:img|video)[^>]+(?:src|poster)=")([^"]+)(")/g;
   const matches = [...html.matchAll(urlRegex)];
   if (matches.length === 0) return html;
 
   let result = html;
   const fetchPromises = matches.map(async (match) => {
     const url = match[2];
-    if (url.startsWith('blob:')) return;
-    const blobUrl = await fetchImageAsBlob(url);
+    if (url.startsWith('blob:') || url.startsWith('data:')) return;
+    const blobUrl = await fetchMediaAsBlob(url);
     if (blobUrl !== url) {
       result = result.replaceAll(url, blobUrl);
     }
@@ -125,26 +141,21 @@ function getDifficultyLabel(value: number): string {
   return getLabel(DIFFICULTY_OPTIONS, value);
 }
 
-// Deep parse JSON (handles double-encoding from DB JSON columns)
-function deepParse(val: any): any {
-  if (typeof val !== 'string') return val;
-  try {
-    const parsed = JSON.parse(val);
-    if (typeof parsed === 'string') {
-      try { return JSON.parse(parsed); } catch { return parsed; }
-    }
-    return parsed;
-  } catch {
-    return val;
-  }
-}
-
-// Parse options from content JSON
+// Parse options from content JSON - robust handling
 function parseOptions(): Array<{ id: string; text: string }> {
   if (!questionData.value?.content) return [];
   try {
-    const parsed = deepParse(questionData.value.content);
-    if (Array.isArray(parsed)) return parsed;
+    let parsed = deepParse(questionData.value.content);
+    // If still a string after deepParse, try parsing again
+    if (typeof parsed === 'string') {
+      try { parsed = JSON.parse(parsed); } catch { /* ignore */ }
+    }
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed.map((o: any, i: number) => ({
+        id: o.id || String.fromCharCode(65 + i),
+        text: o.text || o.label || o.content || o.value || '',
+      }));
+    }
     return [];
   } catch {
     return [];
@@ -207,16 +218,16 @@ const [Drawer, drawerApi] = useVbenDrawer({
       selectedAnswer.value = isSingleChoice.value ? null : [];
       blobToRealUrl.clear();
 
-      // Convert images to blob URLs for display
+      // Convert media to blob URLs for display
       if (questionData.value) {
-        const rawStem = fixImageUrls(safeJsonParse(questionData.value.stem || ''));
-        const rawAnalysis = fixImageUrls(safeJsonParse(questionData.value.analysis || ''));
-        const rawAnswer = fixImageUrls(safeJsonParse(questionData.value.answer || ''));
+        const rawStem = fixMediaUrls(safeJsonParse(questionData.value.stem || ''));
+        const rawAnalysis = fixMediaUrls(safeJsonParse(questionData.value.analysis || ''));
+        const rawAnswer = fixMediaUrls(safeJsonParse(questionData.value.answer || ''));
 
         const [stem, analysis, answer] = await Promise.all([
-          convertImagesToBlobUrls(rawStem),
-          convertImagesToBlobUrls(rawAnalysis),
-          convertImagesToBlobUrls(rawAnswer),
+          convertMediaToBlobUrls(rawStem),
+          convertMediaToBlobUrls(rawAnalysis),
+          convertMediaToBlobUrls(rawAnswer),
         ]);
         processedStem.value = stem;
         processedAnalysis.value = analysis;
@@ -261,6 +272,9 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
         <!-- Choice question options -->
         <div v-if="isChoice && optionsList.length > 0" class="mb-6">
+          <div class="mb-3 text-sm font-medium text-gray-600">
+            {{ isSingleChoice ? '请选择一个选项：' : '请选择所有正确选项：' }}
+          </div>
           <component
             :is="isSingleChoice ? RadioGroup : CheckboxGroup"
             v-model:value="selectedAnswer"
@@ -269,7 +283,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
             <div
               v-for="opt in optionsList"
               :key="opt.id"
-              class="group flex items-start gap-3 rounded-lg border border-gray-200 px-4 py-3 transition-colors hover:border-blue-300 hover:bg-blue-50"
+              class="group flex items-start gap-3 rounded-lg border border-gray-200 px-4 py-3 transition-all hover:border-blue-300 hover:bg-blue-50"
               :class="{
                 'border-green-400 bg-green-50': showAnswer && isCorrectOption(opt.id),
                 'border-red-300 bg-red-50': showAnswer && selectedAnswer === opt.id && !isCorrectOption(opt.id),
@@ -280,25 +294,33 @@ const [Drawer, drawerApi] = useVbenDrawer({
                 :value="opt.id"
                 class="mt-0.5"
               />
-              <div class="flex-1">
-                <span class="mr-2 font-medium text-gray-600">{{ opt.id }}.</span>
-                <span>{{ opt.text }}</span>
+              <div class="flex-1 text-base">
+                <span class="mr-2 inline-flex size-6 items-center justify-center rounded-full bg-gray-100 text-sm font-bold text-gray-600">
+                  {{ opt.id }}
+                </span>
+                <span class="text-gray-800">{{ opt.text || '(未填写选项内容)' }}</span>
               </div>
               <span
                 v-if="showAnswer && isCorrectOption(opt.id)"
-                class="ml-2 text-sm text-green-600"
+                class="ml-2 text-sm font-medium text-green-600"
               >
-                ✓
+                ✓ 正确
               </span>
             </div>
           </component>
         </div>
 
+        <!-- No options warning -->
+        <div v-if="isChoice && optionsList.length === 0" class="mb-6 rounded-lg bg-yellow-50 p-4 text-sm text-yellow-700">
+          ⚠ 该题目没有选项数据
+        </div>
+
         <!-- True/False options -->
         <div v-if="isTrueFalse" class="mb-6">
+          <div class="mb-3 text-sm font-medium text-gray-600">请判断对错：</div>
           <RadioGroup v-model:value="selectedAnswer" class="flex gap-4">
             <div
-              class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border border-gray-200 py-4 text-center transition-colors hover:border-blue-300 hover:bg-blue-50"
+              class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border border-gray-200 py-4 text-center transition-all hover:border-blue-300 hover:bg-blue-50"
               :class="{
                 'border-green-400 bg-green-50': showAnswer && parseTFAnswer() === 'true',
                 'border-red-300 bg-red-50': showAnswer && selectedAnswer === 'true' && parseTFAnswer() !== 'true',
@@ -308,7 +330,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
               <span class="text-lg">正确 ✓</span>
             </div>
             <div
-              class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border border-gray-200 py-4 text-center transition-colors hover:border-blue-300 hover:bg-blue-50"
+              class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border border-gray-200 py-4 text-center transition-all hover:border-blue-300 hover:bg-blue-50"
               :class="{
                 'border-green-400 bg-green-50': showAnswer && parseTFAnswer() === 'false',
                 'border-red-300 bg-red-50': showAnswer && selectedAnswer === 'false' && parseTFAnswer() !== 'false',
