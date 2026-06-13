@@ -1,11 +1,8 @@
 -- 题库管理模块 - 分类科目菜单和权限
 
--- 先查找系统管理菜单的ID（pid=4的catalog）
-SET @system_menu_pid = 4;
-
--- 题库管理一级菜单（作为系统管理的子菜单）
+-- 题库管理一级菜单（与系统管理平级，pid=0）
 INSERT INTO `sys_menus` (`id`, `pid`, `name`, `path`, `component`, `type`, `status`, `auth_code`, `icon`, `sort`, `meta`, `created_at`, `updated_at`) VALUES
-(220, @system_menu_pid, 'QuestionBank', '/question', '', 'catalog', 1, 'question:view', 'mdi:book-open-variant', 14, '{"title":"题库管理","order":14}', NOW(), NOW());
+(220, 0, 'QuestionBank', '/question', '', 'catalog', 1, 'question:view', 'mdi:book-open-variant', 14, '{"title":"题库管理","order":14}', NOW(), NOW());
 
 -- 分类科目菜单（题库管理子菜单）
 INSERT INTO `sys_menus` (`id`, `pid`, `name`, `path`, `component`, `type`, `status`, `auth_code`, `icon`, `sort`, `meta`, `created_at`, `updated_at`) VALUES
