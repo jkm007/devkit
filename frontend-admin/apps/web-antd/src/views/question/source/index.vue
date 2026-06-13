@@ -38,7 +38,7 @@ async function loadExamOptions() {
       value: item.id,
     }));
   } catch {
-    // ignore
+    message.error('加载考试选项失败');
   }
 }
 
@@ -96,6 +96,7 @@ async function onDelete(row: QuestionSourceApi.QuestionSource) {
     onRefresh();
   } catch {
     hideLoading();
+    message.error(`${row.name} 删除失败`);
   }
 }
 

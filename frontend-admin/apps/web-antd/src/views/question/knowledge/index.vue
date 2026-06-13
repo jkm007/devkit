@@ -56,7 +56,7 @@ async function loadOptions() {
     }));
     parentOptions.value = buildTree(knowledgePoints || []);
   } catch {
-    // ignore
+    message.error('加载选项数据失败');
   }
 }
 
@@ -69,6 +69,7 @@ async function loadSubjectOptions(examId: number) {
     }));
   } catch {
     subjectOptions.value = [];
+    message.error('加载科目选项失败');
   }
 }
 
@@ -182,6 +183,7 @@ async function onDelete(row: KnowledgePointApi.KnowledgePoint) {
     onRefresh();
   } catch {
     hideLoading();
+    message.error(`${row.name} 删除失败`);
   }
 }
 

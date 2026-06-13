@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { KnowledgePointApi } from '#/api/question/knowledge';
 
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import { useVbenDrawer } from '@vben/common-ui';
 
@@ -10,6 +10,7 @@ import {
   createKnowledgePoint,
   updateKnowledgePoint,
 } from '#/api/question/knowledge';
+import { getSubjectAll } from '#/api/question/category';
 
 import { useKnowledgePointDrawerSchema } from '../data';
 
@@ -59,6 +60,13 @@ const [Drawer, drawerApi] = useVbenDrawer({
       if (data?.subjectOptions) subjectOptions.value = data.subjectOptions;
       if (data?.categoryOptions) categoryOptions.value = data.categoryOptions;
       if (data?.parentOptions) parentOptions.value = data.parentOptions;
+      // Sync options into form schema so selects display correctly
+      await formApi.updateSchema([
+        { fieldName: 'examId', componentProps: { options: examOptions.value } },
+        { fieldName: 'subjectId', componentProps: { options: subjectOptions.value } },
+        { fieldName: 'categoryId', componentProps: { options: categoryOptions.value } },
+        { fieldName: 'parentId', componentProps: { treeData: parentOptions.value } },
+      ]);
       if (data?.id) {
         formData.value = data;
         id.value = data.id;
@@ -74,6 +82,29 @@ const [Drawer, drawerApi] = useVbenDrawer({
 const drawerTitle = computed(() => {
   return id.value ? '编辑知识点' : '新增知识点';
 });
+
+// Watch examId changes to load subject options (cascading)
+watch(
+  () => formApi.values?.examId,
+  async (newExamId) => {
+    if (newExamId) {
+      try {
+        const res = await getSubjectAll(newExamId);
+        subjectOptions.value = (res || []).map((item: any) => ({
+          label: item.name,
+          value: item.id,
+        }));
+      } catch {
+        subjectOptions.value = [];
+      }
+    } else {
+      subjectOptions.value = [];
+    }
+    await formApi.updateSchema([
+      { fieldName: 'subjectId', componentProps: { options: subjectOptions.value } },
+    ]);
+  },
+);
 </script>
 <template>
   <Drawer :title="drawerTitle">

@@ -48,6 +48,10 @@ const [Drawer, drawerApi] = useVbenDrawer({
       const data = drawerApi.getData<any>();
       formApi.resetForm();
       if (data?.examOptions) examOptions.value = data.examOptions;
+      // Sync options into form schema so selects display correctly
+      await formApi.updateSchema([
+        { fieldName: 'examId', componentProps: { options: examOptions.value } },
+      ]);
       if (data?.id) {
         formData.value = data;
         id.value = data.id;
