@@ -219,10 +219,7 @@ const imageUploadConfig = {
     }
     // Normalize direct-url to view
     realUrl = realUrl.replace(/\/direct-url/g, '/view');
-
-    // Fetch with auth and return blob URL for display
-    const blobUrl = await fetchMediaAsBlob(realUrl);
-    return blobUrl;
+    return realUrl;
   },
 };
 
