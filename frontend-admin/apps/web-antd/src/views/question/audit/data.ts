@@ -14,6 +14,7 @@ export function useAuditFormSchema(): VbenFormSchema[] {
           { label: '已驳回', value: 'rejected' },
         ],
       },
+      defaultValue: 'pending',
       fieldName: 'status',
       label: '状态',
     },

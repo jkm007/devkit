@@ -2,11 +2,11 @@
 import type { VxeTableGridOptions } from '#/adapter/vxe-table';
 import type { QuestionApi } from '#/api/question/question';
 
+import { ref } from 'vue';
+
 import { Page } from '@vben/common-ui';
 
-import { Button, Input, message, Modal } from 'ant-design-vue';
-
-import { useAccess } from '@vben/access';
+import { Input, message, Modal } from 'ant-design-vue';
 
 import { useVbenVxeGrid, VbenTableAction } from '#/adapter/vxe-table';
 import {
@@ -17,7 +17,9 @@ import {
 
 import { useAuditColumns, useAuditFormSchema } from './data';
 
-const { hasAccessByCodes } = useAccess();
+const rejectVisible = ref(false);
+const rejectRow = ref<QuestionApi.Question | null>(null);
+const rejectReason = ref('');
 
 const [Grid, gridApi] = useVbenVxeGrid({
   formOptions: {
@@ -32,10 +34,10 @@ const [Grid, gridApi] = useVbenVxeGrid({
       ajax: {
         query: async ({ page }, formValues) => {
           return await getQuestionList({
+            ...formValues,
             page: page.currentPage,
             pageSize: page.pageSize,
             status: formValues.status || 'pending',
-            ...formValues,
           });
         },
       },
@@ -59,22 +61,32 @@ async function onApprove(row: QuestionApi.Question) {
     message.success('审核通过');
     onRefresh();
   } catch {
-    // ignore
+    message.error('操作失败');
   }
 }
 
-async function onReject(row: QuestionApi.Question) {
+function onReject(row: QuestionApi.Question) {
+  rejectRow.value = row;
+  rejectReason.value = '';
+  rejectVisible.value = true;
+}
+
+function onRejectConfirm() {
+  if (!rejectReason.value.trim()) {
+    message.warning('请输入驳回原因');
+    return;
+  }
   Modal.confirm({
-    title: '驳回题目',
-    content: '请输入驳回原因：',
-    input: true,
+    title: '确认驳回',
+    content: `确定要驳回该题目吗？原因：${rejectReason.value}`,
     async onOk() {
       try {
-        await rejectQuestion(row.id, '不符合要求');
+        await rejectQuestion(rejectRow.value!.id, rejectReason.value);
         message.success('已驳回');
+        rejectVisible.value = false;
         onRefresh();
       } catch {
-        // ignore
+        message.error('操作失败');
       }
     },
   });
@@ -110,5 +122,18 @@ function onRefresh() {
         />
       </template>
     </Grid>
+    <Modal
+      v-model:open="rejectVisible"
+      title="驳回题目"
+      ok-text="确认驳回"
+      @ok="onRejectConfirm"
+    >
+      <p>请输入驳回原因：</p>
+      <Input.TextArea
+        v-model:value="rejectReason"
+        :rows="4"
+        placeholder="请输入驳回原因"
+      />
+    </Modal>
   </Page>
 </template>
