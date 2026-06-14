@@ -37,7 +37,8 @@ export function getCache<T = any>(key: string): T | null {
       }
       uni.removeStorageSync(STORAGE_PREFIX + key);
     }
-  } catch {
+  } catch (error) {
+    console.error('读取缓存失败:', key, error);
     // ignore
   }
 
@@ -61,7 +62,8 @@ export function setCache<T = any>(key: string, data: T, ttlMs: number, persist =
   if (persist) {
     try {
       uni.setStorageSync(STORAGE_PREFIX + key, JSON.stringify(entry));
-    } catch {
+    } catch (error) {
+      console.error('写入缓存失败:', key, error);
       // ignore: storage full
     }
   }
@@ -74,7 +76,8 @@ export function deleteCache(key: string): void {
   MEMORY_CACHE.delete(key);
   try {
     uni.removeStorageSync(STORAGE_PREFIX + key);
-  } catch {
+  } catch (error) {
+    console.error('删除缓存失败:', key, error);
     // ignore
   }
 }
@@ -105,7 +108,8 @@ export function clearAllCache(): void {
         uni.removeStorageSync(key);
       }
     }
-  } catch {
+  } catch (error) {
+    console.error('清理所有缓存失败:', error);
     // ignore
   }
 }

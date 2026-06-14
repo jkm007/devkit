@@ -18,7 +18,8 @@ function encryptToken(text: string): string {
   try {
     const xored = xorWithSalt(text, TOKEN_SALT);
     return btoa(unescape(encodeURIComponent(xored)));
-  } catch {
+  } catch (error) {
+    console.error('Token加密失败:', error);
     return text; // 降级：如果加密失败直接存储原文
   }
 }
@@ -27,7 +28,8 @@ function decryptToken(encrypted: string): string | null {
   try {
     const decoded = decodeURIComponent(escape(atob(encrypted)));
     return xorWithSalt(decoded, TOKEN_SALT);
-  } catch {
+  } catch (error) {
+    console.error('Token解密失败:', error);
     return null;
   }
 }
@@ -176,7 +178,8 @@ class TokenManager {
 
       this.clearTokens();
       return null;
-    } catch {
+    } catch (error) {
+      console.error('刷新Token失败:', error);
       this.clearTokens();
       return null;
     }

@@ -5,9 +5,11 @@ import (
 
 	"backend-server/internal/model"
 	"backend-server/internal/service"
+	"backend-server/pkg/logger"
 	"backend-server/pkg/response"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 // BannerHandler 轮播图处理器
@@ -26,10 +28,12 @@ func NewBannerHandler() *BannerHandler {
 func (h *BannerHandler) GetBanners(c *gin.Context) {
 	banners, err := h.bannerService.ListEnabled()
 	if err != nil {
+		logger.Error("获取轮播图失败", zap.Error(err), zap.String("path", c.Request.URL.Path))
 		response.InternalError(c, "获取轮播图失败")
 		return
 	}
 
+	logger.Info("获取轮播图成功", zap.Int("count", len(banners)))
 	response.Success(c, banners)
 }
 
