@@ -250,6 +250,9 @@ class RequestClient {
     requestHeaders['X-Client-Type'] = this.getClientType();
     requestHeaders['X-Device-ID'] = this.getDeviceId();
 
+    // 标记为移动端Token模式，跳过CSRF验证（后端会检查此标志）
+    requestHeaders['X-Mobile-Token-Mode'] = 'true';
+
     // 发起请求
     const response = await this.doRequest<T>(fullUrl, method, data, requestHeaders);
     return response;
