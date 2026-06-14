@@ -6,14 +6,12 @@ import { tokenManager } from '@/api/request';
 
 // 不需要登录就能访问的页面白名单
 const WHITE_LIST: string[] = [
-  '/pages/login/index',
-  '/pages/login/register',
-  '/pages/login/forget',
-  '/pages/share/view',
-  '/pages/question/detail',
-  '/pages/question/list',
-  '/pages/question/search',
-  '/pages/index/index',
+  '/pages/login/index',      // 登录页
+  '/pages/login/register',   // 注册页
+  '/pages/login/forget',     // 忘记密码页
+  '/pages/share/view',       // 分享查看页（可能有分享token）
+  '/pages/index/index',      // 首页（允许未登录查看Banner和功能介绍）
+  '/pages/question/list',    // 题库列表（允许未登录浏览，吸引注册）
 ];
 
 /**
@@ -91,8 +89,10 @@ export function setupRouteInterceptor() {
       const pagePath = url.split('?')[0];
 
       if (requiresLogin(pagePath) && !isLoggedIn()) {
-        args.url = '/pages/login/index';
-        return true;
+        // switchTab只能跳转到tabBar页面，不能跳转到登录页
+        // 使用redirectTo替代
+        uni.redirectTo({ url: '/pages/login/index' });
+        return false; // 阻止原switchTab执行
       }
       return true;
     },
