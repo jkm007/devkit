@@ -150,9 +150,9 @@ async function loadUserInfo() {
 async function loadStats() {
   try {
     const [practiceRes, favRes, wrongRes] = await Promise.allSettled([
-      request.get<any>('/api/v1/study/practice/history', { params: { page: 1, pageSize: 1 } }),
-      request.get<any>('/api/v1/user/favorites', { params: { page: 1, pageSize: 1 } }),
-      request.get<any>('/api/v1/study/wrong/stats'),
+      request.get<any>('/study/practice/history', { params: { page: 1, pageSize: 1 } }),
+      request.get<any>('/user/favorites', { params: { page: 1, pageSize: 1 } }),
+      request.get<any>('/study/wrong/stats'),
     ]);
 
     stats.value = {

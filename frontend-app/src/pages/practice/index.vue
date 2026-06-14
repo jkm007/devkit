@@ -159,7 +159,7 @@ onMounted(() => {
 
 async function loadWrongCount() {
   try {
-    const res = await request.get<any>('/api/v1/study/wrong/stats');
+    const res = await request.get<any>('/study/wrong/stats');
     wrongCount.value = res.total || 0;
   } catch {
     wrongCount.value = 8; // mock
@@ -168,7 +168,7 @@ async function loadWrongCount() {
 
 async function loadCategories() {
   try {
-    const res = await request.get<any[]>('/api/v1/exam-categories/all');
+    const res = await request.get<any[]>('/exam-categories/all');
     categories.value = [{ id: null, name: '全部分类' }, ...res.map((c: any) => ({ id: c.id, name: c.name }))];
   } catch {
     categories.value = [
@@ -182,7 +182,7 @@ async function loadCategories() {
 
 async function loadHistory() {
   try {
-    const res = await request.get<any>('/api/v1/study/practice/history', { params: { page: 1, pageSize: 5 } });
+    const res = await request.get<any>('/study/practice/history', { params: { page: 1, pageSize: 5 } });
     historyList.value = (res.items || []).map((r: any) => ({
       mode: r.mode === 'random' ? '随机练习' : r.mode === 'wrong' ? '错题练习' : '智能练习',
       time: formatDate(r.createdAt),

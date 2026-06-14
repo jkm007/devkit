@@ -40,7 +40,7 @@ async function handleSearch() {
   saveHistory(keyword.value.trim());
   loading.value = true; hasSearched.value = true;
   try {
-    const data = await request.get<any>('/api/v1/questions/search', { params: { keyword: keyword.value, page: 1, pageSize: 20 } });
+    const data = await request.get<any>('/questions/search', { params: { keyword: keyword.value, page: 1, pageSize: 20 } });
     results.value = data.items;
   } catch { results.value = [
     { id: 1, title: `包含"${keyword.value}"的题目1`, questionType: 'single_choice', categoryName: '网络协议' },

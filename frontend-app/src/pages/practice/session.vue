@@ -75,13 +75,13 @@ async function loadQuestions(params: any) {
     let res: any;
     if (mode === 'wrong') {
       // 错题练习：从错题本获取随机题目
-      res = await request.get<any>('/api/v1/study/wrong/random', { params: { count } });
+      res = await request.get<any>('/study/wrong/random', { params: { count } });
     } else if (mode === 'smart') {
       // 智能练习
-      res = await request.post<any>('/api/v1/study/practice/smart', { count, mode: 'mixed' });
+      res = await request.post<any>('/study/practice/smart', { count, mode: 'mixed' });
     } else {
       // 随机/自定义练习
-      res = await request.post<any>('/api/v1/study/practice/questions', {
+      res = await request.post<any>('/study/practice/questions', {
         count,
         mode: 'random',
         difficulty: params.difficulty || 0,

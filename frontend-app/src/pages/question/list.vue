@@ -155,7 +155,7 @@ onMounted(() => {
  */
 async function loadCategories() {
   try {
-    const res = await request.get<any[]>('/api/v1/exam-categories/all');
+    const res = await request.get<any[]>('/exam-categories/all');
     categories.value = [{ id: null, name: '推荐' }, ...res.map((c: any) => ({ id: c.id, name: c.name }))];
   } catch {
     // Mock 数据（仅开发环境）
@@ -220,7 +220,7 @@ async function fetchQuestions(refresh = false) {
     if (selectedType.value) params.questionType = selectedType.value;
     if (selectedDifficulty.value) params.difficulty = Number(selectedDifficulty.value);
 
-    const data = await request.get<any>('/api/v1/study/questions', { params });
+    const data = await request.get<any>('/study/questions', { params });
     const items = data.items || [];
     if (refresh) questions.value = items;
     else questions.value = [...questions.value, ...items];

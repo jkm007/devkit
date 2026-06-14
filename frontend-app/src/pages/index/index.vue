@@ -194,7 +194,7 @@ async function fetchHomeData() {
     const data = await request.get<{
       stats: HomeStats;
       recommended: RecommendedQuestion[];
-    }>('/api/v1/user/home');
+    }>('/user/home');
     stats.value = data.stats;
     recommended.value = data.recommended || [];
   } catch {
