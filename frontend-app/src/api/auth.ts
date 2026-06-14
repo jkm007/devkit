@@ -114,13 +114,13 @@ export function changePassword(params: {
  * 获取用户信息
  */
 export function getUserInfo() {
-  return request.get<any>('/api/v1/user/info');
+  return request.get<any>('/user/info');
 }
 
 /**
  * 更新用户信息
  */
 export function updateUserInfo(params: { nickname?: string; avatar?: string }) {
-  return request.put('/api/v1/user/info', params);
+  return request.put('/user/info', params);
 }
 

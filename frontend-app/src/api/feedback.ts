@@ -23,26 +23,26 @@ export function submitFeedback(params: {
   description: string;
   suggestion?: string;
 }) {
-  return request.post('/api/v1/study/feedback', params);
+  return request.post('/study/feedback', params);
 }
 
 /**
  * 获取纠错列表
  */
 export function getFeedbacks(params: { page?: number; pageSize?: number }) {
-  return request.get<{ items: FeedbackItem[]; total: number }>('/api/v1/study/feedback', { params });
+  return request.get<{ items: FeedbackItem[]; total: number }>('/study/feedback', { params });
 }
 
 /**
  * 获取纠错详情
  */
 export function getFeedbackDetail(id: number) {
-  return request.get<FeedbackItem>(`/api/v1/study/feedback/${id}`);
+  return request.get<FeedbackItem>(`/study/feedback/${id}`);
 }
 
 /**
  * 删除纠错反馈
  */
 export function deleteFeedback(id: number) {
-  return request.delete(`/api/v1/study/feedback/${id}`);
+  return request.delete(`/study/feedback/${id}`);
 }

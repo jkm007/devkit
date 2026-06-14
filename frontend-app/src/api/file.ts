@@ -11,7 +11,7 @@ export function uploadFile(file: File | UniApp.ChooseFileSuccessCallbackResultFi
   return new Promise<FileInfo>((resolve, reject) => {
     const token = uni.getStorageSync('access_token');
     uni.uploadFile({
-      url: '/api/v1/files/upload',
+      url: '/files/upload',
       filePath: (file as any).path || (file as any).url,
       name: 'file',
       formData: { folder: folder || '' },
@@ -37,7 +37,7 @@ export function initChunkUpload(params: {
   chunkSize: number;
   folder?: string;
 }) {
-  return request.post<UploadInitResponse>('/api/v1/files/upload/chunk/init', params);
+  return request.post<UploadInitResponse>('/files/upload/chunk/init', params);
 }
 
 /**
@@ -51,7 +51,7 @@ export function uploadChunk(file: File, params: {
   return new Promise<UploadChunkResponse>((resolve, reject) => {
     const token = uni.getStorageSync('access_token');
     uni.uploadFile({
-      url: '/api/v1/files/upload/chunk',
+      url: '/files/upload/chunk',
       filePath: (file as any).path || (file as any).url,
       name: 'chunk',
       formData: {
@@ -76,35 +76,35 @@ export function uploadChunk(file: File, params: {
  * 完成分片上传
  */
 export function completeChunkUpload(uploadId: string) {
-  return request.post<FileInfo>(`/api/v1/files/upload/chunk/complete/${uploadId}`);
+  return request.post<FileInfo>(`/files/upload/chunk/complete/${uploadId}`);
 }
 
 /**
  * 获取文件信息
  */
 export function getFileInfo(fileId: number) {
-  return request.get<FileInfo>(`/api/v1/files/${fileId}`);
+  return request.get<FileInfo>(`/files/${fileId}`);
 }
 
 /**
  * 获取文件下载/预览链接
  */
 export function getFileUrl(fileId: number, type: 'download' | 'preview' = 'preview') {
-  return request.get<{ url: string; expiresAt: string }>(`/api/v1/files/${fileId}/${type}`);
+  return request.get<{ url: string; expiresAt: string }>(`/files/${fileId}/${type}`);
 }
 
 /**
  * 删除文件（移入回收站）
  */
 export function deleteFile(fileId: number) {
-  return request.delete(`/api/v1/files/${fileId}`);
+  return request.delete(`/files/${fileId}`);
 }
 
 /**
  * 批量删除文件
  */
 export function batchDeleteFiles(fileIds: number[]) {
-  return request.post('/api/v1/files/batch/delete', { ids: fileIds });
+  return request.post('/files/batch/delete', { ids: fileIds });
 }
 
 /**
@@ -116,5 +116,5 @@ export function getMyFiles(params: {
   folder?: string;
   fileType?: string;
 }) {
-  return request.get<PageResponse<FileInfo>>('/api/v1/files/list', { params });
+  return request.get<PageResponse<FileInfo>>('/files/list', { params });
 }

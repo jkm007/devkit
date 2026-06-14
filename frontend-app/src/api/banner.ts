@@ -15,5 +15,5 @@ export interface BannerItem {
  * 获取启用的轮播图列表（公开接口）
  */
 export function getBanners() {
-  return request.get<BannerItem[]>('/api/v1/banners');
+  return request.get<BannerItem[]>('/banners');
 }

@@ -16,63 +16,63 @@ export function getQuestions(params: {
   keyword?: string;
   knowledgePoint?: string;
 }) {
-  return request.get<PageResponse<Question>>('/api/v1/study/questions', { params });
+  return request.get<PageResponse<Question>>('/study/questions', { params });
 }
 
 /**
  * 获取题目详情
  */
 export function getQuestionDetail(id: number) {
-  return request.get<Question>(`/api/v1/study/questions/${id}`);
+  return request.get<Question>(`/study/questions/${id}`);
 }
 
 /**
  * 收藏题目
  */
 export function addFavorite(id: number) {
-  return request.post(`/api/v1/study/questions/${id}/favorite`);
+  return request.post(`/study/questions/${id}/favorite`);
 }
 
 /**
  * 取消收藏
  */
 export function removeFavorite(id: number) {
-  return request.delete(`/api/v1/study/questions/${id}/favorite`);
+  return request.delete(`/study/questions/${id}/favorite`);
 }
 
 /**
  * 获取收藏列表
  */
 export function getFavorites(params: { page?: number; pageSize?: number }) {
-  return request.get<PageResponse<any>>('/api/v1/user/favorites', { params });
+  return request.get<PageResponse<any>>('/user/favorites', { params });
 }
 
 /**
  * 获取笔记列表
  */
 export function getNotes(params: { page?: number; pageSize?: number }) {
-  return request.get<PageResponse<any>>('/api/v1/user/notes', { params });
+  return request.get<PageResponse<any>>('/user/notes', { params });
 }
 
 /**
  * 创建/更新笔记
  */
 export function saveNote(data: { questionId: number; content: string }) {
-  return request.post('/api/v1/user/notes', data);
+  return request.post('/user/notes', data);
 }
 
 /**
  * 更新笔记
  */
 export function updateNote(id: number, data: { content: string }) {
-  return request.put(`/api/v1/user/notes/${id}`, data);
+  return request.put(`/user/notes/${id}`, data);
 }
 
 /**
  * 删除笔记
  */
 export function deleteNote(id: number) {
-  return request.delete(`/api/v1/user/notes/${id}`);
+  return request.delete(`/user/notes/${id}`);
 }
 
 /**
@@ -85,7 +85,7 @@ export function getPracticeQuestions(data: {
   categoryId?: number;
   difficulty?: number;
 }) {
-  return request.post<any>('/api/v1/study/practice/questions', data);
+  return request.post<any>('/study/practice/questions', data);
 }
 
 /**
@@ -98,14 +98,14 @@ export function submitPractice(data: {
   elapsed: number;
   answers: string[];
 }) {
-  return request.post('/api/v1/study/practice/submit', data);
+  return request.post('/study/practice/submit', data);
 }
 
 /**
  * 获取练习历史
  */
 export function getPracticeHistory(params: { page?: number; pageSize?: number }) {
-  return request.get<PageResponse<any>>('/api/v1/study/practice/history', { params });
+  return request.get<PageResponse<any>>('/study/practice/history', { params });
 }
 
 /**
@@ -121,42 +121,42 @@ export function getWrongBooks(params: {
   categoryId?: number;
   isMastered?: boolean;
 }) {
-  return request.get<PageResponse<any>>('/api/v1/study/wrong', { params });
+  return request.get<PageResponse<any>>('/study/wrong', { params });
 }
 
 /**
  * 标记已掌握
  */
 export function markWrongMastered(questionId: number) {
-  return request.put(`/api/v1/study/wrong/${questionId}/mastered`);
+  return request.put(`/study/wrong/${questionId}/mastered`);
 }
 
 /**
  * 批量标记已掌握
  */
 export function batchMarkMastered(questionIds: number[]) {
-  return request.post('/api/v1/study/wrong/batch-mastered', { questionIds });
+  return request.post('/study/wrong/batch-mastered', { questionIds });
 }
 
 /**
  * 移除错题
  */
 export function deleteWrongBook(questionId: number) {
-  return request.delete(`/api/v1/study/wrong/${questionId}`);
+  return request.delete(`/study/wrong/${questionId}`);
 }
 
 /**
  * 获取随机错题（重做）
  */
 export function getWrongBookRandom(count = 20) {
-  return request.get<any>('/api/v1/study/wrong/random', { params: { count } });
+  return request.get<any>('/study/wrong/random', { params: { count } });
 }
 
 /**
  * 获取错题统计
  */
 export function getWrongBookStats() {
-  return request.get<any>('/api/v1/study/wrong/stats');
+  return request.get<any>('/study/wrong/stats');
 }
 
 /**
@@ -172,12 +172,12 @@ export function getSmartPractice(data: {
   mode?: 'review' | 'weak' | 'mixed';
   difficulty?: number;
 }) {
-  return request.post<any>('/api/v1/study/practice/smart', data);
+  return request.post<any>('/study/practice/smart', data);
 }
 
 /**
  * 练习分析
  */
 export function getPracticeAnalysis() {
-  return request.get<any>('/api/v1/study/practice/analysis');
+  return request.get<any>('/study/practice/analysis');
 }
