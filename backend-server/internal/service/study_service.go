@@ -425,19 +425,30 @@ func parseOptions(content string) interface{} {
 }
 
 // parseAnalysis 解析解析字段
-// 数据库格式: {"text":"<p>...</p>","media":"..."} 或纯文本
-// 前端期望: 直接显示HTML内容
+// 数据库格式: {"text":"<p>...</p>","media":"<video>...</video><img ...>"} 或纯文本
+// 前端期望: 直接显示HTML内容（包含图片和视频）
 func parseAnalysis(analysis string) string {
 	if analysis == "" {
 		return ""
 	}
 
+	// 清理可能的外层引号
+	analysis = cleanJSONString(analysis)
+
 	// 尝试解析为JSON对象
 	var obj map[string]interface{}
 	if err := json.Unmarshal([]byte(analysis), &obj); err == nil {
+		result := ""
 		// 提取text字段
 		if text, ok := obj["text"].(string); ok && text != "" {
-			return text
+			result = text
+		}
+		// 提取media字段（图片和视频）
+		if media, ok := obj["media"].(string); ok && media != "" {
+			result += media
+		}
+		if result != "" {
+			return result
 		}
 	}
 
