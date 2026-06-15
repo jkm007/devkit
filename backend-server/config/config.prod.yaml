@@ -1,0 +1,109 @@
+# 后端服务配置 - 生产环境部署到 114.215.190.52
+# MySQL/Redis/MinIO 均在本地 Docker 中运行
+
+server:
+  port: 8080
+  mode: release
+  read_timeout: 30s
+  write_timeout: 600s
+
+# MySQL 配置 - 本地 Docker
+mysql:
+  host: 127.0.0.1
+  port: 3306
+  user: root
+  password: "root123456"
+  database: backend_db
+  max_open_conns: 100
+  max_idle_conns: 10
+  conn_max_lifetime: 3600s
+  charset: utf8mb4
+
+# Redis 配置 - 本地 Docker
+redis:
+  host: 127.0.0.1
+  port: 6379
+  password: "redis123456"
+  db: 0
+  pool_size: 100
+
+# JWT 配置
+jwt:
+  secret: "${JWT_SECRET:changeme-generate-a-random-64-byte-string}"
+  access_token_ttl: 168h
+  refresh_token_ttl: 720h
+  issuer: backend-server
+
+# 日志配置
+log:
+  level: info
+  format: json
+  output: stdout
+  file_path: ./logs/app.log
+  max_size: 100
+  max_backups: 5
+  max_age: 30
+
+# CORS 配置
+cors:
+  allow_origins:
+    - "http://114.215.190.52"
+    - "http://114.215.190.52:80"
+    - "http://114.215.190.52:8080"
+  allow_methods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+    - OPTIONS
+  allow_headers:
+    - Authorization
+    - Content-Type
+    - X-Device-ID
+    - X-Client-Type
+    - X-Refresh-Token
+    - X-App-Version
+    - X-System-Version
+    - X-Device-Model
+    - X-Platform
+    - X-Channel
+    - X-Mobile-Token-Mode
+    - X-Captcha-Id
+    - X-Captcha-Code
+    - X-Captcha-Start-Time
+    - X-CSRF-Token
+  expose_headers:
+    - Content-Disposition
+  allow_credentials: true
+  max_age: 12h
+
+# 限流配置
+ratelimit:
+  rate: 100
+  burst: 200
+
+# 文件存储配置
+storage:
+  driver: local
+  local:
+    path: ./uploads
+    url_prefix: /uploads
+
+# ClamAV 病毒扫描
+clamav:
+  enabled: false
+  socket: /var/run/clamav/clamd.ctl
+  timeout: 30s
+
+# AES 加密配置
+crypto:
+  aes_key: "${AES_KEY:changeme-generate-a-random-32-byte-string}"
+
+# 验证码加密密钥
+captcha:
+  width: 240
+  height: 80
+  length: 4
+  max_skew: 0.7
+  dot_count: 80
+  secret: "${CAPTCHA_SECRET:changeme-generate-a-random-32-byte-string}"

@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,7 +11,9 @@ import (
 	"time"
 
 	"backend-server/internal/model"
+	"backend-server/internal/repository"
 	"backend-server/internal/service"
+	"backend-server/pkg/database"
 	"backend-server/pkg/logger"
 	"backend-server/pkg/storage"
 
@@ -19,19 +22,22 @@ import (
 
 // TranscodeWorker 视频转码 Worker
 type TranscodeWorker struct {
-	mediaSvc    *service.MediaService
-	ffmpegPath  string
-	concurrency int
+	mediaSvc      *service.MediaService
+	fileAssetRepo *repository.FileAssetRepo
+	ffmpegPath    string
+	concurrency   int
 }
 
 func NewTranscodeWorker(ffmpegPath string) *TranscodeWorker {
 	if ffmpegPath == "" {
 		ffmpegPath = "ffmpeg"
 	}
+	db := database.GetMySQL()
 	return &TranscodeWorker{
-		mediaSvc:    service.NewMediaService(),
-		ffmpegPath:  ffmpegPath,
-		concurrency: 2,
+		mediaSvc:      service.NewMediaService(),
+		fileAssetRepo: repository.NewFileAssetRepo(db),
+		ffmpegPath:    ffmpegPath,
+		concurrency:   2,
 	}
 }
 
@@ -77,10 +83,10 @@ func (w *TranscodeWorker) processTask(ctx context.Context, media *model.MediaAss
 	// 更新状态为 processing
 	w.mediaSvc.UpdateTranscodeStatus(media.FileAssetID, "processing", "")
 
-	// 获取文件资产
-	asset, err := w.mediaSvc.GetMediaInfo(media.FileAssetID)
+	// 获取文件资产（包含 ObjectKey 和 StorageType）
+	fileAsset, err := w.fileAssetRepo.GetByID(media.FileAssetID)
 	if err != nil {
-		logger.Error("获取媒体信息失败", zap.Error(err))
+		logger.Error("获取文件资产失败", zap.Error(err), zap.Uint("file_asset_id", media.FileAssetID))
 		w.mediaSvc.UpdateTranscodeStatus(media.FileAssetID, "failed", "")
 		return
 	}
@@ -94,8 +100,45 @@ func (w *TranscodeWorker) processTask(ctx context.Context, media *model.MediaAss
 	}
 	defer os.RemoveAll(tmpDir)
 
-	inputPath := filepath.Join(tmpDir, "input"+w.getExt(asset.HLSPath))
-	// TODO: 从 storage 下载文件到 inputPath
+	// 根据文件存储驱动获取存储实例
+	st := storage.GetStorageByDriver(fileAsset.StorageType)
+	if st == nil {
+		logger.Error("获取存储实例失败", zap.String("driver", fileAsset.StorageType))
+		w.mediaSvc.UpdateTranscodeStatus(media.FileAssetID, "failed", "")
+		return
+	}
+
+	// 确定输入文件扩展名
+	inputExt := filepath.Ext(fileAsset.FileName)
+	if inputExt == "" {
+		inputExt = ".mp4"
+	}
+	inputPath := filepath.Join(tmpDir, "input"+inputExt)
+
+	// 从存储下载文件到本地临时目录
+	reader, err := st.Download(ctx, fileAsset.ObjectKey)
+	if err != nil {
+		logger.Error("下载源文件失败", zap.Error(err), zap.String("objectKey", fileAsset.ObjectKey))
+		w.mediaSvc.UpdateTranscodeStatus(media.FileAssetID, "failed", "")
+		return
+	}
+	defer reader.Close()
+
+	// 写入本地临时文件
+	inputFile, err := os.Create(inputPath)
+	if err != nil {
+		logger.Error("创建临时文件失败", zap.Error(err))
+		w.mediaSvc.UpdateTranscodeStatus(media.FileAssetID, "failed", "")
+		return
+	}
+
+	if _, err := io.Copy(inputFile, reader); err != nil {
+		inputFile.Close()
+		logger.Error("写入临时文件失败", zap.Error(err))
+		w.mediaSvc.UpdateTranscodeStatus(media.FileAssetID, "failed", "")
+		return
+	}
+	inputFile.Close() // 立即关闭，确保 FFmpeg 能读取完整文件
 
 	outputDir := filepath.Join(tmpDir, "hls")
 	os.MkdirAll(outputDir, 0755)
@@ -170,15 +213,4 @@ func (w *TranscodeWorker) uploadHLSFiles(localDir, remotePrefix string) error {
 		_, err = storage.GetStorage().Upload(context.Background(), remoteKey, file, contentType)
 		return err
 	})
-}
-
-func (w *TranscodeWorker) getExt(path string) string {
-	if path == "" {
-		return ".mp4"
-	}
-	ext := filepath.Ext(path)
-	if ext == "" {
-		return ".mp4"
-	}
-	return ext
 }

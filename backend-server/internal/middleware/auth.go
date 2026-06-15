@@ -123,25 +123,6 @@ func GetCurrentUserID(c *gin.Context) uint {
 	return 0
 }
 
-// GetCurrentRoles 从上下文获取当前用户角色列表
-func GetCurrentRoles(c *gin.Context) []string {
-	if roles, exists := c.Get("roles"); exists {
-		if r, ok := roles.([]string); ok {
-			return r
-		}
-	}
-	return nil
-}
-
-// GetCurrentRole 从上下文获取当前用户第一个角色（向后兼容）
-func GetCurrentRole(c *gin.Context) string {
-	roles := GetCurrentRoles(c)
-	if len(roles) > 0 {
-		return roles[0]
-	}
-	return ""
-}
-
 // GeneratePreviewToken 生成预签名 Token
 func GeneratePreviewToken(userID uint, fileID uint) (string, error) {
 	return jwt.GeneratePreviewToken(userID, fileID)
