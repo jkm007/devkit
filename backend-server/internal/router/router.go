@@ -170,6 +170,9 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		authorized.POST("/study/questions/:id/favorite", studyHandler.AddFavorite)
 		authorized.DELETE("/study/questions/:id/favorite", studyHandler.RemoveFavorite)
 
+		// 题目搜索（移动端）
+		authorized.GET("/questions/search", questionHandler.Search)
+
 		// 收藏管理
 		authorized.GET("/user/favorites", studyHandler.ListFavorites)
 
@@ -499,6 +502,7 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 
 			// 题目管理
 			system.GET("/questions", middleware.Permission("question:view"), questionHandler.List)
+			system.GET("/questions/search", middleware.Permission("question:view"), questionHandler.Search)
 			system.GET("/questions/types", middleware.Permission("question:view"), questionHandler.GetTypes)
 			system.GET("/questions/stats", middleware.Permission("question:view"), questionHandler.GetStats)
 			system.GET("/questions/:id", middleware.Permission("question:view"), questionHandler.GetDetail)

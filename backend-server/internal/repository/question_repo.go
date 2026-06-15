@@ -90,6 +90,30 @@ func (r *QuestionRepo) List(page, pageSize int, filters map[string]interface{}) 
 	return items, total, nil
 }
 
+func (r *QuestionRepo) Search(page, pageSize int, keyword string, userID uint) ([]model.Question, int64, error) {
+	var items []model.Question
+	var total int64
+
+	query := r.db.Model(&model.Question{}).
+		Where("(title LIKE ? OR stem LIKE ?) AND status = ?",
+			"%"+escapeLike(keyword)+"%",
+			"%"+escapeLike(keyword)+"%",
+			"published")
+
+	// 只显示公开题目或用户自己的题目
+	query = query.Where("(resource_type != 'private' OR created_by = ?)", userID)
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * pageSize
+	if err := query.Offset(offset).Limit(pageSize).Order("created_at DESC").Find(&items).Error; err != nil {
+		return nil, 0, err
+	}
+	return items, total, nil
+}
+
 func (r *QuestionRepo) GetByID(id uint) (*model.Question, error) {
 	var item model.Question
 	if err := r.db.Where("id = ?", id).First(&item).Error; err != nil {

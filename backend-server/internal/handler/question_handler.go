@@ -217,6 +217,25 @@ func (h *QuestionHandler) Reactivate(c *gin.Context) {
 	response.Success(c, item)
 }
 
+func (h *QuestionHandler) Search(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
+	keyword := c.Query("keyword")
+	userId, _ := c.Get("user_id")
+
+	if keyword == "" {
+		response.BadRequest(c, "搜索关键词不能为空")
+		return
+	}
+
+	items, total, err := h.service.Search(page, pageSize, keyword, userId.(uint))
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.SuccessPage(c, items, total)
+}
+
 func (h *QuestionHandler) GetStats(c *gin.Context) {
 	stats, err := h.service.GetStats()
 	if err != nil {

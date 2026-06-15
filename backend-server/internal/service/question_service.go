@@ -107,6 +107,18 @@ func (s *QuestionService) List(page, pageSize int, filters map[string]interface{
 	return resp, total, nil
 }
 
+func (s *QuestionService) Search(page, pageSize int, keyword string, userID uint) ([]QuestionResponse, int64, error) {
+	items, total, err := s.repo.Search(page, pageSize, keyword, userID)
+	if err != nil {
+		return nil, 0, err
+	}
+	var resp []QuestionResponse
+	for _, item := range items {
+		resp = append(resp, s.toResponse(&item))
+	}
+	return resp, total, nil
+}
+
 func (s *QuestionService) GetByID(id uint) (*QuestionResponse, error) {
 	item, err := s.repo.GetByID(id)
 	if err != nil {
