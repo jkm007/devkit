@@ -1,81 +1,20 @@
-<template>
-  <VbenModal
-    v-model:visible="visible"
-    :title="mode === 'create' ? '新增轮播图' : '编辑轮播图'"
-    width="600px"
-    @ok="handleSubmit"
-    @cancel="handleCancel"
-  >
-    <VbenForm
-      ref="formRef"
-      :model="formData"
-      :rules="rules"
-      :label-width="100"
-    >
-      <VbenFormItem label="标题" name="title">
-        <VbenInput v-model:value="formData.title" placeholder="请输入轮播图标题" />
-      </VbenFormItem>
-
-      <VbenFormItem label="图片" name="image">
-        <VbenUpload
-          v-model:value="formData.image"
-          :max-count="1"
-          accept="image/*"
-          list-type="picture-card"
-          @change="handleImageChange"
-        />
-      </VbenFormItem>
-
-      <VbenFormItem label="链接类型" name="linkType">
-        <VbenSelect v-model:value="formData.linkType" :options="linkTypeOptions" />
-      </VbenFormItem>
-
-      <VbenFormItem v-if="formData.linkType !== 'none'" label="链接" name="link">
-        <VbenInput v-model:value="formData.link" placeholder="请输入链接地址" />
-      </VbenFormItem>
-
-      <VbenFormItem label="排序" name="sortOrder">
-        <VbenInputNumber v-model:value="formData.sortOrder" min="0" max="999" />
-      </VbenFormItem>
-
-      <VbenFormItem v-if="mode === 'edit'" label="状态" name="status">
-        <VbenSelect v-model:value="formData.status" :options="statusOptions" />
-      </VbenFormItem>
-    </VbenForm>
-  </VbenModal>
-</template>
-
 <script lang="ts" setup>
-import { ref, watch, computed } from 'vue';
-import { VbenModal, VbenForm, VbenFormItem, VbenInput, VbenSelect, VbenInputNumber, VbenUpload } from '#/components';
-import { createBanner, updateBanner } from '#/api/system/banner';
+import type { VbenFormSchema } from '#/adapter/form';
 import type { Banner } from '#/api/system/banner';
 
-const props = defineProps<{
-  visible: boolean;
-  banner: Banner | null;
-  mode: 'create' | 'edit';
-}>();
+import { computed, ref } from 'vue';
+
+import { useVbenModal, useVbenForm } from '@vben/common-ui';
+import { message } from 'ant-design-vue';
+
+import { createBanner, updateBanner } from '#/api/system/banner';
 
 const emit = defineEmits<{
-  'update:visible': [value: boolean];
-  'success': [];
+  success: [];
 }>();
 
-const formRef = ref();
-const formData = ref({
-  title: '',
-  image: '',
-  link: '',
-  linkType: 'none',
-  sortOrder: 0,
-  status: 'enabled',
-});
-
-const rules = {
-  title: [{ required: true, message: '请输入标题' }],
-  image: [{ required: true, message: '请上传图片' }],
-};
+const modalMode = ref<'create' | 'edit'>('create');
+const currentBanner = ref<Banner | null>(null);
 
 const linkTypeOptions = [
   { label: '内部链接', value: 'internal' },
@@ -88,59 +27,136 @@ const statusOptions = [
   { label: '禁用', value: 'disabled' },
 ];
 
-const visible = computed({
-  get: () => props.visible,
-  set: (value: boolean) => emit('update:visible', value),
+const formSchema = computed((): VbenFormSchema[] => {
+  return [
+    {
+      component: 'Input',
+      componentProps: {
+        placeholder: '请输入轮播图标题',
+      },
+      fieldName: 'title',
+      label: '标题',
+      rules: 'required',
+    },
+    {
+      component: 'Upload',
+      componentProps: {
+        accept: 'image/*',
+        listType: 'picture-card',
+        maxCount: 1,
+      },
+      fieldName: 'image',
+      label: '图片',
+      rules: 'required',
+    },
+    {
+      component: 'Select',
+      componentProps: {
+        options: linkTypeOptions,
+      },
+      fieldName: 'linkType',
+      label: '链接类型',
+      defaultValue: 'none',
+    },
+    {
+      component: 'Input',
+      componentProps: {
+        placeholder: '请输入链接地址',
+      },
+      dependencies: {
+        triggerFields: ['linkType'],
+        if: (values) => values.linkType !== 'none',
+        show: true,
+      },
+      fieldName: 'link',
+      label: '链接',
+    },
+    {
+      component: 'InputNumber',
+      componentProps: {
+        min: 0,
+        max: 999,
+      },
+      fieldName: 'sortOrder',
+      label: '排序',
+      defaultValue: 0,
+    },
+    {
+      component: 'Select',
+      componentProps: {
+        options: statusOptions,
+      },
+      fieldName: 'status',
+      label: '状态',
+      defaultValue: 'enabled',
+      dependencies: {
+        triggerFields: [],
+        if: () => modalMode.value === 'edit',
+        show: true,
+      },
+    },
+  ];
 });
 
-watch(
-  () => props.banner,
-  (banner) => {
-    if (banner && props.mode === 'edit') {
-      formData.value = {
-        title: banner.title,
-        image: banner.image,
-        link: banner.link || '',
-        linkType: banner.linkType || 'none',
-        sortOrder: banner.sortOrder || 0,
-        status: banner.status || 'enabled',
-      };
-    } else {
-      formData.value = {
-        title: '',
-        image: '',
-        link: '',
-        linkType: 'none',
-        sortOrder: 0,
-        status: 'enabled',
-      };
+const [Modal, modalApi] = useVbenModal({
+  async onConfirm() {
+    const values = await formApi.getValues();
+    try {
+      if (modalMode.value === 'create') {
+        await createBanner(values);
+        message.success('创建成功');
+      } else if (currentBanner.value) {
+        await updateBanner(currentBanner.value.id, values);
+        message.success('更新成功');
+      }
+      emit('success');
+      modalApi.close();
+    } catch (error: any) {
+      message.error(error.message || '操作失败');
     }
   },
-);
+  connectedComponent: null,
+});
 
-function handleImageChange(fileList: any[]) {
-  if (fileList.length > 0) {
-    formData.value.image = fileList[0].url || fileList[0].response?.data?.url || '';
+const [Form, formApi] = useVbenForm({
+  commonConfig: {
+    componentProps: {
+      class: 'w-full',
+    },
+  },
+  schema: formSchema,
+});
+
+function openModal(mode: 'create' | 'edit', data: Banner | null) {
+  modalMode.value = mode;
+  currentBanner.value = data;
+
+  if (mode === 'edit' && data) {
+    formApi.setValues({
+      title: data.title,
+      image: data.image,
+      link: data.link || '',
+      linkType: data.linkType || 'none',
+      sortOrder: data.sortOrder || 0,
+      status: data.status || 'enabled',
+    });
+  } else {
+    formApi.resetForm();
   }
+
+  modalApi.open();
 }
 
-async function handleSubmit() {
-  try {
-    await formRef.value?.validate();
-
-    if (props.mode === 'create') {
-      await createBanner(formData.value);
-    } else if (props.banner) {
-      await updateBanner(props.banner.id, formData.value);
-    }
-
-    emit('success');
-  } catch (error: any) {
-    console.error('操作失败:', error);
-  }
-}
-
-function handleCancel() {
-  visible.value = false;
-}
+defineExpose({
+  open: openModal,
+});
 </script>
+
+<template>
+  <Modal
+    :title="modalMode === 'create' ? '新增轮播图' : '编辑轮播图'"
+    class="w-[600px]"
+  >
+    <Form />
+  </Modal>
+</template>

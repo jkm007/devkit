@@ -24,6 +24,34 @@ func (r *QuestionRepo) List(page, pageSize int, filters map[string]interface{}) 
 	var total int64
 	query := r.db.Model(&model.Question{})
 
+	// 私有题目过滤：管理员/超级管理员可查看全部，普通用户只能看自己的私有题目
+	isAdmin := false
+	if roles, ok := filters["roles"]; ok && roles != nil {
+		// 将 roles 转为字符串切片
+		var roleList []string
+		switch v := roles.(type) {
+		case []string:
+			roleList = v
+		case []interface{}:
+			for _, r := range v {
+				if s, ok := r.(string); ok {
+					roleList = append(roleList, s)
+				}
+			}
+		}
+		for _, role := range roleList {
+			if role == "admin" || role == "super_admin" {
+				isAdmin = true
+				break
+			}
+		}
+	}
+	if !isAdmin {
+		if userId, ok := filters["userId"]; ok && userId != nil && userId.(uint) > 0 {
+			query = query.Where("(resource_type != 'private' OR created_by = ?)", userId)
+		}
+	}
+
 	if title, ok := filters["title"]; ok && title != "" {
 		query = query.Where("title LIKE ?", "%"+escapeLike(title.(string))+"%")
 	}

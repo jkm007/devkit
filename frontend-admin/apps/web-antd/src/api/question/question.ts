@@ -83,6 +83,14 @@ export async function rejectQuestion(id: number, reason: string) {
   return requestClient.post(`/system/questions/${id}/audit/reject`, { reason });
 }
 
+export async function withdrawQuestion(id: number) {
+  return requestClient.post(`/system/questions/${id}/withdraw`);
+}
+
+export async function reactivateQuestion(id: number) {
+  return requestClient.post(`/system/questions/${id}/reactivate`);
+}
+
 export async function getQuestionTypes() {
   return requestClient.get<Array<any>>('/system/questions/types');
 }

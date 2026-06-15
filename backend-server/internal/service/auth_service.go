@@ -66,6 +66,7 @@ type LoginRequest struct {
 // LoginResponse 登录响应
 type LoginResponse struct {
 	ID                 uint     `json:"id"`
+	UserID             uint     `json:"userId"`
 	Username           string   `json:"username"`
 	Nickname           string   `json:"nickname"`
 	RealName           string   `json:"realName"`
@@ -415,6 +416,7 @@ func (s *AuthService) generateLoginResponse(user *model.User, clientIP string) (
 
 	return &LoginResponse{
 		ID:                 user.ID,
+		UserID:             user.ID,
 		Username:           user.Name,
 		Nickname:           user.Nickname,
 		RealName:           user.Name,
@@ -760,6 +762,7 @@ func (s *AuthService) GetUserInfo(userID uint) (*LoginResponse, error) {
 
 	return &LoginResponse{
 		ID:                 user.ID,
+		UserID:             user.ID,
 		Username:           user.Name,
 		Nickname:           user.Nickname,
 		RealName:           user.Name,

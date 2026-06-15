@@ -510,6 +510,8 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 			system.POST("/questions/:id/submit-audit", middleware.Permission("question:audit:submit"), questionHandler.SubmitAudit)
 			system.POST("/questions/:id/audit/approve", middleware.Permission("question:audit:approve"), questionHandler.Approve)
 			system.POST("/questions/:id/audit/reject", middleware.Permission("question:audit:reject"), questionHandler.Reject)
+			system.POST("/questions/:id/withdraw", middleware.Permission("question:publish"), questionHandler.Withdraw)
+			system.POST("/questions/:id/reactivate", middleware.Permission("question:publish"), questionHandler.Reactivate)
 
 			// 题目导入
 			system.GET("/question-imports", middleware.Permission("question:import"), questionImportHandler.List)

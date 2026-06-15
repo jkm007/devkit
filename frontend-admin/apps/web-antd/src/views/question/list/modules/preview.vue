@@ -232,12 +232,12 @@ const canPublish = computed(() => {
           <component
             :is="isSingleChoice ? RadioGroup : CheckboxGroup"
             v-model:value="selectedAnswer"
-            class="flex flex-col gap-3"
+            class="flex flex-col gap-4"
           >
             <div
               v-for="opt in optionsList"
               :key="opt.id"
-              class="group flex items-start gap-3 rounded-lg border border-gray-200 px-4 py-3 transition-all hover:border-blue-300 hover:bg-blue-50"
+              class="group flex items-start gap-3 rounded-lg border border-gray-200 px-4 py-3.5 transition-all hover:border-blue-300 hover:bg-blue-50"
               :class="{
                 'border-green-400 bg-green-50': showAnswer && isCorrectOption(opt.id),
                 'border-red-300 bg-red-50': showAnswer && (Array.isArray(selectedAnswer) ? selectedAnswer.includes(opt.id) : selectedAnswer === opt.id) && !isCorrectOption(opt.id),

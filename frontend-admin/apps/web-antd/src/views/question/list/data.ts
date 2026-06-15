@@ -34,6 +34,7 @@ export const QUESTION_TYPE_OPTIONS = [
 export const STATUS_OPTIONS = [
   { label: '草稿', value: 'draft', color: 'default' },
   { label: '待审核', value: 'pending', color: 'processing' },
+  { label: '审核通过', value: 'approved', color: 'cyan' },
   { label: '已驳回', value: 'rejected', color: 'error' },
   { label: '已发布', value: 'published', color: 'success' },
   { label: '已下架', value: 'archived', color: 'warning' },

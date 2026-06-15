@@ -22,7 +22,11 @@ func NewQuestionHandler() *QuestionHandler {
 func (h *QuestionHandler) List(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
+	userId, _ := c.Get("user_id")
+	roles, _ := c.Get("roles")
 	filters := map[string]interface{}{
+		"userId":       userId,
+		"roles":        roles,
 		"title":        c.Query("title"),
 		"questionType": c.Query("questionType"),
 		"status":       c.Query("status"),
@@ -96,7 +100,8 @@ func (h *QuestionHandler) Delete(c *gin.Context) {
 		response.BadRequest(c, "无效的ID")
 		return
 	}
-	if err := h.service.Delete(uint(id)); err != nil {
+	userId, _ := c.Get("user_id")
+	if err := h.service.Delete(uint(id), userId.(uint)); err != nil {
 		response.BadRequest(c, err.Error())
 		return
 	}
@@ -124,7 +129,8 @@ func (h *QuestionHandler) Archive(c *gin.Context) {
 		response.BadRequest(c, "无效的ID")
 		return
 	}
-	item, err := h.service.Archive(uint(id))
+	userId, _ := c.Get("user_id")
+	item, err := h.service.Archive(uint(id), userId.(uint))
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -138,7 +144,8 @@ func (h *QuestionHandler) SubmitAudit(c *gin.Context) {
 		response.BadRequest(c, "无效的ID")
 		return
 	}
-	item, err := h.service.SubmitAudit(uint(id))
+	userId, _ := c.Get("user_id")
+	item, err := h.service.SubmitAudit(uint(id), userId.(uint))
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -173,6 +180,36 @@ func (h *QuestionHandler) Reject(c *gin.Context) {
 	}
 	c.ShouldBindJSON(&req)
 	item, err := h.service.Reject(uint(id), userId.(uint), req.Reason)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.Success(c, item)
+}
+
+func (h *QuestionHandler) Withdraw(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "无效的ID")
+		return
+	}
+	userId, _ := c.Get("user_id")
+	item, err := h.service.Withdraw(uint(id), userId.(uint))
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.Success(c, item)
+}
+
+func (h *QuestionHandler) Reactivate(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "无效的ID")
+		return
+	}
+	userId, _ := c.Get("user_id")
+	item, err := h.service.Reactivate(uint(id), userId.(uint))
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return

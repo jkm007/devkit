@@ -169,6 +169,11 @@ func (s *RoleService) Update(id uint, req *UpdateRoleRequest) error {
 		return err
 	}
 
+	// 系统内置角色不允许修改名称
+	if isProtectedRole(role.Name) && req.Name != "" && req.Name != role.Name {
+		return fmt.Errorf("系统内置角色【%s】不允许修改名称", role.Name)
+	}
+
 	if req.Name != "" {
 		role.Name = req.Name
 	}
@@ -229,8 +234,30 @@ func (s *RoleService) invalidateCacheForRole(roleID uint) {
 	}
 }
 
+// protectedRoles 系统内置角色，不允许删除和修改名称
+var protectedRoles = map[string]bool{
+	"admin":       true,
+	"super_admin": true,
+}
+
+// isProtectedRole 检查是否为系统保护角色
+func isProtectedRole(name string) bool {
+	return protectedRoles[name]
+}
+
 // Delete 删除角色（同时清理关联数据和权限缓存）
 func (s *RoleService) Delete(id uint) error {
+	// 获取角色信息
+	role, err := s.roleRepo.GetByID(id)
+	if err != nil {
+		return err
+	}
+
+	// 系统内置角色不允许删除
+	if isProtectedRole(role.Name) {
+		return fmt.Errorf("系统内置角色【%s】不允许删除", role.Name)
+	}
+
 	// 检查是否有用户直接关联该角色
 	userIDs, err := s.userRepo.GetUserIDsByRoleID(id)
 	if err != nil {

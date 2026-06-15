@@ -46,53 +46,53 @@ func NewQuestionService() *QuestionService {
 }
 
 type QuestionRequest struct {
-	Title                string `json:"title" binding:"required"`
-	QuestionType         string `json:"questionType" binding:"required"`
-	Stem                 string `json:"stem" binding:"required"`
-	Content              string `json:"content"`
-	Answer               string `json:"answer"`
-	Analysis             string `json:"analysis"`
-	Materials            string `json:"materials"`
-	ScoreRule            string `json:"scoreRule"`
-	ExamID               uint   `json:"examId"`
-	SubjectID            uint   `json:"subjectId"`
-	CategoryID           uint   `json:"categoryId"`
-	SourceID             uint   `json:"sourceId"`
-	Difficulty           *int   `json:"difficulty"`
-	ResourceType         string `json:"resourceType"`
+	Title                 string `json:"title" binding:"required"`
+	QuestionType          string `json:"questionType" binding:"required"`
+	Stem                  string `json:"stem" binding:"required"`
+	Content               string `json:"content"`
+	Answer                string `json:"answer"`
+	Analysis              string `json:"analysis"`
+	Materials             string `json:"materials"`
+	ScoreRule             string `json:"scoreRule"`
+	ExamID                uint   `json:"examId"`
+	SubjectID             uint   `json:"subjectId"`
+	CategoryID            uint   `json:"categoryId"`
+	SourceID              uint   `json:"sourceId"`
+	Difficulty            *int   `json:"difficulty"`
+	ResourceType          string `json:"resourceType"`
 	AnalysisVisiblePolicy string `json:"analysisVisiblePolicy"`
-	AnswerVisiblePolicy  string `json:"answerVisiblePolicy"`
+	AnswerVisiblePolicy   string `json:"answerVisiblePolicy"`
 }
 
 type QuestionResponse struct {
-	ID                   uint   `json:"id"`
-	Title                string `json:"title"`
-	QuestionType         string `json:"questionType"`
-	Stem                 string `json:"stem"`
-	Content              string `json:"content"`
-	Answer               string `json:"answer"`
-	Analysis             string `json:"analysis"`
-	Materials            string `json:"materials"`
-	ScoreRule            string `json:"scoreRule"`
-	ExamID               uint   `json:"examId"`
-	SubjectID            uint   `json:"subjectId"`
-	CategoryID           uint   `json:"categoryId"`
-	SourceID             uint   `json:"sourceId"`
-	Difficulty           int    `json:"difficulty"`
-	ResourceType         string `json:"resourceType"`
-	Status               string `json:"status"`
-	CurrentVersionID     uint   `json:"currentVersionId"`
-	ParentID             uint   `json:"parentId"`
-	IsGroup              int    `json:"isGroup"`
-	SubIndex             int    `json:"subIndex"`
+	ID                    uint   `json:"id"`
+	Title                 string `json:"title"`
+	QuestionType          string `json:"questionType"`
+	Stem                  string `json:"stem"`
+	Content               string `json:"content"`
+	Answer                string `json:"answer"`
+	Analysis              string `json:"analysis"`
+	Materials             string `json:"materials"`
+	ScoreRule             string `json:"scoreRule"`
+	ExamID                uint   `json:"examId"`
+	SubjectID             uint   `json:"subjectId"`
+	CategoryID            uint   `json:"categoryId"`
+	SourceID              uint   `json:"sourceId"`
+	Difficulty            int    `json:"difficulty"`
+	ResourceType          string `json:"resourceType"`
+	Status                string `json:"status"`
+	CurrentVersionID      uint   `json:"currentVersionId"`
+	ParentID              uint   `json:"parentId"`
+	IsGroup               int    `json:"isGroup"`
+	SubIndex              int    `json:"subIndex"`
 	AnalysisVisiblePolicy string `json:"analysisVisiblePolicy"`
-	AnswerVisiblePolicy  string `json:"answerVisiblePolicy"`
-	CreatedBy            uint   `json:"createdBy"`
-	ReviewedBy           uint   `json:"reviewedBy"`
-	ReviewedAt           string `json:"reviewedAt"`
-	RejectReason         string `json:"rejectReason"`
-	PublishedAt          string `json:"publishedAt"`
-	CreatedAt            string `json:"createTime"`
+	AnswerVisiblePolicy   string `json:"answerVisiblePolicy"`
+	CreatedBy             uint   `json:"createdBy"`
+	ReviewedBy            uint   `json:"reviewedBy"`
+	ReviewedAt            string `json:"reviewedAt"`
+	RejectReason          string `json:"rejectReason"`
+	PublishedAt           string `json:"publishedAt"`
+	CreatedAt             string `json:"createTime"`
 }
 
 func (s *QuestionService) List(page, pageSize int, filters map[string]interface{}) ([]QuestionResponse, int64, error) {
@@ -121,7 +121,7 @@ func (s *QuestionService) GetByID(id uint) (*QuestionResponse, error) {
 
 func ensureJSON(s string) string {
 	if s == "" || s == "null" {
-		return "" // Return empty string, let GORM handle it as NULL
+		return "[]"
 	}
 	return s
 }
@@ -207,7 +207,6 @@ func (s *QuestionService) Update(id uint, req *QuestionRequest, updatedBy uint) 
 		}
 	}
 
-	// 已发布的题目编辑不影响已发布版本
 	item.Title = req.Title
 	item.QuestionType = req.QuestionType
 	item.Stem = ensureJSON(req.Stem)
@@ -241,11 +240,27 @@ func (s *QuestionService) Update(id uint, req *QuestionRequest, updatedBy uint) 
 	return &resp, nil
 }
 
-func (s *QuestionService) Delete(id uint) error {
+func (s *QuestionService) Delete(id uint, deletedBy uint) error {
+	item, err := s.repo.GetByID(id)
+	if err != nil {
+		return err
+	}
+	// 只有创建者才能删除
+	if item.CreatedBy != deletedBy {
+		return fmt.Errorf("只有题目创建者才能删除")
+	}
+	// 只有草稿、已驳回、已下架可以删除
+	allowed := map[string]bool{"draft": true, "rejected": true, "archived": true}
+	if !allowed[item.Status] {
+		return fmt.Errorf("当前状态【%s】不允许删除", item.Status)
+	}
 	return s.repo.Delete(id)
 }
 
-func (s *QuestionService) Publish(id uint, reviewedBy uint) (*QuestionResponse, error) {
+// Publish 发布题目
+// 私有题目：草稿可直接发布
+// 其他类型：必须审核通过(approved)才能发布
+func (s *QuestionService) Publish(id uint, publishedBy uint) (*QuestionResponse, error) {
 	item, err := s.repo.GetByID(id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -263,41 +278,53 @@ func (s *QuestionService) Publish(id uint, reviewedBy uint) (*QuestionResponse, 
 		return nil, fmt.Errorf("题干不能为空")
 	}
 
-	now := time.Now()
+	// 私有题目：草稿可直接发布；其他类型：必须审核通过
+	if item.ResourceType == "private" {
+		if item.Status != "draft" {
+			return nil, fmt.Errorf("私有题目只有草稿状态才能直接发布")
+		}
+	} else {
+		if item.Status != "approved" {
+			return nil, fmt.Errorf("当前状态【%s】不允许发布，请先提交审核并等待审核通过", item.Status)
+		}
+	}
 
-	// 使用Select只更新必要的字段，避免更新空的JSON字段导致错误
+	now := time.Now()
 	err = s.repo.DB().Model(&model.Question{}).
 		Where("id = ?", id).
-		Select("status", "published_at", "reviewed_by", "reviewed_at", "updated_at").
+		Select("status", "published_at", "updated_at").
 		Updates(map[string]interface{}{
-			"status":      "published",
+			"status":       "published",
 			"published_at": now,
-			"reviewed_by": reviewedBy,
-			"reviewed_at": now,
-			"updated_at": now,
+			"updated_at":   now,
 		}).Error
-
 	if err != nil {
 		return nil, err
 	}
 
-	// 重新读取更新后的数据
 	item, err = s.repo.GetByID(id)
 	if err != nil {
 		return nil, err
 	}
-
 	resp := s.toResponse(item)
 	return &resp, nil
 }
 
-func (s *QuestionService) Archive(id uint) (*QuestionResponse, error) {
+// Archive 下架题目（已发布 → 已下架）
+func (s *QuestionService) Archive(id uint, archivedBy uint) (*QuestionResponse, error) {
 	item, err := s.repo.GetByID(id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("题目不存在")
 		}
 		return nil, err
+	}
+	// 只有创建者才能下架
+	if item.CreatedBy != archivedBy {
+		return nil, fmt.Errorf("只有题目创建者才能下架")
+	}
+	if item.Status != "published" {
+		return nil, fmt.Errorf("只有已发布的题目才能下架")
 	}
 
 	item.Status = "archived"
@@ -308,13 +335,19 @@ func (s *QuestionService) Archive(id uint) (*QuestionResponse, error) {
 	return &resp, nil
 }
 
-func (s *QuestionService) SubmitAudit(id uint) (*QuestionResponse, error) {
+// SubmitAudit 提交审核（草稿/已驳回 → 待审核）
+func (s *QuestionService) SubmitAudit(id uint, submittedBy uint) (*QuestionResponse, error) {
 	item, err := s.repo.GetByID(id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("题目不存在")
 		}
 		return nil, err
+	}
+
+	// 只有创建者才能提交审核
+	if item.CreatedBy != submittedBy {
+		return nil, fmt.Errorf("只有题目创建者才能提交审核")
 	}
 
 	if item.Status != "draft" && item.Status != "rejected" {
@@ -329,6 +362,7 @@ func (s *QuestionService) SubmitAudit(id uint) (*QuestionResponse, error) {
 	return &resp, nil
 }
 
+// Approve 审核通过（待审核 → 审核通过）
 func (s *QuestionService) Approve(id uint, reviewedBy uint) (*QuestionResponse, error) {
 	item, err := s.repo.GetByID(id)
 	if err != nil {
@@ -348,10 +382,9 @@ func (s *QuestionService) Approve(id uint, reviewedBy uint) (*QuestionResponse, 
 	}
 
 	now := time.Now()
-	item.Status = "published"
+	item.Status = "approved"
 	item.ReviewedBy = reviewedBy
 	item.ReviewedAt = &now
-	item.PublishedAt = &now
 	item.RejectReason = ""
 
 	if err := s.repo.Update(item); err != nil {
@@ -361,6 +394,7 @@ func (s *QuestionService) Approve(id uint, reviewedBy uint) (*QuestionResponse, 
 	return &resp, nil
 }
 
+// Reject 审核驳回（待审核 → 已驳回）
 func (s *QuestionService) Reject(id uint, reviewedBy uint, reason string) (*QuestionResponse, error) {
 	item, err := s.repo.GetByID(id)
 	if err != nil {
@@ -387,38 +421,105 @@ func (s *QuestionService) Reject(id uint, reviewedBy uint, reason string) (*Ques
 	return &resp, nil
 }
 
+// Withdraw 撤回到草稿（待审核/审核通过/已发布 → 草稿）
+func (s *QuestionService) Withdraw(id uint, withdrawnBy uint) (*QuestionResponse, error) {
+	item, err := s.repo.GetByID(id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("题目不存在")
+		}
+		return nil, err
+	}
+
+	// 只有创建者才能撤回
+	if item.CreatedBy != withdrawnBy {
+		return nil, fmt.Errorf("只有题目创建者才能撤回")
+	}
+
+	allowed := map[string]bool{"pending": true, "approved": true, "published": true}
+	if !allowed[item.Status] {
+		return nil, fmt.Errorf("当前状态【%s】不允许撤回", item.Status)
+	}
+
+	item.Status = "draft"
+	if err := s.repo.Update(item); err != nil {
+		return nil, err
+	}
+	resp := s.toResponse(item)
+	return &resp, nil
+}
+
+// Reactivate 重新上架（已下架 → 已发布）
+func (s *QuestionService) Reactivate(id uint, reactivatedBy uint) (*QuestionResponse, error) {
+	item, err := s.repo.GetByID(id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("题目不存在")
+		}
+		return nil, err
+	}
+
+	// 只有创建者才能重新上架
+	if item.CreatedBy != reactivatedBy {
+		return nil, fmt.Errorf("只有题目创建者才能重新上架")
+	}
+
+	if item.Status != "archived" {
+		return nil, fmt.Errorf("只有已下架的题目才能重新上架")
+	}
+
+	now := time.Now()
+	err = s.repo.DB().Model(&model.Question{}).
+		Where("id = ?", id).
+		Select("status", "updated_at").
+		Updates(map[string]interface{}{
+			"status":     "published",
+			"updated_at": now,
+		}).Error
+	if err != nil {
+		return nil, err
+	}
+
+	item, err = s.repo.GetByID(id)
+	if err != nil {
+		return nil, err
+	}
+	resp := s.toResponse(item)
+	return &resp, nil
+}
+
 func (s *QuestionService) GetStats() (map[string]interface{}, error) {
 	return s.repo.GetStats()
 }
 
 func (s *QuestionService) toResponse(item *model.Question) QuestionResponse {
 	resp := QuestionResponse{
-		ID:                   item.ID,
-		Title:                item.Title,
-		QuestionType:         item.QuestionType,
-		Stem:                 item.Stem,
-		Content:              item.Content,
-		Answer:               item.Answer,
-		Analysis:             item.Analysis,
-		Materials:            item.Materials,
-		ScoreRule:            item.ScoreRule,
-		ExamID:               item.ExamID,
-		SubjectID:            item.SubjectID,
-		CategoryID:           item.CategoryID,
-		SourceID:             item.SourceID,
-		Difficulty:           item.Difficulty,
-		ResourceType:         item.ResourceType,
-		Status:               item.Status,
-		CurrentVersionID:     item.CurrentVersionID,
-		ParentID:             item.ParentID,
-		IsGroup:              item.IsGroup,
-		SubIndex:             item.SubIndex,
+		ID:                    item.ID,
+		Title:                 item.Title,
+		QuestionType:          item.QuestionType,
+		Stem:                  item.Stem,
+		Content:               item.Content,
+		Answer:                item.Answer,
+		Analysis:              item.Analysis,
+		Materials:             item.Materials,
+		ScoreRule:             item.ScoreRule,
+		ExamID:                item.ExamID,
+		SubjectID:             item.SubjectID,
+		CategoryID:            item.CategoryID,
+		SourceID:              item.SourceID,
+		Difficulty:            item.Difficulty,
+		ResourceType:          item.ResourceType,
+		Status:                item.Status,
+		CurrentVersionID:      item.CurrentVersionID,
+		ParentID:              item.ParentID,
+		IsGroup:               item.IsGroup,
+		SubIndex:              item.SubIndex,
 		AnalysisVisiblePolicy: item.AnalysisVisiblePolicy,
-		AnswerVisiblePolicy:  item.AnswerVisiblePolicy,
-		CreatedBy:            item.CreatedBy,
-		ReviewedBy:           item.ReviewedBy,
-		RejectReason:         item.RejectReason,
-		CreatedAt:            item.CreatedAt.Format("2006-01-02T15:04:05.000-07:00"),
+		AnswerVisiblePolicy:   item.AnswerVisiblePolicy,
+		CreatedBy:             item.CreatedBy,
+		ReviewedBy:            item.ReviewedBy,
+		RejectReason:          item.RejectReason,
+		CreatedAt:             item.CreatedAt.Format("2006-01-02T15:04:05.000-07:00"),
 	}
 	if item.ReviewedAt != nil {
 		resp.ReviewedAt = item.ReviewedAt.Format("2006-01-02T15:04:05.000-07:00")

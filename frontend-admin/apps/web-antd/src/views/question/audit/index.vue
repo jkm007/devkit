@@ -2,11 +2,12 @@
 import type { VxeTableGridOptions } from '#/adapter/vxe-table';
 import type { QuestionApi } from '#/api/question/question';
 
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 
-import { Page } from '@vben/common-ui';
+import { Page, useVbenDrawer } from '@vben/common-ui';
+import { useUserStore } from '@vben/stores';
 
-import { Input, message, Modal } from 'ant-design-vue';
+import { Input, message, Modal, Tooltip } from 'ant-design-vue';
 
 import { useVbenVxeGrid, VbenTableAction } from '#/adapter/vxe-table';
 import {
@@ -15,7 +16,25 @@ import {
   rejectQuestion,
 } from '#/api/question/question';
 
+import QuestionPreview from '../list/modules/preview.vue';
 import { useAuditColumns, useAuditFormSchema } from './data';
+
+const userStore = useUserStore();
+const currentUserId = computed(() => String(userStore.userInfo?.userId || '0'));
+
+const [PreviewDrawer, previewDrawerApi] = useVbenDrawer({
+  connectedComponent: QuestionPreview,
+  destroyOnClose: true,
+});
+
+function onPreview(row: QuestionApi.Question) {
+  previewDrawerApi.setData(row).open();
+}
+
+// 判断当前用户是否是题目创建者
+function isCreator(row: QuestionApi.Question) {
+  return currentUserId.value === String(row.createdBy);
+}
 
 const rejectVisible = ref(false);
 const rejectRow = ref<QuestionApi.Question | null>(null);
@@ -98,16 +117,24 @@ function onRefresh() {
 </script>
 <template>
   <Page auto-content-height>
+    <PreviewDrawer />
     <Grid table-title="审核队列">
       <template #action="{ row }">
         <VbenTableAction
           :actions="[
+            {
+              text: '预览',
+              icon: 'lucide:eye',
+              onClick: () => onPreview(row),
+            },
             {
               text: '通过',
               icon: 'lucide:check-circle',
               onClick: () => onApprove(row),
               auth: ['question:audit:approve'],
               ifShow: row.status === 'pending',
+              disabled: isCreator(row),
+              tooltip: isCreator(row) ? '不能审核自己创建的题目' : undefined,
             },
             {
               text: '驳回',
@@ -116,6 +143,8 @@ function onRefresh() {
               auth: ['question:audit:reject'],
               ifShow: row.status === 'pending',
               danger: true,
+              disabled: isCreator(row),
+              tooltip: isCreator(row) ? '不能审核自己创建的题目' : undefined,
             },
           ]"
           align="center"
