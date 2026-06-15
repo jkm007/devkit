@@ -66,14 +66,36 @@ func (s *WrongBookService) List(userID uint, categoryID uint, isMastered *bool, 
 	results := make([]WrongBookResponse, 0, len(items))
 	for _, item := range items {
 		r := WrongBookResponse{}
-		if v, ok := item["id"].(uint); ok {
-			r.ID = v
+		// GORM Scan 到 map 时数值类型为 int64，需要兼容处理
+		if v, ok := item["id"]; ok {
+			switch val := v.(type) {
+			case int64:
+				r.ID = uint(val)
+			case uint:
+				r.ID = val
+			case uint64:
+				r.ID = uint(val)
+			}
 		}
-		if v, ok := item["questionId"].(uint); ok {
-			r.QuestionID = v
+		if v, ok := item["questionId"]; ok {
+			switch val := v.(type) {
+			case int64:
+				r.QuestionID = uint(val)
+			case uint:
+				r.QuestionID = val
+			case uint64:
+				r.QuestionID = uint(val)
+			}
 		}
-		if v, ok := item["categoryId"].(uint); ok {
-			r.CategoryID = v
+		if v, ok := item["categoryId"]; ok {
+			switch val := v.(type) {
+			case int64:
+				r.CategoryID = uint(val)
+			case uint:
+				r.CategoryID = val
+			case uint64:
+				r.CategoryID = uint(val)
+			}
 		}
 		if v, ok := item["categoryName"].(string); ok {
 			r.CategoryName = v
@@ -84,16 +106,25 @@ func (s *WrongBookService) List(userID uint, categoryID uint, isMastered *bool, 
 		if v, ok := item["questionType"].(string); ok {
 			r.QuestionType = v
 		}
-		if v, ok := item["difficulty"].(int); ok {
-			r.Difficulty = v
+		if v, ok := item["difficulty"]; ok {
+			switch val := v.(type) {
+			case int64:
+				r.Difficulty = int(val)
+			case int:
+				r.Difficulty = val
+			}
 		}
-		if v, ok := item["wrongCount"].(int); ok {
-			r.WrongCount = v
+		if v, ok := item["wrongCount"]; ok {
+			switch val := v.(type) {
+			case int64:
+				r.WrongCount = int(val)
+			case int:
+				r.WrongCount = val
+			}
 		}
 		if v, ok := item["isMastered"].(bool); ok {
 			r.IsMastered = v
 		}
-		results = append(results, r)
 
 		// 时间字段处理
 		if v, ok := item["lastWrongAt"].(time.Time); ok {
@@ -102,6 +133,8 @@ func (s *WrongBookService) List(userID uint, categoryID uint, isMastered *bool, 
 		if v, ok := item["masteredAt"].(time.Time); ok && !v.IsZero() {
 			r.MasteredAt = v
 		}
+
+		results = append(results, r)
 	}
 
 	return results, total, nil

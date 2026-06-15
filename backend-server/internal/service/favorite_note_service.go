@@ -77,11 +77,26 @@ func (s *FavoriteNoteService) ListFavorites(userID uint, page, pageSize int) ([]
 	results := make([]FavoriteResponse, 0, len(items))
 	for _, item := range items {
 		r := FavoriteResponse{}
-		if v, ok := item["id"].(uint); ok {
-			r.ID = v
+		// GORM Scan 到 map 时数值类型为 int64，需要兼容处理
+		if v, ok := item["id"]; ok {
+			switch val := v.(type) {
+			case int64:
+				r.ID = uint(val)
+			case uint:
+				r.ID = val
+			case uint64:
+				r.ID = uint(val)
+			}
 		}
-		if v, ok := item["questionId"].(uint); ok {
-			r.QuestionID = v
+		if v, ok := item["questionId"]; ok {
+			switch val := v.(type) {
+			case int64:
+				r.QuestionID = uint(val)
+			case uint:
+				r.QuestionID = val
+			case uint64:
+				r.QuestionID = uint(val)
+			}
 		}
 		if v, ok := item["title"].(string); ok {
 			r.Title = v
@@ -89,8 +104,13 @@ func (s *FavoriteNoteService) ListFavorites(userID uint, page, pageSize int) ([]
 		if v, ok := item["questionType"].(string); ok {
 			r.QuestionType = v
 		}
-		if v, ok := item["difficulty"].(int); ok {
-			r.Difficulty = v
+		if v, ok := item["difficulty"]; ok {
+			switch val := v.(type) {
+			case int64:
+				r.Difficulty = int(val)
+			case int:
+				r.Difficulty = val
+			}
 		}
 		if v, ok := item["categoryName"].(string); ok {
 			r.CategoryName = v
@@ -170,11 +190,26 @@ func (s *FavoriteNoteService) ListNotes(userID uint, page, pageSize int) ([]Note
 	results := make([]NoteResponse, 0, len(items))
 	for _, item := range items {
 		r := NoteResponse{}
-		if v, ok := item["id"].(uint); ok {
-			r.ID = v
+		// GORM Scan 到 map 时数值类型为 int64，需要兼容处理
+		if v, ok := item["id"]; ok {
+			switch val := v.(type) {
+			case int64:
+				r.ID = uint(val)
+			case uint:
+				r.ID = val
+			case uint64:
+				r.ID = uint(val)
+			}
 		}
-		if v, ok := item["questionId"].(uint); ok {
-			r.QuestionID = v
+		if v, ok := item["questionId"]; ok {
+			switch val := v.(type) {
+			case int64:
+				r.QuestionID = uint(val)
+			case uint:
+				r.QuestionID = val
+			case uint64:
+				r.QuestionID = uint(val)
+			}
 		}
 		if v, ok := item["questionTitle"].(string); ok {
 			r.QuestionTitle = v

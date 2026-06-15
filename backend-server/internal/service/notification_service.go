@@ -65,8 +65,16 @@ func (s *NotificationService) List(userID uint, page, pageSize int) ([]Notificat
 	var result []NotificationResponse
 	for _, item := range items {
 		nr := NotificationResponse{}
+		// GORM Scan 到 map 时数值类型为 int64，需要兼容处理
 		if v, ok := item["id"]; ok {
-			nr.ID, _ = v.(uint)
+			switch val := v.(type) {
+			case int64:
+				nr.ID = uint(val)
+			case uint:
+				nr.ID = val
+			case uint64:
+				nr.ID = uint(val)
+			}
 		}
 		if v, ok := item["type"]; ok {
 			nr.Type, _ = v.(string)
@@ -91,7 +99,14 @@ func (s *NotificationService) List(userID uint, page, pageSize int) ([]Notificat
 			}
 		}
 		if v, ok := item["sender_id"]; ok {
-			nr.SenderID, _ = v.(uint)
+			switch val := v.(type) {
+			case int64:
+				nr.SenderID = uint(val)
+			case uint:
+				nr.SenderID = val
+			case uint64:
+				nr.SenderID = uint(val)
+			}
 		}
 		if v, ok := item["created_at"]; ok {
 			if t, ok := v.(time.Time); ok {
