@@ -22,10 +22,10 @@ func (r *StudyRepo) ListQuestions(offset, limit int, filters map[string]interfac
 	var total int64
 
 	query := r.db.Table("qb_questions q").
-		Select("q.id, q.title, q.question_type, q.difficulty, q.category_id, q.status, "+
-			"q.stem, q.options, q.answer, q.analysis, "+
+		Select("q.id as question_id, q.title, q.question_type, q.difficulty, q.category_id, q.status, "+
+			"q.stem, q.content, q.answer, q.analysis, "+
 			"kc.name as category_name").
-		Joins("LEFT JOIN qb_question_categories kc ON q.category_id = kc.id").
+		Joins("LEFT JOIN qb_categories kc ON q.category_id = kc.id").
 		Where("q.status = ?", "published")
 
 	// 应用筛选条件
@@ -59,10 +59,10 @@ func (r *StudyRepo) ListQuestions(offset, limit int, filters map[string]interfac
 func (r *StudyRepo) GetQuestionByID(id uint) (map[string]interface{}, error) {
 	var result map[string]interface{}
 	err := r.db.Table("qb_questions q").
-		Select("q.id, q.title, q.question_type, q.difficulty, q.category_id, "+
-			"q.stem, q.options, q.answer, q.analysis, "+
+		Select("q.id as question_id, q.title, q.question_type, q.difficulty, q.category_id, "+
+			"q.stem, q.content, q.answer, q.analysis, "+
 			"kc.name as category_name").
-		Joins("LEFT JOIN qb_question_categories kc ON q.category_id = kc.id").
+		Joins("LEFT JOIN qb_categories kc ON q.category_id = kc.id").
 		Where("q.id = ? AND q.status = ?", id, "published").
 		First(&result).Error
 	return result, err
@@ -73,7 +73,7 @@ func (r *StudyRepo) GetRandomQuestions(limit int, filters map[string]interface{}
 	var results []map[string]interface{}
 
 	query := r.db.Table("qb_questions q").
-		Select("q.id, q.title, q.question_type, q.difficulty, q.stem, q.options").
+		Select("q.id as question_id, q.title, q.question_type, q.difficulty, q.stem, q.content").
 		Where("q.status = ?", "published")
 
 	if questionType, ok := filters["questionType"].(string); ok && questionType != "" {

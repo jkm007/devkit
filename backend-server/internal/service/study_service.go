@@ -207,8 +207,43 @@ func (s *StudyService) GetPracticeHistory(userID uint, page, pageSize int) ([]Pr
 func (s *StudyService) toQuestionResponse(item map[string]interface{}, userID uint) StudyQuestionResponse {
 	q := StudyQuestionResponse{}
 
-	if v, ok := item["id"].(uint); ok {
-		q.ID = v
+	// GORM Scan 到 map[string]interface{} 时，数值类型可能为 int64 或其他类型
+	// 使用 fmt.Sprintf 转换为字符串再解析，确保兼容性
+	if v, exists := item["question_id"]; exists && v != nil {
+		var id uint
+		switch val := v.(type) {
+		case int64:
+			id = uint(val)
+		case int:
+			id = uint(val)
+		case uint:
+			id = val
+		case uint64:
+			id = uint(val)
+		case float64:
+			id = uint(val)
+		default:
+			// 尝试字符串解析
+			fmt.Sscanf(fmt.Sprintf("%v", v), "%d", &id)
+		}
+		q.ID = id
+	} else if v, exists := item["id"]; exists && v != nil {
+		var id uint
+		switch val := v.(type) {
+		case int64:
+			id = uint(val)
+		case int:
+			id = uint(val)
+		case uint:
+			id = val
+		case uint64:
+			id = uint(val)
+		case float64:
+			id = uint(val)
+		default:
+			fmt.Sscanf(fmt.Sprintf("%v", v), "%d", &id)
+		}
+		q.ID = id
 	}
 	if v, ok := item["title"].(string); ok {
 		q.Title = v
@@ -216,10 +251,14 @@ func (s *StudyService) toQuestionResponse(item map[string]interface{}, userID ui
 	if v, ok := item["question_type"].(string); ok {
 		q.QuestionType = v
 	}
-	if v, ok := item["difficulty"].(int); ok {
+	if v, ok := item["difficulty"].(int64); ok {
+		q.Difficulty = int(v)
+	} else if v, ok := item["difficulty"].(int); ok {
 		q.Difficulty = v
 	}
-	if v, ok := item["category_id"].(uint); ok {
+	if v, ok := item["category_id"].(int64); ok {
+		q.CategoryID = uint(v)
+	} else if v, ok := item["category_id"].(uint); ok {
 		q.CategoryID = v
 	}
 	if v, ok := item["category_name"].(string); ok {
@@ -228,7 +267,8 @@ func (s *StudyService) toQuestionResponse(item map[string]interface{}, userID ui
 	if v, ok := item["stem"].(string); ok {
 		q.Stem = v
 	}
-	if v, ok := item["options"].(string); ok {
+	// content 字段作为 options 返回（前端用 content 解析选项）
+	if v, ok := item["content"].(string); ok {
 		q.Options = v
 	}
 	if v, ok := item["answer"].(string); ok {
