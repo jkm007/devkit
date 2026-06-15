@@ -26,7 +26,7 @@
     </view>
 
     <!-- 添加按钮 -->
-    <button class="add-btn" :disabled="bindings.length >= 3" @click="showPicker = true">
+    <button class="add-btn" :disabled="bindings.length >= 3" @click="openPicker">
       <text>{{ bindings.length >= 3 ? '已满 3 个分类' : '+ 添加分类' }}</text>
     </button>
 
@@ -52,6 +52,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { getCategoryBindings, bindCategory, unbindCategory, setPrimaryCategory } from '@/api/user';
+import { request } from '@/api/request';
 
 const bindings = ref<any[]>([]);
 const showPicker = ref(false);
@@ -59,33 +60,33 @@ const categories = ref<any[]>([]);
 
 onMounted(() => {
   loadBindings();
-  loadCategories();
 });
 
 async function loadBindings() {
   try {
     bindings.value = await getCategoryBindings();
   } catch {
-    // Mock 数据
-    bindings.value = [
-      { id: 1, categoryId: 101, categoryName: '网络协议', isPrimary: true, boundAt: '2024-01-10T10:00:00Z' },
-      { id: 2, categoryId: 102, categoryName: '操作系统', isPrimary: false, boundAt: '2024-01-12T14:30:00Z' },
-    ];
+    bindings.value = [];
   }
 }
 
 async function loadCategories() {
-  // Mock 全部分类列表
-  const allCategories = [
-    { id: 101, name: '网络协议' },
-    { id: 102, name: '操作系统' },
-    { id: 103, name: '数据结构' },
-    { id: 104, name: '数据库' },
-    { id: 105, name: '算法' },
-  ];
-  // 过滤已绑定的分类
-  const boundIds = new Set(bindings.value.map(b => b.categoryId));
-  categories.value = allCategories.filter(cat => !boundIds.has(cat.id));
+  try {
+    // 从后端获取所有考试分类
+    const res = await request.get<any[]>('/exam-categories/all');
+    const allCategories = Array.isArray(res) ? res : [];
+    // 过滤已绑定的分类
+    const boundIds = new Set(bindings.value.map((b: any) => b.categoryId));
+    categories.value = allCategories.filter((cat: any) => !boundIds.has(cat.id));
+  } catch {
+    categories.value = [];
+    uni.showToast({ title: '加载分类失败', icon: 'none' });
+  }
+}
+
+async function openPicker() {
+  showPicker.value = true;
+  await loadCategories();
 }
 
 async function selectCategory(cat: any) {
@@ -94,7 +95,6 @@ async function selectCategory(cat: any) {
     await bindCategory({ categoryId: cat.id, isPrimary: bindings.value.length === 0 });
     uni.showToast({ title: '绑定成功', icon: 'success' });
     await loadBindings();
-    loadCategories(); // 刷新可选列表
   } catch (e: any) {
     uni.showToast({ title: e.message || '绑定失败', icon: 'none' });
   }

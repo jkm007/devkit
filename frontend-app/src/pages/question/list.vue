@@ -1,28 +1,63 @@
 <template>
   <view class="question-list-page">
-    <!-- 分类 Tab 横滑 -->
-    <view class="category-tabs">
-      <scroll-view class="tabs-scroll" scroll-x :scroll-left="scrollLeft" enhanced :show-scrollbar="false">
-        <view class="tab-item" :class="{ active: selectedCategoryId === cat.id }" v-for="cat in categories" :key="cat.id" @click="selectCategory(cat)" :ref="el => setTabRef(el, cat.id)">
-          <text class="tab-text">{{ cat.name }}</text>
-          <view v-if="selectedCategoryId === cat.id" class="tab-underline" />
+    <!-- 顶部分类区域 -->
+    <view class="category-section">
+      <!-- 我的分类 -->
+      <view v-if="myBindings.length > 0" class="my-categories">
+        <view class="section-header">
+          <text class="section-title">📚 我的分类</text>
+          <text class="manage-link" @click="goToCategories">管理 ></text>
         </view>
-      </scroll-view>
+        <view class="category-chips">
+          <view
+            v-for="b in myBindings"
+            :key="b.categoryId"
+            class="category-chip"
+            :class="{ active: selectedCategoryId === b.categoryId, primary: b.isPrimary }"
+            @click="selectMyCategory(b)"
+          >
+            <text v-if="b.isPrimary" class="chip-badge">主</text>
+            <text class="chip-text">{{ b.categoryName || '分类' }}</text>
+          </view>
+          <view class="category-chip" :class="{ active: selectedCategoryId === null }" @click="selectCategory(null)">
+            <text class="chip-text">全部</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 全部分类（横滑） -->
+      <view class="all-categories">
+        <view class="section-header">
+          <text class="section-title">📖 考试分类</text>
+        </view>
+        <scroll-view class="tabs-scroll" scroll-x enhanced :show-scrollbar="false">
+          <view class="tab-list">
+            <view
+              v-for="cat in categories"
+              :key="cat.id"
+              class="tab-item"
+              :class="{ active: selectedCategoryId === cat.id }"
+              @click="selectCategory(cat.id)"
+            >
+              <text class="tab-text">{{ cat.name }}</text>
+            </view>
+          </view>
+        </scroll-view>
+      </view>
     </view>
 
-    <!-- 筛选栏：题型 + 难度 + 搜索 -->
+    <!-- 筛选栏 -->
     <view class="filter-bar">
-      <view class="filter-item" @click="showTypePicker = true">
-        <text class="filter-icon">📋</text>
+      <view class="filter-chip" :class="{ active: selectedType }" @click="showTypePicker = true">
         <text>{{ selectedTypeLabel || '题型' }}</text>
+        <text class="arrow">▼</text>
       </view>
-      <view class="filter-item" @click="showDifficultyPicker = true">
-        <text class="filter-icon">⭐</text>
+      <view class="filter-chip" :class="{ active: selectedDifficulty }" @click="showDifficultyPicker = true">
         <text>{{ selectedDifficultyLabel || '难度' }}</text>
+        <text class="arrow">▼</text>
       </view>
-      <view class="filter-item search-item" @click="goToSearch">
-        <text class="filter-icon">🔍</text>
-        <text>搜索</text>
+      <view class="filter-chip search" @click="goToSearch">
+        <text>🔍 搜索</text>
       </view>
     </view>
 
@@ -34,7 +69,10 @@
       <view v-else-if="questions.length === 0" class="empty">
         <text class="empty-icon">📭</text>
         <text class="empty-text">暂无题目</text>
-        <text class="empty-hint">试试切换分类或调整筛选条件</text>
+        <text class="empty-hint">{{ myBindings.length > 0 ? '试试切换分类或调整筛选条件' : '去「我的」绑定分类，获取个性化推荐' }}</text>
+        <view v-if="myBindings.length === 0" class="empty-action" @click="goToCategories">
+          <text>去绑定分类</text>
+        </view>
       </view>
       <view v-else>
         <view
@@ -45,18 +83,15 @@
         >
           <view class="card-header">
             <view class="tags-row">
-              <text class="type-tag">{{ getTypeLabel(q.questionType) }}</text>
-              <text v-if="q.isNew" class="new-tag">新</text>
-              <text v-if="q.hot" class="hot-tag">🔥</text>
+              <text class="type-tag" :class="q.questionType">{{ getTypeLabel(q.questionType) }}</text>
             </view>
             <view class="difficulty">
-              <text v-for="i in q.difficulty" :key="i" class="star">★</text>
+              <text v-for="i in 3" :key="i" class="star" :class="{ active: i <= (q.difficulty || 1) }">★</text>
             </view>
           </view>
           <text class="title">{{ q.title }}</text>
           <view class="card-footer">
             <text v-if="q.categoryName" class="category">📂 {{ q.categoryName }}</text>
-            <text v-if="q.knowledgePoint" class="knowledge">💡 {{ q.knowledgePoint }}</text>
           </view>
         </view>
       </view>
@@ -105,25 +140,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue';
+import { ref, onMounted } from 'vue';
 import { request } from '@/api/request';
-import type { Question } from '@/api/types';
+import { getCategoryBindings } from '@/api/user';
 import Skeleton from '@/components/Skeleton.vue';
 
 const loading = ref(false);
-const questions = ref<Partial<Question>[]>([]);
+const questions = ref<any[]>([]);
 const page = ref(1);
 const pageSize = 20;
 const hasMore = ref(true);
 
-// 分类相关
-const categories = ref<{ id: number | null; name: string }[]>([
-  { id: null, name: '推荐' },
-]);
+// 我的分类绑定
+const myBindings = ref<any[]>([]);
+
+// 全部分类
+const categories = ref<{ id: number; name: string }[]>([]);
 const selectedCategoryId = ref<number | null>(null);
-const activeTabId = ref<number | null>(null);
-const scrollLeft = ref(0);
-const tabRefs = ref<Map<number | null, any>>(new Map());
 
 // 筛选
 const selectedType = ref('');
@@ -141,63 +174,42 @@ const typeOptions = [
   { label: '简答题', value: 'short_answer' },
 ];
 
-// 计算显示文字
 const selectedTypeLabel = ref('');
 const selectedDifficultyLabel = ref('');
 
 onMounted(() => {
+  loadMyBindings();
   loadCategories();
-  fetchQuestions();
+  fetchQuestions(true);
 });
 
-/**
- * 加载分类列表
- */
+// 加载我的分类绑定
+async function loadMyBindings() {
+  try {
+    myBindings.value = await getCategoryBindings();
+    // 如果有主分类，默认选中
+    const primary = myBindings.value.find((b: any) => b.isPrimary);
+    if (primary) {
+      selectedCategoryId.value = primary.categoryId;
+    }
+  } catch {
+    myBindings.value = [];
+  }
+}
+
+// 加载全部分类
 async function loadCategories() {
   try {
     const res = await request.get<any[]>('/exam-categories/all');
-    categories.value = [{ id: null, name: '推荐' }, ...res.map((c: any) => ({ id: c.id, name: c.name }))];
+    categories.value = Array.isArray(res) ? res.map((c: any) => ({ id: c.id, name: c.name })) : [];
   } catch {
-    // Mock 数据（仅开发环境）
-    if (import.meta.env.DEV) {
-      categories.value = [
-        { id: null, name: '推荐' },
-        { id: 1, name: '网络协议' },
-        { id: 2, name: '操作系统' },
-        { id: 3, name: '数据结构' },
-        { id: 4, name: '数据库' },
-        { id: 5, name: '算法' },
-        { id: 6, name: '计算机网络' },
-        { id: 7, name: '计算机组成原理' },
-      ];
-    }
+    categories.value = [];
   }
-  // 默认选中"推荐"
-  selectedCategoryId.value = null;
 }
 
-/**
- * 设置 Tab ref 用于滚动定位
- */
-function setTabRef(el: any, catId: number | null) {
-  if (el) tabRefs.value.set(catId, el);
-}
-
-/**
- * 选择分类
- */
-async function selectCategory(cat: { id: number | null; name: string }) {
-  selectedCategoryId.value = cat.id;
-  activeTabId.value = cat.id;
-
-  // 滚动到选中 tab
-  await nextTick();
-  const tabEl = tabRefs.value.get(cat.id);
-  if (tabEl) {
-    // scroll-view 会自动滚动到可见区域
-  }
-
-  // 重置筛选 + 刷新
+// 选择我的分类
+function selectMyCategory(b: any) {
+  selectedCategoryId.value = b.categoryId;
   selectedType.value = '';
   selectedDifficulty.value = '';
   selectedTypeLabel.value = '';
@@ -205,9 +217,17 @@ async function selectCategory(cat: { id: number | null; name: string }) {
   fetchQuestions(true);
 }
 
-/**
- * 获取题目列表
- */
+// 选择分类
+function selectCategory(catId: number | null) {
+  selectedCategoryId.value = catId;
+  selectedType.value = '';
+  selectedDifficulty.value = '';
+  selectedTypeLabel.value = '';
+  selectedDifficultyLabel.value = '';
+  fetchQuestions(true);
+}
+
+// 获取题目列表
 async function fetchQuestions(refresh = false) {
   if (refresh) {
     page.value = 1;
@@ -224,27 +244,9 @@ async function fetchQuestions(refresh = false) {
     const items = data.items || [];
     if (refresh) questions.value = items;
     else questions.value = [...questions.value, ...items];
-    hasMore.value = page.value < (data.totalPages || 0);
+    hasMore.value = items.length >= pageSize;
   } catch {
-    // 模拟数据（仅开发环境）
-    if (import.meta.env.DEV) {
-      const currentCatName = categories.value.find(c => c.id === selectedCategoryId.value)?.name || '推荐';
-      const mockQuestions = Array.from({ length: 10 }, (_, i) => ({
-        id: (page.value - 1) * 10 + i + 1,
-        title: `题目 ${(page.value - 1) * 10 + i + 1}：关于${currentCatName}，以下说法正确的是？`,
-        questionType: ['single_choice', 'multiple_choice', 'true_false', 'fill_blank', 'short_answer'][i % 5] as any,
-        difficulty: (i % 3) + 1 as 1 | 2 | 3,
-        categoryName: currentCatName,
-        knowledgePoint: ['TCP/IP', 'HTTP', '进程调度', '内存管理', '二叉树'][i % 5],
-        isNew: i === 0 && page.value === 1,
-        hot: i % 4 === 0,
-      }));
-      if (refresh) questions.value = mockQuestions;
-      else questions.value = [...questions.value, ...mockQuestions];
-      hasMore.value = page.value < 5;
-    } else {
-      uni.showToast({ title: '加载题目列表失败', icon: 'none' });
-    }
+    uni.showToast({ title: '加载失败', icon: 'none' });
   } finally {
     loading.value = false;
   }
@@ -264,7 +266,7 @@ function confirmType() {
 
 function confirmDifficulty() {
   selectedDifficulty.value = tempDifficulty.value;
-  const map: Record<string, string> = { '1': '⭐ 简单', '2': '⭐⭐ 中等', '3': '⭐⭐⭐ 困难' };
+  const map: Record<string, string> = { '1': '简单', '2': '中等', '3': '困难' };
   selectedDifficultyLabel.value = map[tempDifficulty.value] || '';
   showDifficultyPicker.value = false;
   fetchQuestions(true);
@@ -272,19 +274,14 @@ function confirmDifficulty() {
 
 function getTypeLabel(type: string | undefined): string {
   const map: Record<string, string> = {
-    single_choice: '单选',
-    multiple_choice: '多选',
-    true_false: '判断',
-    fill_blank: '填空',
-    short_answer: '简答',
+    single_choice: '单选', multiple_choice: '多选', true_false: '判断',
+    fill_blank: '填空', short_answer: '简答',
   };
   return map[type!] || type || '未知';
 }
 
-function goToSearch() {
-  uni.navigateTo({ url: '/pages/question/search' });
-}
-
+function goToSearch() { uni.navigateTo({ url: '/pages/question/search' }); }
+function goToCategories() { uni.navigateTo({ url: '/pages/profile/categories' }); }
 function goToDetail(id: number | undefined) {
   if (!id) return;
   uni.navigateTo({ url: `/pages/question/detail?id=${id}` });
@@ -294,243 +291,276 @@ function goToDetail(id: number | undefined) {
 <style lang="scss" scoped>
 .question-list-page {
   min-height: 100vh;
-  background: #f5f5f5;
+  background: #f5f6fa;
   padding-bottom: 20px;
+}
 
-  // ========== 分类 Tab ==========
-  .category-tabs {
-    background: #fff;
-    padding: 0 8px;
-    border-bottom: 1px solid #f0f0f0;
+// ========== 分类区域 ==========
+.category-section {
+  background: #fff;
+  padding-bottom: 12px;
+  margin-bottom: 8px;
+}
 
-    .tabs-scroll {
-      width: 100%;
-      white-space: nowrap;
-    }
+.my-categories {
+  padding: 14px 16px 8px;
 
-    .tab-item {
-      display: inline-flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 12px 16px;
-      position: relative;
-
-      .tab-text {
-        font-size: 14px;
-        color: #666;
-        transition: color 0.2s;
-      }
-
-      &.active .tab-text {
-        color: #1890ff;
-        font-weight: 500;
-      }
-
-      .tab-underline {
-        position: absolute;
-        bottom: 0;
-        width: 20px;
-        height: 3px;
-        background: #1890ff;
-        border-radius: 2px;
-      }
-    }
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
   }
 
-  // ========== 筛选栏 ==========
-  .filter-bar {
-    display: flex;
-    background: #fff;
-    padding: 10px 16px;
-    gap: 8px;
-    margin-bottom: 8px;
+  .section-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #333;
+  }
 
-    .filter-item {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      padding: 6px 14px;
-      background: #f5f7fa;
-      border-radius: 16px;
+  .manage-link {
+    font-size: 13px;
+    color: #1890ff;
+  }
+
+  .category-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .category-chip {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 14px;
+    background: #f5f7fa;
+    border-radius: 20px;
+    border: 1.5px solid transparent;
+
+    &.active {
+      background: #e6f7ff;
+      border-color: #1890ff;
+    }
+
+    &.primary .chip-text {
+      font-weight: 500;
+    }
+
+    .chip-badge {
+      font-size: 10px;
+      padding: 1px 5px;
+      background: #1890ff;
+      color: #fff;
+      border-radius: 3px;
+    }
+
+    .chip-text {
+      font-size: 13px;
+      color: #555;
+    }
+
+    &.active .chip-text {
+      color: #1890ff;
+    }
+  }
+}
+
+.all-categories {
+  padding: 0 16px;
+
+  .section-header {
+    margin-bottom: 8px;
+  }
+
+  .section-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #333;
+  }
+
+  .tabs-scroll {
+    width: 100%;
+    white-space: nowrap;
+  }
+
+  .tab-list {
+    display: inline-flex;
+    gap: 8px;
+    padding-right: 16px;
+  }
+
+  .tab-item {
+    padding: 6px 14px;
+    background: #f5f7fa;
+    border-radius: 16px;
+
+    &.active {
+      background: linear-gradient(135deg, #1890ff, #36cfc9);
+    }
+
+    .tab-text {
       font-size: 13px;
       color: #666;
+    }
 
-      .filter-icon {
-        font-size: 14px;
-      }
-
-      &.search-item {
-        margin-left: auto;
-        background: linear-gradient(135deg, #e6f7ff, #e6fffb);
-        color: #1890ff;
-      }
+    &.active .tab-text {
+      color: #fff;
+      font-weight: 500;
     }
   }
+}
 
-  // ========== 列表区域 ==========
-  .list-section {
-    padding: 0 16px;
+// ========== 筛选栏 ==========
+.filter-bar {
+  display: flex;
+  padding: 8px 16px;
+  gap: 8px;
+  background: #fff;
+  margin-bottom: 8px;
 
-    .loading {
-      padding: 20px 0;
+  .filter-chip {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    background: #f5f7fa;
+    border-radius: 16px;
+    font-size: 13px;
+    color: #666;
+
+    &.active {
+      background: #e6f7ff;
+      color: #1890ff;
     }
 
-    .empty {
-      text-align: center;
-      padding: 60px 0;
-
-      .empty-icon {
-        font-size: 48px;
-        display: block;
-        margin-bottom: 12px;
-      }
-
-      .empty-text {
-        font-size: 16px;
-        color: #999;
-        display: block;
-        margin-bottom: 4px;
-      }
-
-      .empty-hint {
-        font-size: 12px;
-        color: #ccc;
-        display: block;
-      }
+    &.search {
+      margin-left: auto;
+      background: linear-gradient(135deg, #e6f7ff, #e6fffb);
+      color: #1890ff;
     }
 
-    // ========== 题目卡片 ==========
-    .question-card {
-      background: #fff;
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 12px;
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
-
-      .card-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 8px;
-
-        .tags-row {
-          display: flex;
-          gap: 6px;
-          align-items: center;
-
-          .type-tag {
-            font-size: 12px;
-            padding: 2px 8px;
-            background: #e6f7ff;
-            color: #1890ff;
-            border-radius: 4px;
-          }
-
-          .new-tag {
-            font-size: 11px;
-            padding: 2px 6px;
-            background: #f6ffed;
-            color: #52c41a;
-            border-radius: 4px;
-            font-weight: 500;
-          }
-
-          .hot-tag {
-            font-size: 12px;
-          }
-        }
-
-        .difficulty .star {
-          color: #faad14;
-          font-size: 12px;
-        }
-      }
-
-      .title {
-        font-size: 15px;
-        color: #333;
-        line-height: 1.6;
-        margin-bottom: 10px;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-      }
-
-      .card-footer {
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
-
-        .category, .knowledge {
-          font-size: 12px;
-          color: #999;
-        }
-      }
-    }
-
-    .load-more, .no-more {
-      text-align: center;
-      padding: 16px 0;
-      font-size: 13px;
+    .arrow {
+      font-size: 10px;
       color: #999;
     }
+  }
+}
 
-    .no-more {
-      color: #ccc;
+// ========== 列表区域 ==========
+.list-section {
+  padding: 0 16px;
+}
+
+.loading { padding: 20px 0; }
+
+.empty {
+  text-align: center;
+  padding: 60px 0;
+
+  .empty-icon { font-size: 48px; display: block; margin-bottom: 12px; }
+  .empty-text { font-size: 16px; color: #999; display: block; margin-bottom: 4px; }
+  .empty-hint { font-size: 13px; color: #bbb; display: block; margin-bottom: 16px; }
+  .empty-action {
+    display: inline-block;
+    padding: 8px 24px;
+    background: #1890ff;
+    color: #fff;
+    border-radius: 20px;
+    font-size: 14px;
+  }
+}
+
+.question-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+
+    .tags-row { display: flex; gap: 6px; }
+
+    .type-tag {
+      font-size: 11px;
+      padding: 2px 8px;
+      background: #e6f7ff;
+      color: #1890ff;
+      border-radius: 4px;
+      font-weight: 500;
+
+      &.single_choice { background: #e6f7ff; color: #1890ff; }
+      &.multiple_choice { background: #fff7e6; color: #fa8c16; }
+      &.true_false { background: #f6ffed; color: #52c41a; }
+      &.fill_blank { background: #f9f0ff; color: #722ed1; }
+      &.short_answer { background: #fff1f0; color: #f5222d; }
+    }
+
+    .difficulty .star {
+      font-size: 12px;
+      color: #ddd;
+      &.active { color: #faad14; }
     }
   }
 
-  // ========== 弹窗选择器 ==========
-  .picker {
-    padding-bottom: env(safe-area-inset-bottom);
+  .title {
+    font-size: 14px;
+    color: #333;
+    line-height: 1.6;
+    margin-bottom: 8px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
 
-    .picker-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 16px;
-      border-bottom: 1px solid #f0f0f0;
+  .card-footer {
+    .category { font-size: 12px; color: #999; }
+  }
+}
 
-      .picker-cancel {
-        font-size: 14px;
-        color: #999;
-      }
+.load-more, .no-more {
+  text-align: center;
+  padding: 16px 0;
+  font-size: 13px;
+  color: #999;
+}
 
-      .picker-title {
-        font-size: 16px;
-        font-weight: 500;
-        color: #333;
-      }
+// ========== 弹窗选择器 ==========
+.picker {
+  padding-bottom: env(safe-area-inset-bottom);
 
-      .picker-confirm {
-        font-size: 14px;
-        color: #1890ff;
-        font-weight: 500;
-      }
-    }
+  .picker-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    border-bottom: 1px solid #f0f0f0;
 
-    .picker-options {
-      max-height: 300px;
-      overflow-y: auto;
+    .picker-cancel { font-size: 14px; color: #999; }
+    .picker-title { font-size: 16px; font-weight: 500; color: #333; }
+    .picker-confirm { font-size: 14px; color: #1890ff; font-weight: 500; }
+  }
 
-      .picker-option {
-        padding: 14px 20px;
-        text-align: center;
-        font-size: 15px;
-        color: #333;
-        border-bottom: 1px solid #f5f5f5;
+  .picker-options {
+    max-height: 300px;
+    overflow-y: auto;
 
-        &:last-child { border-bottom: none; }
+    .picker-option {
+      padding: 14px 20px;
+      text-align: center;
+      font-size: 15px;
+      color: #333;
+      border-bottom: 1px solid #f5f5f5;
 
-        &:active { background: #f5f5f5; }
-
-        &.selected {
-          color: #1890ff;
-          font-weight: 500;
-          background: #e6f7ff;
-        }
-      }
+      &:last-child { border-bottom: none; }
+      &:active { background: #f5f5f5; }
+      &.selected { color: #1890ff; font-weight: 500; background: #e6f7ff; }
     }
   }
 }

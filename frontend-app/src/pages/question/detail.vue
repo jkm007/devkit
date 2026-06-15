@@ -25,6 +25,14 @@
         <text class="section-label">答案</text>
         <text class="answer">{{ correctAnswer }}</text>
       </view>
+      <!-- 解析区域 -->
+      <view v-if="showAnswer && analysisContent" class="analysis-section">
+        <text class="section-label">📝 解析</text>
+        <view v-if="typeof analysisContent === 'object' && analysisContent.text" class="analysis-text">
+          <rich-text :nodes="analysisContent.text" />
+        </view>
+        <text v-else class="analysis-text">{{ analysisContent }}</text>
+      </view>
       <view class="action-bar">
         <view class="action-item" @click="toggleFavorite">
           <text class="action-icon">{{ isFavorited ? '⭐' : '☆' }}</text>
@@ -44,18 +52,28 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { request } from '@/api/request';
 import type { Question } from '@/api/types';
 import ContentBlockRenderer from '@/components/ContentBlockRenderer.vue';
 
 const questionId = ref(0);
 const loading = ref(true);
-const question = ref<Question | null>(null);
+const question = ref<any>(null);
 const selectedAnswer = ref('');
 const showAnswer = ref(false);
 const isFavorited = ref(false);
 const correctAnswer = ref('A');
+
+// 解析内容（兼容字符串和JSON对象格式）
+const analysisContent = computed(() => {
+  if (!question.value?.analysis) return null;
+  const a = question.value.analysis;
+  if (typeof a === 'string') {
+    try { return JSON.parse(a); } catch { return a; }
+  }
+  return a;
+});
 
 onMounted(() => {
   const pages = getCurrentPages();
@@ -67,8 +85,16 @@ onMounted(() => {
 async function fetchQuestion() {
   loading.value = true;
   try {
-    question.value = await request.get<Question>(`/api/v1/study/questions/${questionId.value}`);
-    isFavorited.value = question.value.isFavorited;
+    const data = await request.get<any>(`/study/questions/${questionId.value}`);
+    question.value = data;
+    isFavorited.value = data.isFavorited;
+    // 解析正确答案
+    if (data.answer) {
+      try {
+        const ans = typeof data.answer === 'string' ? JSON.parse(data.answer) : data.answer;
+        if (ans.correct) correctAnswer.value = ans.correct.join(',');
+      } catch { correctAnswer.value = data.answer; }
+    }
   } catch {
     question.value = {
       id: questionId.value, title: 'TCP三次握手的目的是什么？', questionType: 'single_choice', difficulty: 2,
@@ -88,8 +114,8 @@ function selectAnswer(label: string) { selectedAnswer.value = label; showAnswer.
 
 async function toggleFavorite() {
   try {
-    if (isFavorited.value) { await request.delete(`/api/v1/study/questions/${questionId.value}/favorite`); isFavorited.value = false; }
-    else { await request.post(`/api/v1/study/questions/${questionId.value}/favorite`); isFavorited.value = true; }
+    if (isFavorited.value) { await request.delete(`/study/questions/${questionId.value}/favorite`); isFavorited.value = false; }
+    else { await request.post(`/study/questions/${questionId.value}/favorite`); isFavorited.value = true; }
     uni.showToast({ title: isFavorited.value ? '收藏成功' : '已取消收藏', icon: 'success' });
   } catch { isFavorited.value = !isFavorited.value; uni.showToast({ title: '操作成功', icon: 'success' }); }
 }
@@ -105,13 +131,15 @@ function goToPractice() { uni.switchTab({ url: '/pages/practice/index' }); }
 .header { display: flex; justify-content: space-between; padding: 16px; background: #fff; }
 .type-tag { font-size: 13px; padding: 4px 10px; background: #e6f7ff; color: #1890ff; border-radius: 4px; }
 .difficulty .star { color: #faad14; }
-.stem-section, .options-section, .answer-section { background: #fff; margin-top: 12px; padding: 16px; }
+.stem-section, .options-section, .answer-section, .analysis-section { background: #fff; margin-top: 12px; padding: 16px; }
 .section-label { font-size: 14px; font-weight: 500; color: #1890ff; margin-bottom: 12px; display: block; }
 .option-item { display: flex; padding: 12px; margin-bottom: 8px; background: #f9f9f9; border-radius: 8px; border: 2px solid transparent; gap: 8px; }
 .option-item.selected { border-color: #1890ff; background: #e6f7ff; }
 .option-label { font-weight: 500; min-width: 20px; }
 .option-content { flex: 1; }
 .answer { font-size: 18px; font-weight: bold; color: #52c41a; }
+.analysis-section { border-left: 3px solid #1890ff; }
+.analysis-text { font-size: 14px; color: #555; line-height: 1.8; word-break: break-all; }
 .action-bar { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: #fff; padding: 12px 0; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
 .action-item { flex: 1; display: flex; flex-direction: column; align-items: center; }
 .action-icon { font-size: 20px; }
