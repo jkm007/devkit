@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"backend-server/internal/model"
@@ -38,17 +39,17 @@ func NewStudyService() *StudyService {
 
 // StudyQuestionResponse 学习用题目响应
 type StudyQuestionResponse struct {
-	ID           uint   `json:"id"`
-	Title        string `json:"title"`
-	QuestionType string `json:"questionType"`
-	Difficulty   int    `json:"difficulty"`
-	CategoryID   uint   `json:"categoryId"`
-	CategoryName string `json:"categoryName"`
-	Stem         string `json:"stem"`
-	Options      string `json:"options"`
-	Answer       string `json:"answer,omitempty"`
-	Analysis     string `json:"analysis,omitempty"`
-	IsFavorited  bool   `json:"isFavorited"`
+	ID           uint        `json:"id"`
+	Title        string      `json:"title"`
+	QuestionType string      `json:"questionType"`
+	Difficulty   int         `json:"difficulty"`
+	CategoryID   uint        `json:"categoryId"`
+	CategoryName string      `json:"categoryName"`
+	Stem         interface{} `json:"stem"`    // 题干，blocks格式
+	Options      interface{} `json:"options"` // 选项，JSON数组格式
+	Answer       string      `json:"answer,omitempty"`
+	Analysis     string      `json:"analysis,omitempty"`
+	IsFavorited  bool        `json:"isFavorited"`
 }
 
 // PracticeRequest 练习请求
@@ -208,42 +209,10 @@ func (s *StudyService) toQuestionResponse(item map[string]interface{}, userID ui
 	q := StudyQuestionResponse{}
 
 	// GORM Scan 到 map[string]interface{} 时，数值类型可能为 int64 或其他类型
-	// 使用 fmt.Sprintf 转换为字符串再解析，确保兼容性
 	if v, exists := item["question_id"]; exists && v != nil {
-		var id uint
-		switch val := v.(type) {
-		case int64:
-			id = uint(val)
-		case int:
-			id = uint(val)
-		case uint:
-			id = val
-		case uint64:
-			id = uint(val)
-		case float64:
-			id = uint(val)
-		default:
-			// 尝试字符串解析
-			fmt.Sscanf(fmt.Sprintf("%v", v), "%d", &id)
-		}
-		q.ID = id
+		q.ID = toUint(v)
 	} else if v, exists := item["id"]; exists && v != nil {
-		var id uint
-		switch val := v.(type) {
-		case int64:
-			id = uint(val)
-		case int:
-			id = uint(val)
-		case uint:
-			id = val
-		case uint64:
-			id = uint(val)
-		case float64:
-			id = uint(val)
-		default:
-			fmt.Sscanf(fmt.Sprintf("%v", v), "%d", &id)
-		}
-		q.ID = id
+		q.ID = toUint(v)
 	}
 	if v, ok := item["title"].(string); ok {
 		q.Title = v
@@ -264,18 +233,22 @@ func (s *StudyService) toQuestionResponse(item map[string]interface{}, userID ui
 	if v, ok := item["category_name"].(string); ok {
 		q.CategoryName = v
 	}
+	// stem 是 HTML 字符串，需要转换为前端期望的 blocks 格式
 	if v, ok := item["stem"].(string); ok {
-		q.Stem = v
+		q.Stem = htmlToBlocks(cleanJSONString(v))
 	}
-	// content 字段作为 options 返回（前端用 content 解析选项）
+	// content 字段是选项的 JSON 数组: [{"id":"A","text":"xxx"}, ...]
+	// 需要解析并转换为前端期望的格式
 	if v, ok := item["content"].(string); ok {
-		q.Options = v
+		q.Options = parseOptions(v)
 	}
+	// answer 字段: {"correct":["A"]} 或其他格式
 	if v, ok := item["answer"].(string); ok {
 		q.Answer = v
 	}
+	// analysis 字段: {"text":"<p>...</p>","media":"..."} 或纯文本
 	if v, ok := item["analysis"].(string); ok {
-		q.Analysis = v
+		q.Analysis = parseAnalysis(v)
 	}
 
 	// 检查收藏状态
@@ -285,6 +258,191 @@ func (s *StudyService) toQuestionResponse(item map[string]interface{}, userID ui
 	}
 
 	return q
+}
+
+// toUint 通用的数值转uint方法
+func toUint(v interface{}) uint {
+	switch val := v.(type) {
+	case int64:
+		return uint(val)
+	case int:
+		return uint(val)
+	case uint:
+		return val
+	case uint64:
+		return uint(val)
+	case float64:
+		return uint(val)
+	default:
+		var id uint
+		fmt.Sscanf(fmt.Sprintf("%v", v), "%d", &id)
+		return id
+	}
+}
+
+// cleanJSONString 清理JSON字符串的外层引号
+// 数据库中可能存储为 "\"<p>xxx</p>\""，需要去除外层引号
+func cleanJSONString(s string) string {
+	if len(s) >= 2 && s[0] == '"' && s[len(s)-1] == '"' {
+		// 尝试JSON解析去除引号
+		var unquoted string
+		if err := json.Unmarshal([]byte(s), &unquoted); err == nil {
+			return unquoted
+		}
+	}
+	return s
+}
+
+// htmlToBlocks 将HTML字符串转换为前端期望的blocks格式
+// 输入: "<p>测试</p>" 或 "<p>段落1</p><p>段落2</p>"
+// 输出: {"blocks": [{"type": "text", "content": "测试"}]}
+func htmlToBlocks(html string) interface{} {
+	if html == "" {
+		return map[string]interface{}{
+			"blocks": []map[string]interface{}{},
+		}
+	}
+
+	// 简单解析HTML，提取文本内容
+	// 移除HTML标签，保留文本
+	blocks := []map[string]interface{}{}
+
+	// 按段落分割
+	paragraphs := splitHTMLParagraphs(html)
+	for _, p := range paragraphs {
+		if p != "" {
+			blocks = append(blocks, map[string]interface{}{
+				"type":    "text",
+				"content": p,
+			})
+		}
+	}
+
+	// 如果没有段落，整个作为一个block
+	if len(blocks) == 0 {
+		blocks = append(blocks, map[string]interface{}{
+			"type":    "text",
+			"content": stripHTMLTags(html),
+		})
+	}
+
+	return map[string]interface{}{
+		"blocks": blocks,
+	}
+}
+
+// splitHTMLParagraphs 按<p>标签分割HTML
+func splitHTMLParagraphs(html string) []string {
+	var paragraphs []string
+	current := ""
+	runes := []rune(html)
+
+	for i := 0; i < len(runes); i++ {
+		ch := runes[i]
+		if ch == '<' {
+			// 检查是否是 </p>
+			if i+3 < len(runes) && string(runes[i:i+4]) == "</p>" {
+				if current != "" {
+					paragraphs = append(paragraphs, current)
+					current = ""
+				}
+				i += 3
+				continue
+			}
+			// 跳过整个标签
+			for i < len(runes) && runes[i] != '>' {
+				i++
+			}
+			continue
+		}
+
+		current += string(ch)
+	}
+
+	if current != "" {
+		paragraphs = append(paragraphs, current)
+	}
+
+	return paragraphs
+}
+
+// stripHTMLTags 移除HTML标签
+func stripHTMLTags(html string) string {
+	result := ""
+	inTag := false
+
+	for _, ch := range html {
+		if ch == '<' {
+			inTag = true
+		} else if ch == '>' {
+			inTag = false
+		} else if !inTag {
+			result += string(ch)
+		}
+	}
+
+	return result
+}
+
+// parseOptions 解析选项JSON
+// 数据库格式: [{"id":"A","text":"xxx"}, ...]
+// 前端期望: [{"label":"A","content":{"blocks":[{"type":"text","content":"xxx"}]},"isCorrect":false}]
+func parseOptions(content string) interface{} {
+	if content == "" {
+		return nil
+	}
+
+	// 尝试解析为数组
+	var options []map[string]interface{}
+	if err := json.Unmarshal([]byte(content), &options); err != nil {
+		// 解析失败，返回原字符串
+		return content
+	}
+
+	// 转换格式
+	result := make([]map[string]interface{}, 0, len(options))
+	for _, opt := range options {
+		id, _ := opt["id"].(string)
+		text, _ := opt["text"].(string)
+
+		// 构建前端期望的格式
+		newOpt := map[string]interface{}{
+			"label": id,
+			"content": map[string]interface{}{
+				"blocks": []map[string]interface{}{
+					{
+						"type":    "text",
+						"content": text,
+					},
+				},
+			},
+			"isCorrect": false, // 默认不显示正确答案，由 answer 字段控制
+		}
+		result = append(result, newOpt)
+	}
+
+	return result
+}
+
+// parseAnalysis 解析解析字段
+// 数据库格式: {"text":"<p>...</p>","media":"..."} 或纯文本
+// 前端期望: 直接显示HTML内容
+func parseAnalysis(analysis string) string {
+	if analysis == "" {
+		return ""
+	}
+
+	// 尝试解析为JSON对象
+	var obj map[string]interface{}
+	if err := json.Unmarshal([]byte(analysis), &obj); err == nil {
+		// 提取text字段
+		if text, ok := obj["text"].(string); ok && text != "" {
+			return text
+		}
+	}
+
+	// 返回原内容
+	return analysis
 }
 
 // GetSmartPractice 智能练习推荐
