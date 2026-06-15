@@ -46,19 +46,10 @@
       </view>
     </view>
 
-    <!-- 筛选栏 -->
-    <view class="filter-bar">
-      <view class="filter-chip" :class="{ active: selectedType }" @click="showTypePicker = true">
-        <text>{{ selectedTypeLabel || '题型' }}</text>
-        <text class="arrow">▼</text>
-      </view>
-      <view class="filter-chip" :class="{ active: selectedDifficulty }" @click="showDifficultyPicker = true">
-        <text>{{ selectedDifficultyLabel || '难度' }}</text>
-        <text class="arrow">▼</text>
-      </view>
-      <view class="filter-chip search" @click="goToSearch">
-        <text>🔍 搜索</text>
-      </view>
+    <!-- 搜索入口 -->
+    <view class="search-bar" @click="goToSearch">
+      <text class="search-icon">🔍</text>
+      <text class="search-placeholder">搜索题目...</text>
     </view>
 
     <!-- 题目列表 -->
@@ -102,40 +93,6 @@
       </view>
       <view v-else-if="questions.length > 0" class="no-more">— 没有更多了 —</view>
     </view>
-
-    <!-- 题型选择器 -->
-    <up-popup v-model:show="showTypePicker" mode="bottom" round="12">
-      <view class="picker">
-        <view class="picker-header">
-          <text class="picker-cancel" @click="showTypePicker = false">取消</text>
-          <text class="picker-title">选择题型</text>
-          <text class="picker-confirm" @click="confirmType">确定</text>
-        </view>
-        <view class="picker-options">
-          <view class="picker-option" :class="{ selected: tempType === '' }" @click="tempType = ''">全部题型</view>
-          <view class="picker-option" v-for="t in typeOptions" :key="t.value" :class="{ selected: tempType === t.value }" @click="tempType = t.value">
-            {{ t.label }}
-          </view>
-        </view>
-      </view>
-    </up-popup>
-
-    <!-- 难度选择器 -->
-    <up-popup v-model:show="showDifficultyPicker" mode="bottom" round="12">
-      <view class="picker">
-        <view class="picker-header">
-          <text class="picker-cancel" @click="showDifficultyPicker = false">取消</text>
-          <text class="picker-title">选择难度</text>
-          <text class="picker-confirm" @click="confirmDifficulty">确定</text>
-        </view>
-        <view class="picker-options">
-          <view class="picker-option" :class="{ selected: tempDifficulty === '' }" @click="tempDifficulty = ''">全部难度</view>
-          <view class="picker-option" :class="{ selected: tempDifficulty === '1' }" @click="tempDifficulty = '1'">⭐ 简单</view>
-          <view class="picker-option" :class="{ selected: tempDifficulty === '2' }" @click="tempDifficulty = '2'">⭐⭐ 中等</view>
-          <view class="picker-option" :class="{ selected: tempDifficulty === '3' }" @click="tempDifficulty = '3'">⭐⭐⭐ 困难</view>
-        </view>
-      </view>
-    </up-popup>
   </view>
 </template>
 
@@ -157,25 +114,6 @@ const myBindings = ref<any[]>([]);
 // 全部分类
 const categories = ref<{ id: number; name: string }[]>([]);
 const selectedCategoryId = ref<number | null>(null);
-
-// 筛选
-const selectedType = ref('');
-const selectedDifficulty = ref('');
-const tempType = ref('');
-const tempDifficulty = ref('');
-const showTypePicker = ref(false);
-const showDifficultyPicker = ref(false);
-
-const typeOptions = [
-  { label: '单选题', value: 'single_choice' },
-  { label: '多选题', value: 'multiple_choice' },
-  { label: '判断题', value: 'true_false' },
-  { label: '填空题', value: 'fill_blank' },
-  { label: '简答题', value: 'short_answer' },
-];
-
-const selectedTypeLabel = ref('');
-const selectedDifficultyLabel = ref('');
 
 onMounted(() => {
   loadMyBindings();
@@ -210,20 +148,12 @@ async function loadCategories() {
 // 选择我的分类
 function selectMyCategory(b: any) {
   selectedCategoryId.value = b.categoryId;
-  selectedType.value = '';
-  selectedDifficulty.value = '';
-  selectedTypeLabel.value = '';
-  selectedDifficultyLabel.value = '';
   fetchQuestions(true);
 }
 
 // 选择分类
 function selectCategory(catId: number | null) {
   selectedCategoryId.value = catId;
-  selectedType.value = '';
-  selectedDifficulty.value = '';
-  selectedTypeLabel.value = '';
-  selectedDifficultyLabel.value = '';
   fetchQuestions(true);
 }
 
@@ -237,8 +167,6 @@ async function fetchQuestions(refresh = false) {
   try {
     const params: any = { page: page.value, pageSize };
     if (selectedCategoryId.value) params.categoryId = selectedCategoryId.value;
-    if (selectedType.value) params.questionType = selectedType.value;
-    if (selectedDifficulty.value) params.difficulty = Number(selectedDifficulty.value);
 
     const data = await request.get<any>('/study/questions', { params });
     const items = data.items || [];
@@ -255,21 +183,6 @@ async function fetchQuestions(refresh = false) {
 function loadMore() {
   page.value++;
   fetchQuestions();
-}
-
-function confirmType() {
-  selectedType.value = tempType.value;
-  selectedTypeLabel.value = tempType.value ? typeOptions.find(t => t.value === tempType.value)?.label || '' : '';
-  showTypePicker.value = false;
-  fetchQuestions(true);
-}
-
-function confirmDifficulty() {
-  selectedDifficulty.value = tempDifficulty.value;
-  const map: Record<string, string> = { '1': '简单', '2': '中等', '3': '困难' };
-  selectedDifficultyLabel.value = map[tempDifficulty.value] || '';
-  showDifficultyPicker.value = false;
-  fetchQuestions(true);
 }
 
 function getTypeLabel(type: string | undefined): string {
@@ -411,39 +324,23 @@ function goToDetail(id: number | undefined) {
   }
 }
 
-// ========== 筛选栏 ==========
-.filter-bar {
+// ========== 搜索栏 ==========
+.search-bar {
   display: flex;
-  padding: 8px 16px;
+  align-items: center;
   gap: 8px;
-  background: #fff;
-  margin-bottom: 8px;
+  padding: 10px 16px;
+  margin: 0 16px 12px;
+  background: #f5f7fa;
+  border-radius: 20px;
 
-  .filter-chip {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 6px 12px;
-    background: #f5f7fa;
-    border-radius: 16px;
-    font-size: 13px;
-    color: #666;
+  .search-icon {
+    font-size: 16px;
+  }
 
-    &.active {
-      background: #e6f7ff;
-      color: #1890ff;
-    }
-
-    &.search {
-      margin-left: auto;
-      background: linear-gradient(135deg, #e6f7ff, #e6fffb);
-      color: #1890ff;
-    }
-
-    .arrow {
-      font-size: 10px;
-      color: #999;
-    }
+  .search-placeholder {
+    font-size: 14px;
+    color: #999;
   }
 }
 
@@ -529,39 +426,5 @@ function goToDetail(id: number | undefined) {
   padding: 16px 0;
   font-size: 13px;
   color: #999;
-}
-
-// ========== 弹窗选择器 ==========
-.picker {
-  padding-bottom: env(safe-area-inset-bottom);
-
-  .picker-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 16px;
-    border-bottom: 1px solid #f0f0f0;
-
-    .picker-cancel { font-size: 14px; color: #999; }
-    .picker-title { font-size: 16px; font-weight: 500; color: #333; }
-    .picker-confirm { font-size: 14px; color: #1890ff; font-weight: 500; }
-  }
-
-  .picker-options {
-    max-height: 300px;
-    overflow-y: auto;
-
-    .picker-option {
-      padding: 14px 20px;
-      text-align: center;
-      font-size: 15px;
-      color: #333;
-      border-bottom: 1px solid #f5f5f5;
-
-      &:last-child { border-bottom: none; }
-      &:active { background: #f5f5f5; }
-      &.selected { color: #1890ff; font-weight: 500; background: #e6f7ff; }
-    }
-  }
 }
 </style>

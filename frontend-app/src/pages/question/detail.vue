@@ -28,10 +28,9 @@
       <!-- 解析区域 -->
       <view v-if="showAnswer && analysisContent" class="analysis-section">
         <text class="section-label">📝 解析</text>
-        <view v-if="typeof analysisContent === 'object' && analysisContent.text" class="analysis-text">
-          <rich-text :nodes="analysisContent.text" />
+        <view class="analysis-content">
+          <rich-text :nodes="analysisContent" />
         </view>
-        <text v-else class="analysis-text">{{ analysisContent }}</text>
       </view>
       <view class="action-bar">
         <view class="action-item" @click="toggleFavorite">
@@ -65,14 +64,10 @@ const showAnswer = ref(false);
 const isFavorited = ref(false);
 const correctAnswer = ref('A');
 
-// 解析内容（兼容字符串和JSON对象格式）
+// 解析内容（后端已处理为HTML字符串）
 const analysisContent = computed(() => {
   if (!question.value?.analysis) return null;
-  const a = question.value.analysis;
-  if (typeof a === 'string') {
-    try { return JSON.parse(a); } catch { return a; }
-  }
-  return a;
+  return question.value.analysis;
 });
 
 onMounted(() => {
@@ -139,7 +134,7 @@ function goToPractice() { uni.switchTab({ url: '/pages/practice/index' }); }
 .option-content { flex: 1; }
 .answer { font-size: 18px; font-weight: bold; color: #52c41a; }
 .analysis-section { border-left: 3px solid #1890ff; }
-.analysis-text { font-size: 14px; color: #555; line-height: 1.8; word-break: break-all; }
+.analysis-content { font-size: 14px; color: #555; line-height: 1.8; }
 .action-bar { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: #fff; padding: 12px 0; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
 .action-item { flex: 1; display: flex; flex-direction: column; align-items: center; }
 .action-icon { font-size: 20px; }
