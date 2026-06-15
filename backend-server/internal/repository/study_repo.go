@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"fmt"
+
 	"backend-server/internal/model"
 
 	"gorm.io/gorm"
@@ -64,8 +66,14 @@ func (r *StudyRepo) GetQuestionByID(id uint) (map[string]interface{}, error) {
 			"kc.name as category_name").
 		Joins("LEFT JOIN qb_categories kc ON q.category_id = kc.id").
 		Where("q.id = ? AND q.status = ?", id, "published").
-		First(&result).Error
-	return result, err
+		Scan(&result).Error
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
+		return nil, fmt.Errorf("题目不存在")
+	}
+	return result, nil
 }
 
 // GetRandomQuestions 获取随机题目

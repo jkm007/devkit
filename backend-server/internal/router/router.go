@@ -147,6 +147,9 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	questionImportHandler := handler.NewQuestionImportHandler()
 	questionShareHandler := handler.NewQuestionShareHandler()
 
+	// 公开接口（移动端用，无需认证）
+	apiV1.GET("/exam-categories/all", examCategoryHandler.GetAll)
+
 	// 需要认证的接口
 	authorized := apiV1.Group("")
 	authorized.Use(middleware.JWTAuth())
