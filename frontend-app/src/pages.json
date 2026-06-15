@@ -211,26 +211,26 @@
     "list": [
       {
         "pagePath": "pages/index/index",
-        "iconPath": "static/images/tabbar/home.svg",
-        "selectedIconPath": "static/images/tabbar/home-active.svg",
+        "iconPath": "static/images/tabbar/home.png",
+        "selectedIconPath": "static/images/tabbar/home-active.png",
         "text": "首页"
       },
       {
         "pagePath": "pages/question/list",
-        "iconPath": "static/images/tabbar/question.svg",
-        "selectedIconPath": "static/images/tabbar/question-active.svg",
+        "iconPath": "static/images/tabbar/question.png",
+        "selectedIconPath": "static/images/tabbar/question-active.png",
         "text": "题库"
       },
       {
         "pagePath": "pages/practice/index",
-        "iconPath": "static/images/tabbar/practice.svg",
-        "selectedIconPath": "static/images/tabbar/practice-active.svg",
+        "iconPath": "static/images/tabbar/practice.png",
+        "selectedIconPath": "static/images/tabbar/practice-active.png",
         "text": "练习"
       },
       {
         "pagePath": "pages/profile/index",
-        "iconPath": "static/images/tabbar/my.svg",
-        "selectedIconPath": "static/images/tabbar/my-active.svg",
+        "iconPath": "static/images/tabbar/my.png",
+        "selectedIconPath": "static/images/tabbar/my-active.png",
         "text": "我的"
       }
     ]
