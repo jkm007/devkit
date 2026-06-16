@@ -29,7 +29,16 @@
       <view v-if="showAnswer && analysisContent" class="analysis-section">
         <text class="section-label">📝 解析</text>
         <view class="analysis-content">
-          <rich-text :nodes="analysisContent" />
+          <!-- 文字内容 -->
+          <rich-text v-if="analysisText" :nodes="analysisText" />
+          <!-- 图片列表 -->
+          <view v-for="(img, idx) in analysisImages" :key="'img-'+idx" class="media-item">
+            <image :src="img" mode="widthFix" class="analysis-image" @click="previewImage(img)" />
+          </view>
+          <!-- 视频列表 -->
+          <view v-for="(video, idx) in analysisVideos" :key="'video-'+idx" class="media-item">
+            <video :src="video" controls class="analysis-video" />
+          </view>
         </view>
       </view>
       <view class="action-bar">
@@ -64,10 +73,56 @@ const showAnswer = ref(false);
 const isFavorited = ref(false);
 const correctAnswer = ref('A');
 
-// 解析内容（后端已处理为HTML字符串）
+// API基础URL
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1';
+
+// 解析内容处理
 const analysisContent = computed(() => {
-  if (!question.value?.analysis) return null;
-  return question.value.analysis;
+  return question.value?.analysis || null;
+});
+
+// 解析文字内容（移除video和img标签）
+const analysisText = computed(() => {
+  if (!analysisContent.value) return '';
+  let html = analysisContent.value;
+  // 移除video和img标签，保留文字
+  html = html.replace(/<video[^>]*>.*?<\/video>/gi, '');
+  html = html.replace(/<img[^>]*>/gi, '');
+  return html.trim();
+});
+
+// 提取图片URL列表
+const analysisImages = computed(() => {
+  if (!analysisContent.value) return [];
+  const images: string[] = [];
+  const imgRegex = /<img[^>]+src="([^"]+)"/gi;
+  let match;
+  while ((match = imgRegex.exec(analysisContent.value)) !== null) {
+    let src = match[1];
+    // 补全相对路径
+    if (src.startsWith('/')) {
+      src = apiBaseUrl.replace('/api/v1', '') + src;
+    }
+    images.push(src);
+  }
+  return images;
+});
+
+// 提取视频URL列表
+const analysisVideos = computed(() => {
+  if (!analysisContent.value) return [];
+  const videos: string[] = [];
+  const videoRegex = /<video[^>]+src="([^"]+)"/gi;
+  let match;
+  while ((match = videoRegex.exec(analysisContent.value)) !== null) {
+    let src = match[1];
+    // 补全相对路径
+    if (src.startsWith('/')) {
+      src = apiBaseUrl.replace('/api/v1', '') + src;
+    }
+    videos.push(src);
+  }
+  return videos;
 });
 
 onMounted(() => {
@@ -118,6 +173,14 @@ async function toggleFavorite() {
 function getTypeLabel(type: string): string { return { single_choice: '单选题', multiple_choice: '多选题', true_false: '判断题', fill_blank: '填空题', short_answer: '简答题' }[type] || type; }
 function goToFeedback() { uni.navigateTo({ url: `/pages/question/feedback?id=${questionId.value}` }); }
 function goToPractice() { uni.switchTab({ url: '/pages/practice/index' }); }
+
+// 预览图片
+function previewImage(url: string) {
+  uni.previewImage({
+    urls: analysisImages.value,
+    current: url,
+  });
+}
 </script>
 
 <style lang="scss" scoped>
@@ -135,6 +198,9 @@ function goToPractice() { uni.switchTab({ url: '/pages/practice/index' }); }
 .answer { font-size: 18px; font-weight: bold; color: #52c41a; }
 .analysis-section { border-left: 3px solid #1890ff; }
 .analysis-content { font-size: 14px; color: #555; line-height: 1.8; }
+.media-item { margin-top: 12px; }
+.analysis-image { width: 100%; border-radius: 8px; }
+.analysis-video { width: 100%; border-radius: 8px; }
 .action-bar { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: #fff; padding: 12px 0; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
 .action-item { flex: 1; display: flex; flex-direction: column; align-items: center; }
 .action-icon { font-size: 20px; }
