@@ -71,6 +71,11 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	feedbackHandler := handler.NewQuestionFeedbackHandler()
 	mobileCategoryHandler := handler.NewMobileCategoryHandler()
 
+	// 移动端配置
+	mobileConfigRepo := repository.NewMobileConfigRepo(database.GetMySQL())
+	mobileConfigService := service.NewMobileConfigService(mobileConfigRepo)
+	mobileConfigHandler := handler.NewMobileConfigHandler(mobileConfigService)
+
 	// 健康检查（不需要 /api/v1 前缀）
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
@@ -103,6 +108,11 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 
 	// 轮播图（公开接口，移动端首页用）
 	apiV1.GET("/banners", bannerHandler.GetBanners)
+
+	// 移动端配置（公开接口，移动端用）
+	apiV1.GET("/mobile/quick-menus", mobileConfigHandler.GetActiveQuickMenus)
+	apiV1.GET("/mobile/my-page-menus", mobileConfigHandler.GetActiveMyPageMenus)
+	apiV1.GET("/mobile/settings", mobileConfigHandler.GetMobileSettings)
 
 	// 认证接口（无需认证，限流由数据库规则管理）
 	captchaHandler := handler.NewCaptchaHandler()
@@ -561,6 +571,22 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 			system.DELETE("/banners/:id", middleware.Permission("system:banner:delete"), bannerHandler.AdminDelete)
 			system.PUT("/banners/:id/status", middleware.Permission("system:banner:edit"), bannerHandler.AdminUpdateStatus)
 			system.PUT("/banners/:id/sort", middleware.Permission("system:banner:edit"), bannerHandler.AdminUpdateSort)
+
+			// 移动端快捷菜单管理（管理端）
+			system.GET("/quick-menus", middleware.Permission("system:banner:view"), mobileConfigHandler.GetQuickMenus)
+			system.POST("/quick-menus", middleware.Permission("system:banner:add"), mobileConfigHandler.CreateQuickMenu)
+			system.PUT("/quick-menus/:id", middleware.Permission("system:banner:edit"), mobileConfigHandler.UpdateQuickMenu)
+			system.DELETE("/quick-menus/:id", middleware.Permission("system:banner:delete"), mobileConfigHandler.DeleteQuickMenu)
+
+			// 移动端我的页面菜单管理（管理端）
+			system.GET("/my-page-menus", middleware.Permission("system:banner:view"), mobileConfigHandler.GetMyPageMenus)
+			system.POST("/my-page-menus", middleware.Permission("system:banner:add"), mobileConfigHandler.CreateMyPageMenu)
+			system.PUT("/my-page-menus/:id", middleware.Permission("system:banner:edit"), mobileConfigHandler.UpdateMyPageMenu)
+			system.DELETE("/my-page-menus/:id", middleware.Permission("system:banner:delete"), mobileConfigHandler.DeleteMyPageMenu)
+
+			// 移动端设置管理（管理端）
+			system.GET("/mobile-settings", middleware.Permission("system:banner:view"), mobileConfigHandler.GetMobileSettings)
+			system.PUT("/mobile-settings", middleware.Permission("system:banner:edit"), mobileConfigHandler.UpdateMobileSettings)
 		}
 	}
 

@@ -58,5 +58,8 @@ func Run(db *gorm.DB) error {
 		&model.UserCategoryBinding{},
 		&model.Banner{},
 		&model.QuestionFeedback{},
+		&model.QuickMenu{},
+		&model.MyPageMenu{},
+		&model.MobileSettings{},
 	)
 }
