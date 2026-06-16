@@ -36,7 +36,23 @@ type BindCategoryRequest struct {
 
 // ListBindings 获取绑定列表
 func (s *CategoryBindingService) ListBindings(userID uint) ([]CategoryBindingResponse, error) {
-	bindings, err := s.repo.List(userID)
+	// 使用JOIN查询获取分类名称
+	type BindingWithCategory struct {
+		ID           uint      `json:"id"`
+		CategoryID   uint      `json:"categoryId"`
+		CategoryName string    `json:"categoryName"`
+		IsPrimary    bool      `json:"isPrimary"`
+		BoundAt      time.Time `json:"boundAt"`
+	}
+
+	var bindings []BindingWithCategory
+	err := s.repo.GetDB().
+		Table("user_category_bindings b").
+		Select("b.id, b.category_id as category_id, c.name as category_name, b.is_primary, b.bound_at").
+		Joins("LEFT JOIN qb_categories c ON b.category_id = c.id").
+		Where("b.user_id = ?", userID).
+		Order("b.is_primary DESC, b.bound_at ASC").
+		Scan(&bindings).Error
 	if err != nil {
 		return nil, err
 	}
@@ -44,10 +60,11 @@ func (s *CategoryBindingService) ListBindings(userID uint) ([]CategoryBindingRes
 	results := make([]CategoryBindingResponse, 0, len(bindings))
 	for _, b := range bindings {
 		results = append(results, CategoryBindingResponse{
-			ID:         b.ID,
-			CategoryID: b.CategoryID,
-			IsPrimary:  b.IsPrimary,
-			BoundAt:    b.BoundAt,
+			ID:           b.ID,
+			CategoryID:   b.CategoryID,
+			CategoryName: b.CategoryName,
+			IsPrimary:    b.IsPrimary,
+			BoundAt:      b.BoundAt,
 		})
 	}
 

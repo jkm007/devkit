@@ -18,6 +18,11 @@ func NewCategoryBindingRepo(db *gorm.DB) *CategoryBindingRepo {
 	return &CategoryBindingRepo{db: db}
 }
 
+// GetDB 获取数据库连接
+func (r *CategoryBindingRepo) GetDB() *gorm.DB {
+	return r.db
+}
+
 // List 获取用户绑定的分类
 func (r *CategoryBindingRepo) List(userID uint) ([]model.UserCategoryBinding, error) {
 	var bindings []model.UserCategoryBinding
