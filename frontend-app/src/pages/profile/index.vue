@@ -141,37 +141,43 @@ async function loadUserInfo() {
       loginDays: data?.loginDays || 0,
     };
   } catch {
-    if (import.meta.env.DEV) {
-      userInfo.value = { nickname: '模拟用户', loginDays: 30 };
-    }
+    userInfo.value = { nickname: '用户', loginDays: 0 };
   }
 }
 
 async function loadStats() {
   try {
     const [practiceRes, favRes, wrongRes] = await Promise.allSettled([
-      request.get<any>('/study/practice/history', { params: { page: 1, pageSize: 1 } }),
+      request.get<any>('/study/practice/history', { params: { page: 1, pageSize: 100 } }),
       request.get<any>('/user/favorites', { params: { page: 1, pageSize: 1 } }),
       request.get<any>('/study/wrong/stats'),
     ]);
 
+    // 从练习历史计算总答题数和正确率
+    let totalAnswered = 0;
+    let totalCorrect = 0;
+    if (practiceRes.status === 'fulfilled' && practiceRes.value?.items) {
+      for (const record of practiceRes.value.items) {
+        totalAnswered += record.answered || 0;
+        totalCorrect += record.correct || 0;
+      }
+    }
+
     stats.value = {
-      totalAnswered: 128,
-      correctRate: 0.76,
-      continuousDays: 12,
-      favoritesCount: favRes.status === 'fulfilled' ? favRes.value.total || 0 : 5,
-      wrongCount: wrongRes.status === 'fulfilled' ? wrongRes.value.total || 0 : 8,
+      totalAnswered: totalAnswered,
+      correctRate: totalAnswered > 0 ? totalCorrect / totalAnswered : 0,
+      continuousDays: 0, // 需要后端支持连续打卡统计
+      favoritesCount: favRes.status === 'fulfilled' ? favRes.value.total || 0 : 0,
+      wrongCount: wrongRes.status === 'fulfilled' ? wrongRes.value.total || 0 : 0,
     };
   } catch {
-    if (import.meta.env.DEV) {
-      stats.value = {
-        totalAnswered: 128,
-        correctRate: 0.76,
-        continuousDays: 12,
-        favoritesCount: 5,
-        wrongCount: 8,
-      };
-    }
+    stats.value = {
+      totalAnswered: 0,
+      correctRate: 0,
+      continuousDays: 0,
+      favoritesCount: 0,
+      wrongCount: 0,
+    };
   }
 }
 
