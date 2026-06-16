@@ -2,7 +2,7 @@
 import type { VbenFormSchema } from '#/adapter/form';
 import type { Banner } from '#/api/system/banner';
 
-import { computed, ref } from 'vue';
+import { ref } from 'vue';
 
 import { useVbenDrawer, useVbenForm } from '@vben/common-ui';
 import { message } from 'ant-design-vue';
@@ -27,7 +27,7 @@ const statusOptions = [
   { label: '禁用', value: 'disabled' },
 ];
 
-const formSchema = computed((): VbenFormSchema[] => {
+function useFormSchema(): VbenFormSchema[] {
   return [
     {
       component: 'Input',
@@ -96,6 +96,16 @@ const formSchema = computed((): VbenFormSchema[] => {
       },
     },
   ];
+}
+
+const [Form, formApi] = useVbenForm({
+  commonConfig: {
+    componentProps: {
+      class: 'w-full',
+    },
+  },
+  schema: useFormSchema(),
+  showDefaultActions: false,
 });
 
 const [Drawer, drawerApi] = useVbenDrawer({
@@ -139,15 +149,6 @@ const [Drawer, drawerApi] = useVbenDrawer({
       }
     }
   },
-});
-
-const [Form, formApi] = useVbenForm({
-  commonConfig: {
-    componentProps: {
-      class: 'w-full',
-    },
-  },
-  schema: formSchema,
 });
 </script>
 
