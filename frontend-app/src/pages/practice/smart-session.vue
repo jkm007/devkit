@@ -9,21 +9,53 @@
     </view>
 
     <view v-if="currentQuestion" class="question-content">
+      <!-- 题干 -->
       <view class="stem">
-        <ContentBlockRenderer v-if="currentQuestion.stemBlocks?.length" :blocks="currentQuestion.stemBlocks" />
-        <text v-else>{{ currentQuestion.title }}</text>
+        <template v-if="currentQuestion.stem && typeof currentQuestion.stem === 'object' && currentQuestion.stem.blocks">
+          <view v-for="(block, idx) in currentQuestion.stem.blocks" :key="idx">
+            <text v-if="block.type === 'text'">{{ block.content }}</text>
+            <image v-else-if="block.type === 'image'" :src="block.content" mode="widthFix" class="stem-image" />
+          </view>
+        </template>
+        <text v-else>{{ currentQuestion.title || '题目加载中...' }}</text>
       </view>
-      <view v-if="currentQuestion.options" class="options">
+
+      <!-- 选择题选项 -->
+      <view v-if="isChoiceQuestion(currentQuestion) && currentQuestion.options" class="options">
         <view v-for="opt in currentQuestion.options" :key="opt.label" class="option-item" :class="{ selected: answers[currentIndex] === opt.label }" @click="selectAnswer(opt.label)">
           <text class="label">{{ opt.label }}.</text>
-          <ContentBlockRenderer v-if="opt.contentBlocks?.length" :blocks="opt.contentBlocks" />
-          <text v-else class="content">{{ opt.content }}</text>
+          <view class="content">
+            <template v-if="opt.content && typeof opt.content === 'object' && opt.content.blocks">
+              <text v-for="(block, idx) in opt.content.blocks" :key="idx">{{ block.content }}</text>
+            </template>
+            <text v-else>{{ typeof opt.content === 'string' ? opt.content : '' }}</text>
+          </view>
         </view>
       </view>
-      <view v-if="currentQuestion.analysis" class="analysis-section">
-        <text class="analysis-title">解析</text>
-        <ContentBlockRenderer v-if="typeof currentQuestion.analysis === 'object'" :blocks="currentQuestion.analysis" />
-        <text v-else>{{ currentQuestion.analysis }}</text>
+
+      <!-- 填空题 -->
+      <view v-else-if="(currentQuestion.questionType || '').includes('fill')" class="fill-section">
+        <view class="fill-item">
+          <text class="fill-label">请填写答案：</text>
+          <input class="fill-input" v-model="fillAnswers[currentIndex]" placeholder="请输入答案" />
+        </view>
+      </view>
+
+      <!-- 简答题 -->
+      <view v-else-if="(currentQuestion.questionType || '').includes('essay')" class="essay-section">
+        <view class="essay-item">
+          <text class="essay-label">请作答：</text>
+          <textarea class="essay-input" v-model="essayAnswers[currentIndex]" placeholder="请输入你的答案" :maxlength="-1" />
+          <text class="word-count">{{ (essayAnswers[currentIndex] || '').length }} 字</text>
+        </view>
+      </view>
+
+      <!-- 其他题型 -->
+      <view v-else-if="currentQuestion.options" class="options">
+        <view v-for="opt in currentQuestion.options" :key="opt.label" class="option-item" :class="{ selected: answers[currentIndex] === opt.label }" @click="selectAnswer(opt.label)">
+          <text class="label">{{ opt.label }}.</text>
+          <text class="content">{{ typeof opt.content === 'string' ? opt.content : '' }}</text>
+        </view>
       </view>
     </view>
 
@@ -42,30 +74,35 @@ import ContentBlockRenderer from '@/components/ContentBlockRenderer.vue';
 const questions = ref<any[]>([]);
 const currentIndex = ref(0);
 const answers = ref<string[]>([]);
+const fillAnswers = ref<string[]>([]);
+const essayAnswers = ref<string[]>([]);
 const elapsed = ref(0);
 let timer: ReturnType<typeof setInterval> | null = null;
 
+// 判断是否为选择题
+function isChoiceQuestion(q: any): boolean {
+  const type = (q.questionType || q.question_type || '').toLowerCase();
+  return type.includes('choice') || type.includes('single') || type.includes('multiple') || type === '';
+}
+
 onMounted(() => {
-  const pages = getCurrentPages();
-  const currentPage = pages[pages.length - 1] as any;
-  const dataStr = currentPage.options?.data;
+  // 从 storage 读取数据，避免 URL 长度限制
+  const dataStr = uni.getStorageSync('smartPracticeData');
   if (dataStr) {
-    try { questions.value = JSON.parse(decodeURIComponent(dataStr)); } catch { /* ignore */ }
+    try {
+      const parsed = JSON.parse(dataStr);
+      questions.value = Array.isArray(parsed) ? parsed : (parsed.questions || parsed.items || []);
+      uni.removeStorageSync('smartPracticeData');
+    } catch { /* ignore */ }
   }
   if (questions.value.length === 0) {
-    if (import.meta.env.DEV) {
-      questions.value = Array.from({ length: 10 }, (_, i) => ({
-        id: i + 1, title: `智能练习题 ${i + 1}`,
-        options: [
-          { label: 'A', content: '选项 A' }, { label: 'B', content: '选项 B' },
-          { label: 'C', content: '选项 C' }, { label: 'D', content: '选项 D' },
-        ],
-      }));
-    } else {
-      uni.showToast({ title: '加载练习失败', icon: 'none' });
-    }
+    uni.showToast({ title: '暂无题目', icon: 'none' });
+    setTimeout(() => uni.navigateBack(), 1500);
+    return;
   }
   answers.value = new Array(questions.value.length).fill('');
+  fillAnswers.value = new Array(questions.value.length).fill('');
+  essayAnswers.value = new Array(questions.value.length).fill('');
   timer = setInterval(() => { elapsed.value++; }, 1000);
 });
 
@@ -79,11 +116,26 @@ function formatTime(s: number): string { const m = Math.floor(s / 60); const sec
 
 function submitPractice() {
   if (timer) clearInterval(timer);
-  const answered = answers.value.filter(a => a).length;
+  const answered = answers.value.filter(a => a).length + fillAnswers.value.filter(a => a).length + essayAnswers.value.filter(a => a).length;
+
+  // 保存练习结果
+  const result = {
+    questions: questions.value,
+    answers: answers.value,
+    fillAnswers: fillAnswers.value,
+    essayAnswers: essayAnswers.value,
+    elapsed: elapsed.value
+  };
+  uni.setStorageSync('practiceResult', result);
+
   uni.showModal({
     title: '练习完成',
     content: `已完成 ${answered}/${questions.value.length} 题，用时 ${formatTime(elapsed.value)}`,
-    success: (res) => { if (res.confirm) uni.navigateBack(); },
+    success: (res) => {
+      if (res.confirm) {
+        uni.navigateTo({ url: '/pages/practice/result' });
+      }
+    },
   });
 }
 </script>
@@ -104,6 +156,17 @@ function submitPractice() {
 .content { flex: 1; font-size: 15px; }
 .analysis-section { margin-top: 20px; padding-top: 16px; border-top: 1px solid #eee; }
 .analysis-title { font-size: 14px; font-weight: 500; color: #52c41a; margin-bottom: 8px; display: block; }
+
+.fill-section { margin-top: 16px; }
+.fill-item { background: #f9f9f9; border-radius: 8px; padding: 16px; }
+.fill-label { font-size: 14px; font-weight: 500; color: #333; margin-bottom: 8px; display: block; }
+.fill-input { width: 100%; height: 40px; border: 1px solid #ddd; border-radius: 6px; padding: 0 12px; font-size: 15px; background: #fff; }
+
+.essay-section { margin-top: 16px; }
+.essay-item { background: #f9f9f9; border-radius: 8px; padding: 16px; }
+.essay-label { font-size: 14px; font-weight: 500; color: #333; margin-bottom: 8px; display: block; }
+.essay-input { width: 100%; min-height: 120px; border: 1px solid #ddd; border-radius: 6px; padding: 12px; font-size: 15px; background: #fff; }
+.word-count { font-size: 12px; color: #999; text-align: right; display: block; margin-top: 4px; }
 .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: #fff; padding: 12px 16px; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
 .nav-btn { flex: 1; height: 44px; border: none; border-radius: 22px; font-size: 15px; background: #f5f7fa; color: #666; margin-right: 8px; }
 .next-btn { flex: 1; height: 44px; border: none; border-radius: 22px; font-size: 15px; background: #52c41a; color: #fff; }

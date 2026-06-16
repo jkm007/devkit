@@ -11,9 +11,19 @@
       </view>
       <view class="stats-row">
         <view class="stat-item">
-          <text class="stat-value">{{ analysis.accuracy * 100 }}%</text>
+          <text class="stat-value">{{ analysis.totalPractice }}</text>
+          <text class="stat-label">已练题数</text>
+        </view>
+        <view class="stat-item">
+          <text class="stat-value">{{ analysis.totalWrong }}</text>
+          <text class="stat-label">错题数量</text>
+        </view>
+        <view class="stat-item">
+          <text class="stat-value">{{ Math.round(analysis.accuracy * 100) }}%</text>
           <text class="stat-label">正确率</text>
         </view>
+      </view>
+      <view class="stats-row">
         <view class="stat-item">
           <text class="stat-value">{{ ['简单', '中等', '困难'][analysis.suggestedDiff - 1] }}</text>
           <text class="stat-label">建议难度</text>
@@ -24,6 +34,10 @@
         <view class="weak-tags">
           <text v-for="(kp, i) in analysis.weakKnowledge" :key="i" class="weak-tag">{{ kp }}</text>
         </view>
+      </view>
+      <view v-else class="weak-section">
+        <text class="weak-title">暂无薄弱知识点数据</text>
+        <text class="weak-hint">多做练习后会自动分析</text>
       </view>
     </view>
 
@@ -60,7 +74,9 @@
     </view>
 
     <!-- 开始按钮 -->
-    <button class="start-btn" type="primary" @click="startPractice">开始智能练习</button>
+    <button class="start-btn" type="primary" :loading="loading" @click="startPractice">
+      {{ loading ? '加载中...' : '开始智能练习' }}
+    </button>
   </view>
 </template>
 
@@ -70,7 +86,14 @@ import { getPracticeAnalysis, getSmartPractice } from '@/api/study';
 
 const mode = ref<'review' | 'weak' | 'mixed'>('mixed');
 const count = ref(20);
-const analysis = ref({ accuracy: 0.75, suggestedDiff: 2, weakKnowledge: [] as string[] });
+const loading = ref(false);
+const analysis = ref({
+  accuracy: 0,
+  suggestedDiff: 2,
+  weakKnowledge: [] as string[],
+  totalWrong: 0,
+  totalPractice: 0
+});
 
 onMounted(() => {
   loadAnalysis();
@@ -78,8 +101,19 @@ onMounted(() => {
 
 async function loadAnalysis() {
   try {
-    analysis.value = await getPracticeAnalysis();
-  } catch { /* ignore, use defaults */ }
+    const res = await getPracticeAnalysis();
+    if (res) {
+      analysis.value = {
+        accuracy: res.accuracy || 0,
+        suggestedDiff: res.suggestedDiff || 2,
+        weakKnowledge: res.weakKnowledge || [],
+        totalWrong: res.totalWrong || 0,
+        totalPractice: res.totalPractice || 0
+      };
+    }
+  } catch (e) {
+    console.error('加载分析失败:', e);
+  }
 }
 
 function adjustCount(delta: number) {
@@ -87,18 +121,52 @@ function adjustCount(delta: number) {
 }
 
 async function startPractice() {
+  loading.value = true;
   try {
+    console.log('[SmartPractice] 开始, mode:', mode.value, 'count:', count.value);
     const res = await getSmartPractice({
       count: count.value,
       mode: mode.value,
     });
-    const questions = res.questions || [];
+
+    console.log('[SmartPractice] API响应类型:', typeof res);
+    console.log('[SmartPractice] API响应:', JSON.stringify(res).substring(0, 200));
+
+    // 处理不同的响应格式
+    let questions: any[] = [];
+    if (Array.isArray(res)) {
+      questions = res;
+      console.log('[SmartPractice] 格式1: 直接数组, 长度:', questions.length);
+    } else if (res && typeof res === 'object') {
+      if (Array.isArray((res as any).questions)) {
+        questions = (res as any).questions;
+        console.log('[SmartPractice] 格式2: res.questions, 长度:', questions.length);
+      } else if (Array.isArray((res as any).items)) {
+        questions = (res as any).items;
+        console.log('[SmartPractice] 格式3: res.items, 长度:', questions.length);
+      } else if (Array.isArray((res as any).data)) {
+        questions = (res as any).data;
+        console.log('[SmartPractice] 格式4: res.data数组, 长度:', questions.length);
+      } else {
+        console.log('[SmartPractice] 未知格式, keys:', Object.keys(res as any));
+      }
+    }
+
+    if (questions.length === 0) {
+      uni.showToast({ title: '暂无题目', icon: 'none' });
+      return;
+    }
+
+    // 使用 storage 传递数据，避免 URL 长度限制
+    uni.setStorageSync('smartPracticeData', JSON.stringify(questions));
     uni.navigateTo({
-      url: `/pages/practice/smart-session?data=${encodeURIComponent(JSON.stringify(questions))}`,
+      url: '/pages/practice/smart-session',
     });
-  } catch {
-    // Mock: 跳转到普通练习
-    uni.navigateTo({ url: '/pages/practice/index' });
+  } catch (e) {
+    console.error('[SmartPractice] 获取失败:', e);
+    uni.showToast({ title: '获取题目失败', icon: 'none' });
+  } finally {
+    loading.value = false;
   }
 }
 </script>
@@ -116,6 +184,7 @@ async function startPractice() {
 .stat-value { display: block; font-size: 20px; font-weight: bold; color: #1890ff; }
 .stat-label { display: block; font-size: 12px; color: #999; margin-top: 4px; }
 .weak-title { font-size: 14px; font-weight: 500; color: #333; margin-bottom: 8px; display: block; }
+.weak-hint { font-size: 12px; color: #999; display: block; }
 .weak-tags { display: flex; flex-wrap: wrap; gap: 8px; }
 .weak-tag { padding: 4px 12px; background: #fff3e0; color: #f57c00; border-radius: 12px; font-size: 12px; }
 

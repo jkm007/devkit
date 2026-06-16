@@ -144,7 +144,20 @@ function calculateResults() {
 }
 
 function isAnswerCorrect(userAnswer: string, correctAnswer: string, questionType: string): boolean {
-  if (!correctAnswer) return false;
+  if (!correctAnswer || !userAnswer) return false;
+
+  // 解析答案格式
+  let correct = correctAnswer;
+
+  // 处理 JSON 格式: {"correct": ["A"]} 或 {"correct": ["A","B"]}
+  if (typeof correctAnswer === 'string' && correctAnswer.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(correctAnswer);
+      if (parsed.correct && Array.isArray(parsed.correct)) {
+        correct = parsed.correct.sort().join('');
+      }
+    } catch { /* 保持原值 */ }
+  }
 
   // 标准化答案
   const normalize = (ans: string) => ans.trim().toUpperCase();
@@ -152,7 +165,7 @@ function isAnswerCorrect(userAnswer: string, correctAnswer: string, questionType
   if (questionType === 'multi' || questionType === 'multiple_choice') {
     // 多选题：需要完全匹配
     const userSet = new Set(normalize(userAnswer).split('').sort());
-    const correctSet = new Set(normalize(correctAnswer).split('').sort());
+    const correctSet = new Set(normalize(correct).split('').sort());
     if (userSet.size !== correctSet.size) return false;
     for (const item of userSet) {
       if (!correctSet.has(item)) return false;
@@ -161,7 +174,7 @@ function isAnswerCorrect(userAnswer: string, correctAnswer: string, questionType
   }
 
   // 单选/判断题
-  return normalize(userAnswer) === normalize(correctAnswer);
+  return normalize(userAnswer) === normalize(correct);
 }
 
 async function saveWrongQuestions() {

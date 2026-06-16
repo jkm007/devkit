@@ -84,7 +84,7 @@ func (r *StudyRepo) GetRandomQuestions(limit int, filters map[string]interface{}
 	var results []map[string]interface{}
 
 	query := r.db.Table("qb_questions q").
-		Select("q.id as question_id, q.title, q.question_type, q.difficulty, q.stem, q.content").
+		Select("q.id as question_id, q.title, q.question_type, q.difficulty, q.stem, q.content, q.answer, q.analysis, q.category_id").
 		Where("q.status = ?", "published")
 
 	if questionType, ok := filters["questionType"].(string); ok && questionType != "" {
@@ -98,6 +98,10 @@ func (r *StudyRepo) GetRandomQuestions(limit int, filters map[string]interface{}
 	}
 	if difficulty, ok := filters["difficulty"].(int); ok && difficulty > 0 {
 		query = query.Where("q.difficulty = ?", difficulty)
+	}
+	// 排除指定题目ID
+	if excludeIDs, ok := filters["excludeIDs"].([]uint); ok && len(excludeIDs) > 0 {
+		query = query.Where("q.id NOT IN ?", excludeIDs)
 	}
 
 	query.Order("RAND()").Limit(limit).Scan(&results)
