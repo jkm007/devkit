@@ -11,15 +11,27 @@ import {
   updateMyPageMenu,
 } from '#/api/system/mobile-config';
 
-const props = defineProps<{
-  data?: any;
-  mode: 'create' | 'edit';
-}>();
-
 const emit = defineEmits(['success']);
 
+const modalMode = ref<'create' | 'edit'>('create');
+const currentItem = ref<any>(null);
+
 const [Modal, modalApi] = useVbenModal({
-  onConfirm: handleSubmit,
+  async onConfirm() {
+    try {
+      if (modalMode.value === 'create') {
+        await createMyPageMenu(form.value);
+        message.success('创建成功');
+      } else if (currentItem.value) {
+        await updateMyPageMenu(currentItem.value.id, form.value);
+        message.success('更新成功');
+      }
+      emit('success');
+      modalApi.close();
+    } catch (error: any) {
+      message.error(error.message || '操作失败');
+    }
+  },
 });
 
 const form = ref({
@@ -50,32 +62,32 @@ const linkOptions = [
   { value: '/pages/profile/index', label: '个人信息' },
 ];
 
-const isEdit = computed(() => props.mode === 'edit');
+const isEdit = computed(() => modalMode.value === 'edit');
 
-function handleSubmit() {
-  modalApi.lock();
-  const api = isEdit.value
-    ? updateMyPageMenu(props.data.id, form.value)
-    : createMyPageMenu(form.value);
+function openModal(mode: 'create' | 'edit', data: any) {
+  modalMode.value = mode;
+  currentItem.value = data;
 
-  api
-    .then(() => {
-      message.success(isEdit.value ? '更新成功' : '创建成功');
-      emit('success');
-      modalApi.close();
-    })
-    .catch((error: any) => {
-      message.error(error.message || '操作失败');
-    })
-    .finally(() => {
-      modalApi.lock(false);
-    });
+  if (mode === 'edit' && data) {
+    form.value = { ...data };
+  } else {
+    form.value = {
+      title: '',
+      icon: '',
+      link: '',
+      showBadge: false,
+      badgeText: '',
+      sortOrder: 0,
+      status: 'enabled',
+    };
+  }
+
+  modalApi.open();
 }
 
-// 初始化表单
-if (props.data) {
-  form.value = { ...props.data };
-}
+defineExpose({
+  open: openModal,
+});
 </script>
 
 <template>

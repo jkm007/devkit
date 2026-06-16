@@ -33,7 +33,7 @@ const columns: VxeTableGridOptions<MyPageItem>['columns'] = [
     field: 'icon',
     width: 80,
     slots: {
-      default: 'icon_slot',
+      default: 'icon',
     },
   },
   {
@@ -52,7 +52,7 @@ const columns: VxeTableGridOptions<MyPageItem>['columns'] = [
     field: 'showBadge',
     width: 100,
     slots: {
-      default: 'badge_slot',
+      default: 'badge',
     },
   },
   {
@@ -65,7 +65,7 @@ const columns: VxeTableGridOptions<MyPageItem>['columns'] = [
     field: 'status',
     width: 100,
     slots: {
-      default: 'status_slot',
+      default: 'status',
     },
   },
   {
@@ -74,7 +74,7 @@ const columns: VxeTableGridOptions<MyPageItem>['columns'] = [
     width: 200,
     fixed: 'right',
     slots: {
-      default: 'action_slot',
+      default: 'action',
     },
   },
 ];
@@ -159,16 +159,16 @@ function handleModalSuccess() {
     </template>
 
     <Grid>
-      <template #icon_slot="{ row }">
+      <template #icon="{ row }">
         <div class="flex items-center justify-center">
           <span class="text-2xl">{{ row.icon }}</span>
         </div>
       </template>
-      <template #badge_slot="{ row }">
+      <template #badge="{ row }">
         <Tag v-if="row.showBadge" color="red">{{ row.badgeText || 'NEW' }}</Tag>
         <span v-else class="text-gray-400">无</span>
       </template>
-      <template #status_slot="{ row }">
+      <template #status="{ row }">
         <Switch
           :checked="row.status === 'enabled'"
           checked-children="启用"
@@ -176,7 +176,7 @@ function handleModalSuccess() {
           disabled
         />
       </template>
-      <template #action_slot="{ row }">
+      <template #action="{ row }">
         <VbenTableAction
           :actions="[
             {

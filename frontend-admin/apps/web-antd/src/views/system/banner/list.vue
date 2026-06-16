@@ -46,7 +46,7 @@ const columns: VxeTableGridOptions<Banner>['columns'] = [
     field: 'image',
     width: 150,
     slots: {
-      default: 'image_slot',
+      default: 'image',
     },
   },
   {
@@ -60,7 +60,7 @@ const columns: VxeTableGridOptions<Banner>['columns'] = [
     field: 'linkType',
     width: 100,
     slots: {
-      default: 'linkType_slot',
+      default: 'linkType',
     },
   },
   {
@@ -73,7 +73,7 @@ const columns: VxeTableGridOptions<Banner>['columns'] = [
     field: 'status',
     width: 100,
     slots: {
-      default: 'status_slot',
+      default: 'status',
     },
   },
   {
@@ -90,7 +90,7 @@ const columns: VxeTableGridOptions<Banner>['columns'] = [
     width: 200,
     fixed: 'right',
     slots: {
-      default: 'action_slot',
+      default: 'action',
     },
   },
 ];
@@ -175,18 +175,18 @@ function handleModalSuccess() {
     </template>
 
     <Grid>
-      <template #image_slot="{ row }">
+      <template #image="{ row }">
         <img
           :src="row.image"
           style="max-width: 100px; max-height: 50px; object-fit: cover;"
         />
       </template>
-      <template #linkType_slot="{ row }">
+      <template #linkType="{ row }">
         <Tag v-if="row.linkType === 'internal'" color="blue">内部链接</Tag>
         <Tag v-else-if="row.linkType === 'external'" color="orange">外部链接</Tag>
         <Tag v-else color="default">无链接</Tag>
       </template>
-      <template #status_slot="{ row }">
+      <template #status="{ row }">
         <Switch
           :checked="row.status === 'enabled'"
           checked-children="启用"
@@ -194,7 +194,7 @@ function handleModalSuccess() {
           @change="(val: boolean) => handleStatusChange(row.id, val ? 'enabled' : 'disabled')"
         />
       </template>
-      <template #action_slot="{ row }">
+      <template #action="{ row }">
         <VbenTableAction
           :actions="[
             {

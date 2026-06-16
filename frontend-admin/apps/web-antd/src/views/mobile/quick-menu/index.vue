@@ -33,7 +33,7 @@ const columns: VxeTableGridOptions<QuickMenuItem>['columns'] = [
     field: 'icon',
     width: 80,
     slots: {
-      default: 'icon_slot',
+      default: 'icon',
     },
   },
   {
@@ -52,7 +52,7 @@ const columns: VxeTableGridOptions<QuickMenuItem>['columns'] = [
     field: 'linkType',
     width: 100,
     slots: {
-      default: 'linkType_slot',
+      default: 'linkType',
     },
   },
   {
@@ -65,7 +65,7 @@ const columns: VxeTableGridOptions<QuickMenuItem>['columns'] = [
     field: 'status',
     width: 100,
     slots: {
-      default: 'status_slot',
+      default: 'status',
     },
   },
   {
@@ -74,7 +74,7 @@ const columns: VxeTableGridOptions<QuickMenuItem>['columns'] = [
     width: 200,
     fixed: 'right',
     slots: {
-      default: 'action_slot',
+      default: 'action',
     },
   },
 ];
@@ -159,18 +159,18 @@ function handleModalSuccess() {
     </template>
 
     <Grid>
-      <template #icon_slot="{ row }">
+      <template #icon="{ row }">
         <div class="flex items-center justify-center">
           <span class="text-2xl">{{ row.icon }}</span>
         </div>
       </template>
-      <template #linkType_slot="{ row }">
+      <template #linkType="{ row }">
         <Tag v-if="row.linkType === 'page'" color="blue">页面跳转</Tag>
         <Tag v-else-if="row.linkType === 'url'" color="orange">外部链接</Tag>
         <Tag v-else-if="row.linkType === 'function'" color="green">功能</Tag>
         <Tag v-else color="default">无链接</Tag>
       </template>
-      <template #status_slot="{ row }">
+      <template #status="{ row }">
         <Switch
           :checked="row.status === 'enabled'"
           checked-children="启用"
@@ -178,7 +178,7 @@ function handleModalSuccess() {
           disabled
         />
       </template>
-      <template #action_slot="{ row }">
+      <template #action="{ row }">
         <VbenTableAction
           :actions="[
             {
