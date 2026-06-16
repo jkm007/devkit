@@ -366,6 +366,47 @@ func (h *StudyHandler) DeleteWrongBook(c *gin.Context) {
 	response.SuccessWithMessage(c, "已移除", nil)
 }
 
+// AddWrongBook 添加错题
+func (h *StudyHandler) AddWrongBook(c *gin.Context) {
+	userID := middleware.GetCurrentUserID(c)
+
+	var req struct {
+		QuestionID uint `json:"questionId" binding:"required"`
+		CategoryID uint `json:"categoryId"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	if err := h.wrongBookService.AddOrUpdate(userID, req.QuestionID, req.CategoryID); err != nil {
+		response.InternalError(c, "添加错题失败")
+		return
+	}
+
+	response.SuccessWithMessage(c, "已添加到错题本", nil)
+}
+
+// BatchAddWrongBook 批量添加错题
+func (h *StudyHandler) BatchAddWrongBook(c *gin.Context) {
+	userID := middleware.GetCurrentUserID(c)
+
+	var req struct {
+		QuestionIDs []uint `json:"questionIds" binding:"required"`
+		CategoryID  uint   `json:"categoryId"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	for _, qid := range req.QuestionIDs {
+		h.wrongBookService.AddOrUpdate(userID, qid, req.CategoryID)
+	}
+
+	response.SuccessWithMessage(c, "已添加到错题本", nil)
+}
+
 // GetWrongBookRandomQuestions 获取随机错题（重做）
 func (h *StudyHandler) GetWrongBookRandomQuestions(c *gin.Context) {
 	userID := middleware.GetCurrentUserID(c)

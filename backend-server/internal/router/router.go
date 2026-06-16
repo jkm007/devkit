@@ -198,6 +198,8 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		authorized.GET("/study/wrong", studyHandler.GetWrongBooks)
 		authorized.GET("/study/wrong/stats", studyHandler.GetWrongBookStats)
 		authorized.GET("/study/wrong/random", studyHandler.GetWrongBookRandomQuestions)
+		authorized.POST("/study/wrong", studyHandler.AddWrongBook)
+		authorized.POST("/study/wrong/batch", studyHandler.BatchAddWrongBook)
 		authorized.PUT("/study/wrong/:questionId/mastered", studyHandler.MarkWrongMastered)
 		authorized.POST("/study/wrong/batch-mastered", studyHandler.BatchMarkMastered)
 		authorized.DELETE("/study/wrong/:questionId", studyHandler.DeleteWrongBook)

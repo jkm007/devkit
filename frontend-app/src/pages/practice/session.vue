@@ -10,13 +10,38 @@
     <view class="answer-sheet-btn" @click="showAnswerSheet = true"><text>📋</text></view>
     <view v-if="currentQuestion" class="question-content">
       <ContentBlockRenderer v-for="(block, idx) in currentQuestion.stem?.blocks" :key="idx" :block="block" />
-      <view v-if="currentQuestion.options && currentQuestion.options.length" class="options">
+
+      <!-- 选择题选项 -->
+      <view v-if="isChoiceQuestion(currentQuestion.questionType) && currentQuestion.options && currentQuestion.options.length" class="options">
         <view v-for="opt in currentQuestion.options" :key="opt.label" class="option-item" :class="{ selected: answers[currentIndex] === opt.label }" @click="selectAnswer(opt.label)">
           <text class="label">{{ opt.label }}.</text>
           <view class="content">
             <ContentBlockRenderer v-for="(block, idx) in opt.content?.blocks" :key="idx" :block="block" />
           </view>
         </view>
+      </view>
+
+      <!-- 填空题输入 -->
+      <view v-else-if="currentQuestion.questionType === 'fill' || currentQuestion.questionType === 'fill_blank'" class="fill-input">
+        <textarea
+          v-model="fillAnswers[currentIndex]"
+          class="fill-textarea"
+          placeholder="请输入答案"
+          :maxlength="500"
+          @input="updateFillAnswer"
+        />
+      </view>
+
+      <!-- 简答题输入 -->
+      <view v-else-if="currentQuestion.questionType === 'essay' || currentQuestion.questionType === 'short_answer'" class="essay-input">
+        <textarea
+          v-model="essayAnswers[currentIndex]"
+          class="essay-textarea"
+          placeholder="请输入你的答案"
+          :maxlength="2000"
+          @input="updateEssayAnswer"
+        />
+        <text class="word-count">{{ (essayAnswers[currentIndex] || '').length }} / 2000</text>
       </view>
     </view>
     <view class="bottom-nav">
@@ -43,11 +68,17 @@ import { request } from '@/api/request';
 const statusBarHeight = ref(0);
 const questions = ref<any[]>([]);
 const currentIndex = ref(0);
-const answers = ref<string[]>([]);
+const answers = ref<string[]>([]); // 选择题答案
+const fillAnswers = ref<string[]>([]); // 填空题答案
+const essayAnswers = ref<string[]>([]); // 简答题答案
 const elapsed = ref(0);
 const showAnswerSheet = ref(false);
 let timer: ReturnType<typeof setInterval> | null = null;
 const currentQuestion = computed(() => questions.value[currentIndex.value] || null);
+
+function isChoiceQuestion(type: string): boolean {
+  return ['single', 'multi', 'single_choice', 'multiple_choice', 'judge', 'true_false'].includes(type);
+}
 
 onMounted(async () => {
   const systemInfo = uni.getSystemInfoSync();
@@ -63,6 +94,8 @@ onMounted(async () => {
 
   await loadQuestions(params);
   answers.value = new Array(questions.value.length).fill('');
+  fillAnswers.value = new Array(questions.value.length).fill('');
+  essayAnswers.value = new Array(questions.value.length).fill('');
   timer = setInterval(() => { elapsed.value++; }, 1000);
   uni.setStorageSync('practice_answers', JSON.stringify(answers.value));
 });
@@ -90,11 +123,25 @@ async function loadQuestions(params: any) {
         subjectId: params.subjectId || 0,
       });
     }
-    if (res && (res.questions || res.items)) {
-      questions.value = res.questions || res.items;
-      return;
+
+    // 处理不同的返回格式
+    if (res) {
+      if (Array.isArray(res)) {
+        // 直接返回数组
+        questions.value = res;
+      } else if (res.questions) {
+        // { questions: [...] }
+        questions.value = res.questions;
+      } else if (res.items) {
+        // { items: [...] }
+        questions.value = res.items;
+      }
+      if (questions.value.length > 0) return;
     }
-  } catch { /* fall through to mock */ }
+  } catch (e) {
+    console.error('加载题目失败:', e);
+    /* fall through to mock */
+  }
 
   // Mock 数据（仅开发环境）
   if (questions.value.length === 0 && import.meta.env.DEV) {
@@ -102,6 +149,7 @@ async function loadQuestions(params: any) {
     const prefix = modeLabels[mode] || '练习';
     questions.value = Array.from({ length: count }, (_, i) => ({
       id: i + 1,
+      questionType: 'single',
       stem: { blocks: [{ type: 'text', content: `第 ${i + 1} 题：${prefix}题目，以下说法正确的是？` }] },
       options: [
         { label: 'A', content: { blocks: [{ type: 'text', content: '选项 A 的内容' }] } },
@@ -109,25 +157,43 @@ async function loadQuestions(params: any) {
         { label: 'C', content: { blocks: [{ type: 'text', content: '选项 C 的内容' }] } },
         { label: 'D', content: { blocks: [{ type: 'text', content: '选项 D 的内容' }] } },
       ],
+      answer: 'A',
     }));
   }
 }
 onUnmounted(() => { if (timer) clearInterval(timer); });
 function selectAnswer(label: string) { answers.value[currentIndex.value] = label; uni.setStorageSync('practice_answers', JSON.stringify(answers.value)); }
+function updateFillAnswer() { uni.setStorageSync('practice_fill_answers', JSON.stringify(fillAnswers.value)); }
+function updateEssayAnswer() { uni.setStorageSync('practice_essay_answers', JSON.stringify(essayAnswers.value)); }
 function prev() { if (currentIndex.value > 0) currentIndex.value--; }
 function next() { if (currentIndex.value < questions.value.length - 1) currentIndex.value++; }
 function goTo(i: number) { currentIndex.value = i; showAnswerSheet.value = false; }
 function formatTime(s: number): string { const m = Math.floor(s / 60); const sec = s % 60; return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`; }
 function submitPractice() {
   if (timer) clearInterval(timer);
+
+  // 合并所有答案
+  const allAnswers = questions.value.map((q, i) => {
+    if (isChoiceQuestion(q.questionType)) {
+      return answers.value[i] || '';
+    } else if (q.questionType === 'fill' || q.questionType === 'fill_blank') {
+      return fillAnswers.value[i] || '';
+    } else if (q.questionType === 'essay' || q.questionType === 'short_answer') {
+      return essayAnswers.value[i] || '';
+    }
+    return answers.value[i] || '';
+  });
+
   const result = {
     total: questions.value.length,
-    answered: answers.value.filter(a => a).length,
+    answered: allAnswers.filter(a => a).length,
     elapsed: elapsed.value,
-    answers: answers.value,
+    answers: allAnswers,
   };
   // 使用 setStorageSync 避免 URL 长度限制
   uni.setStorageSync('practice_result', JSON.stringify(result));
+  // 保存题目信息用于判断对错
+  uni.setStorageSync('practice_questions', JSON.stringify(questions.value));
   uni.navigateTo({ url: '/pages/practice/result' });
 }
 </script>
@@ -147,6 +213,39 @@ function submitPractice() {
 .option-item.selected { border-color: #1890ff; background: #e6f7ff; }
 .label { font-weight: 500; margin-right: 10px; }
 .content { flex: 1; font-size: 15px; line-height: 1.5; }
+
+/* 填空题 */
+.fill-input { margin-top: 16px; }
+.fill-textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 12px;
+  background: #f9f9f9;
+  border-radius: 8px;
+  border: 1px solid #e8e8e8;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* 简答题 */
+.essay-input { margin-top: 16px; position: relative; }
+.essay-textarea {
+  width: 100%;
+  min-height: 150px;
+  padding: 12px;
+  background: #f9f9f9;
+  border-radius: 8px;
+  border: 1px solid #e8e8e8;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.word-count {
+  position: absolute;
+  bottom: 8px;
+  right: 12px;
+  font-size: 12px;
+  color: #999;
+}
 .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: #fff; padding: 12px 16px; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
 .nav-btn, .next-btn, .submit-btn { flex: 1; height: 44px; border: none; border-radius: 22px; font-size: 15px; }
 .nav-btn { background: #f5f7fa; color: #666; margin-right: 8px; }
