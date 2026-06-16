@@ -19,9 +19,6 @@
             <text v-if="b.isPrimary" class="chip-badge">主</text>
             <text class="chip-text">{{ b.categoryName || '分类' }}</text>
           </view>
-          <view class="category-chip" :class="{ active: selectedCategoryId === null }" @click="selectCategory(null)">
-            <text class="chip-text">全部</text>
-          </view>
         </view>
       </view>
 
@@ -32,6 +29,13 @@
         </view>
         <scroll-view class="tabs-scroll" scroll-x enhanced :show-scrollbar="false">
           <view class="tab-list">
+            <view
+              class="tab-item"
+              :class="{ active: selectedCategoryId === null }"
+              @click="selectCategory(null)"
+            >
+              <text class="tab-text">全部</text>
+            </view>
             <view
               v-for="cat in categories"
               :key="cat.id"
@@ -98,6 +102,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { onShow } from '@dcloudio/uni-app';
 import { request } from '@/api/request';
 import { getCategoryBindings } from '@/api/user';
 import Skeleton from '@/components/Skeleton.vue';
@@ -116,20 +121,19 @@ const categories = ref<{ id: number; name: string }[]>([]);
 const selectedCategoryId = ref<number | null>(null);
 
 onMounted(() => {
-  loadMyBindings();
   loadCategories();
   fetchQuestions(true);
+});
+
+// 页面显示时刷新绑定数据（从分类管理页面返回时）
+onShow(() => {
+  loadMyBindings();
 });
 
 // 加载我的分类绑定
 async function loadMyBindings() {
   try {
     myBindings.value = await getCategoryBindings();
-    // 如果有主分类，默认选中
-    const primary = myBindings.value.find((b: any) => b.isPrimary);
-    if (primary) {
-      selectedCategoryId.value = primary.categoryId;
-    }
   } catch {
     myBindings.value = [];
   }
