@@ -11,9 +11,9 @@ export function getCategoryBindings() {
 }
 
 /**
- * 绑定科目
+ * 绑定分类（支持科目或章节）
  */
-export function bindSubject(data: { subjectId: number; isPrimary?: boolean }) {
+export function bindSubject(data: { subjectId?: number; categoryId?: number; isPrimary?: boolean }) {
   return request.post('/user/category-bindings', data);
 }
 

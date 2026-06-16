@@ -21,11 +21,12 @@
             v-for="b in myBindings"
             :key="b.id"
             class="chip"
-            :class="{ active: selectedSubjectId === b.subjectId }"
+            :class="{ active: activeBindingId === b.id }"
             @click="selectMyBinding(b)"
           >
             <text class="primary-tag" v-if="b.isPrimary">主</text>
             <text class="chip-text">{{ b.subjectName }}</text>
+            <text class="chip-sub" v-if="b.categoryName">·{{ b.categoryName }}</text>
           </view>
         </view>
       </scroll-view>
@@ -35,14 +36,15 @@
     <view class="section">
       <view class="section-header">
         <text class="section-title">考试分类</text>
+        <text class="section-path" v-if="currentPath">{{ currentPath }}</text>
       </view>
       <!-- L1 考试大类 tabs -->
       <scroll-view scroll-x class="category-scroll">
         <view class="category-tabs">
           <view
             class="tab"
-            :class="{ active: selectedExamCategoryId === null }"
-            @click="selectExamCategory(null)"
+            :class="{ active: selectedL1Id === null }"
+            @click="selectL1(null)"
           >
             <text>全部</text>
           </view>
@@ -50,30 +52,30 @@
             v-for="ec in categoryTree"
             :key="ec.id"
             class="tab"
-            :class="{ active: selectedExamCategoryId === ec.id }"
-            @click="selectExamCategory(ec)"
+            :class="{ active: selectedL1Id === ec.id }"
+            @click="selectL1(ec)"
           >
             <text>{{ ec.name }}</text>
           </view>
         </view>
       </scroll-view>
 
-      <!-- L2 考试 tabs (如果有选中的 L1) -->
-      <scroll-view v-if="currentExams.length > 0" scroll-x class="category-scroll sub">
+      <!-- L2 考试 tabs -->
+      <scroll-view v-if="currentL2List.length > 0" scroll-x class="category-scroll sub">
         <view class="category-tabs">
           <view
             class="tab sub"
-            :class="{ active: selectedExamId === null }"
-            @click="selectExam(null)"
+            :class="{ active: selectedL2Id === null }"
+            @click="selectL2(null)"
           >
             <text>全部</text>
           </view>
           <view
-            v-for="exam in currentExams"
+            v-for="exam in currentL2List"
             :key="exam.id"
             class="tab sub"
-            :class="{ active: selectedExamId === exam.id }"
-            @click="selectExam(exam)"
+            :class="{ active: selectedL2Id === exam.id }"
+            @click="selectL2(exam)"
           >
             <text>{{ exam.name }}</text>
           </view>
@@ -81,17 +83,34 @@
       </scroll-view>
 
       <!-- L3 科目 pills -->
-      <scroll-view v-if="currentSubjects.length > 0" scroll-x class="category-scroll pills">
+      <scroll-view v-if="currentL3List.length > 0" scroll-x class="category-scroll pills">
         <view class="category-pills">
           <view
-            v-for="subject in currentSubjects"
+            v-for="subject in currentL3List"
             :key="subject.id"
             class="pill"
-            :class="{ active: selectedSubjectId === subject.id }"
-            @click="selectSubject(subject)"
+            :class="{ active: selectedL3Id === subject.id, expand: subject.children?.length > 0 }"
+            @click="selectL3(subject)"
           >
             <text>{{ subject.name }}</text>
             <text class="count" v-if="subject.questionCount">({{ subject.questionCount }})</text>
+            <text class="arrow" v-if="subject.children?.length > 0">▼</text>
+          </view>
+        </view>
+      </scroll-view>
+
+      <!-- L4 章节 pills -->
+      <scroll-view v-if="currentL4List.length > 0" scroll-x class="category-scroll pills l4">
+        <view class="category-pills">
+          <view
+            v-for="cat in currentL4List"
+            :key="cat.id"
+            class="pill l4"
+            :class="{ active: selectedL4Id === cat.id }"
+            @click="selectL4(cat)"
+          >
+            <text>{{ cat.name }}</text>
+            <text class="count" v-if="cat.questionCount">({{ cat.questionCount }})</text>
           </view>
         </view>
       </scroll-view>
@@ -141,20 +160,16 @@ import { getCategoryBindings, getCategoryTree } from '@/api/user';
 import type { Question } from '@/api/types';
 
 // 分类树数据结构
-interface Subject {
+interface CategoryItem {
   id: number;
   name: string;
   questionCount?: number;
+  children?: CategoryItem[];
 }
-interface Exam {
+interface CategoryTreeNode {
   id: number;
   name: string;
-  subjects: Subject[];
-}
-interface ExamCategory {
-  id: number;
-  name: string;
-  exams: Exam[];
+  exams: CategoryItem[]; // L2 考试，包含 children (L3 科目)
 }
 
 const questions = ref<Question[]>([]);
@@ -162,34 +177,35 @@ const loading = ref(false);
 const page = ref(1);
 const hasMore = ref(true);
 const keyword = ref('');
-const categoryId = ref<number | undefined>(undefined);
-const selectedSubjectId = ref<number | undefined>(undefined);
 const pageSize = 20;
 
 // 分类数据
-const categoryTree = ref<ExamCategory[]>([]);
+const categoryTree = ref<CategoryTreeNode[]>([]);
 const myBindings = ref<any[]>([]);
+const activeBindingId = ref<number | null>(null);
 
-// 当前选中的 L1 和 L2
-const selectedExamCategoryId = ref<number | null>(null);
-const selectedExamId = ref<number | null>(null);
+// 当前选中的层级 ID
+const selectedL1Id = ref<number | null>(null);
+const selectedL2Id = ref<number | null>(null);
+const selectedL3Id = ref<number | null>(null);
+const selectedL4Id = ref<number | null>(null);
 
 // 当前 L2 考试列表
-const currentExams = computed(() => {
-  if (selectedExamCategoryId.value === null) return [];
-  const ec = categoryTree.value.find(e => e.id === selectedExamCategoryId.value);
+const currentL2List = computed(() => {
+  if (selectedL1Id.value === null) return [];
+  const ec = categoryTree.value.find(e => e.id === selectedL1Id.value);
   return ec?.exams || [];
 });
 
 // 当前 L3 科目列表
-const currentSubjects = computed(() => {
-  if (selectedExamId.value === null) {
-    // 如果只选了 L1，显示该 L1 下所有科目的合并
-    const ec = categoryTree.value.find(e => e.id === selectedExamCategoryId.value);
+const currentL3List = computed(() => {
+  if (selectedL2Id.value === null) {
+    // 只选了 L1，显示该 L1 下所有科目（去重）
+    const ec = categoryTree.value.find(e => e.id === selectedL1Id.value);
     if (!ec) return [];
-    const subjects: Subject[] = [];
+    const subjects: CategoryItem[] = [];
     for (const exam of ec.exams) {
-      for (const s of exam.subjects) {
+      for (const s of (exam.children || [])) {
         if (!subjects.find(x => x.id === s.id)) {
           subjects.push(s);
         }
@@ -197,8 +213,37 @@ const currentSubjects = computed(() => {
     }
     return subjects;
   }
-  const exam = currentExams.value.find(e => e.id === selectedExamId.value);
-  return exam?.subjects || [];
+  const exam = currentL2List.value.find(e => e.id === selectedL2Id.value);
+  return exam?.children || [];
+});
+
+// 当前 L4 章节列表
+const currentL4List = computed(() => {
+  if (selectedL3Id.value === null) return [];
+  const subject = currentL3List.value.find(s => s.id === selectedL3Id.value);
+  return subject?.children || [];
+});
+
+// 当前路径显示
+const currentPath = computed(() => {
+  const parts: string[] = [];
+  if (selectedL1Id.value) {
+    const ec = categoryTree.value.find(e => e.id === selectedL1Id.value);
+    if (ec) parts.push(ec.name);
+  }
+  if (selectedL2Id.value) {
+    const exam = currentL2List.value.find(e => e.id === selectedL2Id.value);
+    if (exam) parts.push(exam.name);
+  }
+  if (selectedL3Id.value) {
+    const subject = currentL3List.value.find(s => s.id === selectedL3Id.value);
+    if (subject) parts.push(subject.name);
+  }
+  if (selectedL4Id.value) {
+    const cat = currentL4List.value.find(c => c.id === selectedL4Id.value);
+    if (cat) parts.push(cat.name);
+  }
+  return parts.length > 0 ? parts.join(' > ') : '';
 });
 
 onLoad(() => {
@@ -243,10 +288,11 @@ async function fetchQuestions(reset = true) {
   loading.value = true;
   try {
     const params: any = { page: page.value, pageSize };
-    if (selectedSubjectId.value) {
-      params.subjectId = selectedSubjectId.value;
-    } else if (categoryId.value) {
-      params.categoryId = categoryId.value;
+    // 优先使用最深层级的选中
+    if (selectedL4Id.value) {
+      params.categoryId = selectedL4Id.value;
+    } else if (selectedL3Id.value) {
+      params.subjectId = selectedL3Id.value;
     }
     if (keyword.value) {
       params.keyword = keyword.value;
@@ -276,52 +322,82 @@ function clearSearch() {
   fetchQuestions(true);
 }
 
-// 选择我的分类
+// 选择我的分类 - 联动到考试分类
 function selectMyBinding(b: any) {
-  if (selectedSubjectId.value === b.subjectId) {
-    selectedSubjectId.value = undefined;
+  if (activeBindingId.value === b.id) {
+    // 取消选中
+    activeBindingId.value = null;
+    resetSelection();
   } else {
-    selectedSubjectId.value = b.subjectId;
-    selectedExamCategoryId.value = null;
-    selectedExamId.value = null;
+    activeBindingId.value = b.id;
+    // 联动：自动展开到对应的分类路径
+    selectedL1Id.value = b.examCategoryId || null;
+    selectedL2Id.value = b.examId || null;
+    selectedL3Id.value = b.subjectId || null;
+    selectedL4Id.value = b.level === 'category' ? b.categoryId : null;
   }
   fetchQuestions(true);
 }
 
 // 选择 L1 考试大类
-function selectExamCategory(ec: ExamCategory | null) {
+function selectL1(ec: CategoryTreeNode | null) {
+  activeBindingId.value = null;
   if (ec === null) {
-    selectedExamCategoryId.value = null;
-    selectedExamId.value = null;
-    selectedSubjectId.value = undefined;
+    resetSelection();
   } else {
-    selectedExamCategoryId.value = ec.id;
-    selectedExamId.value = null;
-    selectedSubjectId.value = undefined;
+    selectedL1Id.value = ec.id;
+    selectedL2Id.value = null;
+    selectedL3Id.value = null;
+    selectedL4Id.value = null;
   }
   fetchQuestions(true);
 }
 
 // 选择 L2 考试
-function selectExam(exam: Exam | null) {
+function selectL2(exam: CategoryItem | null) {
+  activeBindingId.value = null;
   if (exam === null) {
-    selectedExamId.value = null;
-    selectedSubjectId.value = undefined;
+    selectedL2Id.value = null;
+    selectedL3Id.value = null;
+    selectedL4Id.value = null;
   } else {
-    selectedExamId.value = exam.id;
-    selectedSubjectId.value = undefined;
+    selectedL2Id.value = exam.id;
+    selectedL3Id.value = null;
+    selectedL4Id.value = null;
   }
   fetchQuestions(true);
 }
 
 // 选择 L3 科目
-function selectSubject(subject: Subject) {
-  if (selectedSubjectId.value === subject.id) {
-    selectedSubjectId.value = undefined;
+function selectL3(subject: CategoryItem) {
+  activeBindingId.value = null;
+  if (selectedL3Id.value === subject.id) {
+    // 取消选中
+    selectedL3Id.value = null;
+    selectedL4Id.value = null;
   } else {
-    selectedSubjectId.value = subject.id;
+    selectedL3Id.value = subject.id;
+    selectedL4Id.value = null;
   }
   fetchQuestions(true);
+}
+
+// 选择 L4 章节
+function selectL4(cat: CategoryItem) {
+  activeBindingId.value = null;
+  if (selectedL4Id.value === cat.id) {
+    selectedL4Id.value = null;
+  } else {
+    selectedL4Id.value = cat.id;
+  }
+  fetchQuestions(true);
+}
+
+function resetSelection() {
+  selectedL1Id.value = null;
+  selectedL2Id.value = null;
+  selectedL3Id.value = null;
+  selectedL4Id.value = null;
 }
 
 function goToCategoryManage() {
@@ -399,6 +475,14 @@ function getDiffName(d: number): string {
   font-size: 13px;
   color: #1890ff;
 }
+.section-path {
+  font-size: 12px;
+  color: #999;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 /* 我的分类 */
 .category-scroll {
@@ -433,6 +517,10 @@ function getDiffName(d: number): string {
   font-size: 13px;
   color: #333;
 }
+.chip-sub {
+  font-size: 12px;
+  color: #999;
+}
 
 /* 考试分类 tabs */
 .category-tabs {
@@ -460,9 +548,12 @@ function getDiffName(d: number): string {
   padding-top: 8px;
 }
 
-/* L3 科目 pills */
+/* L3/L4 pills */
 .category-scroll.pills {
   padding-top: 8px;
+}
+.category-scroll.pills.l4 {
+  padding-left: 16px;
 }
 .category-pills {
   display: inline-flex;
@@ -483,9 +574,24 @@ function getDiffName(d: number): string {
   background: #2f54eb;
   color: #fff;
 }
+.pill.expand {
+  padding-right: 8px;
+}
 .pill .count {
   font-size: 11px;
   opacity: 0.7;
+}
+.pill .arrow {
+  font-size: 10px;
+  margin-left: 2px;
+}
+.pill.l4 {
+  background: #f6ffed;
+  color: #52c41a;
+}
+.pill.l4.active {
+  background: #52c41a;
+  color: #fff;
 }
 
 /* 题目列表 */

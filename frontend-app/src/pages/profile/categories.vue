@@ -2,7 +2,7 @@
   <view class="categories-page">
     <view class="header">
       <text class="title">我的分类</text>
-      <text class="subtitle">最多绑定 3 个科目（1 个主分类 + 2 个副分类）</text>
+      <text class="subtitle">最多绑定 3 个分类</text>
     </view>
 
     <!-- 已绑定列表 -->
@@ -14,7 +14,8 @@
         <view v-for="b in bindings" :key="b.id" class="binding-card">
           <view class="card-header">
             <text class="primary-tag" v-if="b.isPrimary">主</text>
-            <text class="category-name">{{ b.subjectName || '科目 ' + b.subjectId }}</text>
+            <text class="level-tag" :class="b.level">{{ b.level === 'subject' ? '科目' : '章节' }}</text>
+            <text class="category-name">{{ b.categoryName || b.subjectName }}</text>
           </view>
           <text class="path-text" v-if="b.path">{{ b.path }}</text>
           <text class="bound-time">绑定于 {{ formatDate(b.boundAt) }}</text>
@@ -33,7 +34,7 @@
 
     <!-- 提示 -->
     <view class="tip-section">
-      <text class="tip-text">绑定科目后，题库将默认显示该科目下的题目内容</text>
+      <text class="tip-text">绑定科目或章节后，题库将默认显示对应的题目内容</text>
     </view>
 
     <!-- 分类选择弹窗 -->
@@ -41,47 +42,41 @@
       <view class="picker-panel">
         <!-- 面包屑导航 -->
         <view class="picker-header">
-          <text class="picker-title">选择科目</text>
-          <view class="breadcrumb" v-if="selectedL1 || selectedL2">
-            <text class="breadcrumb-item" @click="goBackToL1" v-if="selectedL1">{{ selectedL1.name }}</text>
-            <text class="breadcrumb-sep" v-if="selectedL1 && selectedL2"> > </text>
-            <text class="breadcrumb-item" v-if="selectedL2">{{ selectedL2.name }}</text>
+          <text class="picker-title">选择分类</text>
+          <view class="breadcrumb" v-if="selectedPath.length > 0">
+            <text
+              v-for="(item, idx) in selectedPath"
+              :key="idx"
+              class="breadcrumb-item"
+              @click="goToLevel(idx)"
+            >
+              {{ item.name }}
+              <text v-if="idx < selectedPath.length - 1" class="breadcrumb-sep"> > </text>
+            </text>
           </view>
         </view>
 
         <!-- 返回按钮 -->
-        <view v-if="selectedL1 || selectedL2" class="back-btn" @click="goBack">
+        <view v-if="currentLevel > 0" class="back-btn" @click="goBack">
           <text>← 返回</text>
         </view>
 
-        <!-- Step 1: 选择考试大类 -->
-        <view v-if="!selectedL1" class="picker-list">
-          <view v-for="ec in categoryTree" :key="ec.id" class="picker-item" @click="selectL1(ec)">
-            <text class="item-name">{{ ec.name }}</text>
-            <text class="item-arrow">›</text>
-          </view>
-        </view>
-
-        <!-- Step 2: 选择考试 -->
-        <view v-else-if="selectedL1 && !selectedL2" class="picker-list">
-          <view v-for="exam in selectedL1.exams" :key="exam.id" class="picker-item" @click="selectL2(exam)">
-            <text class="item-name">{{ exam.name }}</text>
-            <text class="item-count">{{ exam.subjects?.length || 0 }} 个科目</text>
-            <text class="item-arrow">›</text>
-          </view>
-        </view>
-
-        <!-- Step 3: 选择科目 -->
-        <view v-else-if="selectedL2" class="picker-list">
+        <!-- 当前层级列表 -->
+        <view class="picker-list">
           <view
-            v-for="subject in selectedL2.subjects"
-            :key="subject.id"
-            class="picker-item subject"
-            @click="selectSubject(subject)"
+            v-for="item in currentList"
+            :key="item.id"
+            class="picker-item"
+            :class="{ bound: isBound(item.id), selectable: !item.children || item.children.length === 0 }"
+            @click="selectItem(item)"
           >
-            <text class="item-name">{{ subject.name }}</text>
-            <text class="item-count" v-if="subject.questionCount">{{ subject.questionCount }} 题</text>
-            <text class="item-bound" v-if="isBound(subject.id)">已绑定</text>
+            <view class="item-info">
+              <text class="item-name">{{ item.name }}</text>
+              <text class="item-count" v-if="item.questionCount">{{ item.questionCount }} 题</text>
+            </view>
+            <text v-if="item.children && item.children.length > 0" class="item-arrow">›</text>
+            <text v-else-if="isBound(item.id)" class="item-bound">已绑定</text>
+            <text v-else class="item-bind">绑定</text>
           </view>
         </view>
       </view>
@@ -90,34 +85,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { getCategoryBindings, bindSubject, unbindCategory, setPrimaryCategory, getCategoryTree } from '@/api/user';
 
 // 分类树数据结构
-interface Subject {
+interface CategoryItem {
   id: number;
   name: string;
   questionCount?: number;
-}
-interface Exam {
-  id: number;
-  name: string;
-  subjects: Subject[];
-}
-interface ExamCategory {
-  id: number;
-  name: string;
-  exams: Exam[];
+  children?: CategoryItem[];
 }
 
 const bindings = ref<any[]>([]);
 const showPicker = ref(false);
-const categoryTree = ref<ExamCategory[]>([]);
+const categoryTree = ref<CategoryItem[]>([]);
 
 // 级联选择状态
-const selectedL1 = ref<ExamCategory | null>(null);
-const selectedL2 = ref<Exam | null>(null);
+const selectedPath = ref<CategoryItem[]>([]); // 选中路径
+const currentLevel = ref(0); // 当前层级 0=L1, 1=L2, 2=L3, 3=L4
+const currentList = ref<CategoryItem[]>([]); // 当前显示的列表
 
 onMounted(() => {
   loadBindings();
@@ -138,7 +125,26 @@ async function loadBindings() {
 async function loadCategoryTree() {
   try {
     const res = await getCategoryTree();
-    categoryTree.value = Array.isArray(res) ? res : [];
+    // API 返回结构：L1 { id, name, exams: [L2 { id, name, children: [L3 { id, name, children: [L4] }] }] }
+    categoryTree.value = (Array.isArray(res) ? res : []).map((ec: any) => ({
+      id: ec.id,
+      name: ec.name,
+      children: (ec.exams || []).map((exam: any) => ({
+        id: exam.id,
+        name: exam.name,
+        questionCount: exam.questionCount,
+        children: (exam.children || []).map((subj: any) => ({
+          id: subj.id,
+          name: subj.name,
+          questionCount: subj.questionCount,
+          children: (subj.children || []).map((cat: any) => ({
+            id: cat.id,
+            name: cat.name,
+            questionCount: cat.questionCount,
+          })),
+        })),
+      })),
+    }));
   } catch {
     categoryTree.value = [];
     uni.showToast({ title: '加载分类失败', icon: 'none' });
@@ -147,28 +153,41 @@ async function loadCategoryTree() {
 
 async function openPicker() {
   showPicker.value = true;
-  selectedL1.value = null;
-  selectedL2.value = null;
+  selectedPath.value = [];
+  currentLevel.value = 0;
   await loadCategoryTree();
+  currentList.value = categoryTree.value;
 }
 
-function selectL1(ec: ExamCategory) {
-  selectedL1.value = ec;
-  selectedL2.value = null;
-}
-
-function selectL2(exam: Exam) {
-  selectedL2.value = exam;
-}
-
-async function selectSubject(subject: Subject) {
-  if (isBound(subject.id)) {
-    uni.showToast({ title: '已绑定该科目', icon: 'none' });
+function selectItem(item: CategoryItem) {
+  if (isBound(item.id)) {
+    uni.showToast({ title: '已绑定该分类', icon: 'none' });
     return;
   }
+
+  // 如果有子节点，进入下一级
+  if (item.children && item.children.length > 0) {
+    selectedPath.value.push(item);
+    currentLevel.value++;
+    currentList.value = item.children;
+    return;
+  }
+
+  // 没有子节点，执行绑定
+  doBind(item);
+}
+
+async function doBind(item: CategoryItem) {
   showPicker.value = false;
   try {
-    await bindSubject({ subjectId: subject.id, isPrimary: bindings.value.length === 0 });
+    // 根据层级决定绑定类型
+    // L3=科目, L4=章节
+    const isSubject = currentLevel.value === 2; // 第3层是科目
+    const data = isSubject
+      ? { subjectId: item.id, isPrimary: bindings.value.length === 0 }
+      : { categoryId: item.id, isPrimary: bindings.value.length === 0 };
+
+    await bindSubject(data);
     uni.showToast({ title: '绑定成功', icon: 'success' });
     await loadBindings();
   } catch (e: any) {
@@ -177,20 +196,29 @@ async function selectSubject(subject: Subject) {
 }
 
 function goBack() {
-  if (selectedL2.value) {
-    selectedL2.value = null;
-  } else if (selectedL1.value) {
-    selectedL1.value = null;
+  if (selectedPath.value.length > 0) {
+    selectedPath.value.pop();
+    currentLevel.value--;
+    if (selectedPath.value.length === 0) {
+      currentList.value = categoryTree.value;
+    } else {
+      currentList.value = selectedPath.value[selectedPath.value.length - 1].children || [];
+    }
   }
 }
 
-function goBackToL1() {
-  selectedL1.value = null;
-  selectedL2.value = null;
+function goToLevel(idx: number) {
+  selectedPath.value = selectedPath.value.slice(0, idx);
+  currentLevel.value = idx;
+  if (idx === 0) {
+    currentList.value = categoryTree.value;
+  } else {
+    currentList.value = selectedPath.value[idx - 1].children || [];
+  }
 }
 
-function isBound(subjectId: number): boolean {
-  return bindings.value.some((b: any) => b.subjectId === subjectId);
+function isBound(id: number): boolean {
+  return bindings.value.some((b: any) => b.categoryId === id || b.subjectId === id);
 }
 
 async function setPrimary(b: any) {
@@ -204,9 +232,10 @@ async function setPrimary(b: any) {
 }
 
 async function unbind(b: any) {
+  const name = b.categoryName || b.subjectName;
   uni.showModal({
     title: '确认解绑',
-    content: `确定要解绑「${b.subjectName}」吗？`,
+    content: `确定要解绑「${name}」吗？`,
     success: async (res) => {
       if (res.confirm) {
         try {
@@ -288,6 +317,19 @@ function formatDate(dateStr: string): string {
   border-radius: 4px;
   font-size: 12px;
 }
+.level-tag {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+.level-tag.subject {
+  background: #f0f5ff;
+  color: #2f54eb;
+}
+.level-tag.category {
+  background: #f6ffed;
+  color: #52c41a;
+}
 .category-name {
   font-size: 16px;
   font-weight: 500;
@@ -348,7 +390,7 @@ function formatDate(dateStr: string): string {
 /* 选择器弹窗 */
 .picker-panel {
   padding: 20px;
-  max-height: 60vh;
+  max-height: 70vh;
   overflow-y: auto;
 }
 .picker-header {
@@ -362,14 +404,13 @@ function formatDate(dateStr: string): string {
 .breadcrumb {
   margin-top: 8px;
   font-size: 13px;
-  color: #1890ff;
 }
 .breadcrumb-item {
   color: #1890ff;
 }
 .breadcrumb-sep {
   color: #999;
-  margin: 0 4px;
+  margin: 0 2px;
 }
 
 .back-btn {
@@ -380,7 +421,7 @@ function formatDate(dateStr: string): string {
 }
 
 .picker-list {
-  max-height: 45vh;
+  max-height: 50vh;
   overflow-y: auto;
 }
 .picker-item {
@@ -394,15 +435,22 @@ function formatDate(dateStr: string): string {
 .picker-item:active {
   background: #e6f7ff;
 }
-.item-name {
+.picker-item.bound {
+  opacity: 0.6;
+}
+.item-info {
   flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.item-name {
   font-size: 15px;
   color: #333;
 }
 .item-count {
   font-size: 12px;
   color: #999;
-  margin-right: 8px;
 }
 .item-arrow {
   font-size: 18px;
@@ -415,7 +463,11 @@ function formatDate(dateStr: string): string {
   padding: 2px 8px;
   border-radius: 4px;
 }
-.picker-item.subject {
-  background: #f0f5ff;
+.item-bind {
+  font-size: 12px;
+  color: #1890ff;
+  background: #e6f7ff;
+  padding: 2px 8px;
+  border-radius: 4px;
 }
 </style>
