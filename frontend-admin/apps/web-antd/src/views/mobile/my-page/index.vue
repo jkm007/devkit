@@ -111,17 +111,11 @@ const [Grid, gridApi] = useVbenVxeGrid({
 });
 
 function handleCreate() {
-  myPageDrawerApi.open({
-    mode: 'create',
-    data: null,
-  });
+  myPageDrawerApi.setData(null).open();
 }
 
 function handleEdit(record: MyPageItem) {
-  myPageDrawerApi.open({
-    mode: 'edit',
-    data: record,
-  });
+  myPageDrawerApi.setData(record).open();
 }
 
 async function handleDelete(id: number) {

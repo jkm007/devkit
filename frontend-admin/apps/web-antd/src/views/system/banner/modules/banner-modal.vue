@@ -115,7 +115,28 @@ const [Modal, modalApi] = useVbenModal({
       message.error(error.message || '操作失败');
     }
   },
-  connectedComponent: null,
+  async onOpenChange(isOpen) {
+    if (isOpen) {
+      const data = modalApi.getData<Banner>();
+      formApi.resetForm();
+
+      if (data) {
+        modalMode.value = 'edit';
+        currentBanner.value = data;
+        formApi.setValues({
+          title: data.title,
+          image: data.image,
+          link: data.link || '',
+          linkType: data.linkType || 'none',
+          sortOrder: data.sortOrder || 0,
+          status: data.status || 'enabled',
+        });
+      } else {
+        modalMode.value = 'create';
+        currentBanner.value = null;
+      }
+    }
+  },
 });
 
 const [Form, formApi] = useVbenForm({
@@ -125,30 +146,6 @@ const [Form, formApi] = useVbenForm({
     },
   },
   schema: formSchema,
-});
-
-function openModal(mode: 'create' | 'edit', data: Banner | null) {
-  modalMode.value = mode;
-  currentBanner.value = data;
-
-  if (mode === 'edit' && data) {
-    formApi.setValues({
-      title: data.title,
-      image: data.image,
-      link: data.link || '',
-      linkType: data.linkType || 'none',
-      sortOrder: data.sortOrder || 0,
-      status: data.status || 'enabled',
-    });
-  } else {
-    formApi.resetForm();
-  }
-
-  modalApi.open();
-}
-
-defineExpose({
-  open: openModal,
 });
 </script>
 

@@ -111,17 +111,11 @@ const [Grid, gridApi] = useVbenVxeGrid({
 });
 
 function handleCreate() {
-  quickMenuDrawerApi.open({
-    mode: 'create',
-    data: null,
-  });
+  quickMenuDrawerApi.setData(null).open();
 }
 
 function handleEdit(record: QuickMenuItem) {
-  quickMenuDrawerApi.open({
-    mode: 'edit',
-    data: record,
-  });
+  quickMenuDrawerApi.setData(record).open();
 }
 
 async function handleDelete(id: number) {

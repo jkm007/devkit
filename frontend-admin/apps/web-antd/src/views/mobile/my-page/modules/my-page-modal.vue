@@ -32,6 +32,29 @@ const [Modal, modalApi] = useVbenModal({
       message.error(error.message || '操作失败');
     }
   },
+  async onOpenChange(isOpen) {
+    if (isOpen) {
+      const data = modalApi.getData();
+
+      if (data) {
+        modalMode.value = 'edit';
+        currentItem.value = data;
+        form.value = { ...data };
+      } else {
+        modalMode.value = 'create';
+        currentItem.value = null;
+        form.value = {
+          title: '',
+          icon: '',
+          link: '',
+          showBadge: false,
+          badgeText: '',
+          sortOrder: 0,
+          status: 'enabled',
+        };
+      }
+    }
+  },
 });
 
 const form = ref({
@@ -63,31 +86,6 @@ const linkOptions = [
 ];
 
 const isEdit = computed(() => modalMode.value === 'edit');
-
-function openModal(mode: 'create' | 'edit', data: any) {
-  modalMode.value = mode;
-  currentItem.value = data;
-
-  if (mode === 'edit' && data) {
-    form.value = { ...data };
-  } else {
-    form.value = {
-      title: '',
-      icon: '',
-      link: '',
-      showBadge: false,
-      badgeText: '',
-      sortOrder: 0,
-      status: 'enabled',
-    };
-  }
-
-  modalApi.open();
-}
-
-defineExpose({
-  open: openModal,
-});
 </script>
 
 <template>

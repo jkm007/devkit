@@ -127,17 +127,11 @@ const [Grid, gridApi] = useVbenVxeGrid({
 });
 
 function handleCreate() {
-  bannerDrawerApi.open({
-    mode: 'create',
-    data: null,
-  });
+  bannerDrawerApi.setData(null).open();
 }
 
 function handleEdit(record: Banner) {
-  bannerDrawerApi.open({
-    mode: 'edit',
-    data: record,
-  });
+  bannerDrawerApi.setData(record).open();
 }
 
 async function handleDelete(id: number) {
