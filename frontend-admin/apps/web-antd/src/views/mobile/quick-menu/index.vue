@@ -182,13 +182,20 @@ function handleModalSuccess() {
         <VbenTableAction
           :actions="[
             {
-              label: '编辑',
+              text: '编辑',
+              icon: 'lucide:edit',
               onClick: () => handleEdit(row),
             },
+          ]"
+          :dropdown-actions="[
             {
-              label: '删除',
+              text: '删除',
+              icon: 'lucide:trash-2',
               danger: true,
-              onClick: () => handleDelete(row.id),
+              popConfirm: {
+                title: '确定删除此快捷菜单吗？',
+                confirm: () => handleDelete(row.id),
+              },
             },
           ]"
         />
