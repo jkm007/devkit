@@ -10,7 +10,6 @@ import {
   Form,
   FormItem,
   Input,
-  InputTextArea,
   Switch,
   Divider,
 } from 'ant-design-vue';
@@ -85,7 +84,7 @@ async function handleSave() {
             />
           </FormItem>
           <FormItem v-if="form.noticeEnabled" label="公告内容">
-            <InputTextArea
+            <Input.TextArea
               v-model:value="form.noticeContent"
               placeholder="请输入公告内容"
               :rows="4"
@@ -128,7 +127,7 @@ async function handleSave() {
       <Card title="ℹ️ 关于我们">
         <Form layout="vertical" :model="form">
           <FormItem label="关于我们内容">
-            <InputTextArea
+            <Input.TextArea
               v-model:value="form.aboutUs"
               placeholder="请输入关于我们的介绍内容"
               :rows="6"

@@ -148,7 +148,7 @@ function handleModalSuccess() {
 <template>
   <Page
     auto-content-height
-    description="管理移动端\"我的\"页面显示的功能菜单"
+    description="管理移动端我的页面显示的功能菜单"
     title="我的页面配置"
   >
     <template #extra>
