@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { ref, computed } from 'vue';
 
-import { useVbenModal } from '@vben/common-ui';
+import { useVbenDrawer } from '@vben/common-ui';
 
 import { message } from 'ant-design-vue';
 import { Form, FormItem, Input, InputNumber, Select, SelectOption, Switch } from 'ant-design-vue';
@@ -16,7 +16,7 @@ const emit = defineEmits(['success']);
 const modalMode = ref<'create' | 'edit'>('create');
 const currentItem = ref<any>(null);
 
-const [Modal, modalApi] = useVbenModal({
+const [Drawer, drawerApi] = useVbenDrawer({
   async onConfirm() {
     try {
       if (modalMode.value === 'create') {
@@ -27,14 +27,14 @@ const [Modal, modalApi] = useVbenModal({
         message.success('更新成功');
       }
       emit('success');
-      modalApi.close();
+      drawerApi.close();
     } catch (error: any) {
       message.error(error.message || '操作失败');
     }
   },
   async onOpenChange(isOpen) {
     if (isOpen) {
-      const data = modalApi.getData();
+      const data = drawerApi.getData();
 
       if (data) {
         modalMode.value = 'edit';
@@ -89,7 +89,7 @@ const isEdit = computed(() => modalMode.value === 'edit');
 </script>
 
 <template>
-  <Modal :title="isEdit ? '编辑菜单项' : '新增菜单项'">
+  <Drawer :title="isEdit ? '编辑菜单项' : '新增菜单项'">
     <Form layout="vertical" :model="form">
       <FormItem label="标题" required>
         <Input v-model:value="form.title" placeholder="请输入标题" />
@@ -142,5 +142,5 @@ const isEdit = computed(() => modalMode.value === 'edit');
         />
       </FormItem>
     </Form>
-  </Modal>
+  </Drawer>
 </template>

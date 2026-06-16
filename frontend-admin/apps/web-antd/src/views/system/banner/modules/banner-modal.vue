@@ -4,7 +4,7 @@ import type { Banner } from '#/api/system/banner';
 
 import { computed, ref } from 'vue';
 
-import { useVbenModal, useVbenForm } from '@vben/common-ui';
+import { useVbenDrawer, useVbenForm } from '@vben/common-ui';
 import { message } from 'ant-design-vue';
 
 import { createBanner, updateBanner } from '#/api/system/banner';
@@ -98,8 +98,10 @@ const formSchema = computed((): VbenFormSchema[] => {
   ];
 });
 
-const [Modal, modalApi] = useVbenModal({
+const [Drawer, drawerApi] = useVbenDrawer({
   async onConfirm() {
+    const { valid } = await formApi.validate();
+    if (!valid) return;
     const values = await formApi.getValues();
     try {
       if (modalMode.value === 'create') {
@@ -110,14 +112,14 @@ const [Modal, modalApi] = useVbenModal({
         message.success('更新成功');
       }
       emit('success');
-      modalApi.close();
+      drawerApi.close();
     } catch (error: any) {
       message.error(error.message || '操作失败');
     }
   },
   async onOpenChange(isOpen) {
     if (isOpen) {
-      const data = modalApi.getData<Banner>();
+      const data = drawerApi.getData<Banner>();
       formApi.resetForm();
 
       if (data) {
@@ -150,10 +152,10 @@ const [Form, formApi] = useVbenForm({
 </script>
 
 <template>
-  <Modal
+  <Drawer
     :title="modalMode === 'create' ? '新增轮播图' : '编辑轮播图'"
     class="w-[600px]"
   >
     <Form />
-  </Modal>
+  </Drawer>
 </template>
