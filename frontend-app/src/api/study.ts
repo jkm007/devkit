@@ -12,6 +12,7 @@ export function getQuestions(params: {
   pageSize?: number;
   questionType?: string;
   categoryId?: number;
+  subjectId?: number;
   difficulty?: number;
   keyword?: string;
   knowledgePoint?: string;
@@ -83,6 +84,7 @@ export function getPracticeQuestions(data: {
   count?: number;
   types?: string[];
   categoryId?: number;
+  subjectId?: number;
   difficulty?: number;
 }) {
   return request.post<any>('/study/practice/questions', data);
@@ -169,6 +171,7 @@ export function getWrongBookStats() {
 export function getSmartPractice(data: {
   count?: number;
   categories?: number[];
+  subjectIds?: number[];
   mode?: 'review' | 'weak' | 'mixed';
   difficulty?: number;
 }) {

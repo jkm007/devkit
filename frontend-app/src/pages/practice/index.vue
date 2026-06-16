@@ -66,7 +66,7 @@
           <text class="label">📂 分类</text>
           <scroll-view class="category-scroll" scroll-x enhanced :show-scrollbar="false">
             <view class="category-list">
-              <view class="cat-btn" :class="{ active: selectedCategory === cat.id }" v-for="cat in categories" :key="cat.id" @click="selectCategory(cat.id)">
+              <view class="cat-btn" :class="{ active: selectedSubject === cat.id }" v-for="cat in categories" :key="cat.id ?? 'all'" @click="selectCategory(cat.id)">
                 {{ cat.name }}
               </view>
             </view>
@@ -129,16 +129,17 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { request } from '@/api/request';
+import { getCategoryTree } from '@/api/user';
 
 const wrongCount = ref(0);
 const questionCount = ref(20);
 const difficulty = ref(0);
 const selectedTypes = ref<string[]>([]);
-const selectedCategory = ref<number | null>(null);
+const selectedSubject = ref<number | null>(null);
 const showFilter = ref(false);
 
 const categories = ref<{ id: number | null; name: string }[]>([
-  { id: null, name: '全部分类' },
+  { id: null, name: '全部科目' },
 ]);
 
 const typeOptions = [
@@ -168,14 +169,21 @@ async function loadWrongCount() {
 
 async function loadCategories() {
   try {
-    const res = await request.get<any[]>('/exam-categories/all');
-    categories.value = [{ id: null, name: '全部分类' }, ...res.map((c: any) => ({ id: c.id, name: c.name }))];
+    const tree = await getCategoryTree();
+    const subjects: { id: number; name: string }[] = [];
+    for (const ec of (tree || [])) {
+      for (const exam of (ec.exams || [])) {
+        for (const subj of (exam.subjects || [])) {
+          if (!subjects.find(s => s.id === subj.id)) {
+            subjects.push({ id: subj.id, name: `${exam.name} - ${subj.name}` });
+          }
+        }
+      }
+    }
+    categories.value = [{ id: null, name: '全部科目' }, ...subjects];
   } catch {
     categories.value = [
-      { id: null, name: '全部分类' },
-      { id: 1, name: '网络协议' },
-      { id: 2, name: '操作系统' },
-      { id: 3, name: '数据结构' },
+      { id: null, name: '全部科目' },
     ];
   }
 }
@@ -212,7 +220,7 @@ function toggleFilter() {
 }
 
 function selectCategory(id: number | null) {
-  selectedCategory.value = id;
+  selectedSubject.value = id;
 }
 
 function adjustCount(delta: number) {
@@ -253,7 +261,7 @@ function startCustomPractice() {
     count: questionCount.value,
     difficulty: difficulty.value,
     types: selectedTypes.value,
-    categoryId: selectedCategory.value,
+    subjectId: selectedSubject.value,
   };
   navigateToSession(params);
 }

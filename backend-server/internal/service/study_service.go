@@ -58,6 +58,7 @@ type PracticeRequest struct {
 	Count      int      `json:"count" binding:"required,min=1,max=100"`
 	QuestionID uint     `json:"questionId"`
 	CategoryID uint     `json:"categoryId"`
+	SubjectID  uint     `json:"subjectId"`
 	Difficulty int      `json:"difficulty"`
 	Types      []string `json:"types"`
 }
@@ -86,6 +87,7 @@ type PracticeHistoryResponse struct {
 type SmartPracticeRequest struct {
 	Count          int      `json:"count"`
 	Categories     []uint   `json:"categories"`
+	SubjectIDs     []uint   `json:"subjectIds"`
 	FocusKnowledge []string `json:"focusKnowledge"`
 	Difficulty     int      `json:"difficulty"`
 	Mode           string   `json:"mode"` // review / weak / mixed
@@ -148,6 +150,9 @@ func (s *StudyService) GetRandomQuestions(req *PracticeRequest) ([]map[string]in
 	}
 	if req.CategoryID > 0 {
 		filters["categoryId"] = req.CategoryID
+	}
+	if req.SubjectID > 0 {
+		filters["subjectId"] = req.SubjectID
 	}
 	if req.Difficulty > 0 {
 		filters["difficulty"] = req.Difficulty
@@ -489,7 +494,9 @@ func (s *StudyService) GetSmartPractice(userID uint, req *SmartPracticeRequest) 
 		return &SmartPracticeResponse{Questions: all}, nil
 	default:
 		// 默认随机
-		if len(req.Categories) > 0 {
+		if len(req.SubjectIDs) > 0 {
+			filters["subjectId"] = req.SubjectIDs[0]
+		} else if len(req.Categories) > 0 {
 			filters["categoryId"] = req.Categories[0]
 		}
 		if req.Difficulty > 0 {

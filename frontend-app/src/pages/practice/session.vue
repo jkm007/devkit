@@ -87,6 +87,7 @@ async function loadQuestions(params: any) {
         difficulty: params.difficulty || 0,
         types: params.types || [],
         categoryId: params.categoryId || 0,
+        subjectId: params.subjectId || 0,
       });
     }
     if (res && (res.questions || res.items)) {

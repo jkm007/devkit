@@ -42,6 +42,11 @@ func (h *StudyHandler) ListQuestions(c *gin.Context) {
 			filters["categoryId"] = uint(categoryID)
 		}
 	}
+	if subjectIDStr := c.Query("subjectId"); subjectIDStr != "" {
+		if subjectID, err := strconv.ParseUint(subjectIDStr, 10, 32); err == nil {
+			filters["subjectId"] = uint(subjectID)
+		}
+	}
 	if difficultyStr := c.Query("difficulty"); difficultyStr != "" {
 		if difficulty, err := strconv.Atoi(difficultyStr); err == nil && difficulty > 0 {
 			filters["difficulty"] = difficulty

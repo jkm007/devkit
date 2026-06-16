@@ -37,6 +37,9 @@ func (r *StudyRepo) ListQuestions(offset, limit int, filters map[string]interfac
 	if categoryID, ok := filters["categoryId"].(uint); ok && categoryID > 0 {
 		query = query.Where("q.category_id = ?", categoryID)
 	}
+	if subjectID, ok := filters["subjectId"].(uint); ok && subjectID > 0 {
+		query = query.Where("q.subject_id = ?", subjectID)
+	}
 	if difficulty, ok := filters["difficulty"].(int); ok && difficulty > 0 {
 		query = query.Where("q.difficulty = ?", difficulty)
 	}
@@ -89,6 +92,9 @@ func (r *StudyRepo) GetRandomQuestions(limit int, filters map[string]interface{}
 	}
 	if categoryID, ok := filters["categoryId"].(uint); ok && categoryID > 0 {
 		query = query.Where("q.category_id = ?", categoryID)
+	}
+	if subjectID, ok := filters["subjectId"].(uint); ok && subjectID > 0 {
+		query = query.Where("q.subject_id = ?", subjectID)
 	}
 	if difficulty, ok := filters["difficulty"].(int); ok && difficulty > 0 {
 		query = query.Where("q.difficulty = ?", difficulty)

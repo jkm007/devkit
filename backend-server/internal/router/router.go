@@ -69,6 +69,7 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	studyHandler := handler.NewStudyHandler()
 	bannerHandler := handler.NewBannerHandler()
 	feedbackHandler := handler.NewQuestionFeedbackHandler()
+	mobileCategoryHandler := handler.NewMobileCategoryHandler()
 
 	// 健康检查（不需要 /api/v1 前缀）
 	r.GET("/health", func(c *gin.Context) {
@@ -135,6 +136,9 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 
 	// WebSocket 连接（独立于 JWT 中间件，自行从 query 参数验证 token）
 	apiV1.GET("/ws", wsHandler.Handle)
+
+	// 移动端分类树（公开接口，无需认证）
+	apiV1.GET("/mobile/category-tree", mobileCategoryHandler.GetCategoryTree)
 
 	// 题库管理处理器
 	examCategoryHandler := handler.NewExamCategoryHandler()

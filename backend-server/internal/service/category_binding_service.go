@@ -1,13 +1,13 @@
 package service
 
 import (
-	"backend-server/internal/model"
 	"backend-server/internal/repository"
 	"backend-server/pkg/database"
+	"fmt"
 	"time"
 )
 
-// CategoryBindingService 分类绑定服务
+// CategoryBindingService 用户分类绑定服务
 type CategoryBindingService struct {
 	repo *repository.CategoryBindingRepo
 }
@@ -21,35 +21,46 @@ func NewCategoryBindingService() *CategoryBindingService {
 
 // CategoryBindingResponse 绑定响应
 type CategoryBindingResponse struct {
-	ID         uint      `json:"id"`
-	CategoryID uint      `json:"categoryId"`
-	CategoryName string  `json:"categoryName"`
-	IsPrimary  bool      `json:"isPrimary"`
-	BoundAt    time.Time `json:"boundAt"`
+	ID               uint      `json:"id"`
+	SubjectID        uint      `json:"subjectId"`
+	SubjectName      string    `json:"subjectName"`
+	ExamName         string    `json:"examName"`
+	ExamCategoryName string    `json:"examCategoryName"`
+	Path             string    `json:"path"`
+	IsPrimary        bool      `json:"isPrimary"`
+	BoundAt          time.Time `json:"boundAt"`
 }
 
-// BindCategoryRequest 绑定请求
+// BindCategoryRequest 绑定分类请求
 type BindCategoryRequest struct {
-	CategoryID uint `json:"categoryId" binding:"required"`
-	IsPrimary  bool `json:"isPrimary"`
+	SubjectID uint `json:"subjectId" binding:"required"`
+	IsPrimary bool `json:"isPrimary"`
 }
 
-// ListBindings 获取绑定列表
+// ListBindings 获取用户绑定的分类列表
 func (s *CategoryBindingService) ListBindings(userID uint) ([]CategoryBindingResponse, error) {
-	// 使用JOIN查询获取分类名称
-	type BindingWithCategory struct {
-		ID           uint      `json:"id"`
-		CategoryID   uint      `json:"categoryId"`
-		CategoryName string    `json:"categoryName"`
-		IsPrimary    bool      `json:"isPrimary"`
-		BoundAt      time.Time `json:"boundAt"`
+	type BindingWithSubject struct {
+		ID               uint      `json:"id"`
+		SubjectID        uint      `json:"subjectId"`
+		SubjectName      string    `json:"subjectName"`
+		ExamName         string    `json:"examName"`
+		ExamCategoryName string    `json:"examCategoryName"`
+		IsPrimary        bool      `json:"isPrimary"`
+		BoundAt          time.Time `json:"boundAt"`
 	}
+	var bindings []BindingWithSubject
 
-	var bindings []BindingWithCategory
+	// JOIN 查询：category_id 存储的是 subject_id (L3)
 	err := s.repo.GetDB().
 		Table("user_category_bindings b").
-		Select("b.id, b.category_id as category_id, c.name as category_name, b.is_primary, b.bound_at").
-		Joins("LEFT JOIN qb_categories c ON b.category_id = c.id").
+		Select(`b.id, b.category_id as subject_id,
+			s.name as subject_name,
+			e.name as exam_name,
+			ec.name as exam_category_name,
+			b.is_primary, b.bound_at`).
+		Joins("LEFT JOIN qb_subjects s ON b.category_id = s.id").
+		Joins("LEFT JOIN qb_exams e ON s.exam_id = e.id").
+		Joins("LEFT JOIN qb_exam_categories ec ON e.exam_category_id = ec.id").
 		Where("b.user_id = ?", userID).
 		Order("b.is_primary DESC, b.bound_at ASC").
 		Scan(&bindings).Error
@@ -57,50 +68,45 @@ func (s *CategoryBindingService) ListBindings(userID uint) ([]CategoryBindingRes
 		return nil, err
 	}
 
-	results := make([]CategoryBindingResponse, 0, len(bindings))
+	// 转换为响应格式
+	result := make([]CategoryBindingResponse, 0, len(bindings))
 	for _, b := range bindings {
-		results = append(results, CategoryBindingResponse{
-			ID:           b.ID,
-			CategoryID:   b.CategoryID,
-			CategoryName: b.CategoryName,
-			IsPrimary:    b.IsPrimary,
-			BoundAt:      b.BoundAt,
+		path := ""
+		if b.ExamCategoryName != "" && b.ExamName != "" && b.SubjectName != "" {
+			path = fmt.Sprintf("%s > %s > %s", b.ExamCategoryName, b.ExamName, b.SubjectName)
+		}
+		result = append(result, CategoryBindingResponse{
+			ID:               b.ID,
+			SubjectID:        b.SubjectID,
+			SubjectName:      b.SubjectName,
+			ExamName:         b.ExamName,
+			ExamCategoryName: b.ExamCategoryName,
+			Path:             path,
+			IsPrimary:        b.IsPrimary,
+			BoundAt:          b.BoundAt,
 		})
 	}
 
-	return results, nil
+	return result, nil
 }
 
 // BindCategory 绑定分类
 func (s *CategoryBindingService) BindCategory(userID uint, req *BindCategoryRequest) error {
-	return s.repo.Create(userID, req.CategoryID, req.IsPrimary)
+	// 调用 repo.Create，内部会检查数量限制和重复
+	return s.repo.Create(userID, req.SubjectID, req.IsPrimary)
 }
 
-// SetPrimary 设为主分类
-func (s *CategoryBindingService) SetPrimary(userID, id uint) error {
-	return s.repo.SetPrimary(userID, id)
+// UnbindCategory 解绑分类
+func (s *CategoryBindingService) UnbindCategory(userID, bindingID uint) error {
+	return s.repo.Delete(userID, bindingID)
 }
 
-// UnbindCategory 解绑
-func (s *CategoryBindingService) UnbindCategory(userID, id uint) error {
-	return s.repo.Delete(userID, id)
+// SetPrimary 设置主分类
+func (s *CategoryBindingService) SetPrimary(userID, bindingID uint) error {
+	return s.repo.SetPrimary(userID, bindingID)
 }
 
-// GetBoundCategoryIDs 获取已绑定分类 ID
-func (s *CategoryBindingService) GetBoundCategoryIDs(userID uint) ([]uint, error) {
+// GetBoundSubjectIDs 获取用户绑定的科目ID列表
+func (s *CategoryBindingService) GetBoundSubjectIDs(userID uint) ([]uint, error) {
 	return s.repo.GetBoundCategoryIDs(userID)
-}
-
-// GetPrimaryBinding 获取主分类
-func (s *CategoryBindingService) GetPrimaryBinding(userID uint) (*model.UserCategoryBinding, error) {
-	bindings, err := s.repo.List(userID)
-	if err != nil {
-		return nil, err
-	}
-	for _, b := range bindings {
-		if b.IsPrimary {
-			return &b, nil
-		}
-	}
-	return nil, nil
 }

@@ -1,434 +1,573 @@
 <template>
   <view class="question-list-page">
-    <!-- 顶部分类区域 -->
-    <view class="category-section">
-      <!-- 我的分类 -->
-      <view v-if="myBindings.length > 0" class="my-categories">
-        <view class="section-header">
-          <text class="section-title">📚 我的分类</text>
-          <text class="manage-link" @click="goToCategories">管理 ></text>
-        </view>
+    <!-- 搜索栏 -->
+    <view class="search-bar">
+      <view class="search-input-wrap">
+        <uni-icons type="search" size="18" color="#999" />
+        <input v-model="keyword" class="search-input" placeholder="搜索题目" confirm-type="search" @confirm="onSearch" />
+        <uni-icons v-if="keyword" type="clear" size="18" color="#ccc" @click="clearSearch" />
+      </view>
+    </view>
+
+    <!-- 我的分类 -->
+    <view class="section" v-if="myBindings.length > 0">
+      <view class="section-header">
+        <text class="section-title">我的分类</text>
+        <text class="section-link" @click="goToCategoryManage">管理</text>
+      </view>
+      <scroll-view scroll-x class="category-scroll">
         <view class="category-chips">
           <view
             v-for="b in myBindings"
-            :key="b.categoryId"
-            class="category-chip"
-            :class="{ active: selectedCategoryId === b.categoryId, primary: b.isPrimary }"
-            @click="selectMyCategory(b)"
+            :key="b.id"
+            class="chip"
+            :class="{ active: selectedSubjectId === b.subjectId }"
+            @click="selectMyBinding(b)"
           >
-            <text v-if="b.isPrimary" class="chip-badge">主</text>
-            <text class="chip-text">{{ b.categoryName || '分类' }}</text>
+            <text class="primary-tag" v-if="b.isPrimary">主</text>
+            <text class="chip-text">{{ b.subjectName }}</text>
           </view>
         </view>
-      </view>
-
-      <!-- 全部分类（横滑） -->
-      <view class="all-categories">
-        <view class="section-header">
-          <text class="section-title">📖 考试分类</text>
-        </view>
-        <scroll-view class="tabs-scroll" scroll-x enhanced :show-scrollbar="false">
-          <view class="tab-list">
-            <view
-              class="tab-item"
-              :class="{ active: selectedCategoryId === null }"
-              @click="selectCategory(null)"
-            >
-              <text class="tab-text">全部</text>
-            </view>
-            <view
-              v-for="cat in categories"
-              :key="cat.id"
-              class="tab-item"
-              :class="{ active: selectedCategoryId === cat.id }"
-              @click="selectCategory(cat.id)"
-            >
-              <text class="tab-text">{{ cat.name }}</text>
-            </view>
-          </view>
-        </scroll-view>
-      </view>
+      </scroll-view>
     </view>
 
-    <!-- 搜索入口 -->
-    <view class="search-bar" @click="goToSearch">
-      <text class="search-icon">🔍</text>
-      <text class="search-placeholder">搜索题目...</text>
+    <!-- 考试分类 -->
+    <view class="section">
+      <view class="section-header">
+        <text class="section-title">考试分类</text>
+      </view>
+      <!-- L1 考试大类 tabs -->
+      <scroll-view scroll-x class="category-scroll">
+        <view class="category-tabs">
+          <view
+            class="tab"
+            :class="{ active: selectedExamCategoryId === null }"
+            @click="selectExamCategory(null)"
+          >
+            <text>全部</text>
+          </view>
+          <view
+            v-for="ec in categoryTree"
+            :key="ec.id"
+            class="tab"
+            :class="{ active: selectedExamCategoryId === ec.id }"
+            @click="selectExamCategory(ec)"
+          >
+            <text>{{ ec.name }}</text>
+          </view>
+        </view>
+      </scroll-view>
+
+      <!-- L2 考试 tabs (如果有选中的 L1) -->
+      <scroll-view v-if="currentExams.length > 0" scroll-x class="category-scroll sub">
+        <view class="category-tabs">
+          <view
+            class="tab sub"
+            :class="{ active: selectedExamId === null }"
+            @click="selectExam(null)"
+          >
+            <text>全部</text>
+          </view>
+          <view
+            v-for="exam in currentExams"
+            :key="exam.id"
+            class="tab sub"
+            :class="{ active: selectedExamId === exam.id }"
+            @click="selectExam(exam)"
+          >
+            <text>{{ exam.name }}</text>
+          </view>
+        </view>
+      </scroll-view>
+
+      <!-- L3 科目 pills -->
+      <scroll-view v-if="currentSubjects.length > 0" scroll-x class="category-scroll pills">
+        <view class="category-pills">
+          <view
+            v-for="subject in currentSubjects"
+            :key="subject.id"
+            class="pill"
+            :class="{ active: selectedSubjectId === subject.id }"
+            @click="selectSubject(subject)"
+          >
+            <text>{{ subject.name }}</text>
+            <text class="count" v-if="subject.questionCount">({{ subject.questionCount }})</text>
+          </view>
+        </view>
+      </scroll-view>
     </view>
 
     <!-- 题目列表 -->
-    <view class="list-section">
+    <view class="question-list">
       <view v-if="loading && questions.length === 0" class="loading">
-        <Skeleton type="list" :count="5" />
+        <text>加载中...</text>
       </view>
       <view v-else-if="questions.length === 0" class="empty">
-        <text class="empty-icon">📭</text>
+        <text class="empty-icon">📝</text>
         <text class="empty-text">暂无题目</text>
-        <text class="empty-hint">{{ myBindings.length > 0 ? '试试切换分类或调整筛选条件' : '去「我的」绑定分类，获取个性化推荐' }}</text>
-        <view v-if="myBindings.length === 0" class="empty-action" @click="goToCategories">
-          <text>去绑定分类</text>
-        </view>
       </view>
       <view v-else>
         <view
           v-for="q in questions"
           :key="q.id"
           class="question-card"
-          @click="goToDetail(q.id)"
+          @click="goToDetail(q)"
         >
           <view class="card-header">
-            <view class="tags-row">
-              <text class="type-tag" :class="q.questionType">{{ getTypeLabel(q.questionType) }}</text>
-            </view>
-            <view class="difficulty">
-              <text v-for="i in 3" :key="i" class="star" :class="{ active: i <= (q.difficulty || 1) }">★</text>
-            </view>
+            <text class="type-badge" :class="q.questionType">{{ getTypeName(q.questionType) }}</text>
+            <text class="diff-badge" :class="'diff-' + q.difficulty">{{ getDiffName(q.difficulty) }}</text>
           </view>
-          <text class="title">{{ q.title }}</text>
+          <text class="question-title">{{ q.title }}</text>
           <view class="card-footer">
-            <text v-if="q.categoryName" class="category">📂 {{ q.categoryName }}</text>
+            <text class="category-name">{{ q.categoryName }}</text>
           </view>
         </view>
+        <view v-if="loading" class="loading-more">
+          <text>加载中...</text>
+        </view>
+        <view v-if="!hasMore && questions.length > 0" class="no-more">
+          <text>没有更多了</text>
+        </view>
       </view>
-
-      <!-- 加载更多 -->
-      <view v-if="hasMore" class="load-more" @click="loadMore">
-        <text>{{ loading ? '加载中...' : '加载更多' }}</text>
-      </view>
-      <view v-else-if="questions.length > 0" class="no-more">— 没有更多了 —</view>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { onShow } from '@dcloudio/uni-app';
-import { request } from '@/api/request';
-import { getCategoryBindings } from '@/api/user';
-import Skeleton from '@/components/Skeleton.vue';
+import { ref, onMounted, computed } from 'vue';
+import { onLoad, onShow, onReachBottom } from '@dcloudio/uni-app';
+import { getQuestions } from '@/api/study';
+import { getCategoryBindings, getCategoryTree } from '@/api/user';
+import type { Question } from '@/api/types';
 
+// 分类树数据结构
+interface Subject {
+  id: number;
+  name: string;
+  questionCount?: number;
+}
+interface Exam {
+  id: number;
+  name: string;
+  subjects: Subject[];
+}
+interface ExamCategory {
+  id: number;
+  name: string;
+  exams: Exam[];
+}
+
+const questions = ref<Question[]>([]);
 const loading = ref(false);
-const questions = ref<any[]>([]);
 const page = ref(1);
-const pageSize = 20;
 const hasMore = ref(true);
+const keyword = ref('');
+const categoryId = ref<number | undefined>(undefined);
+const selectedSubjectId = ref<number | undefined>(undefined);
+const pageSize = 20;
 
-// 我的分类绑定
+// 分类数据
+const categoryTree = ref<ExamCategory[]>([]);
 const myBindings = ref<any[]>([]);
 
-// 全部分类
-const categories = ref<{ id: number; name: string }[]>([]);
-const selectedCategoryId = ref<number | null>(null);
+// 当前选中的 L1 和 L2
+const selectedExamCategoryId = ref<number | null>(null);
+const selectedExamId = ref<number | null>(null);
 
-onMounted(() => {
-  loadCategories();
-  fetchQuestions(true);
+// 当前 L2 考试列表
+const currentExams = computed(() => {
+  if (selectedExamCategoryId.value === null) return [];
+  const ec = categoryTree.value.find(e => e.id === selectedExamCategoryId.value);
+  return ec?.exams || [];
 });
 
-// 页面显示时刷新绑定数据（从分类管理页面返回时）
+// 当前 L3 科目列表
+const currentSubjects = computed(() => {
+  if (selectedExamId.value === null) {
+    // 如果只选了 L1，显示该 L1 下所有科目的合并
+    const ec = categoryTree.value.find(e => e.id === selectedExamCategoryId.value);
+    if (!ec) return [];
+    const subjects: Subject[] = [];
+    for (const exam of ec.exams) {
+      for (const s of exam.subjects) {
+        if (!subjects.find(x => x.id === s.id)) {
+          subjects.push(s);
+        }
+      }
+    }
+    return subjects;
+  }
+  const exam = currentExams.value.find(e => e.id === selectedExamId.value);
+  return exam?.subjects || [];
+});
+
+onLoad(() => {
+  loadCategoryTree();
+  loadMyBindings();
+});
+
 onShow(() => {
   loadMyBindings();
 });
 
-// 加载我的分类绑定
+onReachBottom(() => {
+  if (hasMore.value && !loading.value) {
+    page.value++;
+    fetchQuestions(false);
+  }
+});
+
+async function loadCategoryTree() {
+  try {
+    const res = await getCategoryTree();
+    categoryTree.value = Array.isArray(res) ? res : [];
+  } catch {
+    categoryTree.value = [];
+  }
+}
+
 async function loadMyBindings() {
   try {
-    myBindings.value = await getCategoryBindings();
+    const res = await getCategoryBindings();
+    myBindings.value = Array.isArray(res) ? res : [];
   } catch {
     myBindings.value = [];
   }
 }
 
-// 加载全部分类
-async function loadCategories() {
-  try {
-    const res = await request.get<any[]>('/exam-categories/all');
-    categories.value = Array.isArray(res) ? res.map((c: any) => ({ id: c.id, name: c.name })) : [];
-  } catch {
-    categories.value = [];
-  }
-}
-
-// 选择我的分类
-function selectMyCategory(b: any) {
-  selectedCategoryId.value = b.categoryId;
-  fetchQuestions(true);
-}
-
-// 选择分类
-function selectCategory(catId: number | null) {
-  selectedCategoryId.value = catId;
-  fetchQuestions(true);
-}
-
-// 获取题目列表
-async function fetchQuestions(refresh = false) {
-  if (refresh) {
+async function fetchQuestions(reset = true) {
+  if (reset) {
     page.value = 1;
-    questions.value = [];
+    hasMore.value = true;
   }
   loading.value = true;
   try {
     const params: any = { page: page.value, pageSize };
-    if (selectedCategoryId.value) params.categoryId = selectedCategoryId.value;
-
-    const data = await request.get<any>('/study/questions', { params });
-    const items = data.items || [];
-    if (refresh) questions.value = items;
-    else questions.value = [...questions.value, ...items];
-    hasMore.value = items.length >= pageSize;
+    if (selectedSubjectId.value) {
+      params.subjectId = selectedSubjectId.value;
+    } else if (categoryId.value) {
+      params.categoryId = categoryId.value;
+    }
+    if (keyword.value) {
+      params.keyword = keyword.value;
+    }
+    const res = await getQuestions(params);
+    if (res?.items) {
+      questions.value = reset ? res.items : [...questions.value, ...res.items];
+      hasMore.value = questions.value.length < res.total;
+    } else {
+      if (reset) questions.value = [];
+      hasMore.value = false;
+    }
   } catch {
-    uni.showToast({ title: '加载失败', icon: 'none' });
+    if (reset) questions.value = [];
+    hasMore.value = false;
   } finally {
     loading.value = false;
   }
 }
 
-function loadMore() {
-  page.value++;
-  fetchQuestions();
+function onSearch() {
+  fetchQuestions(true);
 }
 
-function getTypeLabel(type: string | undefined): string {
-  const map: Record<string, string> = {
-    single_choice: '单选', multiple_choice: '多选', true_false: '判断',
-    fill_blank: '填空', short_answer: '简答',
+function clearSearch() {
+  keyword.value = '';
+  fetchQuestions(true);
+}
+
+// 选择我的分类
+function selectMyBinding(b: any) {
+  if (selectedSubjectId.value === b.subjectId) {
+    selectedSubjectId.value = undefined;
+  } else {
+    selectedSubjectId.value = b.subjectId;
+    selectedExamCategoryId.value = null;
+    selectedExamId.value = null;
+  }
+  fetchQuestions(true);
+}
+
+// 选择 L1 考试大类
+function selectExamCategory(ec: ExamCategory | null) {
+  if (ec === null) {
+    selectedExamCategoryId.value = null;
+    selectedExamId.value = null;
+    selectedSubjectId.value = undefined;
+  } else {
+    selectedExamCategoryId.value = ec.id;
+    selectedExamId.value = null;
+    selectedSubjectId.value = undefined;
+  }
+  fetchQuestions(true);
+}
+
+// 选择 L2 考试
+function selectExam(exam: Exam | null) {
+  if (exam === null) {
+    selectedExamId.value = null;
+    selectedSubjectId.value = undefined;
+  } else {
+    selectedExamId.value = exam.id;
+    selectedSubjectId.value = undefined;
+  }
+  fetchQuestions(true);
+}
+
+// 选择 L3 科目
+function selectSubject(subject: Subject) {
+  if (selectedSubjectId.value === subject.id) {
+    selectedSubjectId.value = undefined;
+  } else {
+    selectedSubjectId.value = subject.id;
+  }
+  fetchQuestions(true);
+}
+
+function goToCategoryManage() {
+  uni.navigateTo({ url: '/pages/profile/categories' });
+}
+
+function goToDetail(q: Question) {
+  uni.navigateTo({ url: `/pages/question/detail?id=${q.id}` });
+}
+
+function getTypeName(type: string): string {
+  const names: Record<string, string> = {
+    single: '单选',
+    multi: '多选',
+    judge: '判断',
+    fill: '填空',
+    essay: '简答',
   };
-  return map[type!] || type || '未知';
+  return names[type] || type;
 }
 
-function goToSearch() { uni.navigateTo({ url: '/pages/question/search' }); }
-function goToCategories() { uni.navigateTo({ url: '/pages/profile/categories' }); }
-function goToDetail(id: number | undefined) {
-  if (!id) return;
-  uni.navigateTo({ url: `/pages/question/detail?id=${id}` });
+function getDiffName(d: number): string {
+  const names: Record<number, string> = { 1: '简单', 2: '中等', 3: '困难' };
+  return names[d] || '未知';
 }
 </script>
 
 <style lang="scss" scoped>
 .question-list-page {
   min-height: 100vh;
-  background: #f5f6fa;
-  padding-bottom: 20px;
+  background: #f5f5f5;
+  padding-bottom: 30px;
 }
 
-// ========== 分类区域 ==========
-.category-section {
-  background: #fff;
-  padding-bottom: 12px;
-  margin-bottom: 8px;
-}
-
-.my-categories {
-  padding: 14px 16px 8px;
-
-  .section-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-  }
-
-  .section-title {
-    font-size: 15px;
-    font-weight: 600;
-    color: #333;
-  }
-
-  .manage-link {
-    font-size: 13px;
-    color: #1890ff;
-  }
-
-  .category-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .category-chip {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 6px 14px;
-    background: #f5f7fa;
-    border-radius: 20px;
-    border: 1.5px solid transparent;
-
-    &.active {
-      background: #e6f7ff;
-      border-color: #1890ff;
-    }
-
-    &.primary .chip-text {
-      font-weight: 500;
-    }
-
-    .chip-badge {
-      font-size: 10px;
-      padding: 1px 5px;
-      background: #1890ff;
-      color: #fff;
-      border-radius: 3px;
-    }
-
-    .chip-text {
-      font-size: 13px;
-      color: #555;
-    }
-
-    &.active .chip-text {
-      color: #1890ff;
-    }
-  }
-}
-
-.all-categories {
-  padding: 0 16px;
-
-  .section-header {
-    margin-bottom: 8px;
-  }
-
-  .section-title {
-    font-size: 15px;
-    font-weight: 600;
-    color: #333;
-  }
-
-  .tabs-scroll {
-    width: 100%;
-    white-space: nowrap;
-  }
-
-  .tab-list {
-    display: inline-flex;
-    gap: 8px;
-    padding-right: 16px;
-  }
-
-  .tab-item {
-    padding: 6px 14px;
-    background: #f5f7fa;
-    border-radius: 16px;
-
-    &.active {
-      background: linear-gradient(135deg, #1890ff, #36cfc9);
-    }
-
-    .tab-text {
-      font-size: 13px;
-      color: #666;
-    }
-
-    &.active .tab-text {
-      color: #fff;
-      font-weight: 500;
-    }
-  }
-}
-
-// ========== 搜索栏 ==========
+/* 搜索栏 */
 .search-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #fff;
+  padding: 10px 16px;
+}
+.search-input-wrap {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  margin: 0 16px 12px;
   background: #f5f7fa;
   border-radius: 20px;
-
-  .search-icon {
-    font-size: 16px;
-  }
-
-  .search-placeholder {
-    font-size: 14px;
-    color: #999;
-  }
+  padding: 8px 16px;
+  gap: 8px;
+}
+.search-input {
+  flex: 1;
+  font-size: 14px;
+  background: transparent;
 }
 
-// ========== 列表区域 ==========
-.list-section {
-  padding: 0 16px;
-}
-
-.loading { padding: 20px 0; }
-
-.empty {
-  text-align: center;
-  padding: 60px 0;
-
-  .empty-icon { font-size: 48px; display: block; margin-bottom: 12px; }
-  .empty-text { font-size: 16px; color: #999; display: block; margin-bottom: 4px; }
-  .empty-hint { font-size: 13px; color: #bbb; display: block; margin-bottom: 16px; }
-  .empty-action {
-    display: inline-block;
-    padding: 8px 24px;
-    background: #1890ff;
-    color: #fff;
-    border-radius: 20px;
-    font-size: 14px;
-  }
-}
-
-.question-card {
+/* section */
+.section {
   background: #fff;
-  border-radius: 12px;
-  padding: 14px 16px;
-  margin-bottom: 10px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
-
-  .card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-
-    .tags-row { display: flex; gap: 6px; }
-
-    .type-tag {
-      font-size: 11px;
-      padding: 2px 8px;
-      background: #e6f7ff;
-      color: #1890ff;
-      border-radius: 4px;
-      font-weight: 500;
-
-      &.single_choice { background: #e6f7ff; color: #1890ff; }
-      &.multiple_choice { background: #fff7e6; color: #fa8c16; }
-      &.true_false { background: #f6ffed; color: #52c41a; }
-      &.fill_blank { background: #f9f0ff; color: #722ed1; }
-      &.short_answer { background: #fff1f0; color: #f5222d; }
-    }
-
-    .difficulty .star {
-      font-size: 12px;
-      color: #ddd;
-      &.active { color: #faad14; }
-    }
-  }
-
-  .title {
-    font-size: 14px;
-    color: #333;
-    line-height: 1.6;
-    margin-bottom: 8px;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
-  .card-footer {
-    .category { font-size: 12px; color: #999; }
-  }
+  margin-bottom: 8px;
+  padding: 12px 0;
+}
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 16px 8px;
+}
+.section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+}
+.section-link {
+  font-size: 13px;
+  color: #1890ff;
 }
 
-.load-more, .no-more {
+/* 我的分类 */
+.category-scroll {
+  white-space: nowrap;
+}
+.category-chips {
+  display: inline-flex;
+  padding: 0 16px;
+  gap: 10px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  background: #f5f7fa;
+  border-radius: 16px;
+  border: 1px solid #e8e8e8;
+  gap: 4px;
+}
+.chip.active {
+  background: #e6f7ff;
+  border-color: #1890ff;
+}
+.primary-tag {
+  font-size: 10px;
+  background: #1890ff;
+  color: #fff;
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+.chip-text {
+  font-size: 13px;
+  color: #333;
+}
+
+/* 考试分类 tabs */
+.category-tabs {
+  display: inline-flex;
+  padding: 0 16px;
+  gap: 8px;
+}
+.tab {
+  padding: 6px 14px;
+  background: #f5f7fa;
+  border-radius: 16px;
+  font-size: 13px;
+  color: #666;
+  white-space: nowrap;
+}
+.tab.active {
+  background: #1890ff;
+  color: #fff;
+}
+.tab.sub {
+  font-size: 12px;
+  padding: 4px 12px;
+}
+.category-scroll.sub {
+  padding-top: 8px;
+}
+
+/* L3 科目 pills */
+.category-scroll.pills {
+  padding-top: 8px;
+}
+.category-pills {
+  display: inline-flex;
+  padding: 0 16px;
+  gap: 8px;
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  background: #f0f5ff;
+  border-radius: 12px;
+  font-size: 12px;
+  color: #2f54eb;
+  gap: 2px;
+}
+.pill.active {
+  background: #2f54eb;
+  color: #fff;
+}
+.pill .count {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+/* 题目列表 */
+.question-list {
+  padding: 8px 16px;
+}
+.loading, .empty {
+  text-align: center;
+  padding: 40px 0;
+}
+.empty-icon {
+  font-size: 40px;
+  display: block;
+  margin-bottom: 8px;
+}
+.empty-text {
+  font-size: 14px;
+  color: #999;
+}
+.loading-more, .no-more {
   text-align: center;
   padding: 16px 0;
   font-size: 13px;
+  color: #999;
+}
+.question-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+.card-header {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.type-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #f0f5ff;
+  color: #2f54eb;
+}
+.type-badge.judge {
+  background: #fff7e6;
+  color: #fa8c16;
+}
+.diff-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.diff-1 {
+  background: #f6ffed;
+  color: #52c41a;
+}
+.diff-2 {
+  background: #fff7e6;
+  color: #fa8c16;
+}
+.diff-3 {
+  background: #fff2f0;
+  color: #ff4d4f;
+}
+.question-title {
+  font-size: 15px;
+  color: #333;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.category-name {
+  font-size: 12px;
   color: #999;
 }
 </style>
