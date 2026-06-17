@@ -52,7 +52,7 @@ async function handleImageUpload(file: File) {
 
     // 管理后台使用代理URL（带认证，永久有效）
     // 移动端会通过 fileId 调用公开接口获取预签名URL
-    const proxyUrl = `/api/files/${result.fileId}/view`;
+    const proxyUrl = `/api/v1/files/${result.fileId}/view`;
     imageUrl.value = proxyUrl;
     formApi.setValues({ image: proxyUrl });
 
