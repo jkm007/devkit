@@ -22,7 +22,7 @@
       </view>
 
       <!-- 填空题输入 -->
-      <view v-else-if="currentQuestion.questionType === 'fill' || currentQuestion.questionType === 'fill_blank'" class="fill-input">
+      <view v-else-if="isFillQuestion(currentQuestion.questionType)" class="fill-input">
         <textarea
           v-model="fillAnswers[currentIndex]"
           class="fill-textarea"
@@ -32,8 +32,8 @@
         />
       </view>
 
-      <!-- 简答题输入 -->
-      <view v-else-if="currentQuestion.questionType === 'essay' || currentQuestion.questionType === 'short_answer'" class="essay-input">
+      <!-- 简答题/论述题等输入 -->
+      <view v-else-if="isEssayQuestion(currentQuestion.questionType)" class="essay-input">
         <textarea
           v-model="essayAnswers[currentIndex]"
           class="essay-textarea"
@@ -76,8 +76,22 @@ const showAnswerSheet = ref(false);
 let timer: ReturnType<typeof setInterval> | null = null;
 const currentQuestion = computed(() => questions.value[currentIndex.value] || null);
 
+// 选择题类型
+const CHOICE_TYPES = ['single', 'multi', 'single_choice', 'multiple_choice', 'indefinite_choice', 'judge', 'true_false'];
+// 填空题类型
+const FILL_TYPES = ['fill', 'fill_blank', 'cloze'];
+
 function isChoiceQuestion(type: string): boolean {
-  return ['single', 'multi', 'single_choice', 'multiple_choice', 'judge', 'true_false'].includes(type);
+  return CHOICE_TYPES.includes(type);
+}
+
+function isFillQuestion(type: string): boolean {
+  return FILL_TYPES.includes(type);
+}
+
+// 其他所有类型都视为简答/论述题（需要文本输入）
+function isEssayQuestion(type: string): boolean {
+  return !isChoiceQuestion(type) && !isFillQuestion(type);
 }
 
 onMounted(async () => {
@@ -176,12 +190,12 @@ function submitPractice() {
   const allAnswers = questions.value.map((q, i) => {
     if (isChoiceQuestion(q.questionType)) {
       return answers.value[i] || '';
-    } else if (q.questionType === 'fill' || q.questionType === 'fill_blank') {
+    } else if (isFillQuestion(q.questionType)) {
       return fillAnswers.value[i] || '';
-    } else if (q.questionType === 'essay' || q.questionType === 'short_answer') {
+    } else {
+      // 简答/论述等所有其他题型
       return essayAnswers.value[i] || '';
     }
-    return answers.value[i] || '';
   });
 
   const result = {
