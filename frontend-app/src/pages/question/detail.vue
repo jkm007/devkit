@@ -12,7 +12,8 @@
         <text class="section-label">题干</text>
         <ContentBlockRenderer v-for="(block, idx) in question.stem?.blocks" :key="idx" :block="block" />
       </view>
-      <view v-if="question.options && question.options.length" class="options-section">
+      <!-- 选择题选项 -->
+      <view v-if="isChoiceQuestion(question.questionType) && question.options && question.options.length" class="options-section">
         <text class="section-label">选项</text>
         <view v-for="opt in question.options" :key="opt.label" class="option-item" :class="{ selected: selectedAnswer === opt.label, correct: showAnswer && opt.isCorrect }" @click="selectAnswer(opt.label)">
           <text class="option-label">{{ opt.label }}.</text>
@@ -20,6 +21,21 @@
             <ContentBlockRenderer v-for="(block, idx) in opt.content?.blocks" :key="idx" :block="block" />
           </view>
         </view>
+      </view>
+
+      <!-- 填空题输入 -->
+      <view v-else-if="isFillQuestion(question.questionType)" class="fill-section">
+        <text class="section-label">作答</text>
+        <textarea v-model="fillAnswer" class="answer-textarea" placeholder="请输入答案" :maxlength="500" />
+        <button class="submit-btn" @click="submitFillAnswer">提交答案</button>
+      </view>
+
+      <!-- 简答/论述等题型输入 -->
+      <view v-else class="essay-section">
+        <text class="section-label">作答</text>
+        <textarea v-model="essayAnswer" class="answer-textarea essay" placeholder="请输入你的答案" :maxlength="2000" />
+        <text class="word-count">{{ (essayAnswer || '').length }} / 2000</text>
+        <button class="submit-btn" @click="submitEssayAnswer">提交答案</button>
       </view>
       <view v-if="showAnswer && question.answerVisible" class="answer-section">
         <text class="section-label">答案</text>
@@ -72,6 +88,21 @@ const selectedAnswer = ref('');
 const showAnswer = ref(false);
 const isFavorited = ref(false);
 const correctAnswer = ref('A');
+const fillAnswer = ref('');
+const essayAnswer = ref('');
+
+// 选择题类型
+const CHOICE_TYPES = ['single', 'multi', 'single_choice', 'multiple_choice', 'indefinite_choice', 'judge', 'true_false'];
+// 填空题类型
+const FILL_TYPES = ['fill', 'fill_blank', 'cloze'];
+
+function isChoiceQuestion(type: string): boolean {
+  return CHOICE_TYPES.includes(type);
+}
+
+function isFillQuestion(type: string): boolean {
+  return FILL_TYPES.includes(type);
+}
 
 // API基础URL
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1';
@@ -162,6 +193,24 @@ async function fetchQuestion() {
 
 function selectAnswer(label: string) { selectedAnswer.value = label; showAnswer.value = true; }
 
+function submitFillAnswer() {
+  if (!fillAnswer.value.trim()) {
+    uni.showToast({ title: '请输入答案', icon: 'none' });
+    return;
+  }
+  showAnswer.value = true;
+  uni.showToast({ title: '答案已提交', icon: 'success' });
+}
+
+function submitEssayAnswer() {
+  if (!essayAnswer.value.trim()) {
+    uni.showToast({ title: '请输入答案', icon: 'none' });
+    return;
+  }
+  showAnswer.value = true;
+  uni.showToast({ title: '答案已提交', icon: 'success' });
+}
+
 async function toggleFavorite() {
   try {
     if (isFavorited.value) { await request.delete(`/study/questions/${questionId.value}/favorite`); isFavorited.value = false; }
@@ -201,6 +250,32 @@ function previewImage(url: string) {
 .media-item { margin-top: 12px; }
 .analysis-image { width: 100%; border-radius: 8px; }
 .analysis-video { width: 100%; border-radius: 8px; }
+
+/* 填空题和简答题 */
+.fill-section, .essay-section { background: #fff; margin-top: 12px; padding: 16px; }
+.answer-textarea {
+  width: 100%;
+  min-height: 100px;
+  padding: 12px;
+  background: #f9f9f9;
+  border-radius: 8px;
+  border: 1px solid #e8e8e8;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.answer-textarea.essay { min-height: 180px; }
+.word-count { display: block; text-align: right; font-size: 12px; color: #999; margin-top: 8px; }
+.submit-btn {
+  margin-top: 16px;
+  height: 44px;
+  line-height: 44px;
+  background: #1890ff;
+  color: #fff;
+  border: none;
+  border-radius: 22px;
+  font-size: 15px;
+}
+
 .action-bar { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: #fff; padding: 12px 0; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
 .action-item { flex: 1; display: flex; flex-direction: column; align-items: center; }
 .action-icon { font-size: 20px; }
