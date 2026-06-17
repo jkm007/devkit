@@ -53,6 +53,7 @@ func (h *BannerHandler) AdminCreate(c *gin.Context) {
 	var req struct {
 		Title     string `json:"title" binding:"required"`
 		Image     string `json:"image" binding:"required"`
+		FileID    *uint  `json:"fileId"`
 		Link      string `json:"link"`
 		LinkType  string `json:"linkType"`
 		SortOrder int    `json:"sortOrder"`
@@ -65,6 +66,7 @@ func (h *BannerHandler) AdminCreate(c *gin.Context) {
 	banner := &model.Banner{
 		Title:     req.Title,
 		Image:     req.Image,
+		FileID:    req.FileID,
 		Link:      req.Link,
 		LinkType:  req.LinkType,
 		SortOrder: req.SortOrder,
@@ -91,6 +93,7 @@ func (h *BannerHandler) AdminUpdate(c *gin.Context) {
 	var req struct {
 		Title     string `json:"title"`
 		Image     string `json:"image"`
+		FileID    *uint  `json:"fileId"`
 		Link      string `json:"link"`
 		LinkType  string `json:"linkType"`
 		SortOrder int    `json:"sortOrder"`
@@ -108,6 +111,7 @@ func (h *BannerHandler) AdminUpdate(c *gin.Context) {
 	if req.Image != "" {
 		banner.Image = req.Image
 	}
+	banner.FileID = req.FileID
 	banner.Link = req.Link
 	banner.LinkType = req.LinkType
 	if req.SortOrder > 0 {

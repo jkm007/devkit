@@ -7,7 +7,7 @@ import { useVbenDrawer, useVbenForm } from '@vben/common-ui';
 import { Button, message, Upload } from 'ant-design-vue';
 
 import { createBanner, updateBanner } from '#/api/system/banner';
-import { getPreviewURL, simpleUpload } from '#/api/file';
+import { simpleUpload } from '#/api/file';
 
 const emit = defineEmits<{
   success: [];
@@ -16,6 +16,7 @@ const emit = defineEmits<{
 const modalMode = ref<'create' | 'edit'>('create');
 const currentBanner = ref<Banner | null>(null);
 const imageUrl = ref('');
+const fileId = ref<number | undefined>(undefined);
 const uploading = ref(false);
 
 const linkTypeOptions = [
@@ -46,24 +47,14 @@ async function handleImageUpload(file: File) {
   try {
     const result = await simpleUpload(file);
 
-    // 获取预览 URL（可在 <img> 中直接使用）
-    let previewUrl = result.url;
-    try {
-      const previewResult = await getPreviewURL(result.fileId, 604800); // 7天有效
-      if (previewResult?.url) {
-        previewUrl = previewResult.url.startsWith('http')
-          ? previewResult.url
-          : `/api${previewResult.url}`;
-      }
-    } catch {
-      // 获取预览URL失败，使用原始URL
-      if (!previewUrl.startsWith('http')) {
-        previewUrl = `/api${previewUrl}`;
-      }
-    }
+    // 保存文件ID，用于后续获取预签名URL
+    fileId.value = result.fileId;
 
-    imageUrl.value = previewUrl;
-    formApi.setValues({ image: previewUrl });
+    // 使用代理URL（本地存储直接访问，云存储通过后端代理）
+    const proxyUrl = `/files/${result.fileId}/view`;
+    imageUrl.value = proxyUrl;
+    formApi.setValues({ image: proxyUrl });
+
     message.success('图片上传成功');
   } catch (error: any) {
     message.error(error.message || '图片上传失败');
@@ -87,10 +78,11 @@ function useFormSchema() {
     {
       component: 'Input',
       componentProps: {
-        placeholder: '请输入或上传图片URL',
+        placeholder: '图片URL（上传后自动填入）',
+        disabled: true,
       },
       fieldName: 'image',
-      label: '图片URL',
+      label: '图片',
       rules: 'required',
     },
     {
@@ -152,12 +144,19 @@ const [Drawer, drawerApi] = useVbenDrawer({
     const { valid } = await formApi.validate();
     if (!valid) return;
     const values = await formApi.getValues();
+
+    // 添加 fileId 到提交数据
+    const submitData = {
+      ...values,
+      fileId: fileId.value,
+    };
+
     try {
       if (modalMode.value === 'create') {
-        await createBanner(values);
+        await createBanner(submitData);
         message.success('创建成功');
       } else if (currentBanner.value) {
-        await updateBanner(currentBanner.value.id, values);
+        await updateBanner(currentBanner.value.id, submitData);
         message.success('更新成功');
       }
       emit('success');
@@ -171,11 +170,13 @@ const [Drawer, drawerApi] = useVbenDrawer({
       const data = drawerApi.getData<Banner>();
       formApi.resetForm();
       imageUrl.value = '';
+      fileId.value = undefined;
 
       if (data) {
         modalMode.value = 'edit';
         currentBanner.value = data;
         imageUrl.value = data.image || '';
+        fileId.value = data.fileId;
         formApi.setValues({
           title: data.title,
           image: data.image,
@@ -203,7 +204,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
       <!-- 图片上传区域 -->
       <div class="image-upload-section">
-        <div class="upload-label">快速上传图片</div>
+        <div class="upload-label">轮播图图片</div>
         <div v-if="imageUrl" class="image-preview">
           <img :src="imageUrl" alt="轮播图" class="preview-image" />
           <div class="image-actions">
@@ -219,6 +220,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
               danger
               @click="
                 imageUrl = '';
+                fileId = undefined;
                 formApi.setValues({ image: '' });
               "
             >

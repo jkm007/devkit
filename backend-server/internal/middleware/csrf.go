@@ -41,6 +41,7 @@ var csrfExemptPaths = []string{
 	"/api/v1/auth/refresh",
 	"/api/v1/auth/wechat/",
 	"/api/v1/share/",
+	"/api/v1/files/batch-public-url", // 公开文件URL批量获取
 }
 
 // generateCSRFToken 生成随机 CSRF Token

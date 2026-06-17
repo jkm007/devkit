@@ -742,6 +742,15 @@ func (s *FileService) GetAssetByID(assetID uint) (*model.FileAsset, error) {
 	return s.assetRepo.GetByID(assetID)
 }
 
+// GetAssetByFileEntryID 根据文件条目ID获取文件资产（用于公开URL获取）
+func (s *FileService) GetAssetByFileEntryID(fileID uint) (*model.FileAsset, error) {
+	entry, err := s.fileRepo.GetEntryByID(fileID)
+	if err != nil {
+		return nil, fmt.Errorf("文件不存在")
+	}
+	return s.assetRepo.GetByID(entry.FileAssetID)
+}
+
 // GetFileTags 获取文件的标签
 func (s *FileService) GetFileTags(fileID uint) ([]TagInfo, error) {
 	fileTags, err := s.fileTagRepo.GetByFileID(fileID)

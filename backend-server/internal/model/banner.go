@@ -7,6 +7,7 @@ type Banner struct {
 	ID        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	Title     string    `gorm:"type:varchar(255);not null" json:"title"`
 	Image     string    `gorm:"type:varchar(512);not null" json:"image"`
+	FileID    *uint     `gorm:"column:file_id" json:"fileId"`                  // 关联file_entries表
 	Link      string    `gorm:"type:varchar(512)" json:"link"`
 	LinkType  string    `gorm:"type:varchar(20);default:none" json:"linkType"` // internal / external / none
 	SortOrder int       `gorm:"default:0" json:"sortOrder"`

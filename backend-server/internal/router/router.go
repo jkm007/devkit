@@ -109,6 +109,10 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	// 轮播图（公开接口，移动端首页用）
 	apiV1.GET("/banners", bannerHandler.GetBanners)
 
+	// 公开文件URL（无需认证，用于轮播图等公开资源）
+	apiV1.GET("/files/:id/public-url", mediaHandler.GetPublicURL)
+	apiV1.POST("/files/batch-public-url", mediaHandler.BatchGetPublicURL)
+
 	// 移动端配置（公开接口，移动端用）
 	apiV1.GET("/mobile/quick-menus", mobileConfigHandler.GetActiveQuickMenus)
 	apiV1.GET("/mobile/my-page-menus", mobileConfigHandler.GetActiveMyPageMenus)

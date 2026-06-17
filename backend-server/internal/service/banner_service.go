@@ -30,6 +30,7 @@ type BannerResponse struct {
 	ID       uint   `json:"id"`
 	Title    string `json:"title"`
 	Image    string `json:"image"`
+	FileID   *uint  `json:"fileId,omitempty"`
 	Link     string `json:"link"`
 	LinkType string `json:"linkType"`
 }
@@ -62,6 +63,7 @@ func (s *BannerService) ListEnabled() ([]BannerResponse, error) {
 			ID:       b.ID,
 			Title:    b.Title,
 			Image:    b.Image,
+			FileID:   b.FileID,
 			Link:     b.Link,
 			LinkType: b.LinkType,
 		})

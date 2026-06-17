@@ -1,21 +1,25 @@
 package handler
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"backend-server/internal/middleware"
 	"backend-server/internal/model"
 	"backend-server/internal/service"
 	"backend-server/pkg/database"
+	"backend-server/pkg/logger"
 	"backend-server/pkg/response"
 	"backend-server/pkg/storage"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 // streamCopyBuffer 是用于文件流式传输的 buffer 大小（64KB），
@@ -711,4 +715,131 @@ func parseRange(rangeHeader string, fileSize int64) (start, end int64) {
 	}
 
 	return start, end
+}
+
+// GetPublicURL 获取公开文件的预签名URL（无需认证，带Redis缓存）
+// 用于轮播图、快捷菜单等公开资源
+// @Summary      获取公开文件URL
+// @Description  根据文件ID获取可访问的URL（无需认证，带缓存）
+// @Tags         公开接口
+// @Produce      json
+// @Param        id  path  int  true  "文件ID"
+// @Success      200  {object}  response.Response
+// @Router       /files/{id}/public-url [get]
+func (h *MediaHandler) GetPublicURL(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		response.BadRequest(c, "无效的ID")
+		return
+	}
+
+	ctx := context.Background()
+	cacheKey := fmt.Sprintf("file:public-url:%d", id)
+
+	// 1. 先查Redis缓存
+	rdb := database.GetRedis()
+	cached, err := rdb.Get(ctx, cacheKey).Result()
+	if err == nil && cached != "" {
+		logger.Info("命中公开URL缓存", zap.Uint64("fileId", id))
+		response.Success(c, gin.H{"url": cached})
+		return
+	}
+
+	// 2. 查数据库获取文件资产
+	fileService := service.NewFileService()
+	asset, err := fileService.GetAssetByFileEntryID(uint(id))
+	if err != nil {
+		response.NotFound(c, "文件不存在")
+		return
+	}
+
+	// 3. 根据存储类型生成URL
+	var fileURL string
+	st := storage.GetStorageByDriver(asset.StorageType)
+	if asset.StorageType == "local" {
+		// 本地存储：返回代理URL
+		fileURL = fmt.Sprintf("/files/%d/view", id)
+	} else {
+		// 云存储：生成预签名URL（7天有效）
+		presignedURL, err := st.GetPresignedURL(c, asset.ObjectKey, 604800)
+		if err != nil {
+			logger.Error("生成预签名URL失败", zap.Error(err), zap.Uint("fileId", uint(id)))
+			response.InternalError(c, "生成URL失败")
+			return
+		}
+		fileURL = presignedURL
+	}
+
+	// 4. 缓存到Redis（5天）
+	if err := rdb.Set(ctx, cacheKey, fileURL, 5*24*time.Hour).Err(); err != nil {
+		logger.Error("缓存公开URL失败", zap.Error(err))
+	}
+
+	response.Success(c, gin.H{"url": fileURL})
+}
+
+// BatchGetPublicURL 批量获取公开文件的预签名URL
+// @Summary      批量获取公开文件URL
+// @Description  批量根据文件ID获取可访问的URL（无需认证）
+// @Tags         公开接口
+// @Produce      json
+// @Param        body  body  object  true  "文件ID列表"
+// @Success      200  {object}  response.Response
+// @Router       /files/batch-public-url [post]
+func (h *MediaHandler) BatchGetPublicURL(c *gin.Context) {
+	var req struct {
+		FileIDs []uint `json:"fileIds" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "参数错误")
+		return
+	}
+
+	ctx := context.Background()
+	rdb := database.GetRedis()
+	fileService := service.NewFileService()
+
+	urls := make(map[uint]string)
+	var missingIDs []uint
+
+	// 1. 批量查Redis缓存
+	for _, fileID := range req.FileIDs {
+		cacheKey := fmt.Sprintf("file:public-url:%d", fileID)
+		cached, err := rdb.Get(ctx, cacheKey).Result()
+		if err == nil && cached != "" {
+			urls[fileID] = cached
+		} else {
+			missingIDs = append(missingIDs, fileID)
+		}
+	}
+
+	// 2. 对未命中的ID，批量查数据库
+	if len(missingIDs) > 0 {
+		for _, fileID := range missingIDs {
+			asset, err := fileService.GetAssetByFileEntryID(fileID)
+			if err != nil {
+				continue // 文件不存在，跳过
+			}
+
+			var fileURL string
+			st := storage.GetStorageByDriver(asset.StorageType)
+			if asset.StorageType == "local" {
+				fileURL = fmt.Sprintf("/files/%d/view", fileID)
+			} else {
+				presignedURL, err := st.GetPresignedURL(c, asset.ObjectKey, 604800)
+				if err != nil {
+					continue
+				}
+				fileURL = presignedURL
+			}
+
+			urls[fileID] = fileURL
+
+			// 缓存到Redis
+			cacheKey := fmt.Sprintf("file:public-url:%d", fileID)
+			rdb.Set(ctx, cacheKey, fileURL, 5*24*time.Hour)
+		}
+	}
+
+	response.Success(c, gin.H{"urls": urls})
 }

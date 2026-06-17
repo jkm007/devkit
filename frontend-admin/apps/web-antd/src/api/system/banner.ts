@@ -5,6 +5,7 @@ export interface Banner {
   id: number;
   title: string;
   image: string;
+  fileId?: number;
   link: string;
   linkType: string;
   sortOrder: number;

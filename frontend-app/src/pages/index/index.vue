@@ -151,7 +151,7 @@
 import { ref, onMounted } from 'vue';
 import { request } from '@/api/request';
 import type { Question } from '@/api/types';
-import { getBanners, type BannerItem } from '@/api/banner';
+import { getBanners, batchGetPublicURLs, type BannerItem } from '@/api/banner';
 
 const statusBarHeight = ref(0);
 const unreadCount = ref(0);
@@ -216,14 +216,32 @@ async function fetchHomeData() {
 
   // 轮播图单独请求
   try {
-    banners.value = await getBanners();
+    const bannerList = await getBanners();
+
+    // 批量获取轮播图的可访问URL
+    const fileIds = bannerList.filter(b => b.fileId).map(b => b.fileId!);
+    if (fileIds.length > 0) {
+      try {
+        const { urls } = await batchGetPublicURLs(fileIds);
+        // 将获取到的URL设置到对应的banner
+        bannerList.forEach(banner => {
+          if (banner.fileId && urls[banner.fileId]) {
+            banner.image = urls[banner.fileId];
+          }
+        });
+      } catch (err) {
+        console.warn('获取轮播图URL失败，使用原始URL:', err);
+      }
+    }
+
+    banners.value = bannerList;
   } catch {
     // 降级模拟数据（仅开发环境）
     if (import.meta.env.DEV) {
       banners.value = [
-        { id: 1, title: '📚 题库更新：新增 500 道网络协议真题', image: 'https://picsum.photos/750/300?random=1', link: '/pages/question/list', linkType: 'internal' },
-        { id: 2, title: '🎯 智能练习上线，根据你的薄弱点推荐题目', image: 'https://picsum.photos/750/300?random=2', link: '/pages/practice/smart', linkType: 'internal' },
-        { id: 3, title: '📕 错题本复习功能，艾宾浩斯记忆曲线助力', image: 'https://picsum.photos/750/300?random=3', link: '/pages/profile/wrong-book', linkType: 'internal' },
+        { id: 1, title: '📚 题库更新：新增 500 道网络协议真题', image: 'https://picsum.photos/750/300?random=1', link: '/pages/question/list', linkType: 'page' },
+        { id: 2, title: '🎯 智能练习上线，根据你的薄弱点推荐题目', image: 'https://picsum.photos/750/300?random=2', link: '/pages/practice/smart', linkType: 'page' },
+        { id: 3, title: '📕 错题本复习功能，艾宾浩斯记忆曲线助力', image: 'https://picsum.photos/750/300?random=3', link: '/pages/profile/wrong-book', linkType: 'page' },
       ];
     }
   }
