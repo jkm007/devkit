@@ -58,6 +58,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { request } from '@/api/request';
+import { submitPractice as submitPracticeAPI } from '@/api/study';
 
 interface PracticeResult {
   total: number;
@@ -102,6 +103,9 @@ onMounted(async () => {
 
   // 计算对错
   calculateResults();
+
+  // 提交练习结果到后端
+  await submitPracticeResult();
 
   // 保存错题到错题本
   if (wrongQuestions.value.length > 0) {
@@ -175,6 +179,21 @@ function isAnswerCorrect(userAnswer: string, correctAnswer: string, questionType
 
   // 单选/判断题
   return normalize(userAnswer) === normalize(correct);
+}
+
+async function submitPracticeResult() {
+  try {
+    await submitPracticeAPI({
+      total: result.value.total,
+      answered: result.value.answered,
+      correct: correctCount.value,
+      elapsed: result.value.elapsed,
+      answers: result.value.answers || [],
+    });
+    console.log('练习结果已提交到后端');
+  } catch (e) {
+    console.error('提交练习结果失败:', e);
+  }
 }
 
 async function saveWrongQuestions() {
