@@ -183,8 +183,22 @@ async function fetchQuestion() {
     if (data.answer) {
       try {
         const ans = typeof data.answer === 'string' ? JSON.parse(data.answer) : data.answer;
-        if (ans.correct) correctAnswer.value = ans.correct.join(',');
-      } catch { correctAnswer.value = data.answer; }
+        // 选择题格式: {"correct": ["A"]} 或 {"correct": ["A","B"]}
+        if (ans.correct && Array.isArray(ans.correct)) {
+          correctAnswer.value = ans.correct.join(',');
+        }
+        // 简答题/论述题等格式: {"text": "答案内容"} 或直接是文本
+        else if (ans.text) {
+          correctAnswer.value = ans.text;
+        }
+        // 其他格式
+        else {
+          correctAnswer.value = typeof data.answer === 'string' ? data.answer : JSON.stringify(ans);
+        }
+      } catch {
+        // 解析失败，直接显示原始内容
+        correctAnswer.value = data.answer;
+      }
     }
   } catch {
     question.value = {
