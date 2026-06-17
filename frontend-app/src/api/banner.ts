@@ -8,7 +8,7 @@ export interface BannerItem {
   title: string;
   image: string;
   link: string;
-  linkType: 'internal' | 'external' | 'none';
+  linkType: 'external' | 'none' | 'page';
 }
 
 /**
