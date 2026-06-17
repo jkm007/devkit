@@ -4,7 +4,7 @@ import type { Banner } from '#/api/system/banner';
 import { ref } from 'vue';
 
 import { useVbenDrawer, useVbenForm } from '@vben/common-ui';
-import { message, Upload } from 'ant-design-vue';
+import { Button, message, Upload } from 'ant-design-vue';
 
 import { createBanner, updateBanner } from '#/api/system/banner';
 import { simpleUpload } from '#/api/file';
@@ -195,9 +195,9 @@ const [Drawer, drawerApi] = useVbenDrawer({
               :before-upload="handleImageUpload"
               accept="image/*"
             >
-              <a-button size="small" :loading="uploading">重新上传</a-button>
+              <Button size="small" :loading="uploading">重新上传</Button>
             </Upload>
-            <a-button
+            <Button
               size="small"
               danger
               @click="
@@ -206,7 +206,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
               "
             >
               删除
-            </a-button>
+            </Button>
           </div>
         </div>
         <Upload
