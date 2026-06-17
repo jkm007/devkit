@@ -7,7 +7,7 @@ import { useVbenDrawer, useVbenForm } from '@vben/common-ui';
 import { Button, message, Upload } from 'ant-design-vue';
 
 import { createBanner, updateBanner } from '#/api/system/banner';
-import { getPreviewURL, simpleUpload } from '#/api/file';
+import { simpleUpload } from '#/api/file';
 
 const emit = defineEmits<{
   success: [];
@@ -47,24 +47,14 @@ async function handleImageUpload(file: File) {
   try {
     const result = await simpleUpload(file);
 
-    // 保存文件ID，用于后续获取预签名URL
+    // 保存文件ID（用于移动端动态获取预签名URL）
     fileId.value = result.fileId;
 
-    // 获取预览URL（可在 <img> 中直接使用）
-    let previewUrl = `/api/files/${result.fileId}/view`;
-    try {
-      const previewResult = await getPreviewURL(result.fileId, 604800); // 7天有效
-      if (previewResult?.url) {
-        previewUrl = previewResult.url.startsWith('http')
-          ? previewResult.url
-          : `/api${previewResult.url}`;
-      }
-    } catch {
-      // 获取预览URL失败，使用代理URL
-    }
-
-    imageUrl.value = previewUrl;
-    formApi.setValues({ image: previewUrl });
+    // 管理后台使用代理URL（带认证，永久有效）
+    // 移动端会通过 fileId 调用公开接口获取预签名URL
+    const proxyUrl = `/api/files/${result.fileId}/view`;
+    imageUrl.value = proxyUrl;
+    formApi.setValues({ image: proxyUrl });
 
     message.success('图片上传成功');
   } catch (error: any) {
