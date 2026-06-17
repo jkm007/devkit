@@ -32,7 +32,7 @@ func (r *BannerRepo) Create(banner *model.Banner) error {
 
 // Update 更新轮播图
 func (r *BannerRepo) Update(banner *model.Banner) error {
-	return r.db.Save(banner).Error
+	return r.db.Model(banner).Updates(banner).Error
 }
 
 // Delete 删除轮播图

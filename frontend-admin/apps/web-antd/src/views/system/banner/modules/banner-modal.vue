@@ -7,7 +7,7 @@ import { useVbenDrawer, useVbenForm } from '@vben/common-ui';
 import { Button, message, Upload } from 'ant-design-vue';
 
 import { createBanner, updateBanner } from '#/api/system/banner';
-import { simpleUpload } from '#/api/file';
+import { getPreviewURL, simpleUpload } from '#/api/file';
 
 const emit = defineEmits<{
   success: [];
@@ -45,8 +45,25 @@ async function handleImageUpload(file: File) {
   uploading.value = true;
   try {
     const result = await simpleUpload(file);
-    imageUrl.value = result.url;
-    formApi.setValues({ image: result.url });
+
+    // 获取预览 URL（可在 <img> 中直接使用）
+    let previewUrl = result.url;
+    try {
+      const previewResult = await getPreviewURL(result.fileId, 604800); // 7天有效
+      if (previewResult?.url) {
+        previewUrl = previewResult.url.startsWith('http')
+          ? previewResult.url
+          : `/api${previewResult.url}`;
+      }
+    } catch {
+      // 获取预览URL失败，使用原始URL
+      if (!previewUrl.startsWith('http')) {
+        previewUrl = `/api${previewUrl}`;
+      }
+    }
+
+    imageUrl.value = previewUrl;
+    formApi.setValues({ image: previewUrl });
     message.success('图片上传成功');
   } catch (error: any) {
     message.error(error.message || '图片上传失败');
