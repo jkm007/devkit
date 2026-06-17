@@ -114,6 +114,7 @@
 import { ref, onMounted } from 'vue';
 import { request, tokenManager } from '@/api/request';
 import { getUserInfo } from '@/api/auth';
+import { getUserStats } from '@/api/study';
 
 const userInfo = ref({
   nickname: '',
@@ -147,28 +148,13 @@ async function loadUserInfo() {
 
 async function loadStats() {
   try {
-    const [practiceRes, favRes, wrongRes] = await Promise.allSettled([
-      request.get<any>('/study/practice/history', { params: { page: 1, pageSize: 100 } }),
-      request.get<any>('/user/favorites', { params: { page: 1, pageSize: 1 } }),
-      request.get<any>('/study/wrong/stats'),
-    ]);
-
-    // 从练习历史计算总答题数和正确率
-    let totalAnswered = 0;
-    let totalCorrect = 0;
-    if (practiceRes.status === 'fulfilled' && practiceRes.value?.items) {
-      for (const record of practiceRes.value.items) {
-        totalAnswered += record.answered || 0;
-        totalCorrect += record.correct || 0;
-      }
-    }
-
+    const data = await getUserStats();
     stats.value = {
-      totalAnswered: totalAnswered,
-      correctRate: totalAnswered > 0 ? totalCorrect / totalAnswered : 0,
-      continuousDays: 0, // 需要后端支持连续打卡统计
-      favoritesCount: favRes.status === 'fulfilled' ? favRes.value.total || 0 : 0,
-      wrongCount: wrongRes.status === 'fulfilled' ? wrongRes.value.total || 0 : 0,
+      totalAnswered: data.totalAnswered || 0,
+      correctRate: data.correctRate || 0,
+      continuousDays: data.continuousDays || 0,
+      favoritesCount: data.favoritesCount || 0,
+      wrongCount: data.wrongCount || 0,
     };
   } catch {
     stats.value = {

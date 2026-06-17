@@ -5,6 +5,19 @@ import { request } from './request';
 import type { Question, PageResponse } from '@/api/types';
 
 /**
+ * 用户学习统计
+ */
+export interface UserStats {
+  totalAnswered: number;
+  totalCorrect: number;
+  correctRate: number;
+  continuousDays: number;
+  favoritesCount: number;
+  wrongCount: number;
+  practiceDays: number;
+}
+
+/**
  * 获取题目列表
  */
 export function getQuestions(params: {
@@ -108,6 +121,13 @@ export function submitPractice(data: {
  */
 export function getPracticeHistory(params: { page?: number; pageSize?: number }) {
   return request.get<PageResponse<any>>('/study/practice/history', { params });
+}
+
+/**
+ * 获取用户学习统计
+ */
+export function getUserStats() {
+  return request.get<UserStats>('/user/stats');
 }
 
 /**
