@@ -31,3 +31,16 @@ func (h *UserHomeHandler) GetHomeData(c *gin.Context) {
 
 	response.Success(c, data)
 }
+
+// GetUserStats 获取用户学习统计
+func (h *UserHomeHandler) GetUserStats(c *gin.Context) {
+	userID := middleware.GetCurrentUserID(c)
+
+	data, err := h.userHomeService.GetUserStats(userID)
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.Success(c, data)
+}

@@ -183,6 +183,7 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 
 		// 用户首页数据
 		authorized.GET("/user/home", userHomeHandler.GetHomeData)
+		authorized.GET("/user/stats", userHomeHandler.GetUserStats)
 
 		// ==================== 移动端学习 API ====================
 		// 题目学习
