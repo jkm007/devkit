@@ -10,7 +10,7 @@ server:
 
 # MySQL 配置
 mysql:
-  host: 10.0.50.108
+  host: 114.215.190.52
   port: 3306
   user: root
   password: "root123456"
@@ -22,7 +22,7 @@ mysql:
 
 # Redis 配置
 redis:
-  host: 10.0.50.108
+  host: 114.215.190.52
   port: 6379
   password: "redis123456"
   db: 0
@@ -57,6 +57,8 @@ cors:
     - "http://10.0.50.207:5666"
     - "http://10.0.50.207:5173"  # 移动端H5开发服务器
     - "http://10.0.50.207:5174"  # 移动端H5备用端口
+    - "http://123.57.201.44"     # 移动端H5生产环境
+    - "http://123.57.201.44:8081" # 管理后台生产环境
   allow_methods:
     - GET
     - POST

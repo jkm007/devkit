@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/aliyun/aliyun-oss-go-sdk v3.0.2+incompatible
-	github.com/gin-contrib/cors v1.5.0
+	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-gonic/gin v1.12.0
 	github.com/go-playground/validator/v10 v10.30.3
 	github.com/golang-jwt/jwt/v5 v5.2.3
