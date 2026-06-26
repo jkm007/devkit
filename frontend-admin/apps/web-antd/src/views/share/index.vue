@@ -141,6 +141,18 @@ function resetVideoError() {
   videoFormatError.value = '';
 }
 
+function onVideoCanPlay(event: Event) {
+  const video = event.target as HTMLVideoElement;
+  if (video) {
+    console.log('Video can play:', {
+      videoWidth: video.videoWidth,
+      videoHeight: video.videoHeight,
+      duration: video.duration,
+      readyState: video.readyState,
+    });
+  }
+}
+
 // ==================== 播放进度保存/恢复 ====================
 
 function savePlayProgress(fileId: number, time: number) {
@@ -735,7 +747,7 @@ onUnmounted(() => {
           <div v-else-if="shareInfo.contentType?.startsWith('video/')">
             <!-- 视频播放器 -->
             <div v-if="videoFormatSupported">
-              <div class="bg-black rounded-lg overflow-hidden">
+              <div class="bg-black rounded-lg overflow-hidden" style="min-height: 300px;">
                 <video
                   ref="videoRef"
                   :src="`/api/v1/share/${shareCode}/file`"
@@ -743,13 +755,14 @@ onUnmounted(() => {
                   autoplay
                   preload="auto"
                   playsinline
-                  style="display: block; max-width: 100%; max-height: 500px; margin: 0 auto"
+                  style="width: 100%; max-height: 500px; object-fit: contain; background: #000;"
                   @timeupdate="onTimeUpdate"
                   @ended="onEnded"
                   @error="onVideoError"
                   @play="isPlaying = true"
                   @pause="isPlaying = false"
                   @loadeddata="resetVideoError"
+                  @canplay="onVideoCanPlay"
                 />
               </div>
               <!-- 播放信息 -->
