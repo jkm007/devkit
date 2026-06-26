@@ -9,6 +9,8 @@ import (
 	"backend-server/internal/model"
 	"backend-server/internal/repository"
 	"backend-server/pkg/database"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 type ShareService struct {
@@ -39,7 +41,7 @@ func generateShareCode() (string, error) {
 }
 
 // CreateFileShare 创建文件分享
-func (s *ShareService) CreateFileShare(userID, fileID uint, expireHours int, maxAccess int) (*model.FileShare, error) {
+func (s *ShareService) CreateFileShare(userID, fileID uint, expireHours int, maxAccess int, password string) (*model.FileShare, error) {
 	// 验证文件归属
 	entry, err := s.fileRepo.GetEntryByID(fileID)
 	if err != nil || entry.UserID != userID {
@@ -59,6 +61,16 @@ func (s *ShareService) CreateFileShare(userID, fileID uint, expireHours int, max
 		IsPublic:  true,
 	}
 
+	// 可选密码保护
+	if password != "" {
+		hashedPwd, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+		if err != nil {
+			return nil, fmt.Errorf("密码加密失败")
+		}
+		share.Password = string(hashedPwd)
+		share.HasPassword = true
+	}
+
 	if expireHours > 0 {
 		expireAt := time.Now().Add(time.Duration(expireHours) * time.Hour)
 		share.ExpireAt = &expireAt
@@ -72,7 +84,7 @@ func (s *ShareService) CreateFileShare(userID, fileID uint, expireHours int, max
 }
 
 // CreateFolderShare 创建文件夹分享
-func (s *ShareService) CreateFolderShare(userID, folderID uint, expireHours int, maxAccess int) (*model.FileShare, error) {
+func (s *ShareService) CreateFolderShare(userID, folderID uint, expireHours int, maxAccess int, password string) (*model.FileShare, error) {
 	// 验证文件夹归属
 	folder, err := s.fileRepo.GetFolderByID(folderID)
 	if err != nil || folder.UserID != userID {
@@ -91,6 +103,16 @@ func (s *ShareService) CreateFolderShare(userID, folderID uint, expireHours int,
 		IsPublic:  true,
 	}
 
+	// 可选密码保护
+	if password != "" {
+		hashedPwd, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+		if err != nil {
+			return nil, fmt.Errorf("密码加密失败")
+		}
+		share.Password = string(hashedPwd)
+		share.HasPassword = true
+	}
+
 	if expireHours > 0 {
 		expireAt := time.Now().Add(time.Duration(expireHours) * time.Hour)
 		share.ExpireAt = &expireAt
@@ -103,7 +125,7 @@ func (s *ShareService) CreateFolderShare(userID, folderID uint, expireHours int,
 	return share, nil
 }
 
-// GetShareInfo 获取分享信息
+// GetShareInfo 获取分享信息（不含密码校验，用于获取元数据）
 func (s *ShareService) GetShareInfo(code string) (map[string]interface{}, error) {
 	share, err := s.shareRepo.GetByShareCode(code)
 	if err != nil {
@@ -140,6 +162,7 @@ func (s *ShareService) GetShareInfo(code string) (map[string]interface{}, error)
 		"expireAt":     share.ExpireAt,
 		"accessCount":  share.AccessCount,
 		"maxAccess":    share.MaxAccess,
+		"hasPassword":  share.HasPassword,
 		"sharerId":     share.UserID,
 		"sharerName":   user.Nickname,
 		"sharerAvatar": user.Avatar,
@@ -151,13 +174,15 @@ func (s *ShareService) GetShareInfo(code string) (map[string]interface{}, error)
 		if err != nil || entry == nil {
 			return nil, fmt.Errorf("文件不存在")
 		}
-		asset, _ := s.assetRepo.GetByID(entry.FileAssetID)
 		result["type"] = "file"
 		result["fileName"] = entry.Name
 		result["fileSize"] = entry.Size
 		result["contentType"] = entry.ContentType
 		result["fileId"] = entry.ID
-		if asset != nil {
+
+		// 获取文件资产信息
+		asset, err := s.assetRepo.GetByID(entry.FileAssetID)
+		if err == nil && asset != nil {
 			result["objectKey"] = asset.ObjectKey
 			result["storageType"] = asset.StorageType
 		} else {
@@ -179,6 +204,24 @@ func (s *ShareService) GetShareInfo(code string) (map[string]interface{}, error)
 	return result, nil
 }
 
+// VerifySharePassword 验证分享密码
+func (s *ShareService) VerifySharePassword(code string, password string) (bool, error) {
+	share, err := s.shareRepo.GetByShareCode(code)
+	if err != nil {
+		return false, fmt.Errorf("分享不存在")
+	}
+	if !share.HasPassword {
+		return true, nil // 无密码，直接通过
+	}
+	if password == "" {
+		return false, fmt.Errorf("请输入访问密码")
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(share.Password), []byte(password)); err != nil {
+		return false, fmt.Errorf("密码错误")
+	}
+	return true, nil
+}
+
 // GetShareFolderFiles 获取分享文件夹内的文件列表（支持分页、搜索和子目录递归）
 func (s *ShareService) GetShareFolderFiles(folderID uint, page, pageSize int, keyword string) ([]map[string]interface{}, int64, error) {
 	folderIDs, err := s.collectChildFolderIDs(folderID)
@@ -198,16 +241,12 @@ func (s *ShareService) GetShareFolderFiles(folderID uint, page, pageSize int, ke
 
 	files := make([]map[string]interface{}, 0, len(entries))
 	for _, entry := range entries {
-		asset, _ := s.assetRepo.GetByID(entry.FileAssetID)
 		file := map[string]interface{}{
 			"fileId":      entry.ID,
 			"fileName":    entry.Name,
 			"fileSize":    entry.Size,
 			"contentType": entry.ContentType,
 			"createdAt":   entry.CreatedAt,
-		}
-		if asset != nil {
-			file["objectKey"] = asset.ObjectKey
 		}
 		files = append(files, file)
 	}

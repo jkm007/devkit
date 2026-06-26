@@ -256,7 +256,7 @@ func configModelToConfig(m *model.StorageConfig) config.StorageConfig {
 }
 
 // SyncBucketsFromConfig 从 sys_storage_config 同步到 sys_storage_bucket
-// 当存储配置创建/更新/删除时调用，确保桶管理中有对应的默认桶
+// 每个启用的存储配置都会同步到桶管理（按名称匹配）
 func (s *StorageConfigService) SyncBucketsFromConfig() error {
 	db := database.GetMySQL()
 	bucketRepo := repository.NewStorageBucketRepo(db)
@@ -266,92 +266,73 @@ func (s *StorageConfigService) SyncBucketsFromConfig() error {
 		return fmt.Errorf("读取存储配置失败: %w", err)
 	}
 
-	// 按 driver 分组，取默认配置
-	driverConfigs := make(map[string]*model.StorageConfig)
-	for i, c := range configs {
-		if c.Status != 1 {
-			continue
-		}
-		if _, ok := driverConfigs[c.Driver]; !ok || c.IsDefault {
-			driverConfigs[c.Driver] = &configs[i]
-		}
-	}
-
 	driverLabels := map[string]string{
 		"local": "本地存储",
 		"minio": "MinIO",
+		"ceph":  "Ceph RGW",
 		"oss":   "阿里云 OSS",
 		"cos":   "腾讯云 COS",
 	}
 
-	// 同步每个驱动
-	for driver, cfg := range driverConfigs {
-		label := driverLabels[driver]
-		if label == "" {
-			label = driver
+	// 同步每个启用的配置到桶管理
+	for _, cfg := range configs {
+		if cfg.Status != 1 {
+			continue
 		}
 
-		// 查找该驱动的默认桶
-		existing, err := bucketRepo.GetDefaultByDriver(driver)
+		label := driverLabels[cfg.Driver]
+		if label == "" {
+			label = cfg.Driver
+		}
+
+		// 按名称查找已有桶
+		existing, err := bucketRepo.GetByName(cfg.Name)
 		if err != nil && err != gorm.ErrRecordNotFound {
-			log.Printf("[WARN] 查询 %s 默认桶失败: %v", driver, err)
+			log.Printf("[WARN] 查询桶 %s 失败: %v", cfg.Name, err)
 			continue
 		}
 
 		if existing != nil {
-			// 更新凭据（保留用户手动设置的状态）
+			// 更新凭据（保留用户手动设置的状态和用途）
+			existing.Driver = cfg.Driver
 			existing.Endpoint = cfg.Endpoint
 			existing.AccessKey = cfg.AccessKey
 			existing.SecretKey = cfg.SecretKey
+			existing.Bucket = cfg.Bucket
 			existing.CDNDomain = cfg.CDNDomain
 			existing.UseSSL = cfg.UseSSL
-			if driver == "cos" {
+			if cfg.Driver == "cos" || cfg.Driver == "minio" || cfg.Driver == "ceph" {
 				existing.Region = cfg.Region
 			}
-			existing.Description = fmt.Sprintf("由存储配置自动同步的 %s 桶", label)
+			existing.Description = fmt.Sprintf("由存储配置「%s」自动同步", cfg.Name)
 			if err := bucketRepo.Update(existing); err != nil {
-				log.Printf("[ERROR] 更新 %s 默认桶失败: %v", driver, err)
+				log.Printf("[ERROR] 更新桶 %s 失败: %v", cfg.Name, err)
 			} else {
-				log.Printf("[INFO] 已更新 %s 默认桶凭据", driver)
+				log.Printf("[INFO] 已更新桶: %s", cfg.Name)
 			}
 		} else {
 			// 创建新桶
 			newBucket := &model.StorageBucket{
-				Name:       fmt.Sprintf("%s 默认桶", label),
-				Driver:     driver,
-				Endpoint:   cfg.Endpoint,
-				Bucket:     cfg.Bucket,
-				AccessKey:  cfg.AccessKey,
-				SecretKey:  cfg.SecretKey,
-				CDNDomain:  cfg.CDNDomain,
-				UseSSL:     cfg.UseSSL,
-				Purpose:    "file",
-				IsDefault:  true,
-				Status:     1,
-				Description: fmt.Sprintf("由存储配置自动同步的 %s 桶", label),
+				Name:        cfg.Name,
+				Driver:      cfg.Driver,
+				Endpoint:    cfg.Endpoint,
+				Bucket:      cfg.Bucket,
+				AccessKey:   cfg.AccessKey,
+				SecretKey:   cfg.SecretKey,
+				CDNDomain:   cfg.CDNDomain,
+				UseSSL:      cfg.UseSSL,
+				Purpose:     "file",
+				IsDefault:   cfg.IsDefault,
+				Status:      1,
+				Description: fmt.Sprintf("由存储配置「%s」自动同步", cfg.Name),
 			}
-			if driver == "cos" {
+			if cfg.Driver == "cos" || cfg.Driver == "minio" || cfg.Driver == "ceph" {
 				newBucket.Region = cfg.Region
 			}
 			if err := bucketRepo.Create(newBucket); err != nil {
-				log.Printf("[ERROR] 创建 %s 默认桶失败: %v", driver, err)
+				log.Printf("[ERROR] 创建桶 %s 失败: %v", cfg.Name, err)
 			} else {
-				log.Printf("[INFO] 已创建 %s 默认桶: %s", driver, newBucket.Name)
-			}
-		}
-	}
-
-	// 禁用没有配置的驱动的桶
-	allDrivers := []string{"minio", "oss", "cos"}
-	for _, driver := range allDrivers {
-		if _, ok := driverConfigs[driver]; !ok {
-			existing, err := bucketRepo.GetDefaultByDriver(driver)
-			if err == nil && existing != nil && existing.Status == 1 {
-				existing.Status = 0
-				existing.Description = fmt.Sprintf("%s 未配置，请在存储配置中添加", driverLabels[driver])
-				if err := bucketRepo.Update(existing); err != nil {
-					log.Printf("[ERROR] 禁用 %s 默认桶失败: %v", driver, err)
-				}
+				log.Printf("[INFO] 已创建桶: %s", cfg.Name)
 			}
 		}
 	}
@@ -378,6 +359,7 @@ func (s *StorageConfigService) GetEnabledDrivers() ([]map[string]interface{}, er
 	driverLabels := map[string]string{
 		"local": "本地存储",
 		"minio": "MinIO",
+		"ceph":  "Ceph RGW",
 		"oss":   "阿里云 OSS",
 		"cos":   "腾讯云 COS",
 	}

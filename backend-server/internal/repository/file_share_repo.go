@@ -44,9 +44,11 @@ func (r *FileShareRepo) GetByUserID(userID uint) ([]model.FileShare, error) {
 	return shares, err
 }
 
+// IncrementAccessCount 原子递增访问次数（SQL 级别，带访问次数上限检查）
 func (r *FileShareRepo) IncrementAccessCount(code string) error {
 	now := time.Now()
-	return r.db.Model(&model.FileShare{}).Where("share_code = ?", code).
+	return r.db.Model(&model.FileShare{}).
+		Where("share_code = ? AND (max_access = 0 OR access_count < max_access)", code).
 		Updates(map[string]interface{}{
 			"access_count": gorm.Expr("access_count + 1"),
 			"accessed_at":  now,

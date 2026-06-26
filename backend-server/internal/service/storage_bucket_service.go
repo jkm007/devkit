@@ -357,6 +357,7 @@ func GetEnabledDrivers() []map[string]interface{} {
 		icon  string
 	}{
 		{"minio", "MinIO", "📦"},
+		{"ceph", "Ceph RGW", "🐘"},
 		{"oss", "阿里云 OSS", "☁️"},
 		{"cos", "腾讯云 COS", "🌊"},
 	}

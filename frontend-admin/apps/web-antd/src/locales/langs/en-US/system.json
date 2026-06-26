@@ -1,4 +1,8 @@
 {
+  "common": {
+    "status": "Status",
+    "operation": "Operation"
+  },
   "title": "System Management",
   "user": {
     "title": "User Management",

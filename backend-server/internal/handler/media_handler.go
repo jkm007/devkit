@@ -745,9 +745,9 @@ func (h *MediaHandler) GetPublicURL(c *gin.Context) {
 		return
 	}
 
-	// 2. 查数据库获取文件资产
+	// 2. 查数据库获取文件资产（仅公开文件）
 	fileService := service.NewFileService()
-	asset, err := fileService.GetAssetByFileEntryID(uint(id))
+	asset, err := fileService.GetPublicAssetByFileEntryID(uint(id))
 	if err != nil {
 		response.NotFound(c, "文件不存在")
 		return
@@ -795,6 +795,12 @@ func (h *MediaHandler) BatchGetPublicURL(c *gin.Context) {
 		return
 	}
 
+	// 限制批量请求数量，防止枚举和滥用
+	if len(req.FileIDs) > 100 {
+		response.BadRequest(c, "单次最多查询100个文件")
+		return
+	}
+
 	ctx := context.Background()
 	rdb := database.GetRedis()
 	fileService := service.NewFileService()
@@ -813,10 +819,10 @@ func (h *MediaHandler) BatchGetPublicURL(c *gin.Context) {
 		}
 	}
 
-	// 2. 对未命中的ID，批量查数据库
+	// 2. 对未命中的ID，批量查数据库（仅公开文件）
 	if len(missingIDs) > 0 {
 		for _, fileID := range missingIDs {
-			asset, err := fileService.GetAssetByFileEntryID(fileID)
+			asset, err := fileService.GetPublicAssetByFileEntryID(fileID)
 			if err != nil {
 				continue // 文件不存在，跳过
 			}

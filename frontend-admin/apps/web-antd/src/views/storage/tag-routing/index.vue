@@ -358,10 +358,22 @@ const getStorageBucketLabel = (driver: string, bucket?: string) => {
   const driverLabels: Record<string, string> = {
     local: t('system.tag.storageLocal'),
     minio: t('system.tag.storageMinio'),
+    ceph: t('system.tag.storageCeph'),
     oss: t('system.tag.storageOss'),
     cos: t('system.tag.storageCos'),
   };
   return driverLabels[driver] || driver;
+};
+
+// 获取存储桶详细信息（用于 Tooltip）
+const getStorageBucketDetail = (driver: string, bucket?: string) => {
+  const matched = storageBuckets.value.find(
+    (b) => b.driver === driver && (b.bucket || '') === (bucket || ''),
+  );
+  if (matched) {
+    return `${matched.name}${matched.endpoint ? ` (${matched.endpoint})` : ''}`;
+  }
+  return '';
 };
 
 const handleRuleSubmit = async () => {
@@ -402,7 +414,8 @@ const handleToggleRuleStatus = async (rule: any) => {
   try {
     await updateRoutingRuleStatus(rule.id, rule.status === 1 ? 0 : 1);
     message.success('更新成功');
-    loadRules();
+    // 直接更新本地数据，避免重新加载导致弹窗关闭
+    rule.status = rule.status === 1 ? 0 : 1;
   } catch (error: any) {
     message.error(error.message || '操作失败');
   }
@@ -448,7 +461,7 @@ const tagColumns = computed(() => [
   { title: t('system.tag.sortOrder'), dataIndex: 'sortOrder', width: 80 },
   { title: t('system.tag.fileCount'), dataIndex: 'fileCount', width: 80 },
   { title: t('system.tag.isSystem'), dataIndex: 'isSystem', width: 100 },
-  { title: t('common.operation'), key: 'action', width: 150 },
+  { title: t('system.common.operation'), key: 'action', width: 150 },
 ]);
 
 // 规则列定义
@@ -459,8 +472,8 @@ const ruleColumns = computed(() => [
   { title: t('system.tag.targetStorage'), key: 'storage', width: 150 },
   { title: t('system.tag.bucketPath'), key: 'bucket', width: 150 },
   { title: t('system.tag.defaultRule'), dataIndex: 'isDefault', width: 100 },
-  { title: t('common.status'), dataIndex: 'status', width: 80 },
-  { title: t('common.operation'), key: 'action', width: 200 },
+  { title: t('system.common.status'), dataIndex: 'status', width: 80 },
+  { title: t('system.common.operation'), key: 'action', width: 200 },
 ]);
 
 // 获取文件数量
@@ -695,7 +708,11 @@ const getTagValueOptions = (key: string) => {
                 }}</Tag>
               </template>
               <template v-if="column.key === 'storage'">
-                {{ getStorageBucketLabel(record.driver, record.bucket) }}
+                <Tooltip :title="getStorageBucketDetail(record.driver, record.bucket)">
+                  <Tag :color="record.driver === 'minio' ? 'blue' : record.driver === 'ceph' ? 'purple' : record.driver === 'oss' ? 'orange' : record.driver === 'cos' ? 'cyan' : 'default'">
+                    {{ getStorageBucketLabel(record.driver, record.bucket) }}
+                  </Tag>
+                </Tooltip>
               </template>
               <template v-if="column.key === 'bucket'">
                 {{ record.bucket || '-'
@@ -711,14 +728,14 @@ const getTagValueOptions = (key: string) => {
                   v-if="hasAccessByCodes(['system:setting:edit'])"
                   :checked="record.status === 1"
                   @change="() => handleToggleRuleStatus(record)"
-                  :checked-children="t('common.enable')"
-                  :un-checked-children="t('common.disable')"
+                  :checked-children="t('common.enabled')"
+                  :un-checked-children="t('common.disabled')"
                 />
                 <Tag v-else :color="record.status === 1 ? 'green' : 'default'">
                   {{
                     record.status === 1
-                      ? t('common.enable')
-                      : t('common.disable')
+                      ? t('common.enabled')
+                      : t('common.disabled')
                   }}
                 </Tag>
               </template>

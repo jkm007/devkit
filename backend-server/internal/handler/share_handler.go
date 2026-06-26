@@ -70,24 +70,26 @@ func (h *ShareHandler) CreateFileShare(c *gin.Context) {
 	userID := middleware.GetCurrentUserID(c)
 
 	var req struct {
-		ExpireHours int `json:"expireHours"`
-		MaxAccess   int `json:"maxAccess"`
+		ExpireHours int    `json:"expireHours"`
+		MaxAccess   int    `json:"maxAccess"`
+		Password    string `json:"password"` // 可选密码
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "请求参数错误")
 		return
 	}
 
-	share, err := h.shareService.CreateFileShare(userID, uint(id), req.ExpireHours, req.MaxAccess)
+	share, err := h.shareService.CreateFileShare(userID, uint(id), req.ExpireHours, req.MaxAccess, req.Password)
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return
 	}
 
 	response.Success(c, gin.H{
-		"shareCode": share.ShareCode,
-		"shareUrl":  "/share/" + share.ShareCode,
-		"expireAt":  share.ExpireAt,
+		"shareCode":   share.ShareCode,
+		"shareUrl":    "/share/" + share.ShareCode,
+		"expireAt":    share.ExpireAt,
+		"hasPassword": share.HasPassword,
 	})
 }
 
@@ -102,24 +104,26 @@ func (h *ShareHandler) CreateFolderShare(c *gin.Context) {
 	userID := middleware.GetCurrentUserID(c)
 
 	var req struct {
-		ExpireHours int `json:"expireHours"`
-		MaxAccess   int `json:"maxAccess"`
+		ExpireHours int    `json:"expireHours"`
+		MaxAccess   int    `json:"maxAccess"`
+		Password    string `json:"password"` // 可选密码
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "请求参数错误")
 		return
 	}
 
-	share, err := h.shareService.CreateFolderShare(userID, uint(id), req.ExpireHours, req.MaxAccess)
+	share, err := h.shareService.CreateFolderShare(userID, uint(id), req.ExpireHours, req.MaxAccess, req.Password)
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return
 	}
 
 	response.Success(c, gin.H{
-		"shareCode": share.ShareCode,
-		"shareUrl":  "/share/" + share.ShareCode,
-		"expireAt":  share.ExpireAt,
+		"shareCode":   share.ShareCode,
+		"shareUrl":    "/share/" + share.ShareCode,
+		"expireAt":    share.ExpireAt,
+		"hasPassword": share.HasPassword,
 	})
 }
 
@@ -135,6 +139,28 @@ func (h *ShareHandler) GetShareInfo(c *gin.Context) {
 	}
 
 	response.Success(c, info)
+}
+
+// VerifySharePassword 验证分享密码（公开）
+// @Router /share/{code}/verify [post]
+func (h *ShareHandler) VerifySharePassword(c *gin.Context) {
+	code := c.Param("code")
+
+	var req struct {
+		Password string `json:"password" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "请输入密码")
+		return
+	}
+
+	ok, err := h.shareService.VerifySharePassword(code, req.Password)
+	if err != nil || !ok {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	response.Success(c, gin.H{"verified": true})
 }
 
 // GetShareFolderFiles 获取分享文件夹内的文件列表（公开，支持分页和搜索）

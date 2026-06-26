@@ -50,9 +50,14 @@ func (r *FileRepo) GetFoldersByIDs(ids []uint) (map[uint]*model.FileFolder, erro
 }
 
 // GetFolderTree 获取用户的目录树
+// userID=0 表示获取所有用户的目录树
 func (r *FileRepo) GetFolderTree(userID uint) ([]model.FileFolder, error) {
 	var folders []model.FileFolder
-	if err := r.db.Where("user_id = ?", userID).Order("path ASC").Find(&folders).Error; err != nil {
+	query := r.db.Model(&model.FileFolder{})
+	if userID > 0 {
+		query = query.Where("user_id = ?", userID)
+	}
+	if err := query.Order("path ASC").Find(&folders).Error; err != nil {
 		return nil, err
 	}
 	return folders, nil

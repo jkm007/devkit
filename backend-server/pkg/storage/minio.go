@@ -43,6 +43,7 @@ func NewMinIOStorage(cfg config.MinIOConfig) (*MinIOStorage, error) {
 	client, err := minio.New(endpoint, &minio.Options{
 		Creds:     credentials.NewStaticV4(cfg.AccessKey, cfg.SecretKey, ""),
 		Secure:    cfg.UseSSL,
+		Region:    cfg.Region,
 		Transport: nil, // 使用默认 transport，后续可自定义超时
 	})
 	if err != nil {

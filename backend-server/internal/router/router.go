@@ -101,6 +101,7 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	sharePublic := apiV1.Group("/share")
 	{
 		sharePublic.GET("/:code", shareHandler.GetShareInfo)
+		sharePublic.POST("/:code/verify", shareHandler.VerifySharePassword)
 		sharePublic.GET("/:code/files", shareHandler.GetShareFolderFiles)
 		sharePublic.GET("/:code/file", shareHandler.GetShareFile)
 		sharePublic.GET("/:code/file/:fileId", shareHandler.GetShareFile)

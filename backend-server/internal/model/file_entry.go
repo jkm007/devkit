@@ -12,6 +12,7 @@ type FileEntry struct {
 	ContentType     string     `gorm:"size:128;comment:MIME类型" json:"contentType"`
 	IsAvatar        bool       `gorm:"default:false;comment:是否头像文件" json:"isAvatar"`
 	IsActiveAvatar  bool       `gorm:"default:false;comment:是否当前使用头像" json:"isActiveAvatar"`
+	IsPublic        bool       `gorm:"default:false;index;comment:是否公开文件(无需认证可访问)" json:"isPublic"`
 	UserID          uint       `gorm:"index;comment:上传者" json:"userId"`
 	DeletedAt       *time.Time `gorm:"index;comment:软删除时间" json:"deletedAt,omitempty"`
 	RecycleExpireAt *time.Time `gorm:"index;comment:回收站过期时间" json:"recycleExpireAt,omitempty"`

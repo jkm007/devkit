@@ -15,13 +15,16 @@ import (
 
 // BannerService 轮播图服务
 type BannerService struct {
-	repo *repository.BannerRepo
+	repo     *repository.BannerRepo
+	fileRepo *repository.FileRepo
 }
 
 // NewBannerService 创建轮播图服务
 func NewBannerService() *BannerService {
+	db := database.GetMySQL()
 	return &BannerService{
-		repo: repository.NewBannerRepo(database.GetMySQL()),
+		repo:     repository.NewBannerRepo(db),
+		fileRepo: repository.NewFileRepo(db),
 	}
 }
 
@@ -81,34 +84,79 @@ func (s *BannerService) ListEnabled() ([]BannerResponse, error) {
 	return results, nil
 }
 
-// Create 创建轮播图（清理缓存）
+// Create 创建轮播图（清理缓存，关联文件设为公开）
 func (s *BannerService) Create(banner *model.Banner) error {
 	err := s.repo.Create(banner)
 	if err != nil {
 		return err
 	}
+	// 如果关联了文件，设为公开
+	if banner.FileID != nil && *banner.FileID > 0 {
+		s.setFilePublic(*banner.FileID, true)
+	}
 	s.clearCache()
 	return nil
 }
 
-// Update 更新轮播图（清理缓存）
+// Update 更新轮播图（清理缓存，更新关联文件公开状态）
 func (s *BannerService) Update(banner *model.Banner) error {
+	// 获取旧的轮播图信息，检查文件ID是否变化
+	oldBanner, _ := s.repo.GetByID(banner.ID)
+
 	err := s.repo.Update(banner)
 	if err != nil {
 		return err
 	}
+
+	// 如果文件ID变化，更新公开状态
+	if oldBanner != nil && oldBanner.FileID != nil && (banner.FileID == nil || *oldBanner.FileID != *banner.FileID) {
+		// 检查旧文件是否还被其他轮播图引用
+		s.maybeUnpublicFile(*oldBanner.FileID)
+	}
+	if banner.FileID != nil && *banner.FileID > 0 {
+		s.setFilePublic(*banner.FileID, true)
+	}
+
 	s.clearCache()
 	return nil
 }
 
-// Delete 删除轮播图（清理缓存）
+// Delete 删除轮播图（清理缓存，取消关联文件的公开状态）
 func (s *BannerService) Delete(id uint) error {
+	banner, _ := s.repo.GetByID(id)
+
 	err := s.repo.Delete(id)
 	if err != nil {
 		return err
 	}
+
+	// 如果关联了文件，检查是否可以取消公开
+	if banner != nil && banner.FileID != nil {
+		s.maybeUnpublicFile(*banner.FileID)
+	}
+
 	s.clearCache()
 	return nil
+}
+
+// setFilePublic 设置文件的公开状态
+func (s *BannerService) setFilePublic(fileID uint, isPublic bool) {
+	db := database.GetMySQL()
+	if err := db.Model(&model.FileEntry{}).Where("id = ?", fileID).Update("is_public", isPublic).Error; err != nil {
+		logger.Error("更新文件公开状态失败", zap.Uint("fileId", fileID), zap.Error(err))
+	}
+}
+
+// maybeUnpublicFile 检查文件是否还被其他公开实体引用，如果没有则取消公开
+func (s *BannerService) maybeUnpublicFile(fileID uint) {
+	// 检查是否还有其他轮播图引用此文件
+	count, err := s.repo.CountByFileID(fileID)
+	if err != nil {
+		return
+	}
+	if count == 0 {
+		s.setFilePublic(fileID, false)
+	}
 }
 
 // UpdateStatus 更新状态（清理缓存）

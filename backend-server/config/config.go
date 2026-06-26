@@ -120,13 +120,14 @@ type LocalConfig struct {
 	URLPrefix string `mapstructure:"url_prefix"`
 }
 
-// MinIOConfig MinIO 配置
+// MinIOConfig MinIO 配置（兼容 Ceph RGW 等 S3 兼容存储）
 type MinIOConfig struct {
 	Endpoint  string `mapstructure:"endpoint"`
 	AccessKey string `mapstructure:"access_key"`
 	SecretKey string `mapstructure:"secret_key"`
 	Bucket    string `mapstructure:"bucket"`
 	UseSSL    bool   `mapstructure:"use_ssl"`
+	Region    string `mapstructure:"region"`
 }
 
 // OSSConfig 阿里云 OSS 配置

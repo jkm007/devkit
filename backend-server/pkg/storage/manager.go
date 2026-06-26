@@ -82,6 +82,8 @@ func GetStorageDriver() string {
 	}
 	// 根据实例类型判断驱动
 	switch currentStorage.(type) {
+	case *CephStorage:
+		return "ceph"
 	case *MinIOStorage:
 		return "minio"
 	case *OSSStorage:
@@ -140,12 +142,13 @@ func tryInitDriver(driver string) Storage {
 		if err := row.Scan(&endpoint, &accessKey, &secretKey, &bucket, &region, &cdnDomain, &useSSL); err == nil {
 			cfg.Driver = driver
 			switch driver {
-			case "minio":
+			case "minio", "ceph":
 				cfg.MinIO.Endpoint = endpoint
 				cfg.MinIO.AccessKey = accessKey
 				cfg.MinIO.SecretKey = secretKey
 				cfg.MinIO.Bucket = bucket
 				cfg.MinIO.UseSSL = useSSL
+				cfg.MinIO.Region = region
 			case "oss":
 				cfg.OSS.Endpoint = endpoint
 				cfg.OSS.AccessKeyID = accessKey

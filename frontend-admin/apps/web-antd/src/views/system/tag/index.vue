@@ -448,7 +448,7 @@ const tagColumns = computed(() => [
   { title: t('system.tag.sortOrder'), dataIndex: 'sortOrder', width: 80 },
   { title: t('system.tag.fileCount'), dataIndex: 'fileCount', width: 80 },
   { title: t('system.tag.isSystem'), dataIndex: 'isSystem', width: 100 },
-  { title: t('common.operation'), key: 'action', width: 150 },
+  { title: t('system.common.operation'), key: 'action', width: 150 },
 ]);
 
 // 规则列定义
@@ -459,8 +459,8 @@ const ruleColumns = computed(() => [
   { title: t('system.tag.targetStorage'), key: 'storage', width: 150 },
   { title: t('system.tag.bucketPath'), key: 'bucket', width: 150 },
   { title: t('system.tag.defaultRule'), dataIndex: 'isDefault', width: 100 },
-  { title: t('common.status'), dataIndex: 'status', width: 80 },
-  { title: t('common.operation'), key: 'action', width: 200 },
+  { title: t('system.common.status'), dataIndex: 'status', width: 80 },
+  { title: t('system.common.operation'), key: 'action', width: 200 },
 ]);
 
 // 获取文件数量

@@ -1,4 +1,8 @@
 {
+  "common": {
+    "status": "状态",
+    "operation": "操作"
+  },
   "title": "系统管理",
   "user": {
     "title": "用户管理",
@@ -281,6 +285,7 @@
     "autoTags": "自动生成标签",
     "storageLocal": "本地存储",
     "storageMinio": "MinIO",
+    "storageCeph": "Ceph RGW",
     "storageOss": "阿里云 OSS",
     "storageCos": "腾讯云 COS",
     "routeManagementEntry": "标签路由管理",

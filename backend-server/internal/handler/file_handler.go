@@ -75,10 +75,25 @@ func (h *FileHandler) CreateFolder(c *gin.Context) {
 // @Description  返回用户的文件夹目录树
 // @Tags         文件管理
 // @Produce      json
-// @Success      200   {object}  response.Response
+// @Param        scope  query  string  false  "范围: own(默认) | all"
+// @Success      200    {object}  response.Response
 // @Router       /files/tree [get]
 func (h *FileHandler) GetFolderTree(c *gin.Context) {
 	userID := middleware.GetCurrentUserID(c)
+
+	// 检查是否有查看所有文件的权限
+	scope := c.DefaultQuery("scope", "own")
+	if scope == "all" {
+		// 验证权限
+		permissions, err := h.authService.GetPermissionCodes(userID)
+		if err != nil || !containsPermission(permissions, "file:view:all") {
+			response.Forbidden(c, "无权查看所有文件夹")
+			return
+		}
+		// 传入 0 表示查看所有文件夹
+		userID = 0
+	}
+
 	tree, err := h.fileService.GetFolderTree(userID)
 	if err != nil {
 		response.InternalError(c, err.Error())

@@ -74,6 +74,12 @@ func New(cfg config.StorageConfig) (Storage, error) {
 			return nil, fmt.Errorf("MinIO 初始化失败: %w", err)
 		}
 		return s, nil
+	case "ceph":
+		s, err := NewCephStorage(cfg.MinIO)
+		if err != nil {
+			return nil, fmt.Errorf("Ceph RGW 初始化失败: %w", err)
+		}
+		return s, nil
 	case "oss":
 		s, err := NewOSSStorage(cfg.OSS)
 		if err != nil {

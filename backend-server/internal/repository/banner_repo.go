@@ -56,3 +56,20 @@ func (r *BannerRepo) ListAll() ([]model.Banner, error) {
 	err := r.db.Order("sort_order ASC, id ASC").Find(&banners).Error
 	return banners, err
 }
+
+// GetByID 根据ID获取轮播图
+func (r *BannerRepo) GetByID(id uint) (*model.Banner, error) {
+	var banner model.Banner
+	err := r.db.First(&banner, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &banner, nil
+}
+
+// CountByFileID 统计引用指定文件的轮播图数量
+func (r *BannerRepo) CountByFileID(fileID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&model.Banner{}).Where("file_id = ?", fileID).Count(&count).Error
+	return count, err
+}

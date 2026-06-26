@@ -742,7 +742,19 @@ func (s *FileService) GetAssetByID(assetID uint) (*model.FileAsset, error) {
 	return s.assetRepo.GetByID(assetID)
 }
 
-// GetAssetByFileEntryID 根据文件条目ID获取文件资产（用于公开URL获取）
+// GetPublicAssetByFileEntryID 根据文件条目ID获取公开文件的资产（仅返回 is_public=true 的文件）
+func (s *FileService) GetPublicAssetByFileEntryID(fileID uint) (*model.FileAsset, error) {
+	entry, err := s.fileRepo.GetEntryByID(fileID)
+	if err != nil {
+		return nil, fmt.Errorf("文件不存在")
+	}
+	if !entry.IsPublic {
+		return nil, fmt.Errorf("文件不存在")
+	}
+	return s.assetRepo.GetByID(entry.FileAssetID)
+}
+
+// GetAssetByFileEntryID 根据文件条目ID获取文件资产（不限制所有权，内部使用）
 func (s *FileService) GetAssetByFileEntryID(fileID uint) (*model.FileAsset, error) {
 	entry, err := s.fileRepo.GetEntryByID(fileID)
 	if err != nil {

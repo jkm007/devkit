@@ -400,8 +400,10 @@ export function createFolder(data: { name: string; parentId?: number }) {
 }
 
 /** 获取文件夹树 */
-export function getFolderTree() {
-  return requestClient.get<FileApi.Folder[]>('/files/tree');
+export function getFolderTree(scope?: 'own' | 'all') {
+  return requestClient.get<FileApi.Folder[]>('/files/tree', {
+    params: scope ? { scope } : undefined,
+  });
 }
 
 /** 重命名文件夹 */
@@ -508,6 +510,7 @@ export interface ShareInfo {
   folderName?: string;
   fileSize?: number;
   contentType?: string;
+  hasPassword: boolean;
   sharerName: string;
   sharerAvatar: string;
   createdAt: string;
@@ -517,9 +520,9 @@ export interface ShareInfo {
 /** 创建文件分享 */
 export function createFileShare(
   id: number,
-  data?: { expireHours?: number; maxAccess?: number },
+  data?: { expireHours?: number; maxAccess?: number; password?: string },
 ) {
-  return requestClient.post<{ shareCode: string; shareUrl: string }>(
+  return requestClient.post<{ shareCode: string; shareUrl: string; hasPassword: boolean }>(
     `/files/${id}/share`,
     data || {},
   );
@@ -528,9 +531,9 @@ export function createFileShare(
 /** 创建文件夹分享 */
 export function createFolderShare(
   id: number,
-  data?: { expireHours?: number; maxAccess?: number },
+  data?: { expireHours?: number; maxAccess?: number; password?: string },
 ) {
-  return requestClient.post<{ shareCode: string; shareUrl: string }>(
+  return requestClient.post<{ shareCode: string; shareUrl: string; hasPassword: boolean }>(
     `/folders/${id}/share`,
     data || {},
   );
@@ -539,6 +542,11 @@ export function createFolderShare(
 /** 获取分享信息（公开） */
 export function getShareInfo(code: string) {
   return requestClient.get<ShareInfo>(`/share/${code}`);
+}
+
+/** 验证分享密码（公开） */
+export function verifySharePassword(code: string, password: string) {
+  return requestClient.post<{ verified: boolean }>(`/share/${code}/verify`, { password });
 }
 
 /** 分享文件夹内文件列表响应 */

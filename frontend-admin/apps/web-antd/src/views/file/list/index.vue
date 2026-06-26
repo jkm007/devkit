@@ -58,6 +58,8 @@ import {
 import { useUploadStore } from '#/store/upload';
 import { fallbackCopy, formatFileSize, getFileIcon } from '#/utils/file-utils';
 
+import FolderUploadModal from './folder-upload-modal.vue';
+
 defineOptions({ name: 'FileList' });
 
 /** 表格行数据（文件条目 + 上传任务） */
@@ -189,6 +191,10 @@ const fileDetailData = ref<FileRowItem | null>(null);
 
 // 文件夹上传
 const folderInputRef = ref<HTMLInputElement | null>(null);
+const folderUploadVisible = ref(false);
+const folderUploadName = ref('');
+const folderUploadFiles = ref<File[]>([]);
+const folderUploadModalRef = ref<InstanceType<typeof FolderUploadModal> | null>(null);
 
 // 下载进度
 const downloadProgressVisible = ref(false);
@@ -430,7 +436,7 @@ const [Grid, gridApi] = useVbenVxeGrid({
 
 async function loadFolderTree() {
   try {
-    const result = await getFolderTree();
+    const result = await getFolderTree(fileScope.value);
     folderTree.value = result || [];
   } catch {
     message.error('加载文件夹树失败');
@@ -468,6 +474,8 @@ function handleScopeChange() {
   // 更新列定义（显示/隐藏上传者列）
   showUploader.value = fileScope.value === 'all';
   gridApi.setGridOptions({ columns: tableColumns.value });
+  // 重新加载文件夹树（不同范围可能有不同的文件夹）
+  loadFolderTree();
   onRefresh();
 }
 
@@ -871,10 +879,10 @@ function handleDownload(row: FileRowItem) {
     }
   });
 
-  xhr.onerror = () => {
+  xhr.addEventListener('error', () => {
     downloadStatus.value = 'error';
     message.error('下载失败');
-  };
+  });
 
   xhr.send();
 }
@@ -1027,6 +1035,31 @@ async function handleFolderSelect(event: Event) {
 
   const files = [...fileList];
 
+  // 获取根文件夹名称
+  const firstFile = files[0];
+  const relativePath = firstFile.webkitRelativePath;
+  const rootFolderName = relativePath ? relativePath.split('/')[0] : '未知文件夹';
+
+  // 显示上传进度弹窗
+  folderUploadName.value = rootFolderName;
+  folderUploadFiles.value = files;
+  folderUploadVisible.value = true;
+
+  // 等待弹窗渲染
+  await new Promise((resolve) => setTimeout(resolve, 100));
+
+  // 开始上传
+  await startFolderUpload(files);
+
+  input.value = '';
+}
+
+async function startFolderUpload(files: File[]) {
+  const modalRef = folderUploadModalRef.value;
+  if (!modalRef) return;
+
+  modalRef.setUploading(true);
+
   // 提取唯一的文件夹路径（相对于选中的根文件夹）
   const folderPathSet = new Set<string>();
   for (const file of files) {
@@ -1052,6 +1085,25 @@ async function handleFolderSelect(event: Event) {
   const rootId = currentFolderId.value ?? 0;
   folderIdMap.set('', rootId);
 
+  // 辅助函数：在文件夹树中查找指定名称和父ID的文件夹
+  const findFolderInTree = (
+    folders: FileApi.Folder[],
+    name: string,
+    parentId: null | number,
+  ): FileApi.Folder | undefined => {
+    for (const f of folders) {
+      if (f.name === name && (f.parentId ?? null) === parentId) {
+        return f;
+      }
+      if (f.children) {
+        const found = findFolderInTree(f.children, name, parentId);
+        if (found) return found;
+      }
+    }
+    return undefined;
+  };
+
+  // 创建文件夹
   for (const path of sortedPaths) {
     const parts = path.split('/');
     const folderName = parts[parts.length - 1];
@@ -1063,23 +1115,27 @@ async function handleFolderSelect(event: Event) {
         name: folderName,
         parentId: parentId || undefined,
       });
-      // createFolder 返回 Folder 对象，包含 id
       const folder = result as unknown as FileApi.Folder;
       if (folder?.id) {
         folderIdMap.set(path, folder.id);
       }
     } catch {
-      // 文件夹可能已存在，继续上传到父文件夹
+      const existingFolder = findFolderInTree(
+        folderTree.value,
+        folderName,
+        parentId || null,
+      );
+      if (existingFolder?.id) {
+        folderIdMap.set(path, existingFolder.id);
+      }
     }
   }
 
   // 逐个上传文件
-  let successCount = 0;
-  let failCount = 0;
-
   for (const file of files) {
     const relativePath = file.webkitRelativePath;
     let folderId: number | undefined;
+
     if (relativePath) {
       const parts = relativePath.split('/');
       parts.pop();
@@ -1090,21 +1146,77 @@ async function handleFolderSelect(event: Event) {
       folderId = currentFolderId.value ?? undefined;
     }
 
+    // 更新状态为上传中
+    modalRef.updateFileStatus(file.name, file.size, 'uploading', 0);
+
     try {
       await uploadStore.uploadFile(file, folderId || undefined);
-      successCount++;
-    } catch {
-      failCount++;
+
+      // 更新状态为完成
+      modalRef.updateFileStatus(file.name, file.size, 'completed', 100);
+    } catch (error: any) {
+      const errorMsg = error?.message || error?.response?.data?.message || '上传失败';
+      modalRef.updateFileStatus(file.name, file.size, 'failed', 0, errorMsg);
     }
   }
 
-  if (failCount > 0) {
-    message.warning(`上传完成：${successCount} 个成功，${failCount} 个失败`);
-  } else {
-    message.success(`成功上传 ${successCount} 个文件`);
+  modalRef.setUploading(false);
+  loadFolderTree();
+  onRefresh();
+}
+
+// 重试失败文件
+async function handleRetryFailed(retryFiles: File[]) {
+  const modalRef = folderUploadModalRef.value;
+  if (!modalRef) return;
+
+  // 重置失败文件状态
+  for (const file of retryFiles) {
+    modalRef.updateFileStatus(file.name, file.size, 'pending', 0);
   }
 
-  input.value = '';
+  modalRef.setUploading(true);
+
+  // 重新上传失败文件
+  for (const file of retryFiles) {
+    const relativePath = file.webkitRelativePath;
+    let folderId: number | undefined;
+
+    if (relativePath) {
+      const parts = relativePath.split('/');
+      parts.pop();
+      parts.shift();
+      const folderPath = parts.join('/');
+      // 尝试从文件夹树中获取文件夹 ID
+      const findFolderId = (folders: FileApi.Folder[]): number | undefined => {
+        for (const f of folders) {
+          if (f.name === folderPath || f.name === parts[parts.length - 1]) {
+            return f.id;
+          }
+          if (f.children) {
+            const found = findFolderId(f.children);
+            if (found) return found;
+          }
+        }
+        return undefined;
+      };
+      folderId = findFolderId(folderTree.value) ?? currentFolderId.value ?? undefined;
+    } else {
+      folderId = currentFolderId.value ?? undefined;
+    }
+
+    modalRef.updateFileStatus(file.name, file.size, 'uploading', 0);
+
+    try {
+      await uploadStore.uploadFile(file, folderId || undefined);
+      modalRef.updateFileStatus(file.name, file.size, 'completed', 100);
+    } catch (error: any) {
+      const errorMsg = error?.message || error?.response?.data?.message || '上传失败';
+      modalRef.updateFileStatus(file.name, file.size, 'failed', 0, errorMsg);
+    }
+  }
+
+  modalRef.setUploading(false);
   loadFolderTree();
   onRefresh();
 }
@@ -1147,48 +1259,53 @@ const folderSelectData = computed((): FolderSelectNode[] => {
   <Page auto-content-height>
     <div class="flex size-full">
       <!-- 左侧文件夹树 -->
-      <Card class="w-1/6 min-w-[200px]">
-        <div class="flex items-center justify-between mb-2">
+      <Card class="w-1/6 min-w-[200px] flex flex-col">
+        <div class="flex items-center justify-between mb-2 shrink-0">
           <span class="font-medium">文件夹</span>
           <Button type="link" size="small" @click="openNewFolderModal()">
             <Plus class="size-4" />
           </Button>
         </div>
-        <Tree
-          label-field="title"
-          value-field="key"
-          :tree-data="treeData"
-          :default-expanded-level="2"
-          :show-icon="false"
-          :show-toggle-all="false"
-          :model-value="currentFolderId ?? '__all__'"
-        >
+        <div class="flex-1 overflow-y-auto">
+          <Tree
+            label-field="title"
+            value-field="key"
+            :tree-data="treeData"
+            :default-expanded-level="1"
+            :show-icon="false"
+            :show-toggle-all="false"
+            :model-value="currentFolderId ?? '__all__'"
+          >
           <template #node="item">
-            <div
-              class="flex items-center gap-1 py-1 group cursor-pointer"
-              @click="handleFolderClick(item.value)"
-            >
-              <span
-                :class="
-                  item.value.type === 'all'
-                    ? 'i-ant-design:home-outlined'
-                    : item.value.type === 'avatar'
-                      ? 'i-ant-design:user-outlined'
-                      : 'i-ant-design:folder-outlined'
-                "
-              ></span>
-              <span class="flex-1 truncate">{{ item.value.title }}</span>
-              <button
-                v-if="item.value.type !== 'all'"
-                type="button"
-                class="opacity-0 group-hover:opacity-100 ml-1 px-1 py-0.5 text-xs rounded hover:bg-gray-200"
-                @click.stop="showFolderMenu(item.value)"
+            <Tooltip :title="item.value.title" :mouse-enter-delay="500">
+              <div
+                class="flex items-center gap-1 py-1 group cursor-pointer min-w-0"
+                @click="handleFolderClick(item.value)"
               >
-                ⋯
-              </button>
-            </div>
+                <span
+                  :class="
+                    item.value.type === 'all'
+                      ? 'i-ant-design:home-outlined'
+                      : item.value.type === 'avatar'
+                        ? 'i-ant-design:user-outlined'
+                        : 'i-ant-design:folder-outlined'
+                  "
+                  class="shrink-0"
+                ></span>
+                <span class="flex-1 truncate min-w-0">{{ item.value.title }}</span>
+                <button
+                  v-if="item.value.type !== 'all'"
+                  type="button"
+                  class="opacity-0 group-hover:opacity-100 ml-1 px-1 py-0.5 text-xs rounded hover:bg-gray-200 shrink-0"
+                  @click.stop="showFolderMenu(item.value)"
+                >
+                  ⋯
+                </button>
+              </div>
+            </Tooltip>
           </template>
         </Tree>
+        </div>
       </Card>
 
       <!-- 右侧文件列表 -->
@@ -1950,6 +2067,16 @@ const folderSelectData = computed((): FolderSelectNode[] => {
         </div>
       </div>
     </Modal>
+
+    <!-- 文件夹上传进度弹窗 -->
+    <FolderUploadModal
+      ref="folderUploadModalRef"
+      :visible="folderUploadVisible"
+      :folder-name="folderUploadName"
+      :files="folderUploadFiles"
+      @close="folderUploadVisible = false"
+      @retry-failed="handleRetryFailed"
+    />
   </Page>
 </template>
 
@@ -1965,6 +2092,18 @@ const folderSelectData = computed((): FolderSelectNode[] => {
   display: block;
   width: 100%;
   max-height: 70vh;
+}
+
+:deep(.ant-card) {
+  height: 100%;
+}
+
+:deep(.ant-card-body) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px;
+  overflow: hidden;
 }
 </style>
 

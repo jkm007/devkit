@@ -18,6 +18,7 @@ import {
   Switch,
   Table,
   Tag,
+  Tooltip,
 } from 'ant-design-vue';
 import { IconifyIcon, Plus } from '@vben/icons';
 
@@ -70,6 +71,7 @@ const currentBucket = ref<
 const driverColors: Record<string, string> = {
   local: '#52c41a',
   minio: '#1677ff',
+  ceph: '#722ed1',
   oss: '#ff6a00',
   cos: '#006eff',
 };
@@ -377,10 +379,15 @@ const handleCancel = () => {
     >
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'driver'">
-          <Tag :color="getDriverInfo(record.driver).color">
-            {{ getDriverInfo(record.driver).icon }}
-            {{ getDriverInfo(record.driver).label }}
-          </Tag>
+          <Tooltip :title="record.bucket || ''">
+            <Tag :color="getDriverInfo(record.driver).color">
+              {{ getDriverInfo(record.driver).icon }}
+              {{ getDriverInfo(record.driver).label }}
+              <span v-if="record.bucket && (record.driver === 'minio' || record.driver === 'ceph')" class="ml-1 text-xs opacity-75">
+                ({{ record.bucket }})
+              </span>
+            </Tag>
+          </Tooltip>
         </template>
         <template v-else-if="column.key === 'purpose'">
           <Tag :color="getPurposeInfo(record.purpose).color">
