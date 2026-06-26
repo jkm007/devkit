@@ -117,24 +117,28 @@ function isMediaFile(contentType: string): boolean {
   return isAudioFile(contentType) || isVideoFile(contentType);
 }
 
-// 检查视频格式是否被浏览器支持
-function isVideoSupported(contentType: string, fileName: string): boolean {
-  if (!contentType) return false;
-  // 浏览器原生支持的视频格式
-  const supportedTypes = [
-    'video/mp4',
-    'video/webm',
-    'video/ogg',
-    'video/mpeg',
-  ];
-  // 支持的文件扩展名
-  const supportedExts = ['.mp4', '.webm', '.ogv', '.ogg', '.m4v'];
-  const lowerName = fileName?.toLowerCase() || '';
+// 视频格式兼容性状态
+const videoFormatSupported = ref(true);
+const videoFormatError = ref('');
 
-  return (
-    supportedTypes.includes(contentType) ||
-    supportedExts.some((ext) => lowerName.endsWith(ext))
-  );
+// 检查视频是否可以播放（通过实际加载检测）
+function onVideoError(event: Event) {
+  const video = event.target as HTMLVideoElement;
+  if (video && video.error) {
+    videoFormatSupported.value = false;
+    const errorCodes: Record<number, string> = {
+      1: '视频加载被中止',
+      2: '网络错误，无法加载视频',
+      3: '视频解码失败，格式可能不支持',
+      4: '视频格式不支持或文件损坏',
+    };
+    videoFormatError.value = errorCodes[video.error.code] || '视频播放失败';
+  }
+}
+
+function resetVideoError() {
+  videoFormatSupported.value = true;
+  videoFormatError.value = '';
 }
 
 // ==================== 播放进度保存/恢复 ====================
@@ -729,8 +733,8 @@ onUnmounted(() => {
 
           <!-- 视频预览（带增强播放器） -->
           <div v-else-if="shareInfo.contentType?.startsWith('video/')">
-            <!-- 浏览器支持的格式：直接播放 -->
-            <div v-if="isVideoSupported(shareInfo.contentType, shareInfo.fileName)">
+            <!-- 视频播放器 -->
+            <div v-if="videoFormatSupported">
               <div class="bg-black rounded-lg overflow-hidden">
                 <video
                   ref="videoRef"
@@ -742,9 +746,10 @@ onUnmounted(() => {
                   style="display: block; max-width: 100%; max-height: 500px; margin: 0 auto"
                   @timeupdate="onTimeUpdate"
                   @ended="onEnded"
-                  @error="onError"
+                  @error="onVideoError"
                   @play="isPlaying = true"
                   @pause="isPlaying = false"
+                  @loadeddata="resetVideoError"
                 />
               </div>
               <!-- 播放信息 -->
@@ -767,28 +772,28 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <!-- 不支持的格式：提示下载 -->
+            <!-- 播放失败时显示提示 -->
             <div v-else class="text-center py-8">
               <div class="text-6xl mb-4">🎬</div>
               <h3 class="text-xl font-medium mb-2">{{ shareInfo.fileName }}</h3>
               <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 max-w-md mx-auto mb-4">
                 <div class="flex items-center gap-2 text-yellow-700 mb-2">
                   <span class="text-lg">⚠️</span>
-                  <span class="font-medium">此视频格式不支持在线播放</span>
+                  <span class="font-medium">{{ videoFormatError || '视频播放失败' }}</span>
                 </div>
                 <p class="text-sm text-yellow-600">
-                  浏览器不支持 <code class="bg-yellow-100 px-1 rounded">{{ shareInfo.contentType }}</code> 格式
-                </p>
-                <p class="text-sm text-yellow-600 mt-1">
-                  支持的格式：MP4、WebM、OGG
+                  格式: {{ shareInfo.contentType }}
                 </p>
               </div>
               <div class="flex items-center justify-center gap-3">
                 <Button type="primary" size="large" @click="downloadSharedFile">
                   📥 下载视频
                 </Button>
+                <Button size="large" @click="resetVideoError">
+                  🔄 重试
+                </Button>
                 <span class="text-sm text-gray-500">
-                  {{ formatFileSize(shareInfo.fileSize) }} · 请使用本地播放器（如 VLC、PotPlayer）播放
+                  {{ formatFileSize(shareInfo.fileSize) }}
                 </span>
               </div>
             </div>
@@ -1203,17 +1208,12 @@ onUnmounted(() => {
                 {{ formatFileSize(record.fileSize) }}
               </template>
               <template v-if="column.key === 'contentType'">
-                <div class="flex items-center gap-1">
-                  <span class="text-sm text-gray-500">{{ record.contentType || '未知' }}</span>
-                  <Tag v-if="isVideoFile(record.contentType) && !isVideoSupported(record.contentType, record.fileName)" color="warning" class="text-xs">
-                    不支持在线播放
-                  </Tag>
-                </div>
+                <span class="text-sm text-gray-500">{{ record.contentType || '未知' }}</span>
               </template>
               <template v-if="column.key === 'action'">
                 <div class="flex items-center gap-1">
                   <Button
-                    v-if="isMediaFile(record.contentType) && (!isVideoFile(record.contentType) || isVideoSupported(record.contentType, record.fileName))"
+                    v-if="isMediaFile(record.contentType)"
                     type="link"
                     size="small"
                     @click="playFile(record)"
@@ -1221,7 +1221,7 @@ onUnmounted(() => {
                     {{ currentPlayingFile?.fileId === record.fileId && isPlaying ? '⏸ 暂停' : '▶ 播放' }}
                   </Button>
                   <Button
-                    v-else-if="!isMediaFile(record.contentType)"
+                    v-else
                     type="link"
                     size="small"
                     @click="viewFileInModal(record)"
@@ -1279,27 +1279,20 @@ onUnmounted(() => {
             referrerpolicy="no-referrer"
             style="width: 100%; height: 600px; border: none"
           />
-          <div v-else-if="previewType === 'video' && previewUrl">
-            <!-- 检查是否是支持的视频格式 -->
-            <div v-if="isVideoSupported(previewContentType || '', previewName)" class="bg-black">
-              <video
-                :src="previewUrl"
-                controls
-                autoplay
-                preload="auto"
-                playsinline
-                style="display: block; width: 100%; max-height: 70vh; background: #000"
-              />
-            </div>
-            <div v-else class="text-center py-8">
-              <div class="text-6xl mb-4">🎬</div>
-              <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 max-w-sm mx-auto mb-4">
-                <p class="text-yellow-700 font-medium">此视频格式不支持在线播放</p>
-                <p class="text-sm text-yellow-600 mt-1">
-                  格式: {{ previewContentType }}
-                </p>
-                <p class="text-sm text-yellow-600">支持: MP4、WebM、OGG</p>
-              </div>
+          <div v-else-if="previewType === 'video' && previewUrl" class="bg-black">
+            <video
+              :src="previewUrl"
+              controls
+              autoplay
+              preload="auto"
+              playsinline
+              style="display: block; width: 100%; max-height: 70vh; background: #000"
+              @error="onVideoError"
+            />
+            <!-- 播放失败提示 -->
+            <div v-if="!videoFormatSupported" class="text-center py-6 bg-gray-900 text-white">
+              <div class="text-4xl mb-3">⚠️</div>
+              <p class="mb-4">{{ videoFormatError || '视频播放失败' }}</p>
               <Button type="primary" @click="openPreviewInNewTab">
                 📥 在新标签页下载
               </Button>
