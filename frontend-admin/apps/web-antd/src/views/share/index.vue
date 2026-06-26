@@ -136,23 +136,6 @@ function onVideoError(event: Event) {
   }
 }
 
-function resetVideoError() {
-  videoFormatSupported.value = true;
-  videoFormatError.value = '';
-}
-
-function onVideoCanPlay(event: Event) {
-  const video = event.target as HTMLVideoElement;
-  if (video) {
-    console.log('Video can play:', {
-      videoWidth: video.videoWidth,
-      videoHeight: video.videoHeight,
-      duration: video.duration,
-      readyState: video.readyState,
-    });
-  }
-}
-
 // ==================== 播放进度保存/恢复 ====================
 
 function savePlayProgress(fileId: number, time: number) {
@@ -765,10 +748,6 @@ onUnmounted(() => {
                 <Button size="large" @click="downloadSharedFile">
                   📥 下载视频
                 </Button>
-              </div>
-            </div>
-          </div>
-                </span>
               </div>
             </div>
           </div>
