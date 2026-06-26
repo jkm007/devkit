@@ -131,6 +131,17 @@ func (s *StorageConfigService) Delete(id int64) error {
 		return fmt.Errorf("本地存储配置不允许删除")
 	}
 
+	// 删除关联的存储桶
+	db := database.GetMySQL()
+	bucketRepo := repository.NewStorageBucketRepo(db)
+	if bucket, _ := bucketRepo.GetByName(existing.Name); bucket != nil {
+		if err := bucketRepo.Delete(bucket.ID); err != nil {
+			log.Printf("[WARN] 删除关联存储桶失败: %v", err)
+		} else {
+			log.Printf("[INFO] 已删除关联存储桶: %s", existing.Name)
+		}
+	}
+
 	if err := s.repo.Delete(id); err != nil {
 		return fmt.Errorf("删除存储配置失败: %w", err)
 	}
