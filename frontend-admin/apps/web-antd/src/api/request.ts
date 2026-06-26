@@ -38,7 +38,7 @@ function getCookie(name: string): string | undefined {
 }
 
 // 干净的 axios 实例（无拦截器），专门用于验证码重试请求
-const captchaRetryAxios = axios.create({ baseURL: apiURL, timeout: 10_000 });
+const captchaRetryAxios = axios.create({ baseURL: apiURL, timeout: 30_000 });
 
 function createRequestClient(baseURL: string, options?: RequestClientOptions) {
   const client = new RequestClient({
@@ -275,6 +275,7 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
 
 export const requestClient = createRequestClient(apiURL, {
   responseReturn: 'data',
+  timeout: 30_000,
 });
 
 export const baseRequestClient = new RequestClient({ baseURL: apiURL });
