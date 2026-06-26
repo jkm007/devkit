@@ -482,6 +482,15 @@ function downloadSharedFile() {
   link.click();
 }
 
+// 打开视频弹窗
+function openVideoModal() {
+  previewName.value = shareInfo.value?.fileName || '视频';
+  previewUrl.value = `/api/v1/share/${shareCode}/file`;
+  previewType.value = 'video';
+  previewContentType.value = shareInfo.value?.contentType || '';
+  previewVisible.value = true;
+}
+
 // ==================== 键盘快捷键 ====================
 
 function handleKeydown(event: KeyboardEvent) {
@@ -743,70 +752,22 @@ onUnmounted(() => {
             />
           </div>
 
-          <!-- 视频预览（带增强播放器） -->
+          <!-- 视频预览 -->
           <div v-else-if="shareInfo.contentType?.startsWith('video/')">
-            <!-- 视频播放器 -->
-            <div v-if="videoFormatSupported">
-              <div class="bg-black rounded-lg overflow-hidden" style="min-height: 300px;">
-                <video
-                  ref="videoRef"
-                  :src="`/api/v1/share/${shareCode}/file`"
-                  controls
-                  autoplay
-                  preload="auto"
-                  playsinline
-                  style="width: 100%; max-height: 500px; object-fit: contain; background: #000;"
-                  @timeupdate="onTimeUpdate"
-                  @ended="onEnded"
-                  @error="onVideoError"
-                  @play="isPlaying = true"
-                  @pause="isPlaying = false"
-                  @loadeddata="resetVideoError"
-                  @canplay="onVideoCanPlay"
-                />
-              </div>
-              <!-- 播放信息 -->
-              <div class="mt-3 flex items-center justify-between text-sm text-gray-500">
-                <span>{{ formatTime(currentTime) }} / {{ formatTime(duration) }}</span>
-                <div class="flex items-center gap-2">
-                  <Tooltip title="播放速度">
-                    <Select
-                      :value="playbackRate"
-                      size="small"
-                      style="width: 80px"
-                      @change="changeSpeed"
-                    >
-                      <SelectOption v-for="s in speedOptions" :key="s" :value="s">
-                        {{ s }}x
-                      </SelectOption>
-                    </Select>
-                  </Tooltip>
-                </div>
-              </div>
-            </div>
-
-            <!-- 播放失败时显示提示 -->
-            <div v-else class="text-center py-8">
+            <div class="text-center py-6">
               <div class="text-6xl mb-4">🎬</div>
               <h3 class="text-xl font-medium mb-2">{{ shareInfo.fileName }}</h3>
-              <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 max-w-md mx-auto mb-4">
-                <div class="flex items-center gap-2 text-yellow-700 mb-2">
-                  <span class="text-lg">⚠️</span>
-                  <span class="font-medium">{{ videoFormatError || '视频播放失败' }}</span>
-                </div>
-                <p class="text-sm text-yellow-600">
-                  格式: {{ shareInfo.contentType }}
-                </p>
-              </div>
+              <p class="text-gray-500 mb-4">{{ formatFileSize(shareInfo.fileSize) }}</p>
               <div class="flex items-center justify-center gap-3">
-                <Button type="primary" size="large" @click="downloadSharedFile">
+                <Button type="primary" size="large" @click="openVideoModal">
+                  ▶️ 播放视频
+                </Button>
+                <Button size="large" @click="downloadSharedFile">
                   📥 下载视频
                 </Button>
-                <Button size="large" @click="resetVideoError">
-                  🔄 重试
-                </Button>
-                <span class="text-sm text-gray-500">
-                  {{ formatFileSize(shareInfo.fileSize) }}
+              </div>
+            </div>
+          </div>
                 </span>
               </div>
             </div>
