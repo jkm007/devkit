@@ -467,6 +467,10 @@ function downloadSharedFile() {
 
 // 打开视频弹窗
 function openVideoModal() {
+  // 重置视频错误状态
+  videoFormatSupported.value = true;
+  videoFormatError.value = '';
+
   previewName.value = shareInfo.value?.fileName || '视频';
   previewUrl.value = `/api/v1/share/${shareCode}/file`;
   previewType.value = 'video';
@@ -1241,6 +1245,7 @@ onUnmounted(() => {
               playsinline
               style="display: block; width: 100%; max-height: 70vh; background: #000"
               @error="onVideoError"
+              @loadeddata="videoFormatSupported = true; videoFormatError = ''"
             />
             <!-- 播放失败提示 -->
             <div v-if="!videoFormatSupported" class="text-center py-6 bg-gray-900 text-white">
