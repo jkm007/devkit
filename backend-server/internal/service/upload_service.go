@@ -70,7 +70,7 @@ func (s *UploadService) CheckUpload(userID uint, fileHash string, fileSize int64
 		return nil, err
 	}
 
-	asset, err := s.assetRepo.GetByHash(fileHash)
+	asset, err := s.assetRepo.GetActiveByHash(fileHash)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			// 未找到，不是秒传

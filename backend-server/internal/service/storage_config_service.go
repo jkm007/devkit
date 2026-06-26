@@ -156,6 +156,17 @@ func (s *StorageConfigService) Delete(id int64) error {
 		log.Printf("[WARN] 同步存储桶失败: %v", err)
 	}
 
+	// 标记孤立文件资产
+	if orphaned, err := s.MarkOrphanedAssets(); err != nil {
+		log.Printf("[WARN] 标记孤立文件失败: %v", err)
+	} else {
+		for driver, count := range orphaned {
+			if count > 0 {
+				log.Printf("[INFO] 已标记 %d 个 %s 类型文件为不可访问", count, driver)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -390,5 +401,44 @@ func (s *StorageConfigService) GetEnabledDrivers() ([]map[string]interface{}, er
 			"enabled": driverMap[driver] || driver == "local",
 		})
 	}
+	return result, nil
+}
+
+// MarkOrphanedAssets 标记孤立文件资产（存储配置已删除的文件）
+func (s *StorageConfigService) MarkOrphanedAssets() (map[string]int64, error) {
+	db := database.GetMySQL()
+	assetRepo := repository.NewFileAssetRepo(db)
+
+	// 获取所有已启用的驱动
+	configs, err := s.repo.GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("获取存储配置失败: %w", err)
+	}
+
+	activeDrivers := make(map[string]bool)
+	for _, c := range configs {
+		activeDrivers[c.Driver] = true
+	}
+	// local 始终可用
+	activeDrivers["local"] = true
+
+	// 所有已知驱动类型
+	allDrivers := []string{"minio", "oss", "cos", "ceph"}
+
+	result := make(map[string]int64)
+	for _, driver := range allDrivers {
+		if !activeDrivers[driver] {
+			count, err := assetRepo.MarkInaccessibleByStorageType(driver)
+			if err != nil {
+				log.Printf("[WARN] 标记 %s 孤立资产失败: %v", driver, err)
+				continue
+			}
+			result[driver] = count
+			if count > 0 {
+				log.Printf("[INFO] 已标记 %d 个 %s 类型文件为不可访问", count, driver)
+			}
+		}
+	}
+
 	return result, nil
 }

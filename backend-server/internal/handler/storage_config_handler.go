@@ -397,6 +397,22 @@ func (h *StorageConfigHandler) GetEnabledDrivers(c *gin.Context) {
 	response.Success(c, drivers)
 }
 
+// MarkOrphanedAssets 标记孤立文件资产
+// @Summary      标记孤立文件资产
+// @Description  将存储配置已删除的文件标记为不可访问
+// @Tags         存储配置
+// @Produce      json
+// @Success      200  {object}  response.Response
+// @Router       /system/storage-configs/mark-orphaned [post]
+func (h *StorageConfigHandler) MarkOrphanedAssets(c *gin.Context) {
+	result, err := h.service.MarkOrphanedAssets()
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+	response.Success(c, result)
+}
+
 // isBusinessError 判断是否为业务逻辑错误（应返回 400 而非 500）
 func isBusinessError(err error) bool {
 	msg := err.Error()
