@@ -131,6 +131,17 @@ func (s *StorageConfigService) Delete(id int64) error {
 		return fmt.Errorf("本地存储配置不允许删除")
 	}
 
+	// 删除关联的存储桶
+	db := database.GetMySQL()
+	bucketRepo := repository.NewStorageBucketRepo(db)
+	if bucket, _ := bucketRepo.GetByName(existing.Name); bucket != nil {
+		if err := bucketRepo.Delete(bucket.ID); err != nil {
+			log.Printf("[WARN] 删除关联存储桶失败: %v", err)
+		} else {
+			log.Printf("[INFO] 已删除关联存储桶: %s", existing.Name)
+		}
+	}
+
 	if err := s.repo.Delete(id); err != nil {
 		return fmt.Errorf("删除存储配置失败: %w", err)
 	}
@@ -143,6 +154,17 @@ func (s *StorageConfigService) Delete(id int64) error {
 	// 同步到桶管理
 	if err := s.SyncBucketsFromConfig(); err != nil {
 		log.Printf("[WARN] 同步存储桶失败: %v", err)
+	}
+
+	// 标记孤立文件资产
+	if orphaned, err := s.MarkOrphanedAssets(); err != nil {
+		log.Printf("[WARN] 标记孤立文件失败: %v", err)
+	} else {
+		for driver, count := range orphaned {
+			if count > 0 {
+				log.Printf("[INFO] 已标记 %d 个 %s 类型文件为不可访问", count, driver)
+			}
+		}
 	}
 
 	return nil
@@ -233,7 +255,7 @@ func configModelToConfig(m *model.StorageConfig) config.StorageConfig {
 	case "local":
 		cfg.Local.Path = "./uploads"
 		cfg.Local.URLPrefix = "/uploads"
-	case "minio":
+	case "minio", "ceph":
 		cfg.MinIO.Endpoint = m.Endpoint
 		cfg.MinIO.AccessKey = m.AccessKey
 		cfg.MinIO.SecretKey = m.SecretKey
@@ -379,5 +401,44 @@ func (s *StorageConfigService) GetEnabledDrivers() ([]map[string]interface{}, er
 			"enabled": driverMap[driver] || driver == "local",
 		})
 	}
+	return result, nil
+}
+
+// MarkOrphanedAssets 标记孤立文件资产（存储配置已删除的文件）
+func (s *StorageConfigService) MarkOrphanedAssets() (map[string]int64, error) {
+	db := database.GetMySQL()
+	assetRepo := repository.NewFileAssetRepo(db)
+
+	// 获取所有已启用的驱动
+	configs, err := s.repo.GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("获取存储配置失败: %w", err)
+	}
+
+	activeDrivers := make(map[string]bool)
+	for _, c := range configs {
+		activeDrivers[c.Driver] = true
+	}
+	// local 始终可用
+	activeDrivers["local"] = true
+
+	// 所有已知驱动类型
+	allDrivers := []string{"minio", "oss", "cos", "ceph"}
+
+	result := make(map[string]int64)
+	for _, driver := range allDrivers {
+		if !activeDrivers[driver] {
+			count, err := assetRepo.MarkInaccessibleByStorageType(driver)
+			if err != nil {
+				log.Printf("[WARN] 标记 %s 孤立资产失败: %v", driver, err)
+				continue
+			}
+			result[driver] = count
+			if count > 0 {
+				log.Printf("[INFO] 已标记 %d 个 %s 类型文件为不可访问", count, driver)
+			}
+		}
+	}
+
 	return result, nil
 }

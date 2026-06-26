@@ -120,6 +120,19 @@ func (s *MinIOStorage) Delete(ctx context.Context, objectKey string) error {
 	return s.client.RemoveObject(ctx, s.bucket, objectKey, minio.RemoveObjectOptions{})
 }
 
+// Exists 检查文件是否存在
+func (s *MinIOStorage) Exists(ctx context.Context, objectKey string) (bool, error) {
+	_, err := s.client.StatObject(ctx, s.bucket, objectKey, minio.StatObjectOptions{})
+	if err != nil {
+		errResponse := minio.ToErrorResponse(err)
+		if errResponse.Code == "NoSuchKey" || errResponse.Code == "NoSuchBucket" {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 // GetURL 获取文件访问 URL（返回完整 URL）
 func (s *MinIOStorage) GetURL(objectKey string) string {
 	scheme := "http"

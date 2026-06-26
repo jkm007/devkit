@@ -297,6 +297,7 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		authorized.POST("/files/move", middleware.Permission("file:manage"), fileHandler.MoveFile)
 		authorized.POST("/files/batch-delete", middleware.Permission("file:delete"), fileHandler.BatchDeleteFiles)
 		authorized.POST("/files/batch-move", middleware.Permission("file:manage"), fileHandler.BatchMoveFiles)
+		authorized.POST("/files/verify-assets", middleware.Permission("file:manage"), fileHandler.VerifyAssets)
 
 		// 回收站（必须在 :id 路由之前）
 		authorized.GET("/files/recycle/list", middleware.Permission("file:view:own"), recycleBinHandler.List)
@@ -456,6 +457,7 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 			system.PUT("/storage-configs/:id/default", middleware.Permission("storage:config:edit"), storageConfigHandler.SetDefault)
 			system.POST("/storage-configs/:id/test", middleware.Permission("storage:config:edit"), storageConfigHandler.TestConnection)
 			system.POST("/storage-configs/test-by-data", middleware.Permission("storage:config:edit"), storageConfigHandler.TestConnectionByData)
+			system.POST("/storage-configs/mark-orphaned", middleware.Permission("storage:config:edit"), storageConfigHandler.MarkOrphanedAssets)
 
 			// 限流规则管理
 			system.GET("/rate-limit-rules", middleware.Permission("security:ratelimit:view"), rateLimitRuleHandler.List)

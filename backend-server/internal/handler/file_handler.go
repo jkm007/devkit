@@ -360,3 +360,33 @@ func (h *FileHandler) BatchMoveFiles(c *gin.Context) {
 		"errors": errors,
 	})
 }
+
+// verifyAssetsRequest 批量验证文件资产请求
+type verifyAssetsRequest struct {
+	AssetIDs []uint `json:"assetIds" binding:"required"`
+}
+
+// VerifyAssets 批量验证文件资产是否存在
+// @Summary      批量验证文件资产
+// @Description  批量验证文件资产在存储中是否存在，不存在的标记为 inaccessible
+// @Tags         文件管理
+// @Accept       json
+// @Produce      json
+// @Param        body  body  verifyAssetsRequest  true  "资产ID列表"
+// @Success      200   {object}  response.Response
+// @Router       /files/verify-assets [post]
+func (h *FileHandler) VerifyAssets(c *gin.Context) {
+	var req verifyAssetsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	result, err := h.fileService.VerifyAssets(req.AssetIDs)
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.Success(c, result)
+}

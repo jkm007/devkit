@@ -82,6 +82,19 @@ func (s *COStorage) Delete(ctx context.Context, objectKey string) error {
 	return nil
 }
 
+// Exists 检查文件是否存在
+func (s *COStorage) Exists(ctx context.Context, objectKey string) (bool, error) {
+	_, err := s.client.Object.Head(ctx, objectKey, nil)
+	if err != nil {
+		// COS 返回 404 表示不存在
+		if cos.IsNotFoundError(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 // GetURL 获取文件访问 URL
 func (s *COStorage) GetURL(objectKey string) string {
 	if s.cfg.CDNDomain != "" {

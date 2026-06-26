@@ -73,6 +73,15 @@ func (s *OSSStorage) Delete(ctx context.Context, objectKey string) error {
 	return nil
 }
 
+// Exists 检查文件是否存在
+func (s *OSSStorage) Exists(ctx context.Context, objectKey string) (bool, error) {
+	exist, err := s.bucket.IsObjectExist(objectKey)
+	if err != nil {
+		return false, err
+	}
+	return exist, nil
+}
+
 // GetURL 获取文件访问 URL
 func (s *OSSStorage) GetURL(objectKey string) string {
 	if s.cfg.CDNDomain != "" {

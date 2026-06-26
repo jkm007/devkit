@@ -61,3 +61,20 @@ func (r *FileAssetRepo) GetByID(id uint) (*model.FileAsset, error) {
 func (r *FileAssetRepo) DeleteByID(id uint) error {
 	return r.db.Delete(&model.FileAsset{}, id).Error
 }
+
+// MarkInaccessibleByStorageType 将指定存储类型的资产标记为不可访问
+func (r *FileAssetRepo) MarkInaccessibleByStorageType(storageType string) (int64, error) {
+	result := r.db.Model(&model.FileAsset{}).
+		Where("storage_type = ? AND status = ?", storageType, "active").
+		Update("status", "inaccessible")
+	return result.RowsAffected, result.Error
+}
+
+// GetActiveByHash 根据哈希查找状态为 active 的文件资产（秒传专用）
+func (r *FileAssetRepo) GetActiveByHash(fileHash string) (*model.FileAsset, error) {
+	var asset model.FileAsset
+	if err := r.db.Where("file_hash = ? AND status = ?", fileHash, "active").First(&asset).Error; err != nil {
+		return nil, err
+	}
+	return &asset, nil
+}

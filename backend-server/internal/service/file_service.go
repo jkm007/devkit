@@ -882,3 +882,70 @@ func (s *FileService) GetPresignedURL(fileID uint, expires int64) (string, error
 	st := storage.GetStorageByDriver(asset.StorageType)
 	return st.GetPresignedURL(context.Background(), asset.ObjectKey, expires)
 }
+
+// MarkAssetInaccessible 标记文件资产为不可访问
+func (s *FileService) MarkAssetInaccessible(assetID uint) error {
+	db := database.GetMySQL()
+	return db.Model(&model.FileAsset{}).Where("id = ?", assetID).Update("status", "inaccessible").Error
+}
+
+// VerifyAndMarkAsset 验证文件资产是否存在，不存在则标记为 inaccessible
+// 返回: exists, error
+func (s *FileService) VerifyAndMarkAsset(asset *model.FileAsset) (bool, error) {
+	if asset.Status == "inaccessible" {
+		return false, nil
+	}
+
+	st := storage.GetStorageByDriver(asset.StorageType)
+	if st == nil {
+		// 存储驱动不可用，标记为不可访问
+		_ = s.MarkAssetInaccessible(asset.ID)
+		return false, nil
+	}
+
+	exists, err := st.Exists(context.Background(), asset.ObjectKey)
+	if err != nil {
+		return false, err
+	}
+
+	if !exists {
+		// 对象不存在，标记为不可访问
+		_ = s.MarkAssetInaccessible(asset.ID)
+		return false, nil
+	}
+
+	return true, nil
+}
+
+// VerifyAssets 批量验证文件资产是否存在
+func (s *FileService) VerifyAssets(assetIDs []uint) (map[string]interface{}, error) {
+	db := database.GetMySQL()
+	var assets []model.FileAsset
+	if err := db.Where("id IN ? AND status = ?", assetIDs, "active").Find(&assets).Error; err != nil {
+		return nil, err
+	}
+
+	verified := 0
+	inaccessible := 0
+	errors := 0
+
+	for i := range assets {
+		exists, err := s.VerifyAndMarkAsset(&assets[i])
+		if err != nil {
+			errors++
+			continue
+		}
+		if exists {
+			verified++
+		} else {
+			inaccessible++
+		}
+	}
+
+	return map[string]interface{}{
+		"total":        len(assets),
+		"verified":     verified,
+		"inaccessible": inaccessible,
+		"errors":       errors,
+	}, nil
+}

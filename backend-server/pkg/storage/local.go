@@ -151,6 +151,22 @@ func (s *LocalStorage) Delete(ctx context.Context, objectKey string) error {
 	return os.Remove(fullPath)
 }
 
+// Exists 检查文件是否存在
+func (s *LocalStorage) Exists(ctx context.Context, objectKey string) (bool, error) {
+	fullPath, err := s.fullPath(objectKey)
+	if err != nil {
+		return false, err
+	}
+	_, err = os.Stat(fullPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 // GetURL 获取文件访问 URL
 func (s *LocalStorage) GetURL(objectKey string) string {
 	return s.cfg.URLPrefix + "/" + objectKey
