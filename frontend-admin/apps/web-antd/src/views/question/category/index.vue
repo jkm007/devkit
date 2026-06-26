@@ -447,9 +447,9 @@ onMounted(() => {
           @select="handleSelect"
           @expand="(keys) => expandedKeys = keys"
         >
-          <template #title="{ title, icon }">
+          <template #title="{ title, data }">
             <span>
-              <span class="mr-1">{{ icon }}</span>
+              <span class="mr-1">{{ data?.icon || '📄' }}</span>
               <span>{{ title }}</span>
             </span>
           </template>

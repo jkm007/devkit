@@ -233,7 +233,7 @@ func configModelToConfig(m *model.StorageConfig) config.StorageConfig {
 	case "local":
 		cfg.Local.Path = "./uploads"
 		cfg.Local.URLPrefix = "/uploads"
-	case "minio":
+	case "minio", "ceph":
 		cfg.MinIO.Endpoint = m.Endpoint
 		cfg.MinIO.AccessKey = m.AccessKey
 		cfg.MinIO.SecretKey = m.SecretKey
