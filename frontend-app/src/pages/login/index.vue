@@ -127,6 +127,31 @@
         登录
       </button>
 
+      <!-- 微信一键登录 -->
+      <!-- #ifdef MP-WEIXIN -->
+      <button
+        class="wechat-login-btn"
+        open-type="getPhoneNumber"
+        @getphonenumber="handleWechatLogin"
+        :loading="loading"
+      >
+        <text class="wechat-icon">💚</text>
+        微信一键登录
+      </button>
+      <!-- #endif -->
+
+      <!-- 非微信小程序环境显示普通微信登录按钮 -->
+      <!-- #ifndef MP-WEIXIN -->
+      <button
+        class="wechat-login-btn"
+        @click="handleWechatLogin"
+        :loading="loading"
+      >
+        <text class="wechat-icon">💚</text>
+        微信一键登录
+      </button>
+      <!-- #endif -->
+
       <!-- 底部链接 -->
       <view class="footer-links">
         <navigator url="/pages/login/register" class="link">注册账号</navigator>
@@ -296,6 +321,25 @@ async function refreshCaptcha() {
 }
 
 /**
+ * 微信一键登录处理
+ */
+async function handleWechatLogin() {
+  loading.value = true;
+  try {
+    await userStore.loginWithMiniProgram();
+    uni.showToast({ title: '登录成功', icon: 'success' });
+    // 登录成功，跳转首页
+    setTimeout(() => {
+      uni.switchTab({ url: '/pages/index/index' });
+    }, 500);
+  } catch (err: any) {
+    uni.showToast({ title: err.message || '微信登录失败', icon: 'none' });
+  } finally {
+    loading.value = false;
+  }
+}
+
+/**
  * 开始倒计时
  */
 function startCountdown() {
@@ -447,6 +491,29 @@ onUnmounted(() => {
       margin-top: 24px;
       background: linear-gradient(90deg, #1890ff, #36cfc9);
       border: none;
+
+      &[disabled] {
+        opacity: 0.6;
+      }
+    }
+
+    .wechat-login-btn {
+      height: 48px;
+      line-height: 48px;
+      font-size: 17px;
+      border-radius: 24px;
+      margin-top: 12px;
+      background: #07c160;
+      color: #fff;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      .wechat-icon {
+        margin-right: 8px;
+        font-size: 20px;
+      }
 
       &[disabled] {
         opacity: 0.6;

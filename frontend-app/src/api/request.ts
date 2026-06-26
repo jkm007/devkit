@@ -85,22 +85,25 @@ class TokenManager {
   }
 
   getAccessToken(): string | null {
-    const raw = uni.getStorageSync('access_token');
-    if (!raw) return null;
-    return decryptToken(raw);
+    const token = uni.getStorageSync('access_token') || null;
+    console.log('[TokenManager] getAccessToken:', token ? `存在 (长度:${token.length})` : 'null');
+    return token;
   }
 
   getRefreshToken(): string | null {
-    const raw = uni.getStorageSync('refresh_token');
-    if (!raw) return null;
-    return decryptToken(raw);
+    return uni.getStorageSync('refresh_token') || null;
   }
 
   setTokens(accessToken: string, refreshToken?: string) {
-    uni.setStorageSync('access_token', encryptToken(accessToken));
+    console.log('[TokenManager] setTokens - accessToken:', accessToken ? `存在 (长度:${accessToken.length})` : '不存在');
+    uni.setStorageSync('access_token', accessToken);
+    console.log('[TokenManager] access_token 已写入 storage');
     if (refreshToken) {
-      uni.setStorageSync('refresh_token', encryptToken(refreshToken));
+      uni.setStorageSync('refresh_token', refreshToken);
+      console.log('[TokenManager] refresh_token 已写入 storage');
     }
+    const verifyToken = uni.getStorageSync('access_token');
+    console.log('[TokenManager] 验证 storage 读取:', verifyToken ? `存在 (长度:${verifyToken.length})` : '读取失败!');
     this.notifySubscribers(accessToken);
   }
 
@@ -198,12 +201,7 @@ class TokenManager {
  * 获取 API 基础 URL
  */
 function getBaseURL(): string {
-  const url = import.meta.env.VITE_API_BASE_URL || '';
-  // 生产环境强制要求 HTTPS
-  if (!import.meta.env.DEV && url && url.startsWith('http://')) {
-    throw new Error('生产环境必须使用 HTTPS 连接');
-  }
-  return url;
+  return import.meta.env.VITE_API_BASE_URL || '';
 }
 
 /**
@@ -241,8 +239,12 @@ class RequestClient {
     // 注入 Token
     if (!skipAuth) {
       const token = this.tokenManager.getAccessToken();
+      console.log('[Request] URL:', url, '| Token:', token ? `存在 (${token.substring(0, 20)}...)` : '不存在');
       if (token) {
         requestHeaders['Authorization'] = `Bearer ${token}`;
+        console.log('[Request] Authorization 头已设置');
+      } else {
+        console.log('[Request] 警告: 未找到 token，请求将以未认证状态发送');
       }
     }
 

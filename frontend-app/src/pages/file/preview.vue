@@ -61,6 +61,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { getFileUrl } from '@/api/file';
+import { tokenManager } from '@/api/request';
 
 const fileId = ref(0);
 const loading = ref(true);
@@ -71,6 +72,15 @@ const isPlaying = ref(false);
 // #ifdef APP-PLUS
 let audioContext: any = null;
 // #endif
+
+// 为文件 URL 添加 token
+function addTokenToUrl(url: string): string {
+  if (!url) return url;
+  const token = tokenManager.getAccessToken();
+  if (!token || url.includes('token=')) return url;
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}token=${encodeURIComponent(token)}`;
+}
 
 const fileType = computed(() => {
   const ext = fileExtension.value.toLowerCase();
@@ -97,10 +107,11 @@ async function fetchFileUrl() {
   loading.value = true;
   try {
     const res = await getFileUrl(fileId.value, 'preview');
-    fileUrl.value = res.url;
+    fileUrl.value = addTokenToUrl(res.url);
   } catch {
     // 降级处理：使用默认 URL
-    fileUrl.value = `/api/v1/files/${fileId.value}/preview`;
+    const url = `/api/v1/files/${fileId.value}/view`;
+    fileUrl.value = addTokenToUrl(url);
   } finally {
     loading.value = false;
   }

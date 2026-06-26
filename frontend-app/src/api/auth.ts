@@ -36,6 +36,13 @@ export function loginByPhone(phone: string, code: string) {
 }
 
 /**
+ * 微信小程序登录
+ */
+export function loginByMiniProgram(code: string) {
+  return request.post<LoginResponse>('/auth/wechat/miniapp-login', { code });
+}
+
+/**
  * 刷新 Token
  */
 export function refreshTokenApi(token: string) {

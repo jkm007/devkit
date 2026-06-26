@@ -99,15 +99,27 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from 'vue';
 import type { ContentBlock } from '@/api/types';
+import { tokenManager } from '@/api/request';
 
 const props = defineProps<{
   block: ContentBlock;
 }>();
 
+// 为需要认证的文件 URL 添加 token
+function addTokenToUrl(url: string): string {
+  if (!url || !url.startsWith('/api/v1/files/')) return url;
+  const token = tokenManager.getAccessToken();
+  if (!token) return url;
+  // 如果 URL 已经有 query 参数，追加 token；否则添加 token
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}token=${encodeURIComponent(token)}`;
+}
+
 // 图片
 const imageError = ref(false);
 function getImageUrl(): string {
-  return props.block.url || `/api/v1/files/${props.block.fileId}/preview`;
+  const url = props.block.url || `/api/v1/files/${props.block.fileId}/view`;
+  return addTokenToUrl(url);
 }
 function previewImage() {
   if (!imageError.value) {
@@ -123,7 +135,8 @@ const videoPoster = computed(() => {
   return '';
 });
 function getMediaUrl(): string {
-  return props.block.url || `/api/v1/files/${props.block.fileId}/preview`;
+  const url = props.block.url || `/api/v1/files/${props.block.fileId}/view`;
+  return addTokenToUrl(url);
 }
 function onVideoError() { videoError.value = true; }
 

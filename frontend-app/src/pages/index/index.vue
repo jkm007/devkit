@@ -149,6 +149,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { onShow } from '@dcloudio/uni-app';
 import { request } from '@/api/request';
 import type { Question } from '@/api/types';
 import { getBanners, batchGetPublicURLs, type BannerItem } from '@/api/banner';
@@ -178,10 +179,14 @@ interface RecommendedQuestion extends Pick<Question, 'id' | 'title' | 'questionT
 
 const recommended = ref<RecommendedQuestion[]>([]);
 
-// 获取系统状态栏高度
+// 获取系统状态栏高度（仅首次加载）
 onMounted(() => {
   const systemInfo = uni.getSystemInfoSync();
   statusBarHeight.value = systemInfo.statusBarHeight || 0;
+});
+
+// 每次页面显示时刷新数据（支持从登录页跳转）
+onShow(() => {
   fetchHomeData();
 });
 
