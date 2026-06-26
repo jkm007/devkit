@@ -118,3 +118,10 @@ captcha:
   max_skew: 0.7
   dot_count: 80
   secret: "${CAPTCHA_SECRET:changeme-generate-a-random-32-byte-string}"
+
+# 微信小程序配置
+# AppSecret 可通过环境变量 WECHAT_MINI_APP_SECRET 覆盖
+wechat:
+  mini_program:
+    app_id: "wxc7e0745dc22733bf"
+    app_secret: "${WECHAT_MINI_APP_SECRET:c932bdd8e816065140f5ca39ccc5ff5a}"
