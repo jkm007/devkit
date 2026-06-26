@@ -239,25 +239,8 @@ function playFile(file: any) {
       }
     });
   } else if (type === 'video') {
-    currentPlayingFile.value = file;
-    isPlaying.value = true;
-
-    nextTick(() => {
-      if (videoRef.value) {
-        videoRef.value.src = url;
-        videoRef.value.playbackRate = playbackRate.value;
-        videoRef.value.volume = volume.value;
-
-        const savedTime = getPlayProgress(file.fileId);
-        if (savedTime > 0) {
-          videoRef.value.currentTime = savedTime;
-        }
-
-        videoRef.value.play().catch(() => {
-          // 自动播放被阻止
-        });
-      }
-    });
+    // 视频文件打开弹窗播放
+    viewFileInModal(file);
   } else {
     // 非媒体文件，打开预览弹窗
     viewFileInModal(file);
@@ -431,6 +414,12 @@ function viewFileInModal(file: any) {
       onOk: () => window.open(url, '_blank', 'noopener,noreferrer'),
     });
     return;
+  }
+
+  // 重置视频错误状态
+  if (type === 'video') {
+    videoFormatSupported.value = true;
+    videoFormatError.value = '';
   }
 
   previewName.value = file.fileName;
