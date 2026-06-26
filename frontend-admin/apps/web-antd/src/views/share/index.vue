@@ -420,6 +420,10 @@ function viewFileInModal(file: any) {
   if (type === 'video') {
     videoFormatSupported.value = true;
     videoFormatError.value = '';
+
+    // 更新当前播放文件和播放列表
+    currentPlayingFile.value = file;
+    isPlaying.value = false;
   }
 
   previewName.value = file.fileName;
@@ -1225,19 +1229,133 @@ onUnmounted(() => {
             referrerpolicy="no-referrer"
             style="width: 100%; height: 600px; border: none"
           />
-          <div v-else-if="previewType === 'video' && previewUrl" class="bg-black">
-            <video
-              :src="previewUrl"
-              controls
-              autoplay
-              preload="auto"
-              playsinline
-              style="display: block; width: 100%; max-height: 70vh; background: #000"
-              @error="onVideoError"
-              @loadeddata="videoFormatSupported = true; videoFormatError = ''"
-            />
+          <div v-else-if="previewType === 'video' && previewUrl">
+            <!-- 视频播放器 -->
+            <div v-if="videoFormatSupported" class="bg-black rounded-lg overflow-hidden">
+              <video
+                ref="videoRef"
+                :src="previewUrl"
+                controls
+                autoplay
+                preload="auto"
+                playsinline
+                style="display: block; width: 100%; max-height: 60vh; background: #000"
+                @error="onVideoError"
+                @loadeddata="videoFormatSupported = true; videoFormatError = ''"
+                @timeupdate="onTimeUpdate"
+                @ended="onEnded"
+                @play="isPlaying = true"
+                @pause="isPlaying = false"
+                @loadedmetadata="duration = videoRef?.duration || 0"
+              />
+            </div>
+
+            <!-- 视频控制栏 -->
+            <div v-if="videoFormatSupported" class="bg-gray-900 text-white p-3">
+              <!-- 进度条 -->
+              <div
+                class="h-1.5 bg-gray-600 rounded-full cursor-pointer mb-2"
+                @click="seekTo"
+              >
+                <div
+                  class="h-full bg-blue-500 rounded-full transition-all"
+                  :style="{ width: duration ? `${(currentTime / duration) * 100}%` : '0%' }"
+                />
+              </div>
+
+              <!-- 控制按钮 -->
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <!-- 上一首 -->
+                  <Tooltip title="上一个" v-if="playlist.length > 1">
+                    <button class="text-lg hover:text-blue-400 transition-colors" @click="playPrevious">
+                      ⏮
+                    </button>
+                  </Tooltip>
+
+                  <!-- 播放/暂停 -->
+                  <button class="text-2xl hover:text-blue-400 transition-colors" @click="togglePlay">
+                    {{ isPlaying ? '⏸' : '▶️' }}
+                  </button>
+
+                  <!-- 下一首 -->
+                  <Tooltip title="下一个" v-if="playlist.length > 1">
+                    <button class="text-lg hover:text-blue-400 transition-colors" @click="playNext">
+                      ⏭
+                    </button>
+                  </Tooltip>
+
+                  <!-- 时间 -->
+                  <span class="text-sm text-gray-300">
+                    {{ formatTime(currentTime) }} / {{ formatTime(duration) }}
+                  </span>
+                </div>
+
+                <div class="flex items-center gap-3">
+                  <!-- 播放模式 -->
+                  <Tooltip :title="playModeTooltip" v-if="playlist.length > 1">
+                    <button class="text-lg hover:text-blue-400 transition-colors" @click="togglePlayMode">
+                      {{ playModeIcon }}
+                    </button>
+                  </Tooltip>
+
+                  <!-- 播放速度 -->
+                  <Tooltip title="播放速度">
+                    <Select
+                      :value="playbackRate"
+                      size="small"
+                      style="width: 70px"
+                      @change="changeSpeed"
+                    >
+                      <SelectOption v-for="s in speedOptions" :key="s" :value="s">
+                        {{ s }}x
+                      </SelectOption>
+                    </Select>
+                  </Tooltip>
+
+                  <!-- 音量 -->
+                  <Tooltip :title="volume > 0 ? '静音' : '取消静音'">
+                    <button class="text-lg hover:text-blue-400 transition-colors" @click="toggleMute">
+                      {{ volume > 0 ? '🔊' : '🔇' }}
+                    </button>
+                  </Tooltip>
+
+                  <!-- 在新标签页打开 -->
+                  <Tooltip title="在新标签页打开">
+                    <button class="text-lg hover:text-blue-400 transition-colors" @click="openPreviewInNewTab">
+                      🔗
+                    </button>
+                  </Tooltip>
+                </div>
+              </div>
+
+              <!-- 快捷键提示 -->
+              <div class="text-center text-xs text-gray-500 mt-2">
+                空格: 暂停 | ←→: 快退/快进 | ↑↓: 音量 | M: 静音
+                <span v-if="playlist.length > 1"> | N: 下一个 | P: 上一个</span>
+              </div>
+            </div>
+
+            <!-- 播放列表（如果有多个视频） -->
+            <div v-if="videoFormatSupported && playlist.length > 1" class="bg-gray-800 max-h-40 overflow-y-auto">
+              <div class="px-3 py-2 text-sm text-gray-400 border-b border-gray-700">
+                播放列表 ({{ playlist.length }} 个视频)
+              </div>
+              <div
+                v-for="(item, index) in playlist"
+                :key="item.fileId"
+                class="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-gray-700 transition-colors"
+                :class="{ 'bg-gray-700 text-blue-400': currentPlayingFile?.fileId === item.fileId }"
+                @click="playFile(item)"
+              >
+                <span class="text-gray-500 w-5 text-right text-xs">{{ index + 1 }}</span>
+                <span class="flex-1 truncate text-sm">{{ item.fileName }}</span>
+                <span class="text-xs text-gray-500">{{ formatFileSize(item.fileSize) }}</span>
+              </div>
+            </div>
+
             <!-- 播放失败提示 -->
-            <div v-if="!videoFormatSupported" class="text-center py-6 bg-gray-900 text-white">
+            <div v-if="!videoFormatSupported" class="text-center py-8 bg-gray-900 text-white">
               <div class="text-4xl mb-3">⚠️</div>
               <p class="mb-4">{{ videoFormatError || '视频播放失败' }}</p>
               <Button type="primary" @click="openPreviewInNewTab">
