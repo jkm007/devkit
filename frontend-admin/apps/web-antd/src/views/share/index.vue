@@ -434,7 +434,11 @@ function viewFileInModal(file: any) {
 }
 
 function openPreviewInNewTab() {
-  if (previewUrl.value) {
+  if (previewType.value === 'video' && currentPlayingFile.value) {
+    // 视频打开专用播放器页面
+    const url = `/share/${shareCode}/video/${currentPlayingFile.value.fileId}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  } else if (previewUrl.value) {
     window.open(previewUrl.value, '_blank', 'noopener,noreferrer');
   }
 }
