@@ -37,11 +37,18 @@ const showPlaylist = ref(true);
 // 播放速度选项
 const speedOptions = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
+// 跳过片头片尾设置
+const skipIntro = ref(0); // 跳过片头秒数
+const skipOutro = ref(0); // 跳过片尾秒数
+const showSkipSettings = ref(false);
+
 // localStorage 键名
 const STORAGE_KEY_PROGRESS = 'share_play_progress';
 const STORAGE_KEY_VOLUME = 'share_play_volume';
 const STORAGE_KEY_RATE = 'share_play_rate';
 const STORAGE_KEY_MODE = 'share_play_mode';
+const STORAGE_KEY_SKIP_INTRO = 'share_skip_intro';
+const STORAGE_KEY_SKIP_OUTRO = 'share_skip_outro';
 
 const shareCode = computed(() => route.params.code as string);
 const fileId = computed(() => route.params.fileId as string);
@@ -108,6 +115,16 @@ function savePlayMode(mode: string) {
   localStorage.setItem(STORAGE_KEY_MODE, mode);
 }
 
+function saveSkipIntro(seconds: number) {
+  skipIntro.value = seconds;
+  localStorage.setItem(STORAGE_KEY_SKIP_INTRO, String(seconds));
+}
+
+function saveSkipOutro(seconds: number) {
+  skipOutro.value = seconds;
+  localStorage.setItem(STORAGE_KEY_SKIP_OUTRO, String(seconds));
+}
+
 function restoreSettings() {
   try {
     const savedVolume = localStorage.getItem(STORAGE_KEY_VOLUME);
@@ -120,6 +137,12 @@ function restoreSettings() {
     if (savedMode && ['sequential', 'loop', 'random'].includes(savedMode)) {
       playMode.value = savedMode as any;
     }
+
+    const savedSkipIntro = localStorage.getItem(STORAGE_KEY_SKIP_INTRO);
+    if (savedSkipIntro) skipIntro.value = Number(savedSkipIntro);
+
+    const savedSkipOutro = localStorage.getItem(STORAGE_KEY_SKIP_OUTRO);
+    if (savedSkipOutro) skipOutro.value = Number(savedSkipOutro);
   } catch {
     // ignore
   }
@@ -137,9 +160,12 @@ function playFile(file: any) {
       videoRef.value.playbackRate = playbackRate.value;
       videoRef.value.volume = volume.value;
 
+      // 恢复播放进度，或跳过片头
       const savedTime = getPlayProgress(file.fileId);
       if (savedTime > 0) {
         videoRef.value.currentTime = savedTime;
+      } else if (skipIntro.value > 0) {
+        videoRef.value.currentTime = skipIntro.value;
       }
 
       videoRef.value.play().catch(() => {
@@ -244,8 +270,17 @@ function onTimeUpdate() {
     currentTime.value = videoRef.value.currentTime;
     duration.value = videoRef.value.duration;
 
+    // 保存播放进度
     if (Math.floor(videoRef.value.currentTime) % 5 === 0) {
       savePlayProgress(currentPlayingFile.value?.fileId, videoRef.value.currentTime);
+    }
+
+    // 跳过片尾：当播放到 (总时长 - 片尾秒数) 时，自动播放下一个
+    if (skipOutro.value > 0 && duration.value > 0) {
+      const outroTime = duration.value - skipOutro.value;
+      if (currentTime.value >= outroTime) {
+        playNext();
+      }
     }
   }
 }
@@ -506,6 +541,17 @@ onUnmounted(() => {
                   </Tooltip>
                 </div>
 
+                <!-- 跳过片头片尾 -->
+                <Tooltip title="跳过片头片尾">
+                  <button
+                    class="text-xl hover:text-blue-400 transition-colors"
+                    :class="{ 'text-blue-400': showSkipSettings }"
+                    @click="showSkipSettings = !showSkipSettings"
+                  >
+                    ⏩
+                  </button>
+                </Tooltip>
+
                 <!-- 播放列表 -->
                 <Tooltip title="播放列表">
                   <button
@@ -517,6 +563,46 @@ onUnmounted(() => {
                   </button>
                 </Tooltip>
               </div>
+            </div>
+
+            <!-- 跳过片头片尾设置 -->
+            <div v-if="showSkipSettings" class="bg-gray-700 px-4 py-3 flex items-center gap-6">
+              <span class="text-gray-300 text-sm">跳过设置：</span>
+              <div class="flex items-center gap-2">
+                <span class="text-gray-400 text-sm">片头</span>
+                <Select
+                  :value="skipIntro"
+                  size="small"
+                  style="width: 80px"
+                  @change="saveSkipIntro"
+                >
+                  <SelectOption :value="0">不跳过</SelectOption>
+                  <SelectOption :value="5">5秒</SelectOption>
+                  <SelectOption :value="10">10秒</SelectOption>
+                  <SelectOption :value="15">15秒</SelectOption>
+                  <SelectOption :value="30">30秒</SelectOption>
+                  <SelectOption :value="60">60秒</SelectOption>
+                  <SelectOption :value="90">90秒</SelectOption>
+                </Select>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-gray-400 text-sm">片尾</span>
+                <Select
+                  :value="skipOutro"
+                  size="small"
+                  style="width: 80px"
+                  @change="saveSkipOutro"
+                >
+                  <SelectOption :value="0">不跳过</SelectOption>
+                  <SelectOption :value="5">5秒</SelectOption>
+                  <SelectOption :value="10">10秒</SelectOption>
+                  <SelectOption :value="15">15秒</SelectOption>
+                  <SelectOption :value="30">30秒</SelectOption>
+                  <SelectOption :value="60">60秒</SelectOption>
+                  <SelectOption :value="90">90秒</SelectOption>
+                </Select>
+              </div>
+              <span class="text-gray-500 text-xs">设置会保存，下次自动应用</span>
             </div>
 
             <!-- 快捷键提示 -->
