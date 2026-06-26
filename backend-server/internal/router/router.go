@@ -297,6 +297,7 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		authorized.POST("/files/move", middleware.Permission("file:manage"), fileHandler.MoveFile)
 		authorized.POST("/files/batch-delete", middleware.Permission("file:delete"), fileHandler.BatchDeleteFiles)
 		authorized.POST("/files/batch-move", middleware.Permission("file:manage"), fileHandler.BatchMoveFiles)
+		authorized.POST("/files/verify-assets", middleware.Permission("file:manage"), fileHandler.VerifyAssets)
 
 		// 回收站（必须在 :id 路由之前）
 		authorized.GET("/files/recycle/list", middleware.Permission("file:view:own"), recycleBinHandler.List)

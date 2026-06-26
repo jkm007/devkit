@@ -22,6 +22,9 @@ type Storage interface {
 	// Delete 删除文件
 	Delete(ctx context.Context, objectKey string) error
 
+	// Exists 检查文件是否存在
+	Exists(ctx context.Context, objectKey string) (bool, error)
+
 	// GetURL 获取文件访问 URL
 	GetURL(objectKey string) string
 

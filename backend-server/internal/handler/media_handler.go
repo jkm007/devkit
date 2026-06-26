@@ -356,6 +356,12 @@ func (h *MediaHandler) ViewFile(c *gin.Context) {
 		return
 	}
 
+	// 检查文件是否标记为不可访问
+	if asset.Status == "inaccessible" {
+		response.NotFound(c, "文件不可访问（存储配置已删除）")
+		return
+	}
+
 	// 根据存储类型获取对应的存储实例
 	st := storage.GetStorageByDriver(asset.StorageType)
 
