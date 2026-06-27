@@ -86,9 +86,23 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { request } from '@/api/request';
+import { request, tokenManager } from '@/api/request';
 import type { Question } from '@/api/types';
 import ContentBlockRenderer from '@/components/ContentBlockRenderer.vue';
+
+// 为需要认证的文件 URL 添加 token（小程序 <image>/<video> 不支持 header/cookie 认证）
+function addTokenToUrl(url: string): string {
+  if (!url) return url;
+  // 只给本后端 /api/v1/files/ 的代理链接加 token；外部 presigned URL 不加
+  const isBackendFileUrl =
+    url.startsWith('/api/v1/files/') ||
+    (url.startsWith('http') && url.includes('/api/v1/files/'));
+  if (!isBackendFileUrl) return url;
+  const token = tokenManager.getAccessToken();
+  if (!token) return url;
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}token=${encodeURIComponent(token)}`;
+}
 
 const questionId = ref(0);
 const loading = ref(true);
@@ -140,7 +154,7 @@ const analysisImages = computed(() => {
     if (src.startsWith('/')) {
       src = apiBaseUrl.replace('/api/v1', '') + src;
     }
-    images.push(src);
+    images.push(addTokenToUrl(src));
   }
   return images;
 });
@@ -155,7 +169,7 @@ const analysisVideos = computed(() => {
     if (src.startsWith('/')) {
       src = apiBaseUrl.replace('/api/v1', '') + src;
     }
-    videos.push(src);
+    videos.push(addTokenToUrl(src));
   }
   return videos;
 });
