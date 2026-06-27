@@ -1,9 +1,13 @@
 package service
 
 import (
+	"strings"
+
 	"backend-server/internal/model"
 	"backend-server/internal/repository"
 	"backend-server/pkg/database"
+
+	"gorm.io/gorm"
 )
 
 // UserHomeService 用户首页服务
@@ -57,9 +61,18 @@ func (s *UserHomeService) GetHomeData(userID uint) (*HomeData, error) {
 	db := database.GetMySQL()
 	data := &HomeData{}
 
-	// 1. 总题量（已发布的题目）
+	// 获取用户信息用于可见性过滤
+	userGroupID := uint(0)
+	if user, err := s.userRepo.GetByID(userID); err == nil {
+		userGroupID = user.GroupID
+	}
+	userClassIDs, _ := repository.NewClassRepo(db).ListClassIDsByUserID(userID)
+
+	// 1. 总题量（按资源类型可见性过滤后的已发布题目）
 	var totalQuestions int64
-	db.Model(&model.Question{}).Where("status = ?", "published").Count(&totalQuestions)
+	countQuery := db.Model(&model.Question{}).Where("status = ?", "published")
+	countQuery = s.applyVisibilityScope(countQuery, userID, userGroupID, userClassIDs)
+	countQuery.Count(&totalQuestions)
 	data.Stats.TotalQuestions = totalQuestions
 
 	// 2. 今日练习次数
@@ -93,12 +106,11 @@ func (s *UserHomeService) GetHomeData(userID uint) (*HomeData, error) {
 	}
 	data.Stats.ContinuousDays = continuousDays
 
-	// 5. 推荐题目（随机取3道已发布题目）
+	// 5. 推荐题目（按可见性过滤，随机取3道已发布题目）
 	var questions []model.Question
-	db.Where("status = ?", "published").
-		Order("RAND()").
-		Limit(3).
-		Find(&questions)
+	recQuery := db.Where("status = ?", "published")
+	recQuery = s.applyVisibilityScope(recQuery, userID, userGroupID, userClassIDs)
+	recQuery.Order("RAND()").Limit(3).Find(&questions)
 
 	for _, q := range questions {
 		// 获取分类名
@@ -116,6 +128,39 @@ func (s *UserHomeService) GetHomeData(userID uint) (*HomeData, error) {
 	}
 
 	return data, nil
+}
+
+// applyVisibilityScope 应用题目资源类型可见性过滤
+func (s *UserHomeService) applyVisibilityScope(query *gorm.DB, userID, userGroupID uint, userClassIDs []uint) *gorm.DB {
+	conditions := []string{
+		"resource_type = 'public'",
+		"resource_type = 'private' AND created_by = ?",
+		"resource_type = 'group' AND (group_id = ? OR created_by = ?)",
+	}
+	args := []interface{}{userID, userGroupID, userID}
+
+	if len(userClassIDs) > 0 {
+		classCondition := "resource_type = 'class' AND ("
+		for i, classID := range userClassIDs {
+			if i > 0 {
+				classCondition += " OR "
+			}
+			classCondition += "JSON_CONTAINS(class_ids, JSON_ARRAY(?))"
+			args = append(args, classID)
+		}
+		classCondition += " OR created_by = ?)"
+		args = append(args, userID)
+		conditions = append(conditions, classCondition)
+	} else {
+		conditions = append(conditions, "resource_type = 'class' AND created_by = ?")
+		args = append(args, userID)
+	}
+
+	conditions = append(conditions, "resource_type = 'user' AND (JSON_CONTAINS(user_ids, JSON_ARRAY(?)) OR created_by = ?)")
+	args = append(args, userID, userID)
+
+	where := "(" + strings.Join(conditions, ") OR (") + ")"
+	return query.Where(where, args...)
 }
 
 // GetUserStats 获取用户学习统计

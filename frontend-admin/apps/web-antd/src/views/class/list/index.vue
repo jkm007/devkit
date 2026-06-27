@@ -1,163 +1,180 @@
 <script lang="ts" setup>
 import type { ClassApi } from '#/api/class';
 
-import { computed, ref } from 'vue';
+import { ref } from 'vue';
 
-import { Page } from '@vben/common-ui';
+import { Page, useVbenDrawer, useVbenModal } from '@vben/common-ui';
+import { Plus } from '@vben/icons';
 
+import { message, Tag } from 'ant-design-vue';
+
+import { useVbenVxeGrid, VbenTableAction } from '#/adapter/vxe-table';
 import {
-  Button,
-  Form,
-  Input,
-  message,
-  Modal,
-  Select,
-  Space,
-  Table,
-  Tag,
-} from 'ant-design-vue';
-
-import {
-  addClassMember,
   createClass,
-  createClassInvitation,
   deleteClass,
-  disableClassInvitation,
-  getClassInvitations,
+  updateClass,
   getClassList,
+  addClassMember,
   getClassMembers,
   removeClassMember,
-  updateClass,
   updateClassMemberRole,
+  createClassInvitation,
+  getClassInvitations,
+  disableClassInvitation,
 } from '#/api/class';
 
-const searchKeyword = ref('');
-const loading = ref(false);
-const dataSource = ref<ClassApi.Class[]>([]);
-const total = ref(0);
-const page = ref(1);
-const pageSize = ref(20);
+// ============ 主表格 ============
+const [Grid, gridApi] = useVbenVxeGrid({
+  formOptions: {
+    schema: [
+      {
+        component: 'Input',
+        fieldName: 'keyword',
+        label: '关键词',
+        componentProps: { placeholder: '搜索班级名称/邀请码', allowClear: true },
+      },
+      {
+        component: 'Select',
+        fieldName: 'status',
+        label: '状态',
+        componentProps: {
+          options: [
+            { label: '启用', value: 1 },
+            { label: '禁用', value: 0 },
+          ],
+          placeholder: '全部',
+          allowClear: true,
+        },
+      },
+    ],
+    submitOnChange: true,
+  },
+  gridOptions: {
+    columns: [
+      { field: 'id', title: 'ID', width: 80 },
+      { field: 'name', title: '班级名称', minWidth: 180 },
+      { field: 'code', title: '邀请码', width: 120 },
+      { field: 'memberCount', title: '成员数', width: 100, align: 'center' },
+      { field: 'creatorName', title: '创建人', width: 120 },
+      {
+        field: 'status',
+        title: '状态',
+        width: 100,
+        align: 'center',
+        slots: { default: 'status' },
+      },
+      { field: 'createdAt', title: '创建时间', width: 180 },
+      { field: 'action', title: '操作', width: 280, fixed: 'right', slots: { default: 'action' } },
+    ],
+    height: 'auto',
+    keepSource: true,
+    pagerConfig: { pageSize: 20, pageSizeOpts: [10, 20, 50, 100] },
+    proxyConfig: {
+      ajax: {
+        query: async ({ page }, formValues) => {
+          return await getClassList({
+            page: page.currentPage,
+            pageSize: page.pageSize,
+            ...(formValues as any),
+          });
+        },
+      },
+    },
+    rowConfig: { keyField: 'id' },
+    toolbarConfig: {
+      custom: true,
+      refresh: true,
+      search: true,
+      zoom: true,
+    },
+  } as any,
+});
 
-const pagination = computed(() => ({
-  current: page.value,
-  pageSize: pageSize.value,
-  total: total.value,
-  showSizeChanger: true,
-  showTotal: (t: number) => `共 ${t} 条`,
-}));
-
-const columns = [
-  { title: '班级名称', dataIndex: 'name', key: 'name' },
-  { title: '邀请码', dataIndex: 'code', key: 'code' },
-  { title: '成员数', dataIndex: 'memberCount', key: 'memberCount' },
-  { title: '创建人', dataIndex: 'creatorName', key: 'creatorName' },
-  { title: '状态', dataIndex: 'status', key: 'status' },
-  { title: '创建时间', dataIndex: 'createdAt', key: 'createdAt' },
-  { title: '操作', key: 'action', width: 220 },
-];
-
-async function loadList() {
-  loading.value = true;
-  try {
-    const res = await getClassList({
-      page: page.value,
-      pageSize: pageSize.value,
-      keyword: searchKeyword.value,
-    });
-    dataSource.value = res.items || [];
-    total.value = res.total || 0;
-  } catch (e: any) {
-    message.error(e?.message || '加载失败');
-  } finally {
-    loading.value = false;
-  }
+// ============ 创建/编辑班级 ============
+interface ClassForm {
+  id: number;
+  name: string;
+  description: string;
+  status: number;
 }
 
-function onSearch() {
-  page.value = 1;
-  loadList();
+const classForm = ref<ClassForm>({ id: 0, name: '', description: '', status: 1 });
+const classFormTitle = ref('创建班级');
+
+const [ClassFormModal, classFormModalApi] = useVbenModal({
+  onConfirm: async () => {
+    if (!classForm.value.name) {
+      message.warning('请输入班级名称');
+      return;
+    }
+    try {
+      if (classForm.value.id) {
+        await updateClass(classForm.value.id, {
+          name: classForm.value.name,
+          description: classForm.value.description,
+          status: classForm.value.status,
+        });
+        message.success('更新成功');
+      } else {
+        await createClass({
+          name: classForm.value.name,
+          description: classForm.value.description,
+        });
+        message.success('创建成功');
+      }
+      classFormModalApi.close();
+      gridApi.reload();
+    } catch (e: any) {
+      message.error(e?.message || '操作失败');
+    }
+  },
+});
+
+function openCreateClass() {
+  classFormTitle.value = '创建班级';
+  classForm.value = { id: 0, name: '', description: '', status: 1 };
+  classFormModalApi.open();
 }
 
-function onTableChange(p: any) {
-  page.value = p.current;
-  pageSize.value = p.pageSize;
-  loadList();
-}
-
-const modalVisible = ref(false);
-const modalTitle = ref('创建班级');
-const modalForm = ref({ id: 0, name: '', description: '', status: 1 });
-
-function openCreateModal() {
-  modalTitle.value = '创建班级';
-  modalForm.value = { id: 0, name: '', description: '', status: 1 };
-  modalVisible.value = true;
-}
-
-function openEditModal(row: any) {
-  modalTitle.value = '编辑班级';
-  modalForm.value = {
+function openEditClass(row: any) {
+  classFormTitle.value = '编辑班级';
+  classForm.value = {
     id: row.id,
     name: row.name,
-    description: row.description,
+    description: row.description || '',
     status: row.status,
   };
-  modalVisible.value = true;
+  classFormModalApi.open();
 }
 
-async function handleModalOk() {
-  if (!modalForm.value.name) {
-    message.warning('请输入班级名称');
-    return;
-  }
-  try {
-    if (modalForm.value.id) {
-      await updateClass(modalForm.value.id, {
-        name: modalForm.value.name,
-        description: modalForm.value.description,
-        status: modalForm.value.status,
-      });
-      message.success('更新成功');
-    } else {
-      await createClass({
-        name: modalForm.value.name,
-        description: modalForm.value.description,
-      });
-      message.success('创建成功');
-    }
-    modalVisible.value = false;
-    loadList();
-  } catch (e: any) {
-    message.error(e?.message || '操作失败');
-  }
+function handleDelete(row: any) {
+  deleteClass(row.id)
+    .then(() => {
+      message.success('删除成功');
+      gridApi.reload();
+    })
+    .catch((e: any) => message.error(e?.message || '删除失败'));
 }
 
-async function handleDelete(row: any) {
-  Modal.confirm({
-    title: '确认删除',
-    content: `确定删除班级「${row.name}」吗？`,
-    onOk: async () => {
-      try {
-        await deleteClass(row.id);
-        message.success('删除成功');
-        loadList();
-      } catch (e: any) {
-        message.error(e?.message || '删除失败');
-      }
-    },
-  });
-}
-
-const memberModalVisible = ref(false);
-const currentClassId = ref(0);
+// ============ 成员管理 ============
 const memberList = ref<ClassApi.ClassMember[]>([]);
+const currentClassId = ref(0);
+const currentClassName = ref('');
 const memberLoading = ref(false);
 const newMember = ref({ userId: '', role: 'student' });
 
+const [MemberDrawer, memberDrawerApi] = useVbenDrawer({
+  onOpenChange: async (isOpen: boolean) => {
+    if (isOpen) {
+      await loadMembers();
+    }
+  },
+});
+
 async function openMemberModal(row: any) {
   currentClassId.value = row.id;
-  memberModalVisible.value = true;
-  await loadMembers();
+  currentClassName.value = row.name;
+  memberDrawerApi.open();
 }
 
 async function loadMembers() {
@@ -172,54 +189,55 @@ async function loadMembers() {
   }
 }
 
-async function handleAddMember() {
+function handleAddMember() {
   if (!newMember.value.userId) {
     message.warning('请输入用户ID');
     return;
   }
-  try {
-    await addClassMember(currentClassId.value, {
-      userId: Number(newMember.value.userId),
-      role: newMember.value.role,
-    });
-    message.success('添加成功');
-    newMember.value = { userId: '', role: 'student' };
-    loadMembers();
-  } catch (e: any) {
-    message.error(e?.message || '添加失败');
-  }
+  addClassMember(currentClassId.value, {
+    userId: Number(newMember.value.userId),
+    role: newMember.value.role,
+  })
+    .then(() => {
+      message.success('添加成功');
+      newMember.value = { userId: '', role: 'student' };
+      loadMembers();
+    })
+    .catch((e: any) => message.error(e?.message || '添加失败'));
 }
 
-async function handleUpdateMemberRole(member: any) {
-  try {
-    await updateClassMemberRole(currentClassId.value, member.id, {
-      role: member.role,
-    });
-    message.success('更新成功');
-  } catch (e: any) {
-    message.error(e?.message || '更新失败');
-  }
+function handleUpdateMemberRole(member: any) {
+  updateClassMemberRole(currentClassId.value, member.id, { role: member.role })
+    .then(() => message.success('更新成功'))
+    .catch((e: any) => message.error(e?.message || '更新失败'));
 }
 
-async function handleRemoveMember(member: any) {
-  try {
-    await removeClassMember(currentClassId.value, member.id);
-    message.success('移除成功');
-    loadMembers();
-  } catch (e: any) {
-    message.error(e?.message || '移除失败');
-  }
+function handleRemoveMember(member: any) {
+  removeClassMember(currentClassId.value, member.id)
+    .then(() => {
+      message.success('移除成功');
+      loadMembers();
+    })
+    .catch((e: any) => message.error(e?.message || '移除失败'));
 }
 
-const invitationModalVisible = ref(false);
+// ============ 邀请码管理 ============
 const invitationList = ref<ClassApi.ClassInvitation[]>([]);
 const invitationLoading = ref(false);
 const newInvitation = ref({ maxUses: 0, expireAt: '' });
 
+const [InvitationDrawer, invitationDrawerApi] = useVbenDrawer({
+  onOpenChange: async (isOpen: boolean) => {
+    if (isOpen) {
+      await loadInvitations();
+    }
+  },
+});
+
 async function openInvitationModal(row: any) {
   currentClassId.value = row.id;
-  invitationModalVisible.value = true;
-  await loadInvitations();
+  currentClassName.value = row.name;
+  invitationDrawerApi.open();
 }
 
 async function loadInvitations() {
@@ -234,200 +252,183 @@ async function loadInvitations() {
   }
 }
 
-async function handleCreateInvitation() {
-  try {
-    const data: any = {};
-    if (newInvitation.value.maxUses > 0) {
-      data.maxUses = newInvitation.value.maxUses;
-    }
-    if (newInvitation.value.expireAt) {
-      data.expireAt = new Date(newInvitation.value.expireAt).toISOString();
-    }
-    await createClassInvitation(currentClassId.value, data);
-    message.success('创建成功');
-    newInvitation.value = { maxUses: 0, expireAt: '' };
-    loadInvitations();
-  } catch (e: any) {
-    message.error(e?.message || '创建失败');
-  }
+function handleCreateInvitation() {
+  const data: any = {};
+  if (newInvitation.value.maxUses > 0) data.maxUses = newInvitation.value.maxUses;
+  if (newInvitation.value.expireAt) data.expireAt = new Date(newInvitation.value.expireAt).toISOString();
+  createClassInvitation(currentClassId.value, data)
+    .then(() => {
+      message.success('创建成功');
+      newInvitation.value = { maxUses: 0, expireAt: '' };
+      loadInvitations();
+    })
+    .catch((e: any) => message.error(e?.message || '创建失败'));
 }
 
-async function handleDisableInvitation(inv: any) {
-  try {
-    await disableClassInvitation(inv.id);
-    message.success('已禁用');
-    loadInvitations();
-  } catch (e: any) {
-    message.error(e?.message || '操作失败');
-  }
+function handleDisableInvitation(inv: any) {
+  disableClassInvitation(inv.id)
+    .then(() => {
+      message.success('已禁用');
+      loadInvitations();
+    })
+    .catch((e: any) => message.error(e?.message || '操作失败'));
 }
-
-loadList();
 </script>
 
 <template>
   <Page title="班级管理">
-    <div class="mb-4 flex gap-4">
-      <Input
-        v-model:value="searchKeyword"
-        placeholder="搜索班级名称/邀请码"
-        style="width: 300px"
-        @pressEnter="onSearch"
-      />
-      <Button type="primary" @click="onSearch">搜索</Button>
-      <Button type="primary" @click="openCreateModal">创建班级</Button>
-    </div>
-
-    <Table
-      :columns="columns"
-      :data-source="dataSource"
-      :loading="loading"
-      :pagination="pagination"
-      row-key="id"
-      @change="onTableChange"
-    >
-      <template #bodyCell="{ column, record }">
-        <template v-if="column.key === 'status'">
-          <Tag v-if="record.status === 1" color="green">启用</Tag>
-          <Tag v-else>禁用</Tag>
-        </template>
-        <template v-if="column.key === 'action'">
-          <Space>
-            <Button size="small" @click="openEditModal(record)">编辑</Button>
-            <Button size="small" @click="openMemberModal(record)">成员</Button>
-            <Button size="small" @click="openInvitationModal(record)">邀请码</Button>
-            <Button size="small" danger @click="handleDelete(record)">删除</Button>
-          </Space>
-        </template>
+    <Grid table-title="班级列表" table-title-help="管理系统中的所有班级">
+      <template #toolbar-left>
+        <Button type="primary" @click="openCreateClass">
+          <Plus class="mr-1 size-4" />
+          创建班级
+        </Button>
       </template>
-    </Table>
+
+      <template #status="{ row }">
+        <Tag v-if="row.status === 1" color="green">启用</Tag>
+        <Tag v-else>禁用</Tag>
+      </template>
+
+      <template #action="{ row }">
+        <VbenTableAction
+          :actions="[
+            { name: '编辑', onClick: () => openEditClass(row) },
+            { name: '成员', onClick: () => openMemberModal(row) },
+            { name: '邀请码', onClick: () => openInvitationModal(row) },
+          ]"
+          :drop-down-actions="[
+            { name: '删除', danger: true, onClick: () => handleDelete(row) },
+          ]"
+        />
+      </template>
+    </Grid>
 
     <!-- 创建/编辑班级 -->
-    <Modal
-      v-model:open="modalVisible"
-      :title="modalTitle"
-      @ok="handleModalOk"
-    >
-      <Form layout="vertical">
-        <Form.Item label="班级名称">
-          <Input v-model:value="modalForm.name" />
-        </Form.Item>
-        <Form.Item label="班级描述">
-          <Input.TextArea v-model:value="modalForm.description" />
-        </Form.Item>
-        <Form.Item v-if="modalForm.id" label="状态">
-          <Select v-model:value="modalForm.status">
-            <Select.Option :value="1">启用</Select.Option>
-            <Select.Option :value="0">禁用</Select.Option>
-          </Select>
-        </Form.Item>
-      </Form>
-    </Modal>
+    <ClassFormModal :title="classFormTitle" class="w-[500px]">
+      <div class="space-y-4 py-4">
+        <div>
+          <label class="mb-1 block text-sm font-medium">班级名称 <span class="text-red-500">*</span></label>
+          <input
+            v-model="classForm.name"
+            class="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            placeholder="请输入班级名称"
+          />
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium">班级描述</label>
+          <textarea
+            v-model="classForm.description"
+            class="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            placeholder="请输入班级描述（可选）"
+            rows="3"
+          />
+        </div>
+        <div v-if="classForm.id">
+          <label class="mb-1 block text-sm font-medium">状态</label>
+          <select
+            v-model="classForm.status"
+            class="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          >
+            <option :value="1">启用</option>
+            <option :value="0">禁用</option>
+          </select>
+        </div>
+      </div>
+    </ClassFormModal>
 
     <!-- 成员管理 -->
-    <Modal
-      v-model:open="memberModalVisible"
-      title="班级成员"
-      width="700px"
-      :footer="null"
-    >
+    <MemberDrawer title="班级成员" :description="currentClassName" class="w-[600px]">
       <div class="mb-4 flex gap-2">
-        <Input
-          v-model:value="newMember.userId"
+        <input
+          v-model="newMember.userId"
+          class="w-32 rounded border border-gray-300 px-3 py-2 text-sm"
           placeholder="用户ID"
-          style="width: 150px"
         />
-        <Select v-model:value="newMember.role" style="width: 150px">
-          <Select.Option value="student">同学</Select.Option>
-          <Select.Option value="monitor">班级管理员</Select.Option>
-          <Select.Option value="teacher">班主任/老师</Select.Option>
-        </Select>
-        <Button type="primary" @click="handleAddMember">添加</Button>
+        <select
+          v-model="newMember.role"
+          class="w-36 rounded border border-gray-300 px-3 py-2 text-sm"
+        >
+          <option value="student">同学</option>
+          <option value="monitor">班级管理员</option>
+          <option value="teacher">班主任/老师</option>
+        </select>
+        <Button type="primary" size="small" @click="handleAddMember">添加</Button>
       </div>
-      <Table
-        :columns="[
-          { title: '用户', dataIndex: 'nickname', key: 'nickname' },
-          { title: '角色', dataIndex: 'role', key: 'role' },
-          { title: '操作', key: 'action' },
-        ]"
-        :data-source="memberList"
-        :loading="memberLoading"
-        row-key="id"
-        :pagination="false"
-      >
-        <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'role'">
-            <Select
-              v-model:value="record.role"
-              style="width: 140px"
-              @change="handleUpdateMemberRole(record)"
-            >
-              <Select.Option value="student">同学</Select.Option>
-              <Select.Option value="monitor">班级管理员</Select.Option>
-              <Select.Option value="teacher">班主任/老师</Select.Option>
-            </Select>
-          </template>
-          <template v-if="column.key === 'action'">
-            <Button size="small" danger @click="handleRemoveMember(record)">移除</Button>
-          </template>
-        </template>
-      </Table>
-    </Modal>
 
-    <!-- 邀请码 -->
-    <Modal
-      v-model:open="invitationModalVisible"
-      title="邀请码管理"
-      width="600px"
-      :footer="null"
-    >
+      <div v-if="memberLoading" class="py-8 text-center text-gray-400">加载中...</div>
+      <div v-else-if="memberList.length === 0" class="py-8 text-center text-gray-400">暂无成员</div>
+      <div v-else class="space-y-2">
+        <div
+          v-for="m in memberList"
+          :key="m.id"
+          class="flex items-center justify-between rounded border border-gray-200 px-3 py-2"
+        >
+          <div class="flex items-center gap-3">
+            <span class="text-sm font-medium">{{ m.nickname || '用户' + m.userId }}</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <select
+              :value="m.role"
+              class="w-32 rounded border border-gray-300 px-2 py-1 text-xs"
+              @change="m.role = ($event.target as HTMLSelectElement).value; handleUpdateMemberRole(m)"
+            >
+              <option value="student">同学</option>
+              <option value="monitor">班级管理员</option>
+              <option value="teacher">班主任/老师</option>
+            </select>
+            <Button size="small" danger @click="handleRemoveMember(m)">移除</Button>
+          </div>
+        </div>
+      </div>
+    </MemberDrawer>
+
+    <!-- 邀请码管理 -->
+    <InvitationDrawer title="邀请码管理" :description="currentClassName" class="w-[600px]">
       <div class="mb-4 flex gap-2">
-        <Input
-          v-model:value="newInvitation.maxUses"
+        <input
+          v-model.number="newInvitation.maxUses"
+          class="w-40 rounded border border-gray-300 px-3 py-2 text-sm"
           placeholder="最大使用次数（0=无限制）"
-          style="width: 200px"
           type="number"
         />
-        <Input
-          v-model:value="newInvitation.expireAt"
+        <input
+          v-model="newInvitation.expireAt"
+          class="w-44 rounded border border-gray-300 px-3 py-2 text-sm"
           placeholder="过期时间"
-          style="width: 200px"
           type="datetime-local"
         />
-        <Button type="primary" @click="handleCreateInvitation">生成</Button>
+        <Button type="primary" size="small" @click="handleCreateInvitation">生成</Button>
       </div>
-      <Table
-        :columns="[
-          { title: '邀请码', dataIndex: 'code', key: 'code' },
-          { title: '已用/上限', key: 'usage' },
-          { title: '过期时间', dataIndex: 'expireAt', key: 'expireAt' },
-          { title: '状态', dataIndex: 'status', key: 'status' },
-          { title: '操作', key: 'action' },
-        ]"
-        :data-source="invitationList"
-        :loading="invitationLoading"
-        row-key="id"
-        :pagination="false"
-      >
-        <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'usage'">
-            {{ record.usedCount }} / {{ record.maxUses > 0 ? record.maxUses : '∞' }}
-          </template>
-          <template v-if="column.key === 'status'">
-            {{ record.status === 1 ? '有效' : '已禁用' }}
-          </template>
-          <template v-if="column.key === 'action'">
+
+      <div v-if="invitationLoading" class="py-8 text-center text-gray-400">加载中...</div>
+      <div v-else-if="invitationList.length === 0" class="py-8 text-center text-gray-400">暂无邀请码</div>
+      <div v-else class="space-y-2">
+        <div
+          v-for="inv in invitationList"
+          :key="inv.id"
+          class="flex items-center justify-between rounded border border-gray-200 px-3 py-2"
+        >
+          <div>
+            <span class="font-mono text-sm font-medium">{{ inv.code }}</span>
+            <span class="ml-3 text-xs text-gray-400">
+              已用 {{ inv.usedCount }} / {{ inv.maxUses > 0 ? inv.maxUses : '∞' }}
+            </span>
+          </div>
+          <div class="flex items-center gap-2">
+            <Tag v-if="inv.status === 1" color="green">有效</Tag>
+            <Tag v-else>已禁用</Tag>
             <Button
-              v-if="record.status === 1"
+              v-if="inv.status === 1"
               size="small"
               danger
-              @click="handleDisableInvitation(record)"
+              @click="handleDisableInvitation(inv)"
             >
               禁用
             </Button>
-          </template>
-        </template>
-      </Table>
-    </Modal>
+          </div>
+        </div>
+      </div>
+    </InvitationDrawer>
   </Page>
 </template>

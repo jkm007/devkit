@@ -324,7 +324,7 @@ const [Form, formApi] = useVbenForm({
       label: '可见班级',
       componentProps: {
         api: async () => {
-          const res = await getClassList({ page: 1, pageSize: 1000 });
+          const res = await getClassList({ page: 1, pageSize: 500 });
           return (res?.items || []).map((c: any) => ({ label: c.name, value: c.id }));
         },
         labelField: 'label',
@@ -345,7 +345,7 @@ const [Form, formApi] = useVbenForm({
       label: '指定用户',
       componentProps: {
         api: async () => {
-          const res = await getUserList({ page: 1, pageSize: 1000 });
+          const res = await getUserList({ page: 1, pageSize: 500 });
           return res || [];
         },
         labelField: 'nickname',
