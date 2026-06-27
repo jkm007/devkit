@@ -21,7 +21,7 @@ func NewSecurityLogService() *SecurityLogService {
 // SecurityLogListRequest 安全日志列表请求
 type SecurityLogListRequest struct {
 	Page      int    `form:"page" binding:"omitempty,min=1"`
-	PageSize  int    `form:"pageSize" binding:"omitempty,min=1,max=100"`
+	PageSize  int    `form:"pageSize" binding:"omitempty,min=1,max=500"`
 	UserID    string `form:"userId"`
 	EventType string `form:"eventType"`
 	Status    string `form:"status"`

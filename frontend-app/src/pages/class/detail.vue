@@ -39,7 +39,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { getClassDetail, getClassMembers } from '@/api/class';
 import type { ClassInfo, ClassMember } from '@/api/class';
@@ -79,7 +79,8 @@ async function loadMembers() {
 }
 
 function goToQuestions() {
-  uni.navigateTo({ url: `/pages/question/list?classId=${classId.value}` });
+  const name = classInfo.value?.name || '';
+  uni.navigateTo({ url: `/pages/question/list?classId=${classId.value}&className=${encodeURIComponent(name)}` });
 }
 
 function getRoleText(role: string): string {

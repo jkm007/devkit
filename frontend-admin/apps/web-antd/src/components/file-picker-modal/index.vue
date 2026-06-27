@@ -7,7 +7,7 @@ import { useVbenModal } from '@vben/common-ui';
 
 import { Button, Empty, Input, Radio, Spin, Tabs } from 'ant-design-vue';
 
-import { listFiles } from '#/api/file';
+import { listFiles, getFolderTree, createFolder } from '#/api/file';
 import { appendToken, normalizeFileUrl } from '#/utils/media-url';
 
 interface FilePickerResult {
@@ -27,6 +27,8 @@ const [Modal, modalApi] = useVbenModal({
       activeTab.value = 'image';
       keyword.value = '';
       selectedFile.value = null;
+      currentFolderId.value = null;
+      loadFolders();
       loadFiles();
     }
   },
@@ -37,6 +39,9 @@ const keyword = ref('');
 const loading = ref(false);
 const files = ref<FileApi.FileEntry[]>([]);
 const selectedFile = ref<FileApi.FileEntry | null>(null);
+const folders = ref<FileApi.Folder[]>([]);
+const currentFolderId = ref<number | null>(null);
+const folderLoading = ref(false);
 
 const tabs = [
   { key: 'image', label: '图片' },
@@ -50,6 +55,35 @@ const contentTypeFilter = computed(() => {
   return '';
 });
 
+// 面包屑路径
+const breadcrumbPath = computed(() => {
+  const path: { id: number | null; name: string }[] = [{ id: null, name: '根目录' }];
+  function findInTree(list: FileApi.Folder[], targetId: number): FileApi.Folder[] {
+    for (const f of list) {
+      if (f.id === targetId) return [f];
+      if (f.children) {
+        const found = findInTree(f.children, targetId);
+        if (found.length > 0) return [f, ...found];
+      }
+    }
+    return [];
+  }
+  if (currentFolderId.value) {
+    const chain = findInTree(folders.value, currentFolderId.value);
+    path.push(...chain.map(f => ({ id: f.id, name: f.name })));
+  }
+  return path;
+});
+
+async function loadFolders() {
+  try {
+    const res = await getFolderTree('own');
+    folders.value = Array.isArray(res) ? res : [];
+  } catch {
+    folders.value = [];
+  }
+}
+
 async function loadFiles() {
   loading.value = true;
   try {
@@ -59,6 +93,9 @@ async function loadFiles() {
       keyword: keyword.value,
       scope: 'own',
     };
+    if (currentFolderId.value) {
+      params.folderId = currentFolderId.value;
+    }
     if (contentTypeFilter.value) {
       params.contentType = contentTypeFilter.value;
     }
@@ -69,6 +106,18 @@ async function loadFiles() {
   } finally {
     loading.value = false;
   }
+}
+
+function enterFolder(folder: FileApi.Folder) {
+  currentFolderId.value = folder.id;
+  selectedFile.value = null;
+  loadFiles();
+}
+
+function goBackToRoot() {
+  currentFolderId.value = null;
+  selectedFile.value = null;
+  loadFiles();
 }
 
 watch(activeTab, () => {
@@ -89,7 +138,7 @@ function isVideo(contentType: string) {
 
 function getThumbnail(file: FileApi.FileEntry) {
   if (file.previewUrl) {
-    return appendToken(file.previewUrl);
+    return appendToken(normalizeFileUrl(file.previewUrl));
   }
   if (isImage(file.contentType)) {
     return appendToken(normalizeFileUrl(`/files/${file.id}/view`));
@@ -120,6 +169,17 @@ function handleCancel() {
   modalApi.close();
 }
 
+function handleImageError(e: Event) {
+  const img = e.target as HTMLImageElement;
+  if (img && img.parentElement) {
+    const placeholder = document.createElement('div');
+    placeholder.className = 'placeholder';
+    placeholder.textContent = getFileIcon(img.alt || 'image');
+    img.style.display = 'none';
+    img.parentElement.appendChild(placeholder);
+  }
+}
+
 function getFileIcon(contentType: string) {
   if (isImage(contentType)) return '🖼️';
   if (isVideo(contentType)) return '🎬';
@@ -142,6 +202,17 @@ defineExpose({ open });
 <template>
   <Modal title="从素材库选择" class="w-[800px]" :footer="false">
     <div class="file-picker">
+      <!-- 文件夹面包屑 + 操作 -->
+      <div class="mb-3 flex items-center gap-2">
+        <Button v-if="currentFolderId" size="small" @click="goBackToRoot">📁 根目录</Button>
+        <span v-if="breadcrumbPath.length > 1" class="text-xs text-gray-400">
+          / {{ breadcrumbPath.map(p => p.name).slice(1).join(' / ') }}
+        </span>
+        <span v-if="files.length > 0" class="text-xs text-gray-400 ml-auto">
+          {{ files.length }} 个文件
+        </span>
+      </div>
+
       <div class="mb-4 flex gap-3">
         <Tabs v-model:activeKey="activeTab" class="flex-1">
           <Tabs.TabPane
@@ -159,7 +230,7 @@ defineExpose({ open });
         <Button type="primary" @click="onSearch">搜索</Button>
       </div>
 
-      <Spin :spinning="loading">
+      <Spin :spinning="loading || folderLoading">
         <div v-if="files.length === 0" class="py-10">
           <Empty description="暂无文件" />
         </div>
@@ -176,6 +247,7 @@ defineExpose({ open });
                 v-if="getThumbnail(file)"
                 :src="getThumbnail(file)"
                 :alt="file.name"
+                @error="handleImageError"
               />
               <div v-else class="placeholder">{{ getFileIcon(file.contentType) }}</div>
               <div v-if="isVideo(file.contentType)" class="video-badge">▶</div>

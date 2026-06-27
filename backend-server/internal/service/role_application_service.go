@@ -43,7 +43,7 @@ type RoleApplicationReviewRequest struct {
 // RoleApplicationListRequest 角色申请列表请求
 type RoleApplicationListRequest struct {
 	Page     int    `form:"page" binding:"omitempty,min=1"`
-	PageSize int    `form:"pageSize" binding:"omitempty,min=1,max=100"`
+	PageSize int    `form:"pageSize" binding:"omitempty,min=1,max=500"`
 	Status   string `form:"status"`
 	UserID   string `form:"userId"`
 	RoleID   string `form:"roleId"`

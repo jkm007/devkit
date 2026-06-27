@@ -52,7 +52,7 @@ func NewUserService() *UserService {
 // ListRequest 用户列表请求
 type ListRequest struct {
 	Page      int    `form:"page" binding:"omitempty,min=1"`
-	PageSize  int    `form:"pageSize" binding:"omitempty,min=1,max=100"`
+	PageSize  int    `form:"pageSize" binding:"omitempty,min=1,max=500"`
 	Name      string `form:"name"`
 	ID        string `form:"id"`
 	Status    string `form:"status"`

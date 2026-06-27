@@ -394,7 +394,7 @@ type FileEntryWithURL struct {
 type ListFilesRequest struct {
 	FolderID    uint   `form:"folderId"`
 	Page        int    `form:"page" binding:"omitempty,min=1"`
-	PageSize    int    `form:"pageSize" binding:"omitempty,min=1,max=100"`
+	PageSize    int    `form:"pageSize" binding:"omitempty,min=1,max=500"`
 	Keyword     string `form:"keyword"`
 	ContentType string `form:"contentType"`
 	TagKeys     string `form:"tagKeys"` // 标签筛选，格式: "type:image,source:user"

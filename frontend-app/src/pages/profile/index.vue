@@ -79,6 +79,10 @@
           <view class="func-icon class-icon">🏫</view>
           <text class="func-label">我的班级</text>
         </view>
+        <view class="func-item" @click="goToCreatorApply">
+          <view class="func-icon creator">✍️</view>
+          <text class="func-label">创作者申请</text>
+        </view>
         <view class="func-item" @click="goToPractice">
           <view class="func-icon practice">📋</view>
           <text class="func-label">普通练习</text>
@@ -205,6 +209,10 @@ function goToCategoryFavorites() {
 
 function goToClasses() {
   uni.navigateTo({ url: '/pages/class/list' });
+}
+
+function goToCreatorApply() {
+  uni.navigateTo({ url: '/pages/profile/apply' });
 }
 
 function goToPractice() {

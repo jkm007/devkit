@@ -85,7 +85,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed } from 'vue';
+import { onLoad } from '@dcloudio/uni-app';
 import { request, tokenManager } from '@/api/request';
 import type { Question } from '@/api/types';
 import ContentBlockRenderer from '@/components/ContentBlockRenderer.vue';
@@ -175,10 +176,8 @@ const analysisVideos = computed(() => {
   return videos;
 });
 
-onMounted(() => {
-  const pages = getCurrentPages();
-  const currentPage = pages[pages.length - 1] as any;
-  questionId.value = currentPage.options?.id || 0;
+onLoad((options: any) => {
+  questionId.value = options?.id || 0;
   fetchQuestion();
 });
 

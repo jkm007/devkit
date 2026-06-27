@@ -74,7 +74,7 @@ func toRoleResponse(role *model.Role) RoleResponse {
 // ListRoleRequest 角色列表请求
 type ListRoleRequest struct {
 	Page      int    `form:"page" binding:"omitempty,min=1"`
-	PageSize  int    `form:"pageSize" binding:"omitempty,min=1,max=100"`
+	PageSize  int    `form:"pageSize" binding:"omitempty,min=1,max=500"`
 	Name      string `form:"name"`
 	ID        string `form:"id"`
 	Status    string `form:"status"`

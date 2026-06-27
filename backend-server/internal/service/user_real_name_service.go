@@ -44,7 +44,7 @@ type RealNameRejectRequest struct {
 // RealNameListRequest 实名认证列表请求
 type RealNameListRequest struct {
 	Page     int    `form:"page" binding:"omitempty,min=1"`
-	PageSize int    `form:"pageSize" binding:"omitempty,min=1,max=100"`
+	PageSize int    `form:"pageSize" binding:"omitempty,min=1,max=500"`
 	Status   string `form:"status"`
 	UserID   string `form:"userId"`
 	RealName string `form:"realName"`

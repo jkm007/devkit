@@ -29,6 +29,7 @@ export function getQuestions(params: {
   difficulty?: number;
   keyword?: string;
   knowledgePoint?: string;
+  classId?: number;
 }) {
   return request.get<PageResponse<Question>>('/study/questions', { params });
 }
