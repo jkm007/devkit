@@ -62,6 +62,31 @@ export function getFavorites(params: { page?: number; pageSize?: number }) {
 }
 
 /**
+ * ==================== 分类收藏 API ====================
+ */
+
+/**
+ * 获取分类收藏列表
+ */
+export function getCategoryFavorites(params: { page?: number; pageSize?: number }) {
+  return request.get<PageResponse<any>>('/user/category-favorites', { params });
+}
+
+/**
+ * 添加分类收藏
+ */
+export function addCategoryFavorite(data: { targetId: number; targetType: string }) {
+  return request.post('/user/category-favorites', data);
+}
+
+/**
+ * 取消分类收藏
+ */
+export function removeCategoryFavorite(id: number) {
+  return request.delete(`/user/category-favorites/${id}`);
+}
+
+/**
  * 获取笔记列表
  */
 export function getNotes(params: { page?: number; pageSize?: number }) {

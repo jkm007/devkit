@@ -9,6 +9,7 @@ import { VbenTiptap } from '@vben/plugins/tiptap';
 
 import { Button, Input, message, Radio, RadioGroup, Tooltip } from 'ant-design-vue';
 
+import FilePickerModal from '#/components/file-picker-modal/index.vue';
 import { useVbenForm } from '#/adapter/form';
 import { simpleUpload } from '#/api/file';
 import {
@@ -18,12 +19,14 @@ import {
   getSubjectAll,
 } from '#/api/question/category';
 import { createQuestion, updateQuestion } from '#/api/question/question';
+import { getClassList } from '#/api/class';
+import { getGroupList } from '#/api/system/group';
+import { getUserList } from '#/api/system/user';
 
 import {
   appendToken,
   cleanMediaHtml,
   hasUploadingMedia,
-  normalizeFileUrl,
   processMediaHtml,
   safeJsonParse,
 } from '#/utils/media-url';
@@ -46,6 +49,35 @@ const apiBase = import.meta.env.VITE_GLOB_API_URL || '/api/v1';
 const stemHtml = ref('');
 const analysisTextHtml = ref(''); // 文字解析
 const analysisMediaHtml = ref(''); // 图片/视频解析
+
+const filePickerRef = ref<any>(null);
+const activeHtmlField = ref<any>(null);
+
+// Open file picker for a specific field
+function openFilePicker(fieldRef: any) {
+  activeHtmlField.value = fieldRef;
+  filePickerRef.value?.open();
+}
+
+function onFileSelected(result: any) {
+  if (!activeHtmlField.value) return;
+
+  const isImage = result.contentType?.startsWith('image/');
+  const isVideo = result.contentType?.startsWith('video/');
+  let html = '';
+
+  if (isImage) {
+    html = `<p><img src="${result.url}" alt="${result.name}" style="max-width:100%;" /></p>`;
+  } else if (isVideo) {
+    html = `<p><video src="${result.url}" controls style="max-width:100%;"></video></p>`;
+  } else {
+    html = `<p><a href="${result.url}" target="_blank">${result.name}</a></p>`;
+  }
+
+  // Append to existing content
+  const current = activeHtmlField.value.value || '';
+  activeHtmlField.value.value = current + html;
+}
 
 // Choice question options
 interface OptionItem {
@@ -267,6 +299,66 @@ const [Form, formApi] = useVbenForm({
       label: '资源类型',
       defaultValue: 'private',
       componentProps: { options: RESOURCE_TYPE_OPTIONS, class: 'w-full' },
+    },
+    {
+      component: 'ApiTreeSelect',
+      fieldName: 'groupId',
+      label: '可见分组',
+      componentProps: {
+        api: getGroupList,
+        labelField: 'name',
+        valueField: 'id',
+        childrenField: 'children',
+        allowClear: true,
+        class: 'w-full',
+        placeholder: '请选择可见分组',
+      },
+      dependencies: {
+        triggerFields: ['resourceType'],
+        show: (values: any) => values.resourceType === 'group',
+      },
+    },
+    {
+      component: 'ApiSelect',
+      fieldName: 'classIds',
+      label: '可见班级',
+      componentProps: {
+        api: async () => {
+          const res = await getClassList({ page: 1, pageSize: 1000 });
+          return (res?.items || []).map((c: any) => ({ label: c.name, value: c.id }));
+        },
+        labelField: 'label',
+        valueField: 'value',
+        mode: 'multiple',
+        allowClear: true,
+        class: 'w-full',
+        placeholder: '请选择可见班级',
+      },
+      dependencies: {
+        triggerFields: ['resourceType'],
+        show: (values: any) => values.resourceType === 'class',
+      },
+    },
+    {
+      component: 'ApiSelect',
+      fieldName: 'userIds',
+      label: '指定用户',
+      componentProps: {
+        api: async () => {
+          const res = await getUserList({ page: 1, pageSize: 1000 });
+          return res || [];
+        },
+        labelField: 'nickname',
+        valueField: 'id',
+        mode: 'multiple',
+        allowClear: true,
+        class: 'w-full',
+        placeholder: '请选择可见用户',
+      },
+      dependencies: {
+        triggerFields: ['resourceType'],
+        show: (values: any) => values.resourceType === 'user',
+      },
     },
     // 4-level cascading selection
     {
@@ -495,6 +587,9 @@ const [Drawer, drawerApi] = useVbenDrawer({
           questionType: data.questionType,
           difficulty: data.difficulty,
           resourceType: data.resourceType,
+          groupId: data.groupId || undefined,
+          classIds: data.classIds || [],
+          userIds: data.userIds || [],
           examCategoryId: examCategoryId || undefined,
           examId: data.examId || undefined,
           subjectId: data.subjectId || undefined,
@@ -597,9 +692,12 @@ const drawerTitle = computed(() => {
 
       <!-- Stem (always shown, required) -->
       <div>
-        <label class="mb-2 block text-sm font-medium">
-          题干 <span class="text-red-500">*</span>
-        </label>
+        <div class="mb-2 flex items-center justify-between">
+          <label class="block text-sm font-medium">
+            题干 <span class="text-red-500">*</span>
+          </label>
+          <Button size="small" @click="openFilePicker(stemHtml)">从素材库选择</Button>
+        </div>
         <VbenTiptap
           v-model="stemHtml"
           :image-upload="imageUploadConfig"
@@ -686,9 +784,12 @@ const drawerTitle = computed(() => {
 
       <!-- Fill-blank or Essay answer -->
       <div v-if="!isChoiceType && !isTrueFalse">
-        <label class="mb-2 block text-sm font-medium">
-          {{ isFillBlank ? '各空答案' : '参考答案' }}
-        </label>
+        <div class="mb-2 flex items-center justify-between">
+          <label class="block text-sm font-medium">
+            {{ isFillBlank ? '各空答案' : '参考答案' }}
+          </label>
+          <Button size="small" @click="openFilePicker(essayAnswerHtml)">从素材库选择</Button>
+        </div>
         <div v-if="isFillBlank" class="mb-1 text-xs text-gray-400">
           请在题干中用 ___（三个下划线以上）标记空位，然后在此填写每个空的答案
         </div>
@@ -703,7 +804,10 @@ const drawerTitle = computed(() => {
 
       <!-- Analysis: text + media (always shown) -->
       <div>
-        <label class="mb-2 block text-sm font-medium">文字解析</label>
+        <div class="mb-2 flex items-center justify-between">
+          <label class="block text-sm font-medium">文字解析</label>
+          <Button size="small" @click="openFilePicker(analysisTextHtml)">从素材库选择</Button>
+        </div>
         <VbenTiptap
           v-model="analysisTextHtml"
           :min-height="120"
@@ -712,7 +816,10 @@ const drawerTitle = computed(() => {
         />
       </div>
       <div>
-        <label class="mb-2 block text-sm font-medium">图片/视频解析</label>
+        <div class="mb-2 flex items-center justify-between">
+          <label class="block text-sm font-medium">图片/视频解析</label>
+          <Button size="small" @click="openFilePicker(analysisMediaHtml)">从素材库选择</Button>
+        </div>
         <VbenTiptap
           v-model="analysisMediaHtml"
           :image-upload="imageUploadConfig"
@@ -721,6 +828,8 @@ const drawerTitle = computed(() => {
           placeholder="上传图片或视频解析..."
         />
       </div>
+
+      <FilePickerModal ref="filePickerRef" @select="onFileSelected" />
     </div>
   </Drawer>
 </template>

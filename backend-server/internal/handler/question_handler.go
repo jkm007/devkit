@@ -51,7 +51,10 @@ func (h *QuestionHandler) GetDetail(c *gin.Context) {
 		response.BadRequest(c, "无效的ID")
 		return
 	}
-	item, err := h.service.GetByID(uint(id))
+	userId, _ := c.Get("user_id")
+	roles, _ := c.Get("roles")
+	roleList, _ := roles.([]string)
+	item, err := h.service.GetByID(uint(id), userId.(uint), roleList)
 	if err != nil {
 		response.NotFound(c, err.Error())
 		return

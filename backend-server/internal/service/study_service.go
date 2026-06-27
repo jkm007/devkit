@@ -54,13 +54,15 @@ type StudyQuestionResponse struct {
 
 // PracticeRequest 练习请求
 type PracticeRequest struct {
-	Mode       string   `json:"mode" binding:"required"`
-	Count      int      `json:"count" binding:"required,min=1,max=100"`
-	QuestionID uint     `json:"questionId"`
-	CategoryID uint     `json:"categoryId"`
-	SubjectID  uint     `json:"subjectId"`
-	Difficulty int      `json:"difficulty"`
-	Types      []string `json:"types"`
+	Mode           string   `json:"mode" binding:"required"`
+	Count          int      `json:"count" binding:"required,min=1,max=100"`
+	QuestionID     uint     `json:"questionId"`
+	CategoryID     uint     `json:"categoryId"`
+	SubjectID      uint     `json:"subjectId"`
+	ExamID         uint     `json:"examId"`
+	ExamCategoryID uint     `json:"examCategoryId"`
+	Difficulty     int      `json:"difficulty"`
+	Types          []string `json:"types"`
 }
 
 // PracticeSubmitRequest 练习提交请求
@@ -109,7 +111,7 @@ type PracticeAnalysis struct {
 }
 
 // ListQuestions 获取题目列表
-func (s *StudyService) ListQuestions(userID uint, page, pageSize int, filters map[string]interface{}) ([]StudyQuestionResponse, int64, error) {
+func (s *StudyService) ListQuestions(userID, userGroupID uint, userClassIDs []uint, page, pageSize int, filters map[string]interface{}) ([]StudyQuestionResponse, int64, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -118,7 +120,7 @@ func (s *StudyService) ListQuestions(userID uint, page, pageSize int, filters ma
 	}
 	offset := (page - 1) * pageSize
 
-	items, total, err := s.studyRepo.ListQuestions(offset, pageSize, filters)
+	items, total, err := s.studyRepo.ListQuestions(userID, userGroupID, userClassIDs, offset, pageSize, filters)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -134,8 +136,8 @@ func (s *StudyService) ListQuestions(userID uint, page, pageSize int, filters ma
 }
 
 // GetQuestion 获取题目详情
-func (s *StudyService) GetQuestion(userID, questionID uint) (*StudyQuestionResponse, error) {
-	item, err := s.studyRepo.GetQuestionByID(questionID)
+func (s *StudyService) GetQuestion(userID, userGroupID uint, userClassIDs []uint, questionID uint) (*StudyQuestionResponse, error) {
+	item, err := s.studyRepo.GetQuestionByID(questionID, userID, userGroupID, userClassIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +147,7 @@ func (s *StudyService) GetQuestion(userID, questionID uint) (*StudyQuestionRespo
 }
 
 // GetRandomQuestions 获取随机题目（练习用）
-func (s *StudyService) GetRandomQuestions(req *PracticeRequest) ([]StudyQuestionResponse, error) {
+func (s *StudyService) GetRandomQuestions(userID, userGroupID uint, userClassIDs []uint, req *PracticeRequest) ([]StudyQuestionResponse, error) {
 	filters := make(map[string]interface{})
 	if len(req.Types) == 1 {
 		filters["questionType"] = req.Types[0]
@@ -156,11 +158,17 @@ func (s *StudyService) GetRandomQuestions(req *PracticeRequest) ([]StudyQuestion
 	if req.SubjectID > 0 {
 		filters["subjectId"] = req.SubjectID
 	}
+	if req.ExamID > 0 {
+		filters["examId"] = req.ExamID
+	}
+	if req.ExamCategoryID > 0 {
+		filters["examCategoryId"] = req.ExamCategoryID
+	}
 	if req.Difficulty > 0 {
 		filters["difficulty"] = req.Difficulty
 	}
 
-	rawQuestions, err := s.studyRepo.GetRandomQuestions(req.Count, filters)
+	rawQuestions, err := s.studyRepo.GetRandomQuestions(userID, userGroupID, userClassIDs, req.Count, filters)
 	if err != nil {
 		return nil, err
 	}
@@ -168,7 +176,7 @@ func (s *StudyService) GetRandomQuestions(req *PracticeRequest) ([]StudyQuestion
 	// 转换为前端期望的格式
 	questions := make([]StudyQuestionResponse, 0, len(rawQuestions))
 	for _, q := range rawQuestions {
-		questions = append(questions, s.toQuestionResponse(q, 0))
+		questions = append(questions, s.toQuestionResponse(q, userID))
 	}
 
 	return questions, nil
@@ -475,7 +483,7 @@ func parseAnalysis(analysis string) string {
 }
 
 // GetSmartPractice 智能练习推荐
-func (s *StudyService) GetSmartPractice(userID uint, req *SmartPracticeRequest) (*SmartPracticeResponse, error) {
+func (s *StudyService) GetSmartPractice(userID, userGroupID uint, userClassIDs []uint, req *SmartPracticeRequest) (*SmartPracticeResponse, error) {
 	if req.Count < 1 || req.Count > 100 {
 		req.Count = 20
 	}
@@ -509,7 +517,7 @@ func (s *StudyService) GetSmartPractice(userID uint, req *SmartPracticeRequest) 
 			}
 		}
 		filters["excludeIDs"] = excludeIDs
-		restQs, _ := s.studyRepo.GetRandomQuestions(req.Count-len(rawQuestions), filters)
+		restQs, _ := s.studyRepo.GetRandomQuestions(userID, userGroupID, userClassIDs, req.Count-len(rawQuestions), filters)
 		rawQuestions = append(rawQuestions, restQs...)
 	default:
 		// 默认随机
@@ -521,7 +529,7 @@ func (s *StudyService) GetSmartPractice(userID uint, req *SmartPracticeRequest) 
 		if req.Difficulty > 0 {
 			filters["difficulty"] = req.Difficulty
 		}
-		rawQuestions, _ = s.studyRepo.GetRandomQuestions(req.Count, filters)
+		rawQuestions, _ = s.studyRepo.GetRandomQuestions(userID, userGroupID, userClassIDs, req.Count, filters)
 	}
 
 	// 转换为前端期望的格式

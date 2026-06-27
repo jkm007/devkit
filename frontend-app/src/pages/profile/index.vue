@@ -71,6 +71,14 @@
           <view class="func-icon cate">🏷️</view>
           <text class="func-label">分类设置</text>
         </view>
+        <view class="func-item" @click="goToCategoryFavorites">
+          <view class="func-icon cate-fav">🏷️</view>
+          <text class="func-label">分类收藏</text>
+        </view>
+        <view class="func-item" @click="goToClasses">
+          <view class="func-icon class-icon">🏫</view>
+          <text class="func-label">我的班级</text>
+        </view>
         <view class="func-item" @click="goToPractice">
           <view class="func-icon practice">📋</view>
           <text class="func-label">普通练习</text>
@@ -189,6 +197,14 @@ function goToNotes() {
 
 function goToCategories() {
   uni.navigateTo({ url: '/pages/profile/categories' });
+}
+
+function goToCategoryFavorites() {
+  uni.navigateTo({ url: '/pages/profile/category-favorites' });
+}
+
+function goToClasses() {
+  uni.navigateTo({ url: '/pages/class/list' });
 }
 
 function goToPractice() {
@@ -357,6 +373,8 @@ function handleLogout() {
           &.fav { background: #fffbe6; }
           &.note { background: #e6f7ff; }
           &.cate { background: #fffbe6; }
+          &.cate-fav { background: #e6fffb; }
+          &.class-icon { background: #f0f5ff; }
           &.practice { background: #f0f5ff; }
           &.device { background: #e6fffb; }
           &.privacy { background: #f9f0ff; }

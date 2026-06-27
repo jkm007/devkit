@@ -1,6 +1,8 @@
 package service
 
 import (
+	"fmt"
+
 	"backend-server/internal/repository"
 	"backend-server/pkg/database"
 	"time"
@@ -8,13 +10,17 @@ import (
 
 // WrongBookService 错题本服务
 type WrongBookService struct {
-	repo *repository.WrongBookRepo
+	repo      *repository.WrongBookRepo
+	studyRepo *repository.StudyRepo
+	classRepo *repository.ClassRepo
 }
 
 // NewWrongBookService 创建错题本服务
 func NewWrongBookService() *WrongBookService {
 	return &WrongBookService{
-		repo: repository.NewWrongBookRepo(database.GetMySQL()),
+		repo:      repository.NewWrongBookRepo(database.GetMySQL()),
+		studyRepo: repository.NewStudyRepo(database.GetMySQL()),
+		classRepo: repository.NewClassRepo(database.GetMySQL()),
 	}
 }
 
@@ -141,7 +147,12 @@ func (s *WrongBookService) List(userID uint, categoryID uint, isMastered *bool, 
 }
 
 // AddOrUpdate 添加或更新错题
-func (s *WrongBookService) AddOrUpdate(userID, questionID, categoryID uint) error {
+func (s *WrongBookService) AddOrUpdate(userID, userGroupID, questionID, categoryID uint) error {
+	// 校验题目是否对用户可见（已发布且非私有或本人创建）
+	userClassIDs, _ := s.classRepo.ListClassIDsByUserID(userID)
+	if _, err := s.studyRepo.GetQuestionByID(questionID, userID, userGroupID, userClassIDs); err != nil {
+		return fmt.Errorf("题目不可见或不存在")
+	}
 	return s.repo.AddOrUpdate(userID, questionID, categoryID)
 }
 

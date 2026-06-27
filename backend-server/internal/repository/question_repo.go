@@ -2,6 +2,7 @@ package repository
 
 import (
 	"backend-server/internal/model"
+	"strings"
 
 	"gorm.io/gorm"
 )
@@ -47,9 +48,34 @@ func (r *QuestionRepo) List(page, pageSize int, filters map[string]interface{}) 
 		}
 	}
 	if !isAdmin {
-		if userId, ok := filters["userId"]; ok && userId != nil && userId.(uint) > 0 {
-			query = query.Where("(resource_type != 'private' OR created_by = ?)", userId)
+		userId := uint(0)
+		if uid, ok := filters["userId"]; ok && uid != nil {
+			switch v := uid.(type) {
+			case uint:
+				userId = v
+			case float64:
+				userId = uint(v)
+			case int:
+				userId = uint(v)
+			}
 		}
+		userGroupId := uint(0)
+		if gid, ok := filters["userGroupId"]; ok && gid != nil {
+			switch v := gid.(type) {
+			case uint:
+				userGroupId = v
+			case float64:
+				userGroupId = uint(v)
+			case int:
+				userGroupId = uint(v)
+			}
+		}
+		var userClassIds []uint
+		if cids, ok := filters["userClassIds"].([]uint); ok {
+			userClassIds = cids
+		}
+
+		query = r.applyVisibilityFilter(query, userId, userGroupId, userClassIds)
 	}
 
 	if title, ok := filters["title"]; ok && title != "" {
@@ -90,7 +116,7 @@ func (r *QuestionRepo) List(page, pageSize int, filters map[string]interface{}) 
 	return items, total, nil
 }
 
-func (r *QuestionRepo) Search(page, pageSize int, keyword string, userID uint) ([]model.Question, int64, error) {
+func (r *QuestionRepo) Search(page, pageSize int, keyword string, userID uint, userGroupID uint, userClassIDs []uint) ([]model.Question, int64, error) {
 	var items []model.Question
 	var total int64
 
@@ -100,8 +126,8 @@ func (r *QuestionRepo) Search(page, pageSize int, keyword string, userID uint) (
 			"%"+escapeLike(keyword)+"%",
 			"published")
 
-	// 只显示公开题目或用户自己的题目
-	query = query.Where("(resource_type != 'private' OR created_by = ?)", userID)
+	// 非管理员按资源类型过滤可见性
+	query = r.applyVisibilityFilter(query, userID, userGroupID, userClassIDs)
 
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -181,4 +207,38 @@ func (r *QuestionRepo) GetStats() (map[string]interface{}, error) {
 	stats["byDifficulty"] = diffCounts
 
 	return stats, nil
+}
+
+// applyVisibilityFilter 应用题目资源类型可见性过滤
+// public: 所有人；private: 创建者；group: 分组内成员或创建者；class: 班级成员或创建者；user: 指定用户或创建者
+func (r *QuestionRepo) applyVisibilityFilter(query *gorm.DB, userID, userGroupID uint, userClassIDs []uint) *gorm.DB {
+	conditions := []string{
+		"resource_type = 'public'",
+		"resource_type = 'private' AND created_by = ?",
+		"resource_type = 'group' AND (group_id = ? OR created_by = ?)",
+	}
+	args := []interface{}{userID, userGroupID, userID}
+
+	if len(userClassIDs) > 0 {
+		classCondition := "resource_type = 'class' AND ("
+		for i, classID := range userClassIDs {
+			if i > 0 {
+				classCondition += " OR "
+			}
+			classCondition += "JSON_CONTAINS(class_ids, JSON_ARRAY(?))"
+			args = append(args, classID)
+		}
+		classCondition += " OR created_by = ?)"
+		args = append(args, userID)
+		conditions = append(conditions, classCondition)
+	} else {
+		conditions = append(conditions, "resource_type = 'class' AND created_by = ?")
+		args = append(args, userID)
+	}
+
+	conditions = append(conditions, "resource_type = 'user' AND (JSON_CONTAINS(user_ids, JSON_ARRAY(?)) OR created_by = ?)")
+	args = append(args, userID, userID)
+
+	where := "(" + strings.Join(conditions, ") OR (") + ")"
+	return query.Where(where, args...)
 }

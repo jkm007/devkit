@@ -41,11 +41,11 @@ async function handleSearch() {
   loading.value = true; hasSearched.value = true;
   try {
     const data = await request.get<any>('/questions/search', { params: { keyword: keyword.value, page: 1, pageSize: 20 } });
-    results.value = data.items;
-  } catch { results.value = [
-    { id: 1, title: `包含"${keyword.value}"的题目1`, questionType: 'single_choice', categoryName: '网络协议' },
-    { id: 2, title: `包含"${keyword.value}"的题目2`, questionType: 'multiple_choice', categoryName: '操作系统' },
-  ]; } finally { loading.value = false; }
+    results.value = data.items || [];
+  } catch (e) {
+    console.error('搜索失败:', e);
+    results.value = [];
+  } finally { loading.value = false; }
 }
 function searchFromHistory(kw: string) { keyword.value = kw; handleSearch(); }
 function saveHistory(kw: string) { history.value = [kw, ...history.value.filter(h => h !== kw)].slice(0, 10); uni.setStorageSync('search_history', history.value); }

@@ -185,6 +185,12 @@
       }
     },
     {
+      "path": "pages/profile/category-favorites",
+      "style": {
+        "navigationBarTitleText": "分类收藏"
+      }
+    },
+    {
       "path": "pages/practice/smart",
       "style": {
         "navigationBarTitleText": "智能练习"
@@ -194,6 +200,18 @@
       "path": "pages/practice/smart-session",
       "style": {
         "navigationBarTitleText": "智能练习答题"
+      }
+    },
+    {
+      "path": "pages/class/list",
+      "style": {
+        "navigationBarTitleText": "我的班级"
+      }
+    },
+    {
+      "path": "pages/class/detail",
+      "style": {
+        "navigationBarTitleText": "班级详情"
       }
     }
   ],

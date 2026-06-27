@@ -36,12 +36,16 @@ func ValidateJSONField(data string) error {
 }
 
 type QuestionService struct {
-	repo *repository.QuestionRepo
+	repo      *repository.QuestionRepo
+	userRepo  *repository.UserRepo
+	classRepo *repository.ClassRepo
 }
 
 func NewQuestionService() *QuestionService {
 	return &QuestionService{
-		repo: repository.NewQuestionRepo(database.GetMySQL()),
+		repo:      repository.NewQuestionRepo(database.GetMySQL()),
+		userRepo:  repository.NewUserRepo(database.GetMySQL()),
+		classRepo: repository.NewClassRepo(database.GetMySQL()),
 	}
 }
 
@@ -60,6 +64,9 @@ type QuestionRequest struct {
 	SourceID              uint   `json:"sourceId"`
 	Difficulty            *int   `json:"difficulty"`
 	ResourceType          string `json:"resourceType"`
+	GroupID               uint   `json:"groupId"`
+	ClassIDs              []uint `json:"classIds"`
+	UserIDs               []uint `json:"userIds"`
 	AnalysisVisiblePolicy string `json:"analysisVisiblePolicy"`
 	AnswerVisiblePolicy   string `json:"answerVisiblePolicy"`
 }
@@ -80,6 +87,9 @@ type QuestionResponse struct {
 	SourceID              uint   `json:"sourceId"`
 	Difficulty            int    `json:"difficulty"`
 	ResourceType          string `json:"resourceType"`
+	GroupID               uint   `json:"groupId"`
+	ClassIDs              []uint `json:"classIds"`
+	UserIDs               []uint `json:"userIds"`
 	Status                string `json:"status"`
 	CurrentVersionID      uint   `json:"currentVersionId"`
 	ParentID              uint   `json:"parentId"`
@@ -96,6 +106,31 @@ type QuestionResponse struct {
 }
 
 func (s *QuestionService) List(page, pageSize int, filters map[string]interface{}) ([]QuestionResponse, int64, error) {
+	// 自动补全用户分组ID和班级ID列表，用于资源类型权限过滤
+	if uid, ok := filters["userId"]; ok && uid != nil {
+		var userID uint
+		switch v := uid.(type) {
+		case uint:
+			userID = v
+		case float64:
+			userID = uint(v)
+		case int:
+			userID = uint(v)
+		}
+		if userID > 0 {
+			if _, ok := filters["userGroupId"]; !ok {
+				if user, err := s.userRepo.GetByID(userID); err == nil {
+					filters["userGroupId"] = user.GroupID
+				}
+			}
+			if _, ok := filters["userClassIds"]; !ok {
+				if classIDs, err := s.classRepo.ListClassIDsByUserID(userID); err == nil {
+					filters["userClassIds"] = classIDs
+				}
+			}
+		}
+	}
+
 	items, total, err := s.repo.List(page, pageSize, filters)
 	if err != nil {
 		return nil, 0, err
@@ -108,7 +143,12 @@ func (s *QuestionService) List(page, pageSize int, filters map[string]interface{
 }
 
 func (s *QuestionService) Search(page, pageSize int, keyword string, userID uint) ([]QuestionResponse, int64, error) {
-	items, total, err := s.repo.Search(page, pageSize, keyword, userID)
+	userGroupID := uint(0)
+	if user, err := s.userRepo.GetByID(userID); err == nil {
+		userGroupID = user.GroupID
+	}
+	userClassIDs, _ := s.classRepo.ListClassIDsByUserID(userID)
+	items, total, err := s.repo.Search(page, pageSize, keyword, userID, userGroupID, userClassIDs)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -119,7 +159,7 @@ func (s *QuestionService) Search(page, pageSize int, keyword string, userID uint
 	return resp, total, nil
 }
 
-func (s *QuestionService) GetByID(id uint) (*QuestionResponse, error) {
+func (s *QuestionService) GetByID(id uint, currentUserID uint, roles []string) (*QuestionResponse, error) {
 	item, err := s.repo.GetByID(id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -127,6 +167,67 @@ func (s *QuestionService) GetByID(id uint) (*QuestionResponse, error) {
 		}
 		return nil, err
 	}
+
+	// 权限校验：管理员/超管可查看全部
+	isAdmin := false
+	for _, role := range roles {
+		if role == "admin" || role == "super_admin" {
+			isAdmin = true
+			break
+		}
+	}
+	if !isAdmin {
+		// 非管理员按资源类型过滤
+		allowed := false
+		switch item.ResourceType {
+		case "public":
+			allowed = true
+		case "private":
+			allowed = item.CreatedBy == currentUserID
+		case "group":
+			userGroupID := uint(0)
+			if user, uerr := s.userRepo.GetByID(currentUserID); uerr == nil {
+				userGroupID = user.GroupID
+			}
+			allowed = item.GroupID > 0 && item.GroupID == userGroupID || item.CreatedBy == currentUserID
+		case "class":
+			allowed = item.CreatedBy == currentUserID
+			if !allowed {
+				classIDs, _ := s.classRepo.ListClassIDsByUserID(currentUserID)
+				for _, cid := range item.ClassIDs {
+					for _, userCID := range classIDs {
+						if cid == userCID {
+							allowed = true
+							break
+						}
+					}
+					if allowed {
+						break
+					}
+				}
+			}
+		case "user":
+			for _, uid := range item.UserIDs {
+				if uid == currentUserID {
+					allowed = true
+					break
+				}
+			}
+			if !allowed {
+				allowed = item.CreatedBy == currentUserID
+			}
+		default:
+			allowed = item.CreatedBy == currentUserID
+		}
+		if !allowed {
+			return nil, fmt.Errorf("题目不存在")
+		}
+		// 非终态题目只有创建者或管理员可见
+		if item.Status != "published" && item.Status != "approved" && item.CreatedBy != currentUserID {
+			return nil, fmt.Errorf("题目不存在")
+		}
+	}
+
 	resp := s.toResponse(item)
 	return &resp, nil
 }
@@ -180,6 +281,15 @@ func (s *QuestionService) Create(req *QuestionRequest, createdBy uint) (*Questio
 	}
 	if req.ResourceType != "" {
 		item.ResourceType = req.ResourceType
+	}
+	if req.GroupID > 0 {
+		item.GroupID = req.GroupID
+	}
+	if len(req.ClassIDs) > 0 {
+		item.ClassIDs = req.ClassIDs
+	}
+	if len(req.UserIDs) > 0 {
+		item.UserIDs = req.UserIDs
 	}
 	if req.AnalysisVisiblePolicy != "" {
 		item.AnalysisVisiblePolicy = req.AnalysisVisiblePolicy
@@ -237,6 +347,15 @@ func (s *QuestionService) Update(id uint, req *QuestionRequest, updatedBy uint) 
 	}
 	if req.ResourceType != "" {
 		item.ResourceType = req.ResourceType
+	}
+	if req.GroupID > 0 || req.ResourceType == "group" {
+		item.GroupID = req.GroupID
+	}
+	if len(req.ClassIDs) > 0 || req.ResourceType == "class" {
+		item.ClassIDs = req.ClassIDs
+	}
+	if len(req.UserIDs) > 0 || req.ResourceType == "user" {
+		item.UserIDs = req.UserIDs
 	}
 	if req.AnalysisVisiblePolicy != "" {
 		item.AnalysisVisiblePolicy = req.AnalysisVisiblePolicy
@@ -521,6 +640,9 @@ func (s *QuestionService) toResponse(item *model.Question) QuestionResponse {
 		SourceID:              item.SourceID,
 		Difficulty:            item.Difficulty,
 		ResourceType:          item.ResourceType,
+		GroupID:               item.GroupID,
+		ClassIDs:              item.ClassIDs,
+		UserIDs:               item.UserIDs,
 		Status:                item.Status,
 		CurrentVersionID:      item.CurrentVersionID,
 		ParentID:              item.ParentID,

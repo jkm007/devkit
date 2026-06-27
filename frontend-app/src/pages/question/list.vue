@@ -10,7 +10,7 @@
     </view>
 
     <!-- 我的分类 -->
-    <view class="section" v-if="myBindings.length > 0">
+    <view class="section" v-if="!isClassMode && myBindings.length > 0">
       <view class="section-header">
         <text class="section-title">我的分类</text>
         <text class="section-link" @click="goToCategoryManage">管理</text>
@@ -32,8 +32,13 @@
       </scroll-view>
     </view>
 
+    <!-- 班级模式标题 -->
+    <view v-if="isClassMode" class="class-header">
+      <text class="class-title">{{ className || '班级题目' }}</text>
+    </view>
+
     <!-- 考试分类 -->
-    <view class="section">
+    <view class="section" v-if="!isClassMode">
       <view class="section-header">
         <text class="section-title">考试分类</text>
         <text class="section-path" v-if="currentPath">{{ currentPath }}</text>
@@ -89,12 +94,12 @@
             v-for="subject in currentL3List"
             :key="subject.id"
             class="pill"
-            :class="{ active: selectedL3Id === subject.id, expand: subject.children?.length > 0 }"
+            :class="{ active: selectedL3Id === subject.id, expand: subject.children && subject.children.length > 0 }"
             @click="selectL3(subject)"
           >
             <text>{{ subject.name }}</text>
             <text class="count" v-if="subject.questionCount">({{ subject.questionCount }})</text>
-            <text class="arrow" v-if="subject.children?.length > 0">▼</text>
+            <text class="arrow" v-if="subject.children && subject.children.length > 0">▼</text>
           </view>
         </view>
       </scroll-view>
@@ -190,6 +195,11 @@ const selectedL2Id = ref<number | null>(null);
 const selectedL3Id = ref<number | null>(null);
 const selectedL4Id = ref<number | null>(null);
 
+// 班级模式
+const classId = ref(0);
+const className = ref('');
+const isClassMode = computed(() => classId.value > 0);
+
 // 当前 L2 考试列表
 const currentL2List = computed(() => {
   if (selectedL1Id.value === null) return [];
@@ -246,9 +256,32 @@ const currentPath = computed(() => {
   return parts.length > 0 ? parts.join(' > ') : '';
 });
 
-onLoad(() => {
+onLoad((options: any) => {
   loadCategoryTree();
   loadMyBindings();
+
+  // 支持从分类收藏等页面跳转过来时直接按指定分类筛选
+  if (options) {
+    const categoryId = options.categoryId ? Number(options.categoryId) : 0;
+    const subjectId = options.subjectId ? Number(options.subjectId) : 0;
+    const examId = options.examId ? Number(options.examId) : 0;
+    const examCategoryId = options.examCategoryId ? Number(options.examCategoryId) : 0;
+    const cid = options.classId ? Number(options.classId) : 0;
+    const cname = options.className || '';
+
+    if (cid > 0) {
+      classId.value = cid;
+      className.value = cname;
+    } else if (categoryId > 0) {
+      selectedL4Id.value = categoryId;
+    } else if (subjectId > 0) {
+      selectedL3Id.value = subjectId;
+    } else if (examId > 0) {
+      selectedL2Id.value = examId;
+    } else if (examCategoryId > 0) {
+      selectedL1Id.value = examCategoryId;
+    }
+  }
 });
 
 onShow(() => {
@@ -288,11 +321,16 @@ async function fetchQuestions(reset = true) {
   loading.value = true;
   try {
     const params: any = { page: page.value, pageSize };
-    // 优先使用最深层级的选中
-    if (selectedL4Id.value) {
+    if (classId.value > 0) {
+      params.classId = classId.value;
+    } else if (selectedL4Id.value) {
       params.categoryId = selectedL4Id.value;
     } else if (selectedL3Id.value) {
       params.subjectId = selectedL3Id.value;
+    } else if (selectedL2Id.value) {
+      params.examId = selectedL2Id.value;
+    } else if (selectedL1Id.value) {
+      params.examCategoryId = selectedL1Id.value;
     }
     if (keyword.value) {
       params.keyword = keyword.value;
@@ -452,6 +490,17 @@ function getDiffName(d: number): string {
   flex: 1;
   font-size: 14px;
   background: transparent;
+}
+
+/* 班级模式标题 */
+.class-header {
+  background: linear-gradient(135deg, #1890ff 0%, #36cfc9 100%);
+  padding: 16px;
+  .class-title {
+    font-size: 16px;
+    font-weight: bold;
+    color: #fff;
+  }
 }
 
 /* section */

@@ -165,7 +165,15 @@ function selectItem(item: CategoryItem) {
     return;
   }
 
-  // 如果有子节点，进入下一级
+  // 只有 L3（科目）和 L4（章节）可以绑定
+  // L3: currentLevel === 2, 有 children 时仍可直接绑定科目
+  // L4: currentLevel === 3, 无 children
+  if (currentLevel.value === 2 || currentLevel.value === 3) {
+    doBind(item);
+    return;
+  }
+
+  // L1/L2 必须进入下一级
   if (item.children && item.children.length > 0) {
     selectedPath.value.push(item);
     currentLevel.value++;
@@ -173,16 +181,15 @@ function selectItem(item: CategoryItem) {
     return;
   }
 
-  // 没有子节点，执行绑定
-  doBind(item);
+  // 非 L3/L4 的叶子节点（理论上不应出现）不允许绑定
+  uni.showToast({ title: '只能选择科目或章节进行绑定', icon: 'none' });
 }
 
 async function doBind(item: CategoryItem) {
   showPicker.value = false;
   try {
-    // 根据层级决定绑定类型
-    // L3=科目, L4=章节
-    const isSubject = currentLevel.value === 2; // 第3层是科目
+    // L3 绑定 subjectId，L4 绑定 categoryId
+    const isSubject = currentLevel.value === 2;
     const data = isSubject
       ? { subjectId: item.id, isPrimary: bindings.value.length === 0 }
       : { categoryId: item.id, isPrimary: bindings.value.length === 0 };

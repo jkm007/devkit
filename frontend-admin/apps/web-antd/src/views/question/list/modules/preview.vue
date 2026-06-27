@@ -165,8 +165,16 @@ async function handlePublish() {
   if (!questionData.value?.id) return;
 
   // Check resource type for group sharing
-  if (questionData.value.resourceType === 'group') {
+  if (questionData.value.resourceType === 'group' && !questionData.value.groupId) {
     message.warning('分组分享需要先选择分组，请在编辑页面设置');
+    return;
+  }
+  if (questionData.value.resourceType === 'class' && (!questionData.value.classIds || questionData.value.classIds.length === 0)) {
+    message.warning('班级分享需要先选择班级，请在编辑页面设置');
+    return;
+  }
+  if (questionData.value.resourceType === 'user' && (!questionData.value.userIds || questionData.value.userIds.length === 0)) {
+    message.warning('指定用户分享需要先选择用户，请在编辑页面设置');
     return;
   }
 

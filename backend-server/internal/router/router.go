@@ -41,6 +41,7 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	dashboardHandler := handler.NewDashboardHandler()
 	menuHandler := handler.NewMenuHandler()
 	groupHandler := handler.NewGroupHandler()
+	classHandler := handler.NewClassHandler()
 	wsHandler := handler.NewWSHandler(hub)
 	securityLogHandler := handler.NewSecurityLogHandler()
 	loginDeviceHandler := handler.NewLoginDeviceHandler()
@@ -67,6 +68,7 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	notificationHandler := handler.NewNotificationHandler()
 	userHomeHandler := handler.NewUserHomeHandler()
 	studyHandler := handler.NewStudyHandler()
+	categoryFavoriteHandler := handler.NewCategoryFavoriteHandler()
 	bannerHandler := handler.NewBannerHandler()
 	feedbackHandler := handler.NewQuestionFeedbackHandler()
 	mobileCategoryHandler := handler.NewMobileCategoryHandler()
@@ -152,9 +154,6 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 	// WebSocket 连接（独立于 JWT 中间件，自行从 query 参数验证 token）
 	apiV1.GET("/ws", wsHandler.Handle)
 
-	// 移动端分类树（公开接口，无需认证）
-	apiV1.GET("/mobile/category-tree", mobileCategoryHandler.GetCategoryTree)
-
 	// 题库管理处理器
 	examCategoryHandler := handler.NewExamCategoryHandler()
 	examHandler := handler.NewExamHandler()
@@ -182,9 +181,19 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		authorized.GET("/auth/codes", authHandler.GetPermissionCodes)
 		authorized.GET("/auth/permission-version", authHandler.GetPermissionVersion)
 
+		// 移动端分类树（需要认证）
+		authorized.GET("/mobile/category-tree", mobileCategoryHandler.GetCategoryTree)
+
 		// 用户首页数据
 		authorized.GET("/user/home", userHomeHandler.GetHomeData)
 		authorized.GET("/user/stats", userHomeHandler.GetUserStats)
+
+		// 我的班级
+		authorized.GET("/my-classes", classHandler.ListMyClasses)
+		authorized.POST("/classes/join", classHandler.JoinByCode)
+		authorized.GET("/classes/:id", classHandler.GetDetail)
+		authorized.GET("/classes/:id/members", classHandler.ListMyClassMembers)
+		authorized.GET("/classes/:id/questions", classHandler.ListClassQuestions)
 
 		// ==================== 移动端学习 API ====================
 		// 题目学习
@@ -198,6 +207,9 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 
 		// 收藏管理
 		authorized.GET("/user/favorites", studyHandler.ListFavorites)
+		authorized.GET("/user/category-favorites", categoryFavoriteHandler.List)
+		authorized.POST("/user/category-favorites", categoryFavoriteHandler.Add)
+		authorized.DELETE("/user/category-favorites/:id", categoryFavoriteHandler.Remove)
 
 		// 笔记管理
 		authorized.GET("/user/notes", studyHandler.ListNotes)
@@ -379,6 +391,22 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 			system.POST("/group", middleware.Permission("system:group:add"), groupHandler.Create)
 			system.PUT("/group/:id", middleware.Permission("system:group:edit"), groupHandler.Update)
 			system.DELETE("/group/:id", middleware.Permission("system:group:delete"), groupHandler.Delete)
+
+			// 班级管理
+			system.GET("/classes", middleware.Permission("system:class:view"), classHandler.List)
+			system.GET("/classes/:id", middleware.Permission("system:class:view"), classHandler.GetDetail)
+			system.POST("/classes", middleware.Permission("system:class:add"), classHandler.Create)
+			system.PUT("/classes/:id", middleware.Permission("system:class:edit"), classHandler.Update)
+			system.DELETE("/classes/:id", middleware.Permission("system:class:delete"), classHandler.Delete)
+
+			system.GET("/classes/:id/members", middleware.Permission("system:class:view"), classHandler.ListMembers)
+			system.POST("/classes/:id/members", middleware.Permission("system:class:edit"), classHandler.AddMember)
+			system.PUT("/classes/:id/members/:memberId/role", middleware.Permission("system:class:edit"), classHandler.UpdateMemberRole)
+			system.DELETE("/classes/:id/members/:memberId", middleware.Permission("system:class:edit"), classHandler.RemoveMember)
+
+			system.GET("/classes/:id/invitations", middleware.Permission("system:class:view"), classHandler.ListInvitations)
+			system.POST("/classes/:id/invitations", middleware.Permission("system:class:edit"), classHandler.CreateInvitation)
+			system.DELETE("/classes/invitations/:id", middleware.Permission("system:class:edit"), classHandler.DisableInvitation)
 
 			// 安全日志（管理员）
 			system.GET("/security-logs", middleware.Permission("security:log:view"), securityLogHandler.GetAllLogs)

@@ -49,12 +49,16 @@ func (r *FavoriteNoteRepo) ListFavorites(userID uint, offset, limit int) ([]map[
 		Select("f.id, f.question_id as questionId, q.title, q.question_type as questionType, "+
 			"q.difficulty, kc.name as categoryName, f.created_at as createdAt").
 		Joins("INNER JOIN qb_questions q ON f.question_id = q.id").
-		Joins("LEFT JOIN qb_question_categories kc ON q.category_id = kc.id").
+		Joins("LEFT JOIN qb_categories kc ON q.category_id = kc.id").
 		Where("f.user_id = ?", userID)
 
-	r.db.Table("user_favorites").Where("user_id = ?", userID).Count(&total)
+	if err := r.db.Table("user_favorites").Where("user_id = ?", userID).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
 
-	query.Order("f.created_at DESC").Offset(offset).Limit(limit).Scan(&results)
+	if err := query.Order("f.created_at DESC").Offset(offset).Limit(limit).Scan(&results).Error; err != nil {
+		return nil, 0, err
+	}
 
 	return results, total, nil
 }

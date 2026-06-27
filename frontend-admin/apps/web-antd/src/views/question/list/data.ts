@@ -50,6 +50,7 @@ export const RESOURCE_TYPE_OPTIONS = [
   { label: '公共', value: 'public' },
   { label: '私有', value: 'private' },
   { label: '分组', value: 'group' },
+  { label: '班级', value: 'class' },
   { label: '指定用户', value: 'user' },
 ];
 

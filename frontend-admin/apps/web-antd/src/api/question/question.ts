@@ -20,6 +20,9 @@ export namespace QuestionApi {
     sourceId: number;
     difficulty: number;
     resourceType: string;
+    groupId: number;
+    classIds: number[];
+    userIds: number[];
     status: string;
     currentVersionId: number;
     parentId: number;

@@ -1,6 +1,8 @@
 package service
 
 import (
+	"fmt"
+
 	"backend-server/internal/model"
 	"backend-server/internal/repository"
 	"backend-server/pkg/database"
@@ -9,13 +11,19 @@ import (
 
 // FavoriteNoteService 收藏和笔记服务
 type FavoriteNoteService struct {
-	repo *repository.FavoriteNoteRepo
+	repo      *repository.FavoriteNoteRepo
+	studyRepo *repository.StudyRepo
+	userRepo  *repository.UserRepo
+	classRepo *repository.ClassRepo
 }
 
 // NewFavoriteNoteService 创建收藏和笔记服务
 func NewFavoriteNoteService() *FavoriteNoteService {
 	return &FavoriteNoteService{
-		repo: repository.NewFavoriteNoteRepo(database.GetMySQL()),
+		repo:      repository.NewFavoriteNoteRepo(database.GetMySQL()),
+		studyRepo: repository.NewStudyRepo(database.GetMySQL()),
+		userRepo:  repository.NewUserRepo(database.GetMySQL()),
+		classRepo: repository.NewClassRepo(database.GetMySQL()),
 	}
 }
 
@@ -47,7 +55,12 @@ type NoteResponse struct {
 }
 
 // AddFavorite 添加收藏
-func (s *FavoriteNoteService) AddFavorite(userID, questionID uint) error {
+func (s *FavoriteNoteService) AddFavorite(userID, userGroupID, questionID uint) error {
+	// 校验题目是否对用户可见（已发布且非私有或本人创建）
+	userClassIDs, _ := s.classRepo.ListClassIDsByUserID(userID)
+	if _, err := s.studyRepo.GetQuestionByID(questionID, userID, userGroupID, userClassIDs); err != nil {
+		return fmt.Errorf("题目不可见或不存在")
+	}
 	if s.repo.IsFavorited(userID, questionID) {
 		return nil // 已收藏，幂等处理
 	}
@@ -125,7 +138,13 @@ func (s *FavoriteNoteService) ListFavorites(userID uint, page, pageSize int) ([]
 }
 
 // CreateNote 创建笔记
-func (s *FavoriteNoteService) CreateNote(userID uint, req *NoteRequest) (*NoteResponse, error) {
+func (s *FavoriteNoteService) CreateNote(userID, userGroupID uint, req *NoteRequest) (*NoteResponse, error) {
+	// 校验题目是否对用户可见
+	userClassIDs, _ := s.classRepo.ListClassIDsByUserID(userID)
+	if _, err := s.studyRepo.GetQuestionByID(req.QuestionID, userID, userGroupID, userClassIDs); err != nil {
+		return nil, fmt.Errorf("题目不可见或不存在")
+	}
+
 	// 检查是否已有笔记，有则更新
 	existing, err := s.repo.GetNoteByQuestionID(req.QuestionID, userID)
 	if err == nil && existing != nil {

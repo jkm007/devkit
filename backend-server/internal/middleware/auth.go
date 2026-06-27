@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"backend-server/internal/model"
 	"backend-server/pkg/database"
 	"backend-server/pkg/jwt"
 	"backend-server/pkg/logger"
@@ -121,6 +122,57 @@ func GetCurrentUserID(c *gin.Context) uint {
 		}
 	}
 	return 0
+}
+
+// GetCurrentUserGroupID 从上下文获取当前用户所属分组 ID（带缓存）
+func GetCurrentUserGroupID(c *gin.Context) uint {
+	if gid, exists := c.Get("user_group_id"); exists {
+		if id, ok := gid.(uint); ok {
+			return id
+		}
+	}
+
+	userID := GetCurrentUserID(c)
+	if userID == 0 {
+		return 0
+	}
+
+	var groupID uint
+	if err := database.GetMySQL().Model(&model.User{}).
+		Select("group_id").
+		Where("id = ?", userID).
+		Scan(&groupID).Error; err != nil {
+		logger.Error("获取用户分组ID失败", zap.Uint("userID", userID), zap.Error(err))
+		return 0
+	}
+
+	c.Set("user_group_id", groupID)
+	return groupID
+}
+
+// GetCurrentUserClassIDs 从上下文获取当前用户加入的班级 ID 列表（带缓存）
+func GetCurrentUserClassIDs(c *gin.Context) []uint {
+	if ids, exists := c.Get("user_class_ids"); exists {
+		if list, ok := ids.([]uint); ok {
+			return list
+		}
+	}
+
+	userID := GetCurrentUserID(c)
+	if userID == 0 {
+		return nil
+	}
+
+	var classIDs []uint
+	if err := database.GetMySQL().Model(&model.ClassMember{}).
+		Where("user_id = ? AND status = ?", userID, 1).
+		Pluck("class_id", &classIDs).Error; err != nil {
+		logger.Error("获取用户班级ID列表失败", zap.Uint("userID", userID), zap.Error(err))
+		return nil
+	}
+
+	c.Set("user_class_ids", classIDs)
+	return classIDs
 }
 
 // GeneratePreviewToken 生成预签名 Token

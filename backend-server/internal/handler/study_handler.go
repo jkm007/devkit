@@ -29,6 +29,8 @@ func NewStudyHandler() *StudyHandler {
 // ListQuestions 获取题目列表
 func (h *StudyHandler) ListQuestions(c *gin.Context) {
 	userID := middleware.GetCurrentUserID(c)
+	userGroupID := middleware.GetCurrentUserGroupID(c)
+	userClassIDs := middleware.GetCurrentUserClassIDs(c)
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
@@ -47,6 +49,21 @@ func (h *StudyHandler) ListQuestions(c *gin.Context) {
 			filters["subjectId"] = uint(subjectID)
 		}
 	}
+	if examIDStr := c.Query("examId"); examIDStr != "" {
+		if examID, err := strconv.ParseUint(examIDStr, 10, 32); err == nil {
+			filters["examId"] = uint(examID)
+		}
+	}
+	if examCategoryIDStr := c.Query("examCategoryId"); examCategoryIDStr != "" {
+		if examCategoryID, err := strconv.ParseUint(examCategoryIDStr, 10, 32); err == nil {
+			filters["examCategoryId"] = uint(examCategoryID)
+		}
+	}
+	if classIDStr := c.Query("classId"); classIDStr != "" {
+		if classID, err := strconv.ParseUint(classIDStr, 10, 32); err == nil {
+			filters["classId"] = uint(classID)
+		}
+	}
 	if difficultyStr := c.Query("difficulty"); difficultyStr != "" {
 		if difficulty, err := strconv.Atoi(difficultyStr); err == nil && difficulty > 0 {
 			filters["difficulty"] = difficulty
@@ -59,7 +76,7 @@ func (h *StudyHandler) ListQuestions(c *gin.Context) {
 		filters["knowledgePoint"] = knowledgePoint
 	}
 
-	items, total, err := h.studyService.ListQuestions(userID, page, pageSize, filters)
+	items, total, err := h.studyService.ListQuestions(userID, userGroupID, userClassIDs, page, pageSize, filters)
 	if err != nil {
 		response.InternalError(c, err.Error())
 		return
@@ -71,6 +88,8 @@ func (h *StudyHandler) ListQuestions(c *gin.Context) {
 // GetQuestion 获取题目详情
 func (h *StudyHandler) GetQuestion(c *gin.Context) {
 	userID := middleware.GetCurrentUserID(c)
+	userGroupID := middleware.GetCurrentUserGroupID(c)
+	userClassIDs := middleware.GetCurrentUserClassIDs(c)
 
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
@@ -79,7 +98,7 @@ func (h *StudyHandler) GetQuestion(c *gin.Context) {
 		return
 	}
 
-	question, err := h.studyService.GetQuestion(userID, uint(id))
+	question, err := h.studyService.GetQuestion(userID, userGroupID, userClassIDs, uint(id))
 	if err != nil {
 		response.NotFound(c, "题目不存在")
 		return
@@ -91,6 +110,7 @@ func (h *StudyHandler) GetQuestion(c *gin.Context) {
 // AddFavorite 收藏题目
 func (h *StudyHandler) AddFavorite(c *gin.Context) {
 	userID := middleware.GetCurrentUserID(c)
+	userGroupID := middleware.GetCurrentUserGroupID(c)
 
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
@@ -99,7 +119,7 @@ func (h *StudyHandler) AddFavorite(c *gin.Context) {
 		return
 	}
 
-	if err := h.favoriteService.AddFavorite(userID, uint(id)); err != nil {
+	if err := h.favoriteService.AddFavorite(userID, userGroupID, uint(id)); err != nil {
 		response.InternalError(c, "收藏失败")
 		return
 	}
@@ -145,6 +165,7 @@ func (h *StudyHandler) ListFavorites(c *gin.Context) {
 // CreateNote 创建/更新笔记
 func (h *StudyHandler) CreateNote(c *gin.Context) {
 	userID := middleware.GetCurrentUserID(c)
+	userGroupID := middleware.GetCurrentUserGroupID(c)
 
 	var req service.NoteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -152,7 +173,7 @@ func (h *StudyHandler) CreateNote(c *gin.Context) {
 		return
 	}
 
-	note, err := h.favoriteService.CreateNote(userID, &req)
+	note, err := h.favoriteService.CreateNote(userID, userGroupID, &req)
 	if err != nil {
 		response.InternalError(c, "保存笔记失败")
 		return
@@ -224,6 +245,10 @@ func (h *StudyHandler) DeleteNote(c *gin.Context) {
 
 // GetPracticeQuestions 获取练习题目（随机）
 func (h *StudyHandler) GetPracticeQuestions(c *gin.Context) {
+	userID := middleware.GetCurrentUserID(c)
+	userGroupID := middleware.GetCurrentUserGroupID(c)
+	userClassIDs := middleware.GetCurrentUserClassIDs(c)
+
 	var req service.PracticeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, err.Error())
@@ -234,7 +259,7 @@ func (h *StudyHandler) GetPracticeQuestions(c *gin.Context) {
 		req.Count = 20
 	}
 
-	questions, err := h.studyService.GetRandomQuestions(&req)
+	questions, err := h.studyService.GetRandomQuestions(userID, userGroupID, userClassIDs, &req)
 	if err != nil {
 		response.InternalError(c, "获取练习题目失败")
 		return
@@ -369,6 +394,7 @@ func (h *StudyHandler) DeleteWrongBook(c *gin.Context) {
 // AddWrongBook 添加错题
 func (h *StudyHandler) AddWrongBook(c *gin.Context) {
 	userID := middleware.GetCurrentUserID(c)
+	userGroupID := middleware.GetCurrentUserGroupID(c)
 
 	var req struct {
 		QuestionID uint `json:"questionId" binding:"required"`
@@ -379,7 +405,7 @@ func (h *StudyHandler) AddWrongBook(c *gin.Context) {
 		return
 	}
 
-	if err := h.wrongBookService.AddOrUpdate(userID, req.QuestionID, req.CategoryID); err != nil {
+	if err := h.wrongBookService.AddOrUpdate(userID, userGroupID, req.QuestionID, req.CategoryID); err != nil {
 		response.InternalError(c, "添加错题失败")
 		return
 	}
@@ -390,6 +416,7 @@ func (h *StudyHandler) AddWrongBook(c *gin.Context) {
 // BatchAddWrongBook 批量添加错题
 func (h *StudyHandler) BatchAddWrongBook(c *gin.Context) {
 	userID := middleware.GetCurrentUserID(c)
+	userGroupID := middleware.GetCurrentUserGroupID(c)
 
 	var req struct {
 		QuestionIDs []uint `json:"questionIds" binding:"required"`
@@ -401,7 +428,7 @@ func (h *StudyHandler) BatchAddWrongBook(c *gin.Context) {
 	}
 
 	for _, qid := range req.QuestionIDs {
-		h.wrongBookService.AddOrUpdate(userID, qid, req.CategoryID)
+		h.wrongBookService.AddOrUpdate(userID, userGroupID, qid, req.CategoryID)
 	}
 
 	response.SuccessWithMessage(c, "已添加到错题本", nil)
@@ -442,6 +469,8 @@ func (h *StudyHandler) GetWrongBookStats(c *gin.Context) {
 // GetSmartPractice 智能练习
 func (h *StudyHandler) GetSmartPractice(c *gin.Context) {
 	userID := middleware.GetCurrentUserID(c)
+	userGroupID := middleware.GetCurrentUserGroupID(c)
+	userClassIDs := middleware.GetCurrentUserClassIDs(c)
 
 	var req service.SmartPracticeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -449,7 +478,7 @@ func (h *StudyHandler) GetSmartPractice(c *gin.Context) {
 		return
 	}
 
-	result, err := h.studyService.GetSmartPractice(userID, &req)
+	result, err := h.studyService.GetSmartPractice(userID, userGroupID, userClassIDs, &req)
 	if err != nil {
 		response.InternalError(c, "获取智能练习失败")
 		return

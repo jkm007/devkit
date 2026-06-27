@@ -234,12 +234,18 @@ function toggleType(type: string) {
 }
 
 function quickStart(count: number) {
-  const params = { mode: 'random', count, difficulty: 0, types: [] };
+  const params: any = { mode: 'random', count, difficulty: 0, types: [] };
+  if (selectedSubject.value) {
+    params.subjectId = selectedSubject.value;
+  }
   navigateToSession(params);
 }
 
 function goToSession(mode: string) {
-  const params = { mode, count: questionCount.value, difficulty: difficulty.value, types: selectedTypes.value };
+  const params: any = { mode, count: questionCount.value, difficulty: difficulty.value, types: selectedTypes.value };
+  if (selectedSubject.value) {
+    params.subjectId = selectedSubject.value;
+  }
   navigateToSession(params);
 }
 

@@ -114,6 +114,7 @@ const isCorrect = ref(false);
 const correctAnswer = ref('A');
 const fillAnswer = ref('');
 const essayAnswer = ref('');
+const startTime = ref(0);
 
 // 选择题类型
 const CHOICE_TYPES = ['single', 'multi', 'single_choice', 'multiple_choice', 'indefinite_choice', 'judge', 'true_false'];
@@ -188,6 +189,7 @@ async function fetchQuestion() {
   fillAnswer.value = '';
   essayAnswer.value = '';
   isCorrect.value = false;
+  startTime.value = Date.now();
 
   try {
     const data = await request.get<any>(`/study/questions/${questionId.value}`);
@@ -214,18 +216,10 @@ async function fetchQuestion() {
         correctAnswer.value = data.answer;
       }
     }
-  } catch {
-    question.value = {
-      id: questionId.value, title: 'TCP三次握手的目的是什么？', questionType: 'single_choice', difficulty: 2,
-      stem: { blocks: [{ type: 'text', content: 'TCP三次握手的主要目的是建立可靠的连接。以下关于三次握手的说法正确的是？' }] },
-      options: [
-        { label: 'A', content: { blocks: [{ type: 'text', content: '第一次握手客户端发送SYN标志位' }] } },
-        { label: 'B', content: { blocks: [{ type: 'text', content: '第二次握手服务端只返回ACK' }] } },
-        { label: 'C', content: { blocks: [{ type: 'text', content: '第三次握手客户端发送ACK+SYN' }] } },
-        { label: 'D', content: { blocks: [{ type: 'text', content: '三次握手完成后双方进入ESTABLISHED状态' }] } },
-      ], answerVisible: true, analysisVisible: true, isFavorited: false, categoryName: '网络协议', tags: ['真题'],
-    } as any;
-    correctAnswer.value = 'A';
+  } catch (e) {
+    console.error('获取题目失败:', e);
+    question.value = null;
+    uni.showToast({ title: '获取题目失败', icon: 'none' });
   } finally { loading.value = false; }
 }
 
@@ -283,11 +277,12 @@ function getOptionClass(opt: any): string {
 
 async function submitAnswerRecord() {
   try {
+    const elapsed = startTime.value > 0 ? Math.max(0, Math.floor((Date.now() - startTime.value) / 1000)) : 0;
     await request.post('/study/practice/submit', {
       total: 1,
       answered: 1,
       correct: isCorrect.value ? 1 : 0,
-      elapsed: 0,
+      elapsed,
       answers: [selectedAnswer.value || fillAnswer.value || essayAnswer.value],
     });
   } catch (e) {

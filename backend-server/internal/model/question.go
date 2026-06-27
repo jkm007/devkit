@@ -23,6 +23,9 @@ type Question struct {
 	SourceID             uint           `gorm:"default:0;comment:来源ID" json:"sourceId"`
 	Difficulty           int            `gorm:"type:tinyint;default:1;comment:难度 1简单 2中等 3困难" json:"difficulty"`
 	ResourceType         string         `gorm:"type:varchar(20);default:private;comment:资源类型" json:"resourceType"`
+	GroupID              uint           `gorm:"default:0;index;comment:可见分组ID" json:"groupId"`
+	ClassIDs             []uint         `gorm:"type:json;comment:可见班级ID列表" json:"classIds"`
+	UserIDs              []uint         `gorm:"type:json;comment:指定用户ID列表" json:"userIds"`
 	Status               string         `gorm:"type:varchar(20);default:draft;index;comment:状态" json:"status"`
 	CurrentVersionID     uint           `gorm:"default:0;comment:当前版本ID" json:"currentVersionId"`
 	SourceImportTaskID   uint           `gorm:"default:0;comment:导入任务ID" json:"sourceImportTaskId"`

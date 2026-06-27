@@ -1,9 +1,9 @@
 <template>
-  <view class="favorites-page">
+  <view class="category-favorites-page">
     <!-- 头部 -->
     <view class="header">
-      <text class="title">我的收藏</text>
-      <text class="count">共 {{ total }} 题</text>
+      <text class="title">分类收藏</text>
+      <text class="count">共 {{ total }} 个</text>
     </view>
 
     <!-- 列表 -->
@@ -11,29 +11,24 @@
       <text>加载中...</text>
     </view>
     <view v-else-if="list.length === 0" class="empty">
-      <text class="empty-icon">⭐</text>
-      <text class="empty-text">暂无收藏题目</text>
-      <text class="empty-hint">在题目详情页点击收藏按钮添加</text>
+      <text class="empty-icon">🏷️</text>
+      <text class="empty-text">暂无收藏分类</text>
+      <text class="empty-hint">在浏览分类时长按或点击收藏按钮添加</text>
     </view>
     <view v-else class="list">
       <view
         v-for="item in list"
         :key="item.id"
         class="item"
-        @click="goToDetail(item)"
+        @click="goToQuestions(item)"
       >
         <view class="item-header">
-          <text class="type-tag" :class="item.questionType">{{ getTypeLabel(item.questionType) }}</text>
-          <view class="difficulty">
-            <text v-for="i in (item.difficulty || 1)" :key="i" class="star">★</text>
-          </view>
+          <text class="level-tag" :class="item.targetType">{{ getLevelLabel(item.targetType) }}</text>
+          <text class="item-name">{{ item.targetName }}</text>
         </view>
-        <text class="item-title">{{ item.title }}</text>
+        <text class="path-text">{{ item.path }}</text>
         <view class="item-footer">
-          <text v-if="item.categoryName" class="category">{{ item.categoryName }}</text>
-          <text class="time">{{ formatTime(item.createdAt || item.createTime) }}</text>
-        </view>
-        <view class="item-actions">
+          <text class="time">{{ formatTime(item.createdAt) }}</text>
           <text class="action-btn cancel" @click.stop="removeFav(item)">取消收藏</text>
         </view>
       </view>
@@ -48,7 +43,8 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { getFavorites, removeFavorite } from '@/api/study';
+import { onShow } from '@dcloudio/uni-app';
+import { getCategoryFavorites, removeCategoryFavorite } from '@/api/study';
 
 const loading = ref(false);
 const loadingMore = ref(false);
@@ -61,16 +57,21 @@ onMounted(() => {
   loadList();
 });
 
+onShow(() => {
+  loadList();
+});
+
 async function loadList() {
   loading.value = true;
   page.value = 1;
   try {
-    const res = await getFavorites({ page: page.value, pageSize });
+    const res = await getCategoryFavorites({ page: page.value, pageSize });
     list.value = res.items || [];
     total.value = res.total || 0;
   } catch (e) {
-    console.error('加载收藏失败:', e);
+    console.error('加载分类收藏失败:', e);
     list.value = [];
+    total.value = 0;
   } finally {
     loading.value = false;
   }
@@ -81,7 +82,7 @@ async function loadMore() {
   loadingMore.value = true;
   page.value++;
   try {
-    const res = await getFavorites({ page: page.value, pageSize });
+    const res = await getCategoryFavorites({ page: page.value, pageSize });
     list.value = [...list.value, ...(res.items || [])];
   } catch (e) {
     console.error('加载更多失败:', e);
@@ -91,18 +92,13 @@ async function loadMore() {
 }
 
 async function removeFav(item: any) {
-  const questionId = item.questionId || item.question_id;
-  if (!questionId) {
-    uni.showToast({ title: '题目ID无效', icon: 'none' });
-    return;
-  }
   uni.showModal({
     title: '提示',
-    content: '确定取消收藏该题目？',
+    content: '确定取消收藏该分类？',
     success: async (res) => {
       if (res.confirm) {
         try {
-          await removeFavorite(questionId);
+          await removeCategoryFavorite(item.id);
           list.value = list.value.filter(i => i.id !== item.id);
           total.value--;
           uni.showToast({ title: '已取消收藏', icon: 'success' });
@@ -110,25 +106,38 @@ async function removeFav(item: any) {
           uni.showToast({ title: '操作失败', icon: 'none' });
         }
       }
-    }
+    },
   });
 }
 
-function goToDetail(item: any) {
-  const questionId = item.questionId || item.question_id;
-  if (!questionId) {
-    uni.showToast({ title: '题目ID无效', icon: 'none' });
-    return;
+function goToQuestions(item: any) {
+  const params: Record<string, number> = {};
+  switch (item.targetType) {
+    case 'exam_category':
+      params.examCategoryId = item.targetId;
+      break;
+    case 'exam':
+      params.examId = item.targetId;
+      break;
+    case 'subject':
+      params.subjectId = item.targetId;
+      break;
+    case 'category':
+      params.categoryId = item.targetId;
+      break;
   }
-  uni.navigateTo({ url: `/pages/question/detail?id=${questionId}` });
+  const query = Object.entries(params)
+    .map(([k, v]) => `${k}=${v}`)
+    .join('&');
+  uni.navigateTo({ url: `/pages/question/list?${query}` });
 }
 
-function getTypeLabel(type: string): string {
+function getLevelLabel(type: string): string {
   const map: Record<string, string> = {
-    single_choice: '单选', multiple_choice: '多选', indefinite_choice: '不定项',
-    true_false: '判断', fill_blank: '填空', cloze: '完形',
-    short_answer: '简答', essay_question: '论述', composition: '作文',
-    term_explanation: '名词解释', material: '材料', case_analysis: '案例',
+    exam_category: '考试大类',
+    exam: '考试',
+    subject: '科目',
+    category: '章节',
   };
   return map[type] || type;
 }
@@ -147,7 +156,7 @@ function formatTime(time: string): string {
 </script>
 
 <style lang="scss" scoped>
-.favorites-page {
+.category-favorites-page {
   min-height: 100vh;
   background: #f5f5f5;
   padding-bottom: 20px;
@@ -178,50 +187,56 @@ function formatTime(time: string): string {
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+
+  &:active {
+    opacity: 0.7;
+  }
 
   .item-header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
+    gap: 10px;
+    margin-bottom: 8px;
   }
 
-  .type-tag {
-    font-size: 12px;
+  .level-tag {
+    font-size: 11px;
     padding: 2px 8px;
-    background: #e6f7ff;
-    color: #1890ff;
     border-radius: 4px;
+    color: #fff;
+    flex-shrink: 0;
+
+    &.exam_category { background: #1890ff; }
+    &.exam { background: #2f54eb; }
+    &.subject { background: #52c41a; }
+    &.category { background: #faad14; }
   }
 
-  .difficulty .star { font-size: 12px; color: #faad14; }
-
-  .item-title {
-    font-size: 15px;
+  .item-name {
+    font-size: 16px;
+    font-weight: 500;
     color: #333;
+    flex: 1;
+  }
+
+  .path-text {
+    font-size: 13px;
+    color: #999;
     line-height: 1.5;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+    margin-bottom: 12px;
+    display: block;
   }
 
   .item-footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-top: 12px;
   }
 
-  .category { font-size: 12px; color: #1890ff; background: #f0f8ff; padding: 2px 8px; border-radius: 4px; }
-  .time { font-size: 12px; color: #999; }
-
-  .item-actions {
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid #f0f0f0;
-    text-align: right;
+  .time {
+    font-size: 12px;
+    color: #999;
   }
 
   .action-btn {

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"backend-server/internal/model"
 	"backend-server/internal/repository"
 	"backend-server/pkg/database"
 	"fmt"
@@ -152,12 +153,29 @@ func (s *CategoryBindingService) ListBindings(userID uint) ([]CategoryBindingRes
 func (s *CategoryBindingService) BindCategory(userID uint, req *BindCategoryRequest) error {
 	// 优先使用 categoryId，其次使用 subjectId
 	bindID := req.CategoryID
+	bindType := "category"
 	if bindID == 0 {
 		bindID = req.SubjectID
+		bindType = "subject"
 	}
 	if bindID == 0 {
 		return fmt.Errorf("请指定要绑定的分类")
 	}
+
+	// 校验绑定的是否为有效层级：只允许 L3 科目或 L4 章节
+	db := database.GetMySQL()
+	if bindType == "subject" {
+		var subject model.Subject
+		if err := db.Where("id = ?", bindID).First(&subject).Error; err != nil {
+			return fmt.Errorf("科目不存在")
+		}
+	} else {
+		var category model.Category
+		if err := db.Where("id = ?", bindID).First(&category).Error; err != nil {
+			return fmt.Errorf("章节分类不存在")
+		}
+	}
+
 	return s.repo.Create(userID, bindID, req.IsPrimary)
 }
 
