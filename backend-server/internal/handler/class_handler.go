@@ -455,3 +455,27 @@ func (h *ClassHandler) Leave(c *gin.Context) {
 
 	response.SuccessWithMessage(c, "已退出班级", nil)
 }
+
+// DisableInvitationByInvId 禁用邀请码（用户端用，参数名 invId）
+func (h *ClassHandler) DisableInvitationByInvId(c *gin.Context) {
+	userID := middleware.GetCurrentUserID(c)
+
+	idStr := c.Param("invId")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		response.BadRequest(c, "无效的邀请ID")
+		return
+	}
+
+	if err := h.classService.DisableInvitation(userID, uint(id)); err != nil {
+		if err.Error() == "无权操作" {
+			response.Forbidden(c, err.Error())
+			return
+		}
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.SuccessWithMessage(c, "已禁用", nil)
+}
+

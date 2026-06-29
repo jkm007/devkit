@@ -59,3 +59,37 @@ export function getClassQuestions(id: number, params: { page?: number; pageSize?
 export function leaveClass(id: number) {
   return request.post(`/classes/${id}/leave`);
 }
+
+// 以下接口仅 teacher/monitor 可调用
+
+export function createClass(data: { name: string; description?: string }) {
+  return request.post<ClassInfo>('/classes', data);
+}
+
+export function updateClass(id: number, data: { name?: string; description?: string; status?: number }) {
+  return request.put(`/classes/${id}`, data);
+}
+
+export function addClassMember(id: number, data: { userId: number; role: string }) {
+  return request.post(`/classes/${id}/members`, data);
+}
+
+export function removeClassMember(id: number, memberId: number) {
+  return request.delete(`/classes/${id}/members/${memberId}`);
+}
+
+export function updateMemberRole(id: number, memberId: number, data: { role: string }) {
+  return request.put(`/classes/${id}/members/${memberId}/role`, data);
+}
+
+export function getClassInvitations(id: number) {
+  return request.get<ClassInvitation[]>(`/classes/${id}/invitations`);
+}
+
+export function createInvitation(id: number, data?: { maxUses?: number; expireAt?: string }) {
+  return request.post<ClassInvitation>(`/classes/${id}/invitations`, data || {});
+}
+
+export function disableInvitation(classId: number, invitationId: number) {
+  return request.delete(`/classes/${classId}/invitations/${invitationId}`);
+}

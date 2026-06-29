@@ -2,7 +2,10 @@
   <view class="class-list-page">
     <view class="header">
       <text class="title">我的班级</text>
-      <text class="join-btn" @click="showJoinInput = true">加入班级</text>
+      <view class="header-actions">
+        <text class="action-btn create-btn" @click="goToCreate">创建班级</text>
+        <text class="action-btn join-btn" @click="showJoinInput = true">加入班级</text>
+      </view>
     </view>
 
     <view v-if="loading" class="loading">
@@ -90,6 +93,10 @@ function goToDetail(item: ClassInfo) {
   uni.navigateTo({ url: `/pages/class/detail?id=${item.id}` });
 }
 
+function goToCreate() {
+  uni.navigateTo({ url: '/pages/class/create' });
+}
+
 function getRoleText(role: string): string {
   const map: Record<string, string> = {
     student: '同学',
@@ -117,12 +124,22 @@ function getRoleText(role: string): string {
     font-weight: bold;
     color: #333;
   }
-  .join-btn {
-    font-size: 14px;
-    color: #1890ff;
+  .header-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .action-btn {
+    font-size: 13px;
     padding: 4px 12px;
-    border: 1px solid #1890ff;
     border-radius: 16px;
+  }
+  .create-btn {
+    color: #fff;
+    background: #1890ff;
+  }
+  .join-btn {
+    color: #1890ff;
+    border: 1px solid #1890ff;
   }
 }
 

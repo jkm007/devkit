@@ -194,6 +194,12 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		authorized.GET("/classes/:id", classHandler.GetDetail)
 		authorized.POST("/classes/:id/leave", classHandler.Leave)
 		authorized.GET("/classes/:id/members", classHandler.ListMyClassMembers)
+		authorized.POST("/classes/:id/members", classHandler.AddMember)
+		authorized.PUT("/classes/:id/members/:memberId/role", classHandler.UpdateMemberRole)
+		authorized.DELETE("/classes/:id/members/:memberId", classHandler.RemoveMember)
+		authorized.GET("/classes/:id/invitations", classHandler.ListInvitations)
+		authorized.POST("/classes/:id/invitations", classHandler.CreateInvitation)
+		authorized.DELETE("/classes/:id/invitations/:invId", classHandler.DisableInvitationByInvId)
 		authorized.GET("/classes/:id/questions", classHandler.ListClassQuestions)
 
 		// ==================== 移动端学习 API ====================

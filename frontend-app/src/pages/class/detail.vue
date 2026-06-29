@@ -12,6 +12,17 @@
           <text class="icon">📝</text>
           <text>班级题目</text>
         </view>
+        <!-- 管理入口：仅 teacher/monitor 可见 -->
+        <template v-if="classInfo.myRole === 'teacher' || classInfo.myRole === 'monitor'">
+          <view class="action-btn manage-btn" @click="goToMemberManage">
+            <text class="icon">👥</text>
+            <text>成员管理</text>
+          </view>
+          <view class="action-btn manage-btn" @click="goToInvite">
+            <text class="icon">🔑</text>
+            <text>邀请码</text>
+          </view>
+        </template>
         <view v-if="classInfo.myRole === 'student' || classInfo.myRole === 'monitor'" class="action-btn leave-btn" @click="handleLeave">
           <text class="icon">🚪</text>
           <text>退出班级</text>
@@ -85,6 +96,16 @@ async function loadMembers() {
 function goToQuestions() {
   const name = classInfo.value?.name || '';
   uni.navigateTo({ url: `/pages/question/list?classId=${classId.value}&className=${encodeURIComponent(name)}` });
+}
+
+function goToMemberManage() {
+  const name = classInfo.value?.name || '';
+  uni.navigateTo({ url: `/pages/class/member-manage?id=${classId.value}&name=${encodeURIComponent(name)}` });
+}
+
+function goToInvite() {
+  const name = classInfo.value?.name || '';
+  uni.navigateTo({ url: `/pages/class/invite?id=${classId.value}&name=${encodeURIComponent(name)}` });
 }
 
 function getRoleText(role: string): string {
@@ -168,6 +189,10 @@ function handleLeave() {
 
   .leave-btn {
     background: rgba(255, 77, 77, 0.3);
+  }
+
+  .manage-btn {
+    background: rgba(255, 255, 255, 0.25);
   }
 }
 
