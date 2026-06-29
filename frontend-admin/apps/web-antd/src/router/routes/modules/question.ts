@@ -82,6 +82,15 @@ const routes: RouteRecordRaw[] = [
         },
         component: () => import('#/views/question/statistics/index.vue'),
       },
+      {
+        path: '/question/feedback',
+        name: 'QuestionFeedback',
+        meta: {
+          icon: 'mdi:message-alert-outline',
+          title: '题目反馈',
+        },
+        component: () => import('#/views/question/feedback/index.vue'),
+      },
     ],
   },
 ];
