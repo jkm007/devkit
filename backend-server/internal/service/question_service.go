@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 
 	"backend-server/internal/model"
 	"backend-server/internal/repository"
+	"backend-server/pkg/cache"
 	"backend-server/pkg/database"
 
 	"gorm.io/gorm"
@@ -461,6 +463,9 @@ func (s *QuestionService) Publish(id uint, publishedBy uint) (*QuestionResponse,
 		return nil, err
 	}
 
+	// 失效分类树缓存
+	_ = cache.Delete(context.Background(), "mobile:category_tree")
+
 	item, err = s.repo.GetByID(id)
 	if err != nil {
 		return nil, err
@@ -494,6 +499,8 @@ func (s *QuestionService) Archive(id uint, archivedBy uint) (*QuestionResponse, 
 	}); err != nil {
 		return nil, err
 	}
+	// 失效分类树缓存
+	_ = cache.Delete(context.Background(), "mobile:category_tree")
 	item, err = s.repo.GetByID(id)
 	if err != nil {
 		return nil, err
@@ -689,6 +696,82 @@ func (s *QuestionService) GetStats() (map[string]interface{}, error) {
 
 func (s *QuestionService) updateQuestionStatus(id uint, updates map[string]interface{}) error {
 	return s.repo.DB().Model(&model.Question{}).Where("id = ?", id).Updates(updates).Error
+}
+
+// BatchDelete 批量软删除题目
+func (s *QuestionService) BatchDelete(ids []uint, userID uint) (int, error) {
+	if len(ids) > 100 {
+		return 0, fmt.Errorf("最多只能批量删除 100 道题目")
+	}
+
+	// 校验所有题目都属于当前用户
+	var count int64
+	s.repo.DB().Model(&model.Question{}).
+		Where("id IN ? AND created_by = ? AND deleted_at IS NULL", ids, userID).
+		Count(&count)
+
+	if int(count) != len(ids) {
+		return 0, fmt.Errorf("无权删除部分题目，或题目已被删除")
+	}
+
+	err := s.repo.DB().Model(&model.Question{}).
+		Where("id IN ?", ids).
+		Update("deleted_at", time.Now()).Error
+	if err != nil {
+		return 0, err
+	}
+
+	// 失效分类树缓存
+	_ = cache.Delete(context.Background(), "mobile:category_tree")
+
+	return len(ids), nil
+}
+
+// BatchStatus 批量修改题目状态
+func (s *QuestionService) BatchStatus(ids []uint, status string, userID uint, roles []string) (int, error) {
+	if len(ids) > 100 {
+		return 0, fmt.Errorf("最多只能批量操作 100 道题目")
+	}
+
+	// 权限校验：非管理员只能操作自己创建的题目
+	isAdmin := false
+	for _, role := range roles {
+		if role == "admin" || role == "super_admin" {
+			isAdmin = true
+			break
+		}
+	}
+
+	query := s.repo.DB().Model(&model.Question{}).Where("id IN ?", ids)
+	if !isAdmin {
+		query = query.Where("created_by = ?", userID)
+	}
+
+	// 获取符合条件的题目数
+	var count int64
+	query.Count(&count)
+	if int(count) == 0 {
+		return 0, fmt.Errorf("没有可操作的题目")
+	}
+
+	updates := map[string]interface{}{
+		"status":     status,
+		"updated_at": time.Now(),
+	}
+	if status == "published" {
+		now := time.Now()
+		updates["published_at"] = now
+	}
+
+	err := query.Updates(updates).Error
+	if err != nil {
+		return 0, err
+	}
+
+	// 失效分类树缓存
+	_ = cache.Delete(context.Background(), "mobile:category_tree")
+
+	return int(count), nil
 }
 
 func (s *QuestionService) toResponse(item *model.Question) QuestionResponse {

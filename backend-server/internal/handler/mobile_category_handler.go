@@ -1,11 +1,20 @@
 package handler
 
 import (
+	"context"
+	"time"
+
+	"backend-server/pkg/cache"
 	"backend-server/pkg/database"
 	"backend-server/pkg/response"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+)
+
+const (
+	categoryTreeCacheKey = "mobile:category_tree"
+	categoryTreeCacheTTL = 10 * time.Minute
 )
 
 // MobileCategoryHandler 移动端分类处理器
@@ -36,8 +45,37 @@ type CategoryTreeNode struct {
 }
 
 // GetCategoryTree 获取分类树（移动端用）
-// 返回 L1 > L2 > L3 > L4 完整树结构
+// 返回 L1 > L2 > L3 > L4 完整树结构，结果缓存到 Redis（TTL 10 分钟）
 func (h *MobileCategoryHandler) GetCategoryTree(c *gin.Context) {
+	ctx := context.Background()
+
+	// 1. 尝试从缓存获取
+	var cached []CategoryTreeNode
+	if err := cache.Get(ctx, categoryTreeCacheKey, &cached); err == nil {
+		response.Success(c, cached)
+		return
+	}
+
+	// 2. 缓存未命中，从数据库查询
+	result, err := h.buildCategoryTree()
+	if err != nil {
+		response.InternalError(c, "获取分类树失败")
+		return
+	}
+
+	// 3. 写入缓存
+	_ = cache.Set(ctx, categoryTreeCacheKey, result, categoryTreeCacheTTL)
+
+	response.Success(c, result)
+}
+
+// InvalidateCategoryTreeCache 失效分类树缓存（在分类/考试/科目/题目变更时调用）
+func InvalidateCategoryTreeCache() {
+	_ = cache.Delete(context.Background(), categoryTreeCacheKey)
+}
+
+// buildCategoryTree 构建分类树（从数据库查询并在内存中组装）
+func (h *MobileCategoryHandler) buildCategoryTree() ([]CategoryTreeNode, error) {
 	// 1. 获取所有启用的考试大类 (L1)
 	type ExamCategory struct {
 		ID   uint   `json:"id"`
@@ -48,8 +86,7 @@ func (h *MobileCategoryHandler) GetCategoryTree(c *gin.Context) {
 		Where("status = 1").
 		Order("sort_order ASC, id ASC").
 		Find(&examCategories).Error; err != nil {
-		response.InternalError(c, "获取考试大类失败")
-		return
+		return nil, err
 	}
 
 	// 2. 获取所有启用的考试 (L2)
@@ -63,8 +100,7 @@ func (h *MobileCategoryHandler) GetCategoryTree(c *gin.Context) {
 		Where("status = 1").
 		Order("sort_order ASC, id ASC").
 		Find(&exams).Error; err != nil {
-		response.InternalError(c, "获取考试列表失败")
-		return
+		return nil, err
 	}
 
 	// 3. 获取所有启用的科目 (L3)
@@ -78,8 +114,7 @@ func (h *MobileCategoryHandler) GetCategoryTree(c *gin.Context) {
 		Where("status = 1").
 		Order("sort_order ASC, id ASC").
 		Find(&subjects).Error; err != nil {
-		response.InternalError(c, "获取科目列表失败")
-		return
+		return nil, err
 	}
 
 	// 4. 获取所有启用的章节分类 (L4)
@@ -94,8 +129,7 @@ func (h *MobileCategoryHandler) GetCategoryTree(c *gin.Context) {
 		Where("status = 1 AND deleted_at IS NULL").
 		Order("sort_order ASC, id ASC").
 		Find(&categories).Error; err != nil {
-		response.InternalError(c, "获取章节分类失败")
-		return
+		return nil, err
 	}
 
 	// 5. 统计每个科目和章节的题目数量
@@ -161,5 +195,5 @@ func (h *MobileCategoryHandler) GetCategoryTree(c *gin.Context) {
 		})
 	}
 
-	response.Success(c, result)
+	return result, nil
 }

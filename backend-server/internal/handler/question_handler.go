@@ -283,3 +283,76 @@ func (h *QuestionHandler) GetTypes(c *gin.Context) {
 	}
 	response.Success(c, types)
 }
+
+// BatchDelete 批量删除题目（软删除）
+func (h *QuestionHandler) BatchDelete(c *gin.Context) {
+	var req struct {
+		IDs []uint `json:"ids" binding:"required,min=1,max=100"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	userId, _ := c.Get("user_id")
+	count, err := h.service.BatchDelete(req.IDs, userId.(uint))
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.SuccessWithMessage(c, "已删除"+strconv.Itoa(count)+"道题目", nil)
+}
+
+// BatchStatus 批量修改题目状态
+func (h *QuestionHandler) BatchStatus(c *gin.Context) {
+	var req struct {
+		IDs    []uint `json:"ids" binding:"required,min=1,max=100"`
+		Status string `json:"status" binding:"required,oneof=published archived draft"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	userId, _ := c.Get("user_id")
+	roles, _ := c.Get("roles")
+	roleList, _ := roles.([]string)
+	count, err := h.service.BatchStatus(req.IDs, req.Status, userId.(uint), roleList)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	statusLabel := map[string]string{"published": "发布", "archived": "下架", "draft": "设为草稿"}[req.Status]
+	response.SuccessWithMessage(c, "已"+statusLabel+strconv.Itoa(count)+"道题目", nil)
+}
+
+// Export 导出题目
+func (h *QuestionHandler) Export(c *gin.Context) {
+	userId, _ := c.Get("user_id")
+	roles, _ := c.Get("roles")
+
+	// 支持筛选参数
+	filters := map[string]interface{}{
+		"userId":       userId,
+		"roles":        roles,
+		"questionType": c.Query("questionType"),
+		"status":       c.Query("status"),
+		"examId":       c.Query("examId"),
+		"subjectId":    c.Query("subjectId"),
+		"categoryId":   c.Query("categoryId"),
+		"difficulty":   c.Query("difficulty"),
+		"resourceType": c.Query("resourceType"),
+		"createdBy":    c.Query("createdBy"),
+	}
+
+	items, total, err := h.service.List(1, 5000, filters)
+	if err != nil {
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.Success(c, gin.H{
+		"total": total,
+		"items": items,
+	})
+}
