@@ -54,7 +54,7 @@ onMounted(() => {
                 (s: any) => s.status === 'published',
               )?.count || 0
             "
-            value-style="color: #3f8600"
+            :value-style="{ color: '#3f8600' }"
           />
         </Card>
       </Col>
@@ -77,7 +77,7 @@ onMounted(() => {
               (stats.byStatus || []).find((s: any) => s.status === 'pending')
                 ?.count || 0
             "
-            value-style="color: #cf1322"
+            :value-style="{ color: '#cf1322' }"
           />
         </Card>
       </Col>

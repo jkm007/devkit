@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { Banner } from '#/api/system/banner';
+import type { Banner, BannerCreateParams, BannerUpdateParams } from '#/api/system/banner';
 
 import { ref } from 'vue';
 
@@ -147,8 +147,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
     const values = await formApi.getValues();
 
     // 添加 fileId 到提交数据
-    const submitData = {
-      ...values,
+    const submitData: BannerCreateParams & BannerUpdateParams = {
+      ...(values as any),
       fileId: fileId.value,
     };
 

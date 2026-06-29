@@ -65,7 +65,7 @@ function getOSVersion(ua: string): string {
   // iOS
   const iosMatch = ua.match(/OS (\d+_\d+(?:_\d+)?)/);
   if (iosMatch) {
-    return `iOS ${iosMatch[1].replace(/_/g, '.')}`;
+    return `iOS ${(iosMatch[1] || '').replace(/_/g, '.')}`;
   }
 
   // Android
@@ -83,13 +83,13 @@ function getOSVersion(ua: string): string {
       '6.2': '8',
       '6.1': '7',
     };
-    return `Windows ${versions[windowsMatch[1]] || windowsMatch[1]}`;
+    return `Windows ${versions[windowsMatch[1] || ''] || windowsMatch[1] || ''}`;
   }
 
   // macOS
   const macMatch = ua.match(/Mac OS X (\d+_\d+(?:_\d+)?)/);
   if (macMatch) {
-    return `macOS ${macMatch[1].replace(/_/g, '.')}`;
+    return `macOS ${(macMatch[1] || '').replace(/_/g, '.')}`;
   }
 
   return '';
@@ -108,7 +108,7 @@ function getDeviceModel(ua: string): string {
   // Android 设备
   const androidMatch = ua.match(/;\s*(\w[\w\s-]*?)\s*(?:Build|[;)])/);
   if (androidMatch) {
-    return androidMatch[1].trim();
+    return (androidMatch[1] || '').trim();
   }
 
   return '';

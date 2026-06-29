@@ -112,8 +112,11 @@ const Video = Node.create({
       progressBar.append(progressFill);
 
       const progress = node.attrs['data-upload-progress'];
+      const progressTextEl = placeholder.querySelector('div:last-child');
       if (progress !== null && progress !== undefined && progress > 0) {
-        placeholder.querySelector('div:last-child').textContent = `视频上传中... ${Math.round(progress)}%`;
+        if (progressTextEl) {
+          progressTextEl.textContent = `视频上传中... ${Math.round(progress)}%`;
+        }
         progressFill.style.width = `${progress}%`;
       } else {
         progressFill.style.width = '0%';
@@ -127,8 +130,11 @@ const Video = Node.create({
           }
 
           const newProgress = updatedNode.attrs['data-upload-progress'];
+          const newProgressTextEl = placeholder.querySelector('div:last-child');
           if (newProgress !== null && newProgress !== undefined && newProgress > 0) {
-            placeholder.querySelector('div:last-child').textContent = `视频上传中... ${Math.round(newProgress)}%`;
+            if (newProgressTextEl) {
+              newProgressTextEl.textContent = `视频上传中... ${Math.round(newProgress)}%`;
+            }
             progressFill.style.width = `${newProgress}%`;
           }
 

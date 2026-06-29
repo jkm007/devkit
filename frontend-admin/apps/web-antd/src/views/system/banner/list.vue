@@ -2,8 +2,6 @@
 import type { VxeTableGridOptions } from '#/adapter/vxe-table';
 import type { Banner } from '#/api/system/banner';
 
-import { ref } from 'vue';
-
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import { Plus } from '@vben/icons';
 
@@ -11,7 +9,6 @@ import { Button, message, Modal, Switch, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid, VbenTableAction } from '#/adapter/vxe-table';
 import { getBannerList, deleteBanner, updateBannerStatus } from '#/api/system/banner';
-import { $t } from '#/locales';
 
 import BannerModal from './modules/banner-modal.vue';
 
@@ -185,7 +182,7 @@ function handleModalSuccess() {
           :checked="row.status === 'enabled'"
           checked-children="启用"
           un-checked-children="禁用"
-          @change="(val: boolean) => handleStatusChange(row.id, val ? 'enabled' : 'disabled')"
+          @change="(val: any) => handleStatusChange(row.id, val ? 'enabled' : 'disabled')"
         />
       </template>
       <template #action="{ row }">

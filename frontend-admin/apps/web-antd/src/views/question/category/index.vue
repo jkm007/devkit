@@ -4,7 +4,7 @@ import { onMounted, ref, watch } from 'vue';
 import { Page } from '@vben/common-ui';
 import { Plus } from '@vben/icons';
 
-import { Button, Card, Empty, Input, InputNumber, message, Modal, Radio, RadioGroup, Tree } from 'ant-design-vue';
+import { Button, Card, Empty, Input, InputNumber, message, Modal, RadioGroup, Tree } from 'ant-design-vue';
 
 import { useAccess } from '@vben/access';
 
@@ -49,8 +49,8 @@ interface TreeNode {
 
 const treeData = ref<TreeNode[]>([]);
 const selectedNode = ref<TreeNode | null>(null);
-const expandedKeys = ref<string[]>([]);
-const selectedKeys = ref<string[]>([]);
+const expandedKeys = ref<Array<string | number>>([]);
+const selectedKeys = ref<Array<string | number>>([]);
 
 // Loading state
 const loading = ref(false);
@@ -131,7 +131,7 @@ async function loadTreeData() {
 
     // Expand first level by default
     if (tree.length > 0) {
-      expandedKeys.value = [tree[0].key];
+      expandedKeys.value = [tree[0]?.key].filter(Boolean) as string[];
     }
   } catch (error: any) {
     message.error(error?.message || '加载分类数据失败');
@@ -166,7 +166,7 @@ function buildCategoryTree(categories: any[], parentId: number = 0): TreeNode[] 
 }
 
 // Handle tree node selection
-function handleSelect(keys: string[], { node }: any) {
+function handleSelect(keys: (string | number)[], { node }: any) {
   if (keys.length > 0) {
     selectedKeys.value = keys;
     selectedNode.value = node;
@@ -234,19 +234,18 @@ async function handleSave() {
     const type = selectedNode.value.type;
     const id = selectedNode.value.data.id;
 
-    let result;
     switch (type) {
       case 'examCategory':
-        result = await updateExamCategory(id, data);
+        await updateExamCategory(id, data);
         break;
       case 'exam':
-        result = await updateExam(id, data);
+        await updateExam(id, data);
         break;
       case 'subject':
-        result = await updateSubject(id, data);
+        await updateSubject(id, data);
         break;
       case 'category':
-        result = await updateQuestionCategory(id, data);
+        await updateQuestionCategory(id, data);
         break;
     }
 
@@ -398,17 +397,6 @@ function getNodeTypeLabel(type: 'examCategory' | 'exam' | 'subject' | 'category'
     category: '章节分类',
   };
   return labels[type];
-}
-
-// Helper: get node type icon color
-function getNodeTypeColor(type: 'examCategory' | 'exam' | 'subject' | 'category'): string {
-  const colors = {
-    examCategory: 'blue',
-    exam: 'green',
-    subject: 'orange',
-    category: 'gray',
-  };
-  return colors[type];
 }
 
 onMounted(() => {

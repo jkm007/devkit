@@ -15,12 +15,10 @@ import { useAccess } from '@vben/access';
 import { useVbenVxeGrid, VbenTableAction } from '#/adapter/vxe-table';
 import {
   archiveQuestion,
-  approveQuestion,
   deleteQuestion,
   getQuestionList,
   publishQuestion,
   reactivateQuestion,
-  rejectQuestion,
   submitAuditQuestion,
   withdrawQuestion,
 } from '#/api/question/question';
@@ -123,26 +121,6 @@ async function onSubmitAudit(row: QuestionApi.Question) {
   }
 }
 
-async function onApprove(row: QuestionApi.Question) {
-  try {
-    await approveQuestion(row.id);
-    message.success('审核通过');
-    onRefresh();
-  } catch {
-    message.error('操作失败');
-  }
-}
-
-async function onReject(row: QuestionApi.Question) {
-  try {
-    await rejectQuestion(row.id, '');
-    message.success('已驳回');
-    onRefresh();
-  } catch {
-    message.error('操作失败');
-  }
-}
-
 async function onArchive(row: QuestionApi.Question) {
   try {
     await archiveQuestion(row.id);
@@ -189,8 +167,7 @@ function isCreator(row: QuestionApi.Question) {
 // 根据 status + resourceType + 是否创建者 生成操作按钮
 // 主按钮只显示 预览 + 1个主要操作，其余放更多下拉
 function getActions(row: QuestionApi.Question) {
-  const { status, resourceType } = row;
-  const isPrivate = resourceType === 'private';
+  const { status } = row;
   const creator = isCreator(row);
   const actions: any[] = [];
 

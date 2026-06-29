@@ -7,7 +7,7 @@ import { computed, ref } from 'vue';
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import { useUserStore } from '@vben/stores';
 
-import { Input, message, Modal, Tooltip } from 'ant-design-vue';
+import { Input, message, Modal } from 'ant-design-vue';
 
 import { useVbenVxeGrid, VbenTableAction } from '#/adapter/vxe-table';
 import {

@@ -2,8 +2,6 @@
 import type { VxeTableGridOptions } from '#/adapter/vxe-table';
 import type { QuickMenuItem } from '#/api/system/mobile-config';
 
-import { ref } from 'vue';
-
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import { Plus } from '@vben/icons';
 

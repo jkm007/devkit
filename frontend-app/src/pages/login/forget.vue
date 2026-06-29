@@ -27,7 +27,6 @@
 
       <button
         class="submit-btn"
-        type="primary"
         :loading="loading"
         :disabled="loading || !canSubmit"
         @click="handleSubmit"

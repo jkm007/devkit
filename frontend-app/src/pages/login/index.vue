@@ -119,7 +119,6 @@
       <!-- 登录按钮 -->
       <button
         class="login-btn"
-        type="primary"
         :loading="loading"
         :disabled="loading || !canSubmit"
         @click="handleLogin"

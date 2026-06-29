@@ -24,6 +24,7 @@ export interface BannerListParams {
 export interface BannerCreateParams {
   title: string;
   image: string;
+  fileId?: number;
   link?: string;
   linkType?: string;
   sortOrder?: number;
@@ -33,6 +34,7 @@ export interface BannerCreateParams {
 export interface BannerUpdateParams {
   title?: string;
   image?: string;
+  fileId?: number;
   link?: string;
   linkType?: string;
   sortOrder?: number;

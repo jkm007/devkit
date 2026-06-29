@@ -39,25 +39,17 @@ const [Drawer, drawerApi] = useVbenDrawer({
       if (data) {
         modalMode.value = 'edit';
         currentItem.value = data;
-        form.value = { ...data };
+        form.value = { ...defaultForm, ...data };
       } else {
         modalMode.value = 'create';
         currentItem.value = null;
-        form.value = {
-          title: '',
-          icon: '',
-          link: '',
-          showBadge: false,
-          badgeText: '',
-          sortOrder: 0,
-          status: 'enabled',
-        };
+        form.value = { ...defaultForm };
       }
     }
   },
 });
 
-const form = ref({
+const defaultForm = {
   title: '',
   icon: '',
   link: '',
@@ -65,7 +57,9 @@ const form = ref({
   badgeText: '',
   sortOrder: 0,
   status: 'enabled',
-});
+};
+
+const form = ref({ ...defaultForm });
 
 const iconOptions = [
   '📝', '📖', '🎯', '📊', '❓', '💡', '🔔', '📢',

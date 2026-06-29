@@ -23,7 +23,6 @@
 
       <button
         class="register-btn"
-        type="primary"
         :loading="loading"
         :disabled="loading || !canSubmit"
         @click="handleRegister"

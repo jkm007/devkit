@@ -145,8 +145,8 @@ function saveSettings() {
   } catch { /* ignore */ }
 }
 
-function toggleSetting(key: string, e: any) {
-  settings.value[key] = e.detail.value;
+function toggleSetting(key: keyof typeof settings.value, e: any) {
+  (settings.value as Record<string, any>)[key] = e.detail.value;
   saveSettings();
 }
 

@@ -185,12 +185,14 @@ function savePlayMode(mode: string) {
   localStorage.setItem(STORAGE_KEY_MODE, mode);
 }
 
-function saveSkipIntro(seconds: number) {
+function saveSkipIntro(value: any) {
+  const seconds = Number(value);
   skipIntro.value = seconds;
   localStorage.setItem(STORAGE_KEY_SKIP_INTRO, String(seconds));
 }
 
-function saveSkipOutro(seconds: number) {
+function saveSkipOutro(value: any) {
+  const seconds = Number(value);
   skipOutro.value = seconds;
   localStorage.setItem(STORAGE_KEY_SKIP_OUTRO, String(seconds));
 }

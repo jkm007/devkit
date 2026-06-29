@@ -37,13 +37,6 @@ const chartTabs: TabOption[] = [
   { label: '事件分布', value: 'events' },
 ];
 
-function formatSize(bytes: number) {
-  if (bytes <= 0) return '0 B';
-  if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(1)} GB`;
-  if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`;
-  return `${(bytes / 1024).toFixed(0)} KB`;
-}
-
 onMounted(async () => {
   try {
     stats.value = await getDashboardStats();
@@ -67,7 +60,7 @@ onMounted(async () => {
         icon: SvgDownloadIcon,
         title: '文件数量',
         totalTitle: '存储用量',
-        totalValue: formatSize(s.overview.totalStorage),
+        totalValue: s.overview.totalStorage,
         value: s.overview.fileCount,
       },
       {

@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { computed, defineComponent, h, ref, watch } from 'vue';
+import type { DefineComponent, VNode } from 'vue';
 
 import {
   Button,
@@ -72,9 +73,9 @@ const FolderTreeNode = defineComponent({
       return '📁';
     };
 
-    return () => {
+    return (): VNode => {
       const node = nodeProps.node;
-      const children =
+      const children: VNode[] =
         node.isExpanded && node.children.length > 0
           ? node.children.map((child) =>
               h(FolderTreeNode, {
@@ -120,7 +121,7 @@ const FolderTreeNode = defineComponent({
       ]);
     };
   },
-});
+}) as DefineComponent<{ node: FolderNode }>;
 
 // 状态
 const fileStatusMap = ref<Map<string, FileUploadStatus>>(new Map());
@@ -195,7 +196,7 @@ function parseFolderStructure(files: File[]) {
       // 创建每一级文件夹
       for (let i = 0; i < folderParts.length; i++) {
         const folderPath = folderParts.slice(0, i + 1).join('/');
-        const folderName = folderParts[i];
+        const folderName = folderParts[i] || '';
         const parentPath = i > 0 ? folderParts.slice(0, i).join('/') : '';
 
         if (!folderMap.has(folderPath)) {

@@ -71,7 +71,7 @@ const [Grid, gridApi] = useVbenVxeGrid({
     pagerConfig: { pageSize: 20, pageSizeOpts: [10, 20, 50, 100] },
     proxyConfig: {
       ajax: {
-        query: async ({ page }, formValues) => {
+        query: async ({ page }: any, formValues: any) => {
           return await getClassList({
             page: page.currentPage,
             pageSize: page.pageSize,
@@ -293,12 +293,12 @@ function handleDisableInvitation(inv: any) {
       <template #action="{ row }">
         <VbenTableAction
           :actions="[
-            { name: '编辑', onClick: () => openEditClass(row) },
-            { name: '成员', onClick: () => openMemberModal(row) },
-            { name: '邀请码', onClick: () => openInvitationModal(row) },
+            { text: '编辑', onClick: () => openEditClass(row) },
+            { text: '成员', onClick: () => openMemberModal(row) },
+            { text: '邀请码', onClick: () => openInvitationModal(row) },
           ]"
           :drop-down-actions="[
-            { name: '删除', danger: true, onClick: () => handleDelete(row) },
+            { text: '删除', danger: true, onClick: () => handleDelete(row) },
           ]"
         />
       </template>
@@ -371,7 +371,7 @@ function handleDisableInvitation(inv: any) {
             <select
               :value="m.role"
               class="w-32 rounded border border-gray-300 px-2 py-1 text-xs"
-              @change="m.role = ($event.target as HTMLSelectElement).value; handleUpdateMemberRole(m)"
+              @change="m.role = ($event.target as HTMLSelectElement).value as 'student' | 'monitor' | 'teacher'; handleUpdateMemberRole(m)"
             >
               <option value="student">同学</option>
               <option value="monitor">班级管理员</option>

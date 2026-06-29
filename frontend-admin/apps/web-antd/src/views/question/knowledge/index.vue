@@ -21,7 +21,6 @@ import {
 import {
   getExamAll,
   getQuestionCategoryAll,
-  getSubjectAll,
 } from '#/api/question/category';
 
 import { useKnowledgePointColumns, useKnowledgePointFormSchema } from './data';
@@ -57,19 +56,6 @@ async function loadOptions() {
     parentOptions.value = buildTree(knowledgePoints || []);
   } catch {
     message.error('加载选项数据失败');
-  }
-}
-
-async function loadSubjectOptions(examId: number) {
-  try {
-    const res = await getSubjectAll(examId);
-    subjectOptions.value = (res || []).map((item: any) => ({
-      label: item.name,
-      value: item.id,
-    }));
-  } catch {
-    subjectOptions.value = [];
-    message.error('加载科目选项失败');
   }
 }
 

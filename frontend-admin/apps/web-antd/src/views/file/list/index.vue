@@ -1036,9 +1036,9 @@ async function handleFolderSelect(event: Event) {
   const files = [...fileList];
 
   // 获取根文件夹名称
-  const firstFile = files[0];
+  const firstFile = files[0]!;
   const relativePath = firstFile.webkitRelativePath;
-  const rootFolderName = relativePath ? relativePath.split('/')[0] : '未知文件夹';
+  const rootFolderName = relativePath ? relativePath.split('/')[0] || '未知文件夹' : '未知文件夹';
 
   // 显示上传进度弹窗
   folderUploadName.value = rootFolderName;
@@ -1106,7 +1106,7 @@ async function startFolderUpload(files: File[]) {
   // 创建文件夹
   for (const path of sortedPaths) {
     const parts = path.split('/');
-    const folderName = parts[parts.length - 1];
+    const folderName = parts[parts.length - 1] || '';
     const parentPath = parts.slice(0, -1).join('/');
     const parentId = folderIdMap.get(parentPath) ?? rootId;
 

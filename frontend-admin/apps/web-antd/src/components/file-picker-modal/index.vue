@@ -7,7 +7,7 @@ import { useVbenModal } from '@vben/common-ui';
 
 import { Button, Empty, Input, Radio, Spin, Tabs } from 'ant-design-vue';
 
-import { listFiles, getFolderTree, createFolder } from '#/api/file';
+import { listFiles, getFolderTree } from '#/api/file';
 import { appendToken, normalizeFileUrl } from '#/utils/media-url';
 
 interface FilePickerResult {
@@ -106,12 +106,6 @@ async function loadFiles() {
   } finally {
     loading.value = false;
   }
-}
-
-function enterFolder(folder: FileApi.Folder) {
-  currentFolderId.value = folder.id;
-  selectedFile.value = null;
-  loadFiles();
 }
 
 function goBackToRoot() {

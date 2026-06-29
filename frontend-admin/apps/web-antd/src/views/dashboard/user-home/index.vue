@@ -7,7 +7,7 @@ import { Page } from '@vben/common-ui';
 import { preferences } from '@vben/preferences';
 import { useUserStore } from '@vben/stores';
 
-import { Badge, Card, Empty, Progress, Tag, Tooltip } from 'ant-design-vue';
+import { Badge, Card, Empty, Progress, Tag } from 'ant-design-vue';
 
 import type { HomeData } from '#/api/user-home';
 import { getHomeData } from '#/api/user-home';
@@ -148,7 +148,7 @@ const displayName =
             :percent="Math.min(homeData.storage.usedPercent, 100)"
             :stroke-color="getStorageColor(homeData.storage.usedPercent)"
             :show-text="true"
-            :format="(p: number) => `${p.toFixed(1)}%`"
+            :format="(p?: number) => `${(p || 0).toFixed(1)}%`"
           />
           <div v-else class="text-sm text-muted-foreground">
             您的存储空间没有容量限制

@@ -84,8 +84,9 @@ const drawerTitle = computed(() => {
 });
 
 // Watch examId changes to load subject options (cascading)
+const examIdRef = formApi.useStore((state: any) => state.values?.examId);
 watch(
-  () => formApi.values?.examId,
+  () => examIdRef.value,
   async (newExamId) => {
     if (newExamId) {
       try {

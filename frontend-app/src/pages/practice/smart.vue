@@ -74,7 +74,7 @@
     </view>
 
     <!-- 开始按钮 -->
-    <button class="start-btn" type="primary" :loading="loading" @click="startPractice">
+    <button class="start-btn" :loading="loading" @click="startPractice">
       {{ loading ? '加载中...' : '开始智能练习' }}
     </button>
   </view>

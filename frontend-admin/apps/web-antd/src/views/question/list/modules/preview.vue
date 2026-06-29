@@ -105,7 +105,6 @@ const isSingleChoice = computed(() =>
   ['single_choice', 'true_false'].includes(questionType.value),
 );
 const isTrueFalse = computed(() => questionType.value === 'true_false');
-const isFillBlank = computed(() => questionType.value === 'fill_blank');
 
 // Options list
 const optionsList = computed(() => parseOptions());

@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
@@ -10,10 +10,9 @@ import {
   SelectOption,
   Spin,
   Tooltip,
-  message,
 } from 'ant-design-vue';
 
-import { getShareInfo, getShareFolderFiles, verifySharePassword } from '#/api/file';
+import { getShareInfo, getShareFolderFiles } from '#/api/file';
 
 defineOptions({ name: 'ShareVideoPlayer' });
 
@@ -115,12 +114,14 @@ function savePlayMode(mode: string) {
   localStorage.setItem(STORAGE_KEY_MODE, mode);
 }
 
-function saveSkipIntro(seconds: number) {
+function saveSkipIntro(value: any) {
+  const seconds = Number(value);
   skipIntro.value = seconds;
   localStorage.setItem(STORAGE_KEY_SKIP_INTRO, String(seconds));
 }
 
-function saveSkipOutro(seconds: number) {
+function saveSkipOutro(value: any) {
+  const seconds = Number(value);
   skipOutro.value = seconds;
   localStorage.setItem(STORAGE_KEY_SKIP_OUTRO, String(seconds));
 }

@@ -103,8 +103,8 @@ onMounted(async () => {
         const item = params[0];
         const user = topUsers[item.dataIndex];
         const quotaText =
-          user.quota > 0 ? ` / ${formatSize(user.quota)}` : ' (不限)';
-        return `${user.userName}<br/>已用: ${formatSize(user.used)}${quotaText}`;
+          user && user.quota > 0 ? ` / ${formatSize(user.quota)}` : ' (不限)';
+        return `${user?.userName || ''}<br/>已用: ${user ? formatSize(user.used) : '-'}${quotaText}`;
       },
     },
     grid: { left: 60, right: 20, top: 10, bottom: 30 },

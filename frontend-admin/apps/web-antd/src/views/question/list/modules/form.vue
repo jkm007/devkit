@@ -241,6 +241,7 @@ function removeOption(index: number) {
     return;
   }
   const removed = options.value[index];
+  if (!removed) return;
   options.value.splice(index, 1);
   // Re-index option IDs
   options.value.forEach((opt, i) => {

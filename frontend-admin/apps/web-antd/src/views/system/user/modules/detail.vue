@@ -29,7 +29,7 @@ const storageInfo = computed(() => {
     return `${bytes} B`;
   };
   const percent = quota > 0 ? Math.min(Math.round((used / quota) * 100), 100) : 0;
-  const status = percent >= 90 ? 'exception' : percent >= 70 ? 'normal' : 'active';
+  const status: 'exception' | 'normal' | 'active' = percent >= 90 ? 'exception' : percent >= 70 ? 'normal' : 'active';
   return { used, quota, percent, status, formatSize };
 });
 
