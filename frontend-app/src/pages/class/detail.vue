@@ -12,6 +12,10 @@
           <text class="icon">📝</text>
           <text>班级题目</text>
         </view>
+        <view v-if="classInfo.myRole === 'student' || classInfo.myRole === 'monitor'" class="action-btn leave-btn" @click="handleLeave">
+          <text class="icon">🚪</text>
+          <text>退出班级</text>
+        </view>
       </view>
     </view>
 
@@ -41,7 +45,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
-import { getClassDetail, getClassMembers } from '@/api/class';
+import { getClassDetail, getClassMembers, leaveClass } from '@/api/class';
 import type { ClassInfo, ClassMember } from '@/api/class';
 
 const classId = ref(0);
@@ -90,6 +94,23 @@ function getRoleText(role: string): string {
     teacher: '班主任',
   };
   return map[role] || role;
+}
+
+function handleLeave() {
+  uni.showModal({
+    title: '确认退出',
+    content: '退出后将无法再查看班级题目和内容，确定要退出吗？',
+    success: async (res) => {
+      if (!res.confirm) return;
+      try {
+        await leaveClass(classId.value);
+        uni.showToast({ title: '已退出班级', icon: 'success' });
+        setTimeout(() => { uni.navigateBack(); }, 1000);
+      } catch (e: any) {
+        uni.showToast({ title: e?.message || '退出失败', icon: 'none' });
+      }
+    },
+  });
 }
 </script>
 
@@ -143,6 +164,10 @@ function getRoleText(role: string): string {
     &:active { opacity: 0.7; }
 
     .icon { font-size: 18px; }
+  }
+
+  .leave-btn {
+    background: rgba(255, 77, 77, 0.3);
   }
 }
 

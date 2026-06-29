@@ -162,7 +162,7 @@ import { ref, onMounted, computed } from 'vue';
 import { onLoad, onShow, onReachBottom } from '@dcloudio/uni-app';
 import { getQuestions } from '@/api/study';
 import { getCategoryBindings, getCategoryTree } from '@/api/user';
-import type { Question } from '@/api/types';
+import { QUESTION_TYPE_LABELS, type Question } from '@/api/types';
 
 // 分类树数据结构
 interface CategoryItem {
@@ -447,14 +447,7 @@ function goToDetail(q: Question) {
 }
 
 function getTypeName(type: string): string {
-  const names: Record<string, string> = {
-    single: '单选',
-    multi: '多选',
-    judge: '判断',
-    fill: '填空',
-    essay: '简答',
-  };
-  return names[type] || type;
+  return QUESTION_TYPE_LABELS[type as keyof typeof QUESTION_TYPE_LABELS] || type;
 }
 
 function getDiffName(d: number): string {

@@ -151,7 +151,7 @@
 import { ref, onMounted } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { request } from '@/api/request';
-import type { Question } from '@/api/types';
+import { QUESTION_TYPE_LABELS, type Question } from '@/api/types';
 import { getBanners, batchGetPublicURLs, type BannerItem } from '@/api/banner';
 
 const statusBarHeight = ref(0);
@@ -258,14 +258,7 @@ async function fetchHomeData() {
  * 获取题型标签
  */
 function getQuestionTypeLabel(type: string): string {
-  const map: Record<string, string> = {
-    single_choice: '单选',
-    multiple_choice: '多选',
-    true_false: '判断',
-    fill_blank: '填空',
-    short_answer: '简答',
-  };
-  return map[type] || type;
+  return QUESTION_TYPE_LABELS[type as keyof typeof QUESTION_TYPE_LABELS] || type;
 }
 
 /**

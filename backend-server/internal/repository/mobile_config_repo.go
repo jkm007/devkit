@@ -86,15 +86,20 @@ func (r *MobileConfigRepo) DeleteMyPageMenu(id uint) error {
 
 func (r *MobileConfigRepo) GetMobileSettings() (*model.MobileSettings, error) {
 	var settings model.MobileSettings
-	err := r.db.First(&settings).Error
+	// 使用 setting_key 查询，确保单例模式
+	err := r.db.Where("setting_key = ?", "mobile").First(&settings).Error
 	if err == gorm.ErrRecordNotFound {
 		// 如果没有记录，创建默认设置
-		settings = model.MobileSettings{}
+		settings = model.MobileSettings{SettingKey: "mobile"}
 		err = r.db.Create(&settings).Error
 	}
 	return &settings, err
 }
 
 func (r *MobileConfigRepo) UpdateMobileSettings(settings *model.MobileSettings) error {
-	return r.db.Save(settings).Error
+	// 确保更新的是正确的单例记录
+	if settings.SettingKey == "" {
+		settings.SettingKey = "mobile"
+	}
+	return r.db.Where("setting_key = ?", "mobile").Save(settings).Error
 }

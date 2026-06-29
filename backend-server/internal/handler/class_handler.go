@@ -432,3 +432,26 @@ func (h *ClassHandler) ListClassQuestions(c *gin.Context) {
 
 	response.SuccessPage(c, items, total)
 }
+
+// Leave 用户主动退出班级
+func (h *ClassHandler) Leave(c *gin.Context) {
+	userID := middleware.GetCurrentUserID(c)
+
+	idStr := c.Param("id")
+	classID, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		response.BadRequest(c, "无效的班级ID")
+		return
+	}
+
+	if err := h.classService.LeaveClass(userID, uint(classID)); err != nil {
+		if err.Error() == "无权操作" || err.Error() == "不是班级成员" {
+			response.Forbidden(c, err.Error())
+			return
+		}
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.SuccessWithMessage(c, "已退出班级", nil)
+}

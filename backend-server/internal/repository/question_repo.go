@@ -116,15 +116,20 @@ func (r *QuestionRepo) List(page, pageSize int, filters map[string]interface{}) 
 	return items, total, nil
 }
 
-func (r *QuestionRepo) Search(page, pageSize int, keyword string, userID uint, userGroupID uint, userClassIDs []uint) ([]model.Question, int64, error) {
+func (r *QuestionRepo) Search(page, pageSize int, keyword string, userID uint, userGroupID uint, userClassIDs []uint, status string) ([]model.Question, int64, error) {
 	var items []model.Question
 	var total int64
+
+	// status 默认为 published（移动端场景），管理员可传入其他状态搜索草稿/待审核等
+	if status == "" {
+		status = "published"
+	}
 
 	query := r.db.Model(&model.Question{}).
 		Where("(title LIKE ? OR stem LIKE ?) AND status = ?",
 			"%"+escapeLike(keyword)+"%",
 			"%"+escapeLike(keyword)+"%",
-			"published")
+			status)
 
 	// 非管理员按资源类型过滤可见性
 	query = r.applyVisibilityFilter(query, userID, userGroupID, userClassIDs)
@@ -153,7 +158,17 @@ func (r *QuestionRepo) Create(item *model.Question) error {
 }
 
 func (r *QuestionRepo) Update(item *model.Question) error {
-	return r.db.Save(item).Error
+	// 仅更新业务字段，防止覆盖状态/审核/发布等受控字段
+	return r.db.Model(&model.Question{}).
+		Where("id = ?", item.ID).
+		Select(
+			"title", "question_type", "stem", "content", "answer", "analysis",
+			"materials", "score_rule", "exam_id", "subject_id", "category_id",
+			"source_id", "difficulty", "resource_type", "group_id", "class_ids",
+			"user_ids", "analysis_visible_policy", "answer_visible_policy",
+			"updated_by", "updated_at",
+		).
+		Updates(item).Error
 }
 
 func (r *QuestionRepo) Delete(id uint) error {

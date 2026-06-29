@@ -88,7 +88,7 @@
 import { ref, computed } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { request, tokenManager } from '@/api/request';
-import type { Question } from '@/api/types';
+import { QUESTION_TYPE_LABELS, CHOICE_TYPES, FILL_TYPES, type Question } from '@/api/types';
 import ContentBlockRenderer from '@/components/ContentBlockRenderer.vue';
 
 // 为需要认证的文件 URL 添加 token（小程序 <image>/<video> 不支持 header/cookie 认证）
@@ -117,17 +117,14 @@ const fillAnswer = ref('');
 const essayAnswer = ref('');
 const startTime = ref(0);
 
-// 选择题类型
-const CHOICE_TYPES = ['single', 'multi', 'single_choice', 'multiple_choice', 'indefinite_choice', 'judge', 'true_false'];
-// 填空题类型
-const FILL_TYPES = ['fill', 'fill_blank', 'cloze'];
+// 选择题类型、填空题类型从 @/api/types 引入
 
 function isChoiceQuestion(type: string): boolean {
-  return CHOICE_TYPES.includes(type);
+  return CHOICE_TYPES.includes(type as any);
 }
 
 function isFillQuestion(type: string): boolean {
-  return FILL_TYPES.includes(type);
+  return FILL_TYPES.includes(type as any);
 }
 
 // API基础URL
@@ -333,13 +330,7 @@ async function toggleFavorite() {
 }
 
 function getTypeLabel(type: string): string {
-  const map: Record<string, string> = {
-    single_choice: '单选题', multiple_choice: '多选题', indefinite_choice: '不定项选择',
-    true_false: '判断题', fill_blank: '填空题', cloze: '完形填空',
-    short_answer: '简答题', essay_question: '论述题', composition: '作文题',
-    term_explanation: '名词解释', material: '材料题', case_analysis: '案例分析',
-  };
-  return map[type] || type;
+  return QUESTION_TYPE_LABELS[type as keyof typeof QUESTION_TYPE_LABELS] || type;
 }
 
 function goToPractice() {

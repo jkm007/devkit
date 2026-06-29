@@ -142,13 +142,13 @@ func (s *QuestionService) List(page, pageSize int, filters map[string]interface{
 	return resp, total, nil
 }
 
-func (s *QuestionService) Search(page, pageSize int, keyword string, userID uint) ([]QuestionResponse, int64, error) {
+func (s *QuestionService) Search(page, pageSize int, keyword string, userID uint, status string) ([]QuestionResponse, int64, error) {
 	userGroupID := uint(0)
 	if user, err := s.userRepo.GetByID(userID); err == nil {
 		userGroupID = user.GroupID
 	}
 	userClassIDs, _ := s.classRepo.ListClassIDsByUserID(userID)
-	items, total, err := s.repo.Search(page, pageSize, keyword, userID, userGroupID, userClassIDs)
+	items, total, err := s.repo.Search(page, pageSize, keyword, userID, userGroupID, userClassIDs, status)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -305,13 +305,40 @@ func (s *QuestionService) Create(req *QuestionRequest, createdBy uint) (*Questio
 	return &resp, nil
 }
 
-func (s *QuestionService) Update(id uint, req *QuestionRequest, updatedBy uint) (*QuestionResponse, error) {
+func (s *QuestionService) Update(id uint, req *QuestionRequest, updatedBy uint, roles []string) (*QuestionResponse, error) {
 	item, err := s.repo.GetByID(id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("题目不存在")
 		}
 		return nil, err
+	}
+
+	// 权限校验：创建者、管理员/超管、或拥有 question:edit:any/question:admin 权限可编辑
+	if item.CreatedBy != updatedBy {
+		isAdmin := false
+		for _, role := range roles {
+			if role == "admin" || role == "super_admin" {
+				isAdmin = true
+				break
+			}
+		}
+		if !isAdmin {
+			codes, perr := NewAuthService().GetPermissionCodes(updatedBy)
+			if perr != nil {
+				return nil, fmt.Errorf("权限校验失败")
+			}
+			hasPerm := false
+			for _, code := range codes {
+				if code == "question:edit:any" || code == "question:admin" {
+					hasPerm = true
+					break
+				}
+			}
+			if !hasPerm {
+				return nil, fmt.Errorf("无权限编辑该题目")
+			}
+		}
 	}
 
 	// 校验JSON字段大小
@@ -342,6 +369,7 @@ func (s *QuestionService) Update(id uint, req *QuestionRequest, updatedBy uint) 
 	item.CategoryID = req.CategoryID
 	item.SourceID = req.SourceID
 	item.UpdatedBy = updatedBy
+	item.UpdatedAt = time.Now()
 	if req.Difficulty != nil {
 		item.Difficulty = *req.Difficulty
 	}
@@ -458,8 +486,16 @@ func (s *QuestionService) Archive(id uint, archivedBy uint) (*QuestionResponse, 
 		return nil, fmt.Errorf("只有已发布的题目才能下架")
 	}
 
-	item.Status = "archived"
-	if err := s.repo.Update(item); err != nil {
+	now := time.Now()
+	if err := s.updateQuestionStatus(id, map[string]interface{}{
+		"status":       "archived",
+		"updated_at":   now,
+		"updated_by":   archivedBy,
+	}); err != nil {
+		return nil, err
+	}
+	item, err = s.repo.GetByID(id)
+	if err != nil {
 		return nil, err
 	}
 	resp := s.toResponse(item)
@@ -485,8 +521,16 @@ func (s *QuestionService) SubmitAudit(id uint, submittedBy uint) (*QuestionRespo
 		return nil, fmt.Errorf("只有草稿或被驳回的题目才能提交审核")
 	}
 
-	item.Status = "pending"
-	if err := s.repo.Update(item); err != nil {
+	now := time.Now()
+	if err := s.updateQuestionStatus(id, map[string]interface{}{
+		"status":       "pending",
+		"updated_at":   now,
+		"updated_by":   submittedBy,
+	}); err != nil {
+		return nil, err
+	}
+	item, err = s.repo.GetByID(id)
+	if err != nil {
 		return nil, err
 	}
 	resp := s.toResponse(item)
@@ -513,12 +557,18 @@ func (s *QuestionService) Approve(id uint, reviewedBy uint) (*QuestionResponse, 
 	}
 
 	now := time.Now()
-	item.Status = "approved"
-	item.ReviewedBy = reviewedBy
-	item.ReviewedAt = &now
-	item.RejectReason = ""
-
-	if err := s.repo.Update(item); err != nil {
+	if err := s.updateQuestionStatus(id, map[string]interface{}{
+		"status":        "approved",
+		"reviewed_by":   reviewedBy,
+		"reviewed_at":   now,
+		"reject_reason": "",
+		"updated_at":    now,
+		"updated_by":    reviewedBy,
+	}); err != nil {
+		return nil, err
+	}
+	item, err = s.repo.GetByID(id)
+	if err != nil {
 		return nil, err
 	}
 	resp := s.toResponse(item)
@@ -540,12 +590,18 @@ func (s *QuestionService) Reject(id uint, reviewedBy uint, reason string) (*Ques
 	}
 
 	now := time.Now()
-	item.Status = "rejected"
-	item.ReviewedBy = reviewedBy
-	item.ReviewedAt = &now
-	item.RejectReason = reason
-
-	if err := s.repo.Update(item); err != nil {
+	if err := s.updateQuestionStatus(id, map[string]interface{}{
+		"status":        "rejected",
+		"reviewed_by":   reviewedBy,
+		"reviewed_at":   now,
+		"reject_reason": reason,
+		"updated_at":    now,
+		"updated_by":    reviewedBy,
+	}); err != nil {
+		return nil, err
+	}
+	item, err = s.repo.GetByID(id)
+	if err != nil {
 		return nil, err
 	}
 	resp := s.toResponse(item)
@@ -572,8 +628,16 @@ func (s *QuestionService) Withdraw(id uint, withdrawnBy uint) (*QuestionResponse
 		return nil, fmt.Errorf("当前状态【%s】不允许撤回", item.Status)
 	}
 
-	item.Status = "draft"
-	if err := s.repo.Update(item); err != nil {
+	now := time.Now()
+	if err := s.updateQuestionStatus(id, map[string]interface{}{
+		"status":     "draft",
+		"updated_at": now,
+		"updated_by": withdrawnBy,
+	}); err != nil {
+		return nil, err
+	}
+	item, err = s.repo.GetByID(id)
+	if err != nil {
 		return nil, err
 	}
 	resp := s.toResponse(item)
@@ -621,6 +685,10 @@ func (s *QuestionService) Reactivate(id uint, reactivatedBy uint) (*QuestionResp
 
 func (s *QuestionService) GetStats() (map[string]interface{}, error) {
 	return s.repo.GetStats()
+}
+
+func (s *QuestionService) updateQuestionStatus(id uint, updates map[string]interface{}) error {
+	return s.repo.DB().Model(&model.Question{}).Where("id = ?", id).Updates(updates).Error
 }
 
 func (s *QuestionService) toResponse(item *model.Question) QuestionResponse {

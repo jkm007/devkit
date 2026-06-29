@@ -55,3 +55,7 @@ export function getClassMembers(id: number, params: { page?: number; pageSize?: 
 export function getClassQuestions(id: number, params: { page?: number; pageSize?: number }) {
   return request.get<PageResponse<any>>(`/classes/${id}/questions`, { params });
 }
+
+export function leaveClass(id: number) {
+  return request.post(`/classes/${id}/leave`);
+}

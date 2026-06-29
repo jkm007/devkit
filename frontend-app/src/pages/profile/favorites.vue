@@ -48,6 +48,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { QUESTION_TYPE_LABELS } from '@/api/types';
 import { getFavorites, removeFavorite } from '@/api/study';
 
 const loading = ref(false);
@@ -124,13 +125,7 @@ function goToDetail(item: any) {
 }
 
 function getTypeLabel(type: string): string {
-  const map: Record<string, string> = {
-    single_choice: '单选', multiple_choice: '多选', indefinite_choice: '不定项',
-    true_false: '判断', fill_blank: '填空', cloze: '完形',
-    short_answer: '简答', essay_question: '论述', composition: '作文',
-    term_explanation: '名词解释', material: '材料', case_analysis: '案例',
-  };
-  return map[type] || type;
+  return QUESTION_TYPE_LABELS[type as keyof typeof QUESTION_TYPE_LABELS] || type;
 }
 
 function formatTime(time: string): string {

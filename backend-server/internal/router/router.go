@@ -192,6 +192,7 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 		authorized.GET("/my-classes", classHandler.ListMyClasses)
 		authorized.POST("/classes/join", classHandler.JoinByCode)
 		authorized.GET("/classes/:id", classHandler.GetDetail)
+		authorized.POST("/classes/:id/leave", classHandler.Leave)
 		authorized.GET("/classes/:id/members", classHandler.ListMyClassMembers)
 		authorized.GET("/classes/:id/questions", classHandler.ListClassQuestions)
 
@@ -609,20 +610,20 @@ func Setup(ctx context.Context, cfg *config.Config, hub *ws.Hub) *gin.Engine {
 			system.PUT("/banners/:id/sort", middleware.Permission("system:banner:edit"), bannerHandler.AdminUpdateSort)
 
 			// 移动端快捷菜单管理（管理端）
-			system.GET("/quick-menus", middleware.Permission("system:banner:view"), mobileConfigHandler.GetQuickMenus)
-			system.POST("/quick-menus", middleware.Permission("system:banner:add"), mobileConfigHandler.CreateQuickMenu)
-			system.PUT("/quick-menus/:id", middleware.Permission("system:banner:edit"), mobileConfigHandler.UpdateQuickMenu)
-			system.DELETE("/quick-menus/:id", middleware.Permission("system:banner:delete"), mobileConfigHandler.DeleteQuickMenu)
+			system.GET("/quick-menus", middleware.Permission("system:mobile:menu:view"), mobileConfigHandler.GetQuickMenus)
+			system.POST("/quick-menus", middleware.Permission("system:mobile:menu:create"), mobileConfigHandler.CreateQuickMenu)
+			system.PUT("/quick-menus/:id", middleware.Permission("system:mobile:menu:edit"), mobileConfigHandler.UpdateQuickMenu)
+			system.DELETE("/quick-menus/:id", middleware.Permission("system:mobile:menu:delete"), mobileConfigHandler.DeleteQuickMenu)
 
 			// 移动端我的页面菜单管理（管理端）
-			system.GET("/my-page-menus", middleware.Permission("system:banner:view"), mobileConfigHandler.GetMyPageMenus)
-			system.POST("/my-page-menus", middleware.Permission("system:banner:add"), mobileConfigHandler.CreateMyPageMenu)
-			system.PUT("/my-page-menus/:id", middleware.Permission("system:banner:edit"), mobileConfigHandler.UpdateMyPageMenu)
-			system.DELETE("/my-page-menus/:id", middleware.Permission("system:banner:delete"), mobileConfigHandler.DeleteMyPageMenu)
+			system.GET("/my-page-menus", middleware.Permission("system:mobile:menu:view"), mobileConfigHandler.GetMyPageMenus)
+			system.POST("/my-page-menus", middleware.Permission("system:mobile:menu:create"), mobileConfigHandler.CreateMyPageMenu)
+			system.PUT("/my-page-menus/:id", middleware.Permission("system:mobile:menu:edit"), mobileConfigHandler.UpdateMyPageMenu)
+			system.DELETE("/my-page-menus/:id", middleware.Permission("system:mobile:menu:delete"), mobileConfigHandler.DeleteMyPageMenu)
 
 			// 移动端设置管理（管理端）
-			system.GET("/mobile-settings", middleware.Permission("system:banner:view"), mobileConfigHandler.GetMobileSettings)
-			system.PUT("/mobile-settings", middleware.Permission("system:banner:edit"), mobileConfigHandler.UpdateMobileSettings)
+			system.GET("/mobile-settings", middleware.Permission("system:mobile:settings:view"), mobileConfigHandler.GetMobileSettings)
+			system.PUT("/mobile-settings", middleware.Permission("system:mobile:settings:edit"), mobileConfigHandler.UpdateMobileSettings)
 		}
 	}
 

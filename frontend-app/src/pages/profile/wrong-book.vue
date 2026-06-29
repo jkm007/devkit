@@ -86,6 +86,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { getWrongBooks, getWrongBookStats, markWrongMastered, deleteWrongBook } from '@/api/study';
+import { QUESTION_TYPE_LABELS } from '@/api/types';
 import Skeleton from '@/components/Skeleton.vue';
 
 const loading = ref(true);
@@ -199,7 +200,7 @@ function startReview() {
 }
 
 function getTypeLabel(type: string): string {
-  return { single_choice: '单选', multiple_choice: '多选', true_false: '判断', fill_blank: '填空', short_answer: '简答' }[type] || type;
+  return QUESTION_TYPE_LABELS[type as keyof typeof QUESTION_TYPE_LABELS] || type;
 }
 
 function formatDate(dateStr: string): string {

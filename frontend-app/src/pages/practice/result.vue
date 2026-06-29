@@ -166,7 +166,7 @@ function isAnswerCorrect(userAnswer: string, correctAnswer: string, questionType
   // 标准化答案
   const normalize = (ans: string) => ans.trim().toUpperCase();
 
-  if (questionType === 'multi' || questionType === 'multiple_choice') {
+  if (['multiple_choice', 'indefinite_choice'].includes(questionType)) {
     // 多选题：需要完全匹配
     const userSet = new Set(normalize(userAnswer).split('').sort());
     const correctSet = new Set(normalize(correct).split('').sort());

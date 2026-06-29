@@ -43,7 +43,7 @@ export interface ContentBlock {
 }
 
 /**
- * 题目类型
+ * 题目类型（与后端 /questions/types 接口保持一致）
  */
 export type QuestionType =
   | 'single_choice'
@@ -51,25 +51,86 @@ export type QuestionType =
   | 'indefinite_choice'
   | 'true_false'
   | 'fill_blank'
+  | 'cloze'
+  | 'term_explanation'
   | 'short_answer'
-  | 'essay'
+  | 'essay_question'
+  | 'composition'
   | 'material'
   | 'case_analysis'
-  | 'reading_comprehension'
+  | 'reading'
   | 'matching'
-  | 'sorting'
+  | 'ordering'
   | 'classification'
   | 'listening'
   | 'speaking'
-  | 'video_question'
-  | 'document_question'
+  | 'video'
+  | 'document'
   | 'calculation'
   | 'proof'
   | 'operation'
   | 'programming'
   | 'sql'
-  | 'code_review'
+  | 'code_reading'
   | 'debugging';
+
+/**
+ * 题型标签映射
+ */
+export const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
+  single_choice: '单选题',
+  multiple_choice: '多选题',
+  indefinite_choice: '不定项选择',
+  true_false: '判断题',
+  fill_blank: '填空题',
+  cloze: '完形填空',
+  term_explanation: '名词解释',
+  short_answer: '简答题',
+  essay_question: '论述题',
+  composition: '作文题',
+  material: '材料题',
+  case_analysis: '案例分析题',
+  reading: '阅读理解题',
+  matching: '匹配题',
+  ordering: '排序题',
+  classification: '分类题',
+  listening: '听力题',
+  speaking: '口语题',
+  video: '视频题',
+  document: '文档题',
+  calculation: '计算题',
+  proof: '证明题',
+  operation: '操作题',
+  programming: '编程题',
+  sql: 'SQL题',
+  code_reading: '代码阅读题',
+  debugging: '调试改错题',
+};
+
+/**
+ * 选择题类型
+ */
+export const CHOICE_TYPES: QuestionType[] = [
+  'single_choice',
+  'multiple_choice',
+  'indefinite_choice',
+  'true_false',
+];
+
+/**
+ * 填空题类型
+ */
+export const FILL_TYPES: QuestionType[] = ['fill_blank', 'cloze'];
+
+/**
+ * 主观文字题类型
+ */
+export const ESSAY_TYPES: QuestionType[] = [
+  'short_answer',
+  'essay_question',
+  'composition',
+  'term_explanation',
+];
 
 /**
  * 题目接口
@@ -182,4 +243,3 @@ export interface FileShare {
   createdAt: string;
   createdBy: number;
 }
-

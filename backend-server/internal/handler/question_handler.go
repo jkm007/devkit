@@ -89,7 +89,9 @@ func (h *QuestionHandler) Update(c *gin.Context) {
 		return
 	}
 	userId, _ := c.Get("user_id")
-	item, err := h.service.Update(uint(id), &req, userId.(uint))
+	roles, _ := c.Get("roles")
+	roleList, _ := roles.([]string)
+	item, err := h.service.Update(uint(id), &req, userId.(uint), roleList)
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -224,6 +226,7 @@ func (h *QuestionHandler) Search(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
 	keyword := c.Query("keyword")
+	status := c.Query("status") // 可选，默认 published
 	userId, _ := c.Get("user_id")
 
 	if keyword == "" {
@@ -231,7 +234,7 @@ func (h *QuestionHandler) Search(c *gin.Context) {
 		return
 	}
 
-	items, total, err := h.service.Search(page, pageSize, keyword, userId.(uint))
+	items, total, err := h.service.Search(page, pageSize, keyword, userId.(uint), status)
 	if err != nil {
 		response.InternalError(c, err.Error())
 		return

@@ -29,6 +29,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { request } from '@/api/request';
+import { QUESTION_TYPE_LABELS } from '@/api/types';
 const keyword = ref('');
 const loading = ref(false);
 const hasSearched = ref(false);
@@ -49,7 +50,7 @@ async function handleSearch() {
 }
 function searchFromHistory(kw: string) { keyword.value = kw; handleSearch(); }
 function saveHistory(kw: string) { history.value = [kw, ...history.value.filter(h => h !== kw)].slice(0, 10); uni.setStorageSync('search_history', history.value); }
-function getTypeLabel(type: string): string { return { single_choice: '单选', multiple_choice: '多选', true_false: '判断', fill_blank: '填空', short_answer: '简答' }[type] || type; }
+function getTypeLabel(type: string): string { return QUESTION_TYPE_LABELS[type as keyof typeof QUESTION_TYPE_LABELS] || type; }
 function goToDetail(id: number) { uni.navigateTo({ url: `/pages/question/detail?id=${id}` }); }
 </script>
 

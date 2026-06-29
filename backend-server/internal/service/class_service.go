@@ -450,6 +450,35 @@ func (s *ClassService) CheckClassPermission(userID uint, classID uint, requiredR
 	return s.checkPermission(userID, classID, requiredRole)
 }
 
+// LeaveClass 用户主动退出班级
+// 规则：
+// 1. 必须已是班级成员
+// 2. 如果是唯一的 teacher 且班级还有其他成员，拒绝退出（避免班级无 teacher）
+// 3. 否则从 class_members 中删除该成员记录
+func (s *ClassService) LeaveClass(userID uint, classID uint) error {
+	// 检查用户是否是该班成员
+	member, err := s.repo.GetMemberByUserID(classID, userID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("不是班级成员")
+		}
+		return err
+	}
+
+	// teacher 退出时，需要检查是否是唯一 teacher 且班级还有其他成员
+	if member.Role == model.ClassRoleTeacher {
+		teacherCount, _ := s.repo.CountMembersByRole(classID, model.ClassRoleTeacher)
+		memberCount, _ := s.repo.CountMembers(classID)
+		// 唯一 teacher 且还有其他成员 → 不能退出
+		if teacherCount <= 1 && memberCount > 1 {
+			return errors.New("您是班级唯一的老师，请先转让角色或解散班级后再退出")
+		}
+	}
+
+	// 删除成员记录
+	return s.repo.RemoveMember(member.ID)
+}
+
 // checkPermission 检查用户在班级中是否具备至少指定角色权限
 func (s *ClassService) checkPermission(userID uint, classID uint, requiredRole model.ClassMemberRole) error {
 	role, err := s.getUserRoleInClass(userID, classID)

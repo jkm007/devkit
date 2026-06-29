@@ -64,6 +64,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import ContentBlockRenderer from '@/components/ContentBlockRenderer.vue';
 import { request } from '@/api/request';
+import { CHOICE_TYPES, FILL_TYPES } from '@/api/types';
 
 const statusBarHeight = ref(0);
 const questions = ref<any[]>([]);
@@ -76,17 +77,14 @@ const showAnswerSheet = ref(false);
 let timer: ReturnType<typeof setInterval> | null = null;
 const currentQuestion = computed(() => questions.value[currentIndex.value] || null);
 
-// 选择题类型
-const CHOICE_TYPES = ['single', 'multi', 'single_choice', 'multiple_choice', 'indefinite_choice', 'judge', 'true_false'];
-// 填空题类型
-const FILL_TYPES = ['fill', 'fill_blank', 'cloze'];
+// 选择题类型、填空题类型从 @/api/types 引入
 
 function isChoiceQuestion(type: string): boolean {
-  return CHOICE_TYPES.includes(type);
+  return CHOICE_TYPES.includes(type as any);
 }
 
 function isFillQuestion(type: string): boolean {
-  return FILL_TYPES.includes(type);
+  return FILL_TYPES.includes(type as any);
 }
 
 // 其他所有类型都视为简答/论述题（需要文本输入）
@@ -163,7 +161,7 @@ async function loadQuestions(params: any) {
     const prefix = modeLabels[mode] || '练习';
     questions.value = Array.from({ length: count }, (_, i) => ({
       id: i + 1,
-      questionType: 'single',
+      questionType: 'single_choice',
       stem: { blocks: [{ type: 'text', content: `第 ${i + 1} 题：${prefix}题目，以下说法正确的是？` }] },
       options: [
         { label: 'A', content: { blocks: [{ type: 'text', content: '选项 A 的内容' }] } },

@@ -143,6 +143,13 @@ func (r *ClassRepo) CountMembers(classID uint) (int64, error) {
 	return count, err
 }
 
+// CountMembersByRole 统计班级中指定角色的成员数
+func (r *ClassRepo) CountMembersByRole(classID uint, role model.ClassMemberRole) (int64, error) {
+	var count int64
+	err := r.db.Model(&model.ClassMember{}).Where("class_id = ? AND role = ? AND status = ?", classID, role, 1).Count(&count).Error
+	return count, err
+}
+
 // DeleteMembersByClassID 删除班级所有成员（软删除班级时使用）
 func (r *ClassRepo) DeleteMembersByClassID(classID uint) error {
 	return r.db.Where("class_id = ?", classID).Delete(&model.ClassMember{}).Error
