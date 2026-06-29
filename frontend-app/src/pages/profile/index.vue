@@ -107,6 +107,11 @@
           <text class="item-label">系统设置</text>
           <text class="item-arrow">›</text>
         </view>
+        <view class="list-item" @click="goToCustomerService">
+          <text class="item-icon">💬</text>
+          <text class="item-label">在线客服</text>
+          <text class="item-arrow">›</text>
+        </view>
         <view class="list-item" @click="goToAbout">
           <text class="item-icon">ℹ️</text>
           <text class="item-label">关于我们</text>
@@ -228,11 +233,11 @@ function goToPrivacy() {
 }
 
 function goToAbout() {
-  uni.showModal({
-    title: '关于题小助',
-    content: '版本：v1.0.0\n一款跨平台的学习应用，支持题库管理、练习模式、错题本、智能练习等功能。',
-    showCancel: false,
-  });
+  uni.navigateTo({ url: '/pages/settings/about' });
+}
+
+function goToCustomerService() {
+  uni.navigateTo({ url: '/pages/webview/index' });
 }
 
 function handleLogout() {

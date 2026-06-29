@@ -130,6 +130,12 @@
       }
     },
     {
+      "path": "pages/settings/about",
+      "style": {
+        "navigationBarTitleText": "关于我们"
+      }
+    },
+    {
       "path": "pages/notification/list",
       "style": {
         "navigationBarTitleText": "消息通知"
