@@ -1,6 +1,9 @@
-import type { PageResponse } from '#/api/types';
-
 import { requestClient } from '#/api/request';
+
+export interface PageResponse<T> {
+  items: T[];
+  total: number;
+}
 
 export namespace FeedbackApi {
   export interface Feedback {

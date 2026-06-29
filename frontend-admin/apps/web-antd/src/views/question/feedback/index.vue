@@ -2,8 +2,6 @@
 import type { VxeTableGridOptions } from '#/adapter/vxe-table';
 import type { FeedbackApi } from '#/api/question/feedback';
 
-import { ref } from 'vue';
-
 import { Page } from '@vben/common-ui';
 
 import { message, Tag } from 'ant-design-vue';
@@ -92,13 +90,6 @@ async function onStatusChange(row: FeedbackApi.Feedback, newStatus: string) {
     message.error('更新失败');
   }
 }
-
-const statusOptions = [
-  { label: '待处理', value: 'pending' },
-  { label: '处理中', value: 'processing' },
-  { label: '已解决', value: 'resolved' },
-  { label: '已关闭', value: 'closed' },
-];
 </script>
 
 <template>

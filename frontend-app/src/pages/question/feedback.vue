@@ -27,7 +27,7 @@
         <textarea class="textarea" v-model="form.suggestion" placeholder="您认为正确的答案或建议" maxlength="500" />
       </view>
 
-      <button class="submit-btn" type="primary" :disabled="!canSubmit" @click="submitFeedback">
+      <button class="submit-btn" :disabled="!canSubmit" @click="handleSubmit">
         提交纠错
       </button>
     </view>
@@ -51,7 +51,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { submitFeedback, getFeedbacks, type FeedbackItem } from '@/api/feedback';
+import { submitFeedback as submitFeedbackApi, getFeedbacks, type FeedbackItem } from '@/api/feedback';
 
 const form = ref({
   questionId: 0,
@@ -94,11 +94,11 @@ async function loadHistory() {
   } catch { /* ignore */ }
 }
 
-async function submitFeedback() {
+async function handleSubmit() {
   if (!canSubmit.value) return;
   uni.showLoading({ title: '提交中...' });
   try {
-    await submitFeedback({
+    await submitFeedbackApi({
       questionId: form.value.questionId,
       feedbackType: form.value.feedbackType,
       description: form.value.description,
