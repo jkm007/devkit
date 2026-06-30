@@ -57,7 +57,7 @@ func (r *WrongBookRepo) List(userID uint, categoryID uint, isMastered *bool, off
 			"kc.name as categoryName").
 		Joins("INNER JOIN qb_questions q ON wb.question_id = q.id").
 		Joins("LEFT JOIN qb_categories kc ON q.category_id = kc.id").
-		Where("wb.user_id = ?", userID)
+		Where("wb.user_id = ? AND wb.deleted_at IS NULL", userID)
 
 	if categoryID > 0 {
 		query = query.Where("wb.category_id = ?", categoryID)
@@ -119,7 +119,7 @@ func (r *WrongBookRepo) GetRandomQuestions(userID uint, limit int) ([]map[string
 	r.db.Table("wrong_books wb").
 		Select("wb.question_id as question_id, q.title, q.question_type, q.difficulty, q.stem, q.content, q.answer, q.analysis, q.category_id").
 		Joins("INNER JOIN qb_questions q ON wb.question_id = q.id").
-		Where("wb.user_id = ? AND wb.is_mastered = 0", userID).
+		Where("wb.user_id = ? AND wb.is_mastered = 0 AND wb.deleted_at IS NULL", userID).
 		Order("RAND()").Limit(limit).Scan(&results)
 
 	return results, nil
@@ -156,8 +156,8 @@ func (r *WrongBookRepo) GetStats(userID uint) (map[string]interface{}, error) {
 	}
 	r.db.Table("wrong_books wb").
 		Select("kc.name as category_name, wb.category_id, count(*) as count").
-		Joins("LEFT JOIN qb_question_categories kc ON wb.category_id = kc.id").
-		Where("wb.user_id = ? AND wb.is_mastered = 0", userID).
+		Joins("LEFT JOIN qb_categories kc ON wb.category_id = kc.id").
+		Where("wb.user_id = ? AND wb.is_mastered = 0 AND wb.deleted_at IS NULL", userID).
 		Group("wb.category_id, kc.name").
 		Order("count DESC").
 		Scan(&categoryDist)
