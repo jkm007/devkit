@@ -26,6 +26,7 @@ var validPagePaths = map[string]bool{
 	"/pages/class/create":     true,
 	"/pages/settings/index":   true,
 	"/pages/settings/about":   true,
+	"/pages/customer-service/index": true,
 	"/pages/webview/index":    true,
 }
 

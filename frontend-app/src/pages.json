@@ -136,6 +136,12 @@
       }
     },
     {
+      "path": "pages/customer-service/index",
+      "style": {
+        "navigationBarTitleText": "在线客服"
+      }
+    },
+    {
       "path": "pages/notification/list",
       "style": {
         "navigationBarTitleText": "消息通知"

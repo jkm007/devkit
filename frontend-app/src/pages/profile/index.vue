@@ -237,7 +237,7 @@ function goToAbout() {
 }
 
 function goToCustomerService() {
-  uni.navigateTo({ url: '/pages/webview/index' });
+  uni.navigateTo({ url: '/pages/customer-service/index' });
 }
 
 function handleLogout() {
