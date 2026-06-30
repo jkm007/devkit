@@ -282,6 +282,9 @@ onLoad((options: any) => {
       selectedL1Id.value = examCategoryId;
     }
   }
+
+  // 首次进入加载题目列表
+  fetchQuestions(true);
 });
 
 onShow(() => {

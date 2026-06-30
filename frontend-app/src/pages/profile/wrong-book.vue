@@ -85,6 +85,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { onShow } from '@dcloudio/uni-app';
 import { getWrongBooks, getWrongBookStats, markWrongMastered, deleteWrongBook } from '@/api/study';
 import { QUESTION_TYPE_LABELS } from '@/api/types';
 import Skeleton from '@/components/Skeleton.vue';
@@ -116,6 +117,11 @@ async function loadCategories() {
 
 onMounted(() => {
   loadCategories();
+  loadStats();
+  loadQuestions();
+});
+
+onShow(() => {
   loadStats();
   loadQuestions();
 });
@@ -166,6 +172,10 @@ async function toggleMaster(q: any) {
     q.isMastered = true;
     stats.value.mastered++;
     stats.value.total--;
+    // 未掌握筛选下，标记掌握后立即移除当前项
+    if (!showMastered.value) {
+      questions.value = questions.value.filter(item => item.questionId !== q.questionId);
+    }
   } catch {
     uni.showToast({ title: '操作失败', icon: 'none' });
   }
